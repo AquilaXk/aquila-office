@@ -2,6 +2,7 @@ package com.aquilaoffice.adapter.out.persistence.workspace;
 
 import com.aquilaoffice.adapter.out.persistence.member.MemberJpaEntity;
 import com.aquilaoffice.adapter.out.persistence.member.MemberJpaRepository;
+import com.aquilaoffice.application.port.in.GetWorkspaceDetailResult;
 import com.aquilaoffice.application.port.in.ListWorkspacesResult;
 import com.aquilaoffice.application.port.out.LoadWorkspacePort;
 import com.aquilaoffice.application.port.out.SaveWorkspacePort;
@@ -11,6 +12,7 @@ import com.aquilaoffice.domain.workspace.Workspace;
 import com.aquilaoffice.domain.workspace.WorkspaceMember;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -64,9 +66,32 @@ public class WorkspacePersistenceAdapter implements SaveWorkspacePort, LoadWorks
                 .toList();
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<GetWorkspaceDetailResult> findJoinedWorkspaceByIdAndMemberGoogleSub(
+            Long workspaceId, String googleSub) {
+        Objects.requireNonNull(workspaceId, "workspaceId must not be null");
+        Objects.requireNonNull(googleSub, "googleSub must not be null");
+
+        return workspaceMemberJpaRepository
+                .findActiveJoinedWorkspaceByIdAndMemberGoogleSub(workspaceId, googleSub)
+                .map(this::toDetailResult);
+    }
+
     private ListWorkspacesResult toListResult(WorkspaceMemberJpaEntity workspaceMemberEntity) {
         WorkspaceJpaEntity workspaceEntity = workspaceMemberEntity.getWorkspace();
         return new ListWorkspacesResult(
+                workspaceEntity.getId(),
+                workspaceEntity.getName(),
+                workspaceEntity.getDescription(),
+                workspaceEntity.getCreatedByMember().getGoogleSub(),
+                workspaceMemberEntity.getRole(),
+                workspaceMemberEntity.getJoinedAt());
+    }
+
+    private GetWorkspaceDetailResult toDetailResult(WorkspaceMemberJpaEntity workspaceMemberEntity) {
+        WorkspaceJpaEntity workspaceEntity = workspaceMemberEntity.getWorkspace();
+        return new GetWorkspaceDetailResult(
                 workspaceEntity.getId(),
                 workspaceEntity.getName(),
                 workspaceEntity.getDescription(),

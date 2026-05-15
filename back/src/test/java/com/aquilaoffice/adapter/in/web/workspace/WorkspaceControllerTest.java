@@ -15,11 +15,16 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.aquilaoffice.application.port.in.CreateWorkspaceCommand;
 import com.aquilaoffice.application.port.in.CreateWorkspaceResult;
 import com.aquilaoffice.application.port.in.CreateWorkspaceUseCase;
+import com.aquilaoffice.application.port.in.GetWorkspaceDetailQuery;
+import com.aquilaoffice.application.port.in.GetWorkspaceDetailResult;
+import com.aquilaoffice.application.port.in.GetWorkspaceDetailUseCase;
 import com.aquilaoffice.application.port.in.ListWorkspacesQuery;
 import com.aquilaoffice.application.port.in.ListWorkspacesResult;
 import com.aquilaoffice.application.port.in.ListWorkspacesUseCase;
 import com.aquilaoffice.domain.workspace.WorkspaceMemberRole;
+import com.aquilaoffice.global.exception.CommonErrorCode;
 import com.aquilaoffice.global.handler.GlobalExceptionHandler;
+import com.aquilaoffice.global.exception.ServiceException;
 import java.time.LocalDateTime;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -49,6 +54,9 @@ class WorkspaceControllerTest {
 
     @MockitoBean
     private ListWorkspacesUseCase listWorkspacesUseCase;
+
+    @MockitoBean
+    private GetWorkspaceDetailUseCase getWorkspaceDetailUseCase;
 
     @Test
     void createWorkspaceReturnsCreatedEnvelope() throws Exception {
@@ -150,5 +158,59 @@ class WorkspaceControllerTest {
                 .andExpect(jsonPath("$.code").value("400"));
 
         verifyNoInteractions(listWorkspacesUseCase);
+    }
+
+    @Test
+    void getWorkspaceDetailReturnsOkEnvelope() throws Exception {
+        given(getWorkspaceDetailUseCase.getWorkspaceDetail(any(GetWorkspaceDetailQuery.class)))
+                .willReturn(new GetWorkspaceDetailResult(
+                        101L,
+                        "Team",
+                        "Description",
+                        "google-1",
+                        WorkspaceMemberRole.ADMIN,
+                        LocalDateTime.of(2026, 5, 15, 10, 0)));
+
+        mockMvc.perform(get("/api/v1/workspaces/101")
+                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, " google-1 "))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.code").value("200"))
+                .andExpect(jsonPath("$.message").value("OK"))
+                .andExpect(jsonPath("$.data.workspaceId").value(101))
+                .andExpect(jsonPath("$.data.name").value("Team"))
+                .andExpect(jsonPath("$.data.description").value("Description"))
+                .andExpect(jsonPath("$.data.creatorGoogleSub").value("google-1"))
+                .andExpect(jsonPath("$.data.myRole").value("ADMIN"))
+                .andExpect(jsonPath("$.data.joinedAt", notNullValue()));
+
+        ArgumentCaptor<GetWorkspaceDetailQuery> queryCaptor =
+                ArgumentCaptor.forClass(GetWorkspaceDetailQuery.class);
+        verify(getWorkspaceDetailUseCase).getWorkspaceDetail(queryCaptor.capture());
+        assertThat(queryCaptor.getValue().workspaceId()).isEqualTo(101L);
+        assertThat(queryCaptor.getValue().memberGoogleSub()).isEqualTo("google-1");
+    }
+
+    @Test
+    void getWorkspaceDetailRejectsBlankCreatorHeader() throws Exception {
+        mockMvc.perform(get("/api/v1/workspaces/101")
+                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, " "))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code").value("400"));
+
+        verifyNoInteractions(getWorkspaceDetailUseCase);
+    }
+
+    @Test
+    void getWorkspaceDetailReturnsNotFoundEnvelope() throws Exception {
+        given(getWorkspaceDetailUseCase.getWorkspaceDetail(any(GetWorkspaceDetailQuery.class)))
+                .willThrow(new ServiceException(CommonErrorCode.NOT_FOUND));
+
+        mockMvc.perform(get("/api/v1/workspaces/999")
+                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, "google-1"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code").value("404"));
     }
 }

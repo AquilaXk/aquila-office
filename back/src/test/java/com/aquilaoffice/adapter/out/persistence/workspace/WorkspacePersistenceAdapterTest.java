@@ -156,4 +156,68 @@ class WorkspacePersistenceAdapterTest {
                                 memberEntity.getId()))
                 .isPresent();
     }
+
+    @Test
+    void findJoinedWorkspaceByIdAndMemberGoogleSubReturnsActiveJoinedWorkspaceDetail() {
+        MemberJpaEntity memberEntity = memberJpaRepository.save(MemberJpaEntity.create(
+                "google-1", "user@example.com", "User", MemberRole.USER));
+        Member member = Member.createUser("google-1", "user@example.com", "User");
+        Workspace workspace = Workspace.create("Detail", "Metadata", member);
+        Long workspaceId = saveWorkspacePort.save(
+                        workspace,
+                        WorkspaceMember.create(
+                                workspace,
+                                member,
+                                WorkspaceMemberRole.ADMIN,
+                                LocalDateTime.of(2026, 5, 15, 10, 0)))
+                .workspaceId();
+
+        assertThat(loadWorkspacePort.findJoinedWorkspaceByIdAndMemberGoogleSub(workspaceId, "google-1"))
+                .hasValueSatisfying(result -> {
+                    assertThat(result.workspaceId()).isEqualTo(workspaceId);
+                    assertThat(result.name()).isEqualTo("Detail");
+                    assertThat(result.description()).isEqualTo("Metadata");
+                    assertThat(result.creatorGoogleSub()).isEqualTo("google-1");
+                    assertThat(result.myRole()).isEqualTo(WorkspaceMemberRole.ADMIN);
+                    assertThat(result.joinedAt()).isEqualTo(LocalDateTime.of(2026, 5, 15, 10, 0));
+                });
+        assertThat(workspaceMemberJpaRepository.findByWorkspaceIdAndMemberId(workspaceId, memberEntity.getId()))
+                .isPresent();
+    }
+
+    @Test
+    void findJoinedWorkspaceByIdAndMemberGoogleSubExcludesDeletedOrUnjoinedWorkspace() {
+        memberJpaRepository.save(MemberJpaEntity.create(
+                "google-1", "user@example.com", "User", MemberRole.USER));
+        memberJpaRepository.save(MemberJpaEntity.create(
+                "google-2", "other@example.com", "Other", MemberRole.USER));
+        Member member = Member.createUser("google-1", "user@example.com", "User");
+        Member other = Member.createUser("google-2", "other@example.com", "Other");
+
+        Workspace deletedWorkspace = Workspace.create("Deleted", null, member);
+        deletedWorkspace.softDelete(LocalDateTime.of(2026, 5, 15, 11, 0));
+        Long deletedWorkspaceId = saveWorkspacePort.save(
+                        deletedWorkspace,
+                        WorkspaceMember.create(
+                                deletedWorkspace,
+                                member,
+                                WorkspaceMemberRole.ADMIN,
+                                LocalDateTime.of(2026, 5, 15, 10, 0)))
+                .workspaceId();
+
+        Workspace otherWorkspace = Workspace.create("Other", null, other);
+        Long otherWorkspaceId = saveWorkspacePort.save(
+                        otherWorkspace,
+                        WorkspaceMember.create(
+                                otherWorkspace,
+                                other,
+                                WorkspaceMemberRole.ADMIN,
+                                LocalDateTime.of(2026, 5, 15, 12, 0)))
+                .workspaceId();
+
+        assertThat(loadWorkspacePort.findJoinedWorkspaceByIdAndMemberGoogleSub(deletedWorkspaceId, "google-1"))
+                .isEmpty();
+        assertThat(loadWorkspacePort.findJoinedWorkspaceByIdAndMemberGoogleSub(otherWorkspaceId, "google-1"))
+                .isEmpty();
+    }
 }
