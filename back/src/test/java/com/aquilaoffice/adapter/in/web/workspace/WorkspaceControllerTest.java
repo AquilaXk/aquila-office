@@ -13,6 +13,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.aquilaoffice.application.port.in.CreateWorkspaceCommand;
+import com.aquilaoffice.application.port.in.CreateWorkspaceInviteCommand;
+import com.aquilaoffice.application.port.in.CreateWorkspaceInviteResult;
+import com.aquilaoffice.application.port.in.CreateWorkspaceInviteUseCase;
 import com.aquilaoffice.application.port.in.CreateWorkspaceResult;
 import com.aquilaoffice.application.port.in.CreateWorkspaceUseCase;
 import com.aquilaoffice.application.port.in.GetWorkspaceDetailQuery;
@@ -21,6 +24,7 @@ import com.aquilaoffice.application.port.in.GetWorkspaceDetailUseCase;
 import com.aquilaoffice.application.port.in.ListWorkspacesQuery;
 import com.aquilaoffice.application.port.in.ListWorkspacesResult;
 import com.aquilaoffice.application.port.in.ListWorkspacesUseCase;
+import com.aquilaoffice.domain.workspace.WorkspaceInviteStatus;
 import com.aquilaoffice.domain.workspace.WorkspaceMemberRole;
 import com.aquilaoffice.global.exception.CommonErrorCode;
 import com.aquilaoffice.global.handler.GlobalExceptionHandler;
@@ -51,6 +55,9 @@ class WorkspaceControllerTest {
 
     @MockitoBean
     private CreateWorkspaceUseCase createWorkspaceUseCase;
+
+    @MockitoBean
+    private CreateWorkspaceInviteUseCase createWorkspaceInviteUseCase;
 
     @MockitoBean
     private ListWorkspacesUseCase listWorkspacesUseCase;
@@ -118,6 +125,71 @@ class WorkspaceControllerTest {
                 .andExpect(jsonPath("$.code").value("400"));
 
         verifyNoInteractions(createWorkspaceUseCase);
+    }
+
+    @Test
+    void createWorkspaceInviteReturnsCreatedEnvelope() throws Exception {
+        given(createWorkspaceInviteUseCase.createWorkspaceInvite(any(CreateWorkspaceInviteCommand.class)))
+                .willReturn(new CreateWorkspaceInviteResult(
+                        501L,
+                        101L,
+                        "invitee@example.com",
+                        "invite-token",
+                        WorkspaceInviteStatus.PENDING,
+                        LocalDateTime.of(2026, 5, 15, 10, 0),
+                        LocalDateTime.of(2026, 5, 22, 10, 0)));
+
+        mockMvc.perform(post("/api/v1/workspaces/101/invites")
+                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, " google-1 ")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"invitee@example.com\"}"))
+                .andExpect(status().isCreated())
+                .andExpect(header().string(HttpHeaders.LOCATION, "/api/v1/workspaces/101/invites/501"))
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.code").value("200"))
+                .andExpect(jsonPath("$.message").value("OK"))
+                .andExpect(jsonPath("$.data.inviteId").value(501))
+                .andExpect(jsonPath("$.data.workspaceId").value(101))
+                .andExpect(jsonPath("$.data.email").value("invitee@example.com"))
+                .andExpect(jsonPath("$.data.token").value("invite-token"))
+                .andExpect(jsonPath("$.data.status").value("PENDING"))
+                .andExpect(jsonPath("$.data.createdAt", notNullValue()))
+                .andExpect(jsonPath("$.data.expiresAt", notNullValue()));
+
+        ArgumentCaptor<CreateWorkspaceInviteCommand> commandCaptor =
+                ArgumentCaptor.forClass(CreateWorkspaceInviteCommand.class);
+        verify(createWorkspaceInviteUseCase).createWorkspaceInvite(commandCaptor.capture());
+        CreateWorkspaceInviteCommand command = commandCaptor.getValue();
+        assertThat(command.workspaceId()).isEqualTo(101L);
+        assertThat(command.requesterGoogleSub()).isEqualTo("google-1");
+        assertThat(command.email()).isEqualTo("invitee@example.com");
+    }
+
+    @Test
+    void createWorkspaceInviteRejectsBlankEmail() throws Exception {
+        mockMvc.perform(post("/api/v1/workspaces/101/invites")
+                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, "google-1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\" \"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code").value("400"));
+
+        verifyNoInteractions(createWorkspaceInviteUseCase);
+    }
+
+    @Test
+    void createWorkspaceInviteReturnsNotFoundEnvelope() throws Exception {
+        given(createWorkspaceInviteUseCase.createWorkspaceInvite(any(CreateWorkspaceInviteCommand.class)))
+                .willThrow(new IllegalArgumentException("workspace admin membership required"));
+
+        mockMvc.perform(post("/api/v1/workspaces/101/invites")
+                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, "google-1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"invitee@example.com\"}"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code").value("404"));
     }
 
     @Test
