@@ -128,6 +128,20 @@ class WorkspaceControllerTest {
     }
 
     @Test
+    void createWorkspaceReturnsNotFoundEnvelopeWhenCreatorMemberIsMissing() throws Exception {
+        given(createWorkspaceUseCase.createWorkspace(any(CreateWorkspaceCommand.class)))
+                .willThrow(new IllegalArgumentException("creator member not found"));
+
+        mockMvc.perform(post("/api/v1/workspaces")
+                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, "missing-google")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"Team\",\"description\":\"Description\"}"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code").value("404"));
+    }
+
+    @Test
     void createWorkspaceInviteReturnsCreatedEnvelope() throws Exception {
         given(createWorkspaceInviteUseCase.createWorkspaceInvite(any(CreateWorkspaceInviteCommand.class)))
                 .willReturn(new CreateWorkspaceInviteResult(
