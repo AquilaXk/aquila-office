@@ -15,6 +15,22 @@ Default local API:
 - `GET http://localhost:8080/api/health`
 - `GET http://localhost:8080/actuator/health`
 
+## Frontend
+
+```bash
+cd front
+npm install
+npm run dev
+```
+
+Default local app:
+
+- `http://localhost:3000`
+
+Environment:
+
+- `NEXT_PUBLIC_API_BASE_URL=http://localhost:8080`
+
 ## Workflow
 
 1. Create an issue for the work item.
