@@ -10,6 +10,7 @@ import {
   RefreshCw,
   ShieldCheck,
   UserRound,
+  Users,
   WifiOff,
 } from "lucide-react";
 import Link from "next/link";
@@ -20,6 +21,7 @@ import {
   fetchWorkspaceMembers,
   type WorkspaceDetail,
   type WorkspaceMember,
+  type WorkspaceMemberRole,
 } from "@/lib/workspaces";
 
 const TEMP_MEMBER_GOOGLE_SUB =
@@ -190,6 +192,42 @@ export default function WorkspaceDetailPage({
                 value={workspace.workspaceId}
               />
             </dl>
+
+            <section className="workspace-member-section" aria-label="워크스페이스 멤버">
+              <div className="workspace-section-title">
+                <div>
+                  <span className="workspace-detail-label">Members</span>
+                  <h2>멤버 목록</h2>
+                </div>
+                <span className="workspace-count-badge">{members.length}명</span>
+              </div>
+
+              {members.length > 0 ? (
+                <div className="workspace-member-list">
+                  {members.map((member) => (
+                    <article className="workspace-member-row" key={member.memberId}>
+                      <div className="workspace-member-avatar">
+                        <UserRound aria-hidden="true" />
+                      </div>
+                      <div className="workspace-member-main">
+                        <strong>{member.name}</strong>
+                        <p>{member.email}</p>
+                      </div>
+                      <div className="workspace-member-meta">
+                        <span className="role-badge">{formatRole(member.role)}</span>
+                        <span>{formatDateTime(member.joinedAt)}</span>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              ) : (
+                <div className="workspace-member-empty">
+                  <Users aria-hidden="true" />
+                  <strong>표시할 멤버가 없습니다</strong>
+                  <p>워크스페이스에 참여한 멤버가 생기면 이곳에 표시됩니다.</p>
+                </div>
+              )}
+            </section>
           </section>
         ) : null}
       </section>
@@ -278,7 +316,7 @@ function isValidWorkspaceId(workspaceId: number): boolean {
   return Number.isInteger(workspaceId) && workspaceId > 0;
 }
 
-function formatRole(role: WorkspaceDetail["myRole"]): string {
+function formatRole(role: WorkspaceMemberRole): string {
   return role === "ADMIN" ? "관리자" : "멤버";
 }
 
