@@ -11,6 +11,7 @@ import {
   Mail,
   RefreshCw,
   Send,
+  Settings,
   ShieldCheck,
   UserRound,
   Users,
@@ -205,10 +206,21 @@ export default function WorkspaceDetailPage({
     <main className="workspace-detail-shell">
       <section className="workspace-detail-panel" aria-label="워크스페이스 상세">
         <header className="workspace-detail-header">
-          <Link className="secondary-action workspace-detail-back" href="/">
-            <ArrowLeft aria-hidden="true" />
-            <span>목록으로</span>
-          </Link>
+          <div className="workspace-detail-actions">
+            <Link className="secondary-action workspace-detail-back" href="/">
+              <ArrowLeft aria-hidden="true" />
+              <span>목록으로</span>
+            </Link>
+            {isValidWorkspaceId(numericWorkspaceId) ? (
+              <Link
+                className="secondary-action workspace-detail-back"
+                href={`/workspaces/${numericWorkspaceId}/settings`}
+              >
+                <Settings aria-hidden="true" />
+                <span>설정</span>
+              </Link>
+            ) : null}
+          </div>
           <div className="workspace-detail-title">
             <div className="workspace-detail-icon">
               <Building2 aria-hidden="true" />
