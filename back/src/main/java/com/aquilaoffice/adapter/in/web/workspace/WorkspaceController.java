@@ -1,5 +1,7 @@
 package com.aquilaoffice.adapter.in.web.workspace;
 
+import com.aquilaoffice.application.port.in.CreateWorkspaceInviteResult;
+import com.aquilaoffice.application.port.in.CreateWorkspaceInviteUseCase;
 import com.aquilaoffice.application.port.in.CreateWorkspaceResult;
 import com.aquilaoffice.application.port.in.CreateWorkspaceUseCase;
 import com.aquilaoffice.application.port.in.GetWorkspaceDetailQuery;
@@ -34,14 +36,17 @@ public class WorkspaceController {
     public static final String CREATOR_GOOGLE_SUB_HEADER = "X-Aquila-Creator-Google-Sub";
 
     private final CreateWorkspaceUseCase createWorkspaceUseCase;
+    private final CreateWorkspaceInviteUseCase createWorkspaceInviteUseCase;
     private final ListWorkspacesUseCase listWorkspacesUseCase;
     private final GetWorkspaceDetailUseCase getWorkspaceDetailUseCase;
 
     public WorkspaceController(
             CreateWorkspaceUseCase createWorkspaceUseCase,
+            CreateWorkspaceInviteUseCase createWorkspaceInviteUseCase,
             ListWorkspacesUseCase listWorkspacesUseCase,
             GetWorkspaceDetailUseCase getWorkspaceDetailUseCase) {
         this.createWorkspaceUseCase = createWorkspaceUseCase;
+        this.createWorkspaceInviteUseCase = createWorkspaceInviteUseCase;
         this.listWorkspacesUseCase = listWorkspacesUseCase;
         this.getWorkspaceDetailUseCase = getWorkspaceDetailUseCase;
     }
@@ -88,6 +93,26 @@ public class WorkspaceController {
         return ResponseEntity
                 .created(URI.create("/api/v1/workspaces/" + result.workspaceId()))
                 .body(RsData.ok(WorkspaceResponse.from(result)));
+    }
+
+    @PostMapping("/{workspaceId}/invites")
+    public ResponseEntity<RsData<WorkspaceInviteResponse>> createWorkspaceInvite(
+            @PathVariable Long workspaceId,
+            @RequestHeader(name = CREATOR_GOOGLE_SUB_HEADER, required = false) String creatorGoogleSub,
+            @Valid @RequestBody CreateWorkspaceInviteRequest request) {
+        String normalizedCreatorGoogleSub = requireCreatorGoogleSub(creatorGoogleSub);
+
+        try {
+            CreateWorkspaceInviteResult result = createWorkspaceInviteUseCase.createWorkspaceInvite(
+                    request.toCommand(workspaceId, normalizedCreatorGoogleSub));
+            return ResponseEntity
+                    .created(URI.create(
+                            "/api/v1/workspaces/" + result.workspaceId() + "/invites/" + result.inviteId()))
+                    .body(RsData.ok(WorkspaceInviteResponse.from(result)));
+        } catch (IllegalArgumentException exception) {
+            // 초대 권한이 없거나 대상 워크스페이스를 찾을 수 없는 경우 같은 404로 응답해 멤버십 정보를 숨긴다.
+            throw new ServiceException(CommonErrorCode.NOT_FOUND);
+        }
     }
 
     private String requireCreatorGoogleSub(String creatorGoogleSub) {
