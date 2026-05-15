@@ -12,6 +12,9 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.HttpHeaders;
 import org.springframework.test.web.servlet.MockMvc;
 
+/**
+ * 보안 설정이 공개 엔드포인트, 인증 필요 API, CORS preflight 계약을 지키는지 검증한다.
+ */
 @SpringBootTest
 @AutoConfigureMockMvc
 class SecurityConfigTest {

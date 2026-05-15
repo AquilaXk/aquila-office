@@ -5,6 +5,9 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.MappedSuperclass;
 
+/**
+ * JPA entity가 공통으로 사용하는 surrogate id를 제공하는 base class다.
+ */
 @MappedSuperclass
 public abstract class BaseEntity {
 

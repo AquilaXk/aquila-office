@@ -1,5 +1,8 @@
 package com.aquilaoffice.domain.member;
 
+/**
+ * 회원의 식별자와 기본 권한을 관리하는 순수 도메인 모델이다.
+ */
 public class Member {
 
     private final String googleSub;

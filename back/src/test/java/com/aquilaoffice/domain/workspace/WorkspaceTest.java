@@ -7,6 +7,9 @@ import com.aquilaoffice.domain.member.Member;
 import java.time.LocalDateTime;
 import org.junit.jupiter.api.Test;
 
+/**
+ * 워크스페이스 도메인 모델의 이름/설명 정규화와 soft delete 규칙을 검증한다.
+ */
 class WorkspaceTest {
 
     @Test
@@ -44,6 +47,7 @@ class WorkspaceTest {
         LocalDateTime firstDeletedAt = LocalDateTime.of(2026, 5, 15, 10, 0);
         LocalDateTime secondDeletedAt = firstDeletedAt.plusDays(1);
 
+        // 삭제 시각은 감사성 데이터이므로 최초 값이 유지되어야 한다.
         workspace.softDelete(firstDeletedAt);
         workspace.softDelete(secondDeletedAt);
 

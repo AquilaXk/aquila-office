@@ -7,6 +7,9 @@ import com.aquilaoffice.domain.member.Member;
 import java.time.LocalDateTime;
 import org.junit.jupiter.api.Test;
 
+/**
+ * 워크스페이스 멤버 도메인 모델의 관계 필수값과 역할 변경 규칙을 검증한다.
+ */
 class WorkspaceMemberTest {
 
     @Test

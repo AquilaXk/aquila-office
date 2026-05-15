@@ -3,6 +3,9 @@ package com.aquilaoffice.domain.workspace;
 import com.aquilaoffice.domain.member.Member;
 import java.time.LocalDateTime;
 
+/**
+ * 워크스페이스의 이름, 설명, 생성자, 삭제 상태를 관리하는 순수 도메인 모델이다.
+ */
 public class Workspace {
 
     private String name;
@@ -29,6 +32,7 @@ public class Workspace {
 
     public void softDelete(LocalDateTime deletedAt) {
         LocalDateTime requestedDeletedAt = requireDeletedAt(deletedAt);
+        // soft delete는 한 번 기록된 삭제 시각을 보존해 재호출 시에도 삭제 이력이 흔들리지 않게 한다.
         if (this.deletedAt == null) {
             this.deletedAt = requestedDeletedAt;
         }

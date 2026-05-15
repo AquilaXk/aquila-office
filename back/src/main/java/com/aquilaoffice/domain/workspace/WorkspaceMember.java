@@ -3,6 +3,9 @@ package com.aquilaoffice.domain.workspace;
 import com.aquilaoffice.domain.member.Member;
 import java.time.LocalDateTime;
 
+/**
+ * 워크스페이스와 회원 사이의 가입 관계와 워크스페이스 내부 권한을 표현한다.
+ */
 public class WorkspaceMember {
 
     private final Workspace workspace;

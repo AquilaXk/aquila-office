@@ -14,6 +14,9 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+/**
+ * stateless API 보안 정책과 CORS 정책을 구성한다.
+ */
 @Configuration
 public class SecurityConfig {
 
@@ -25,6 +28,7 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        // 인증 구현 전에도 API 서버는 세션과 form login을 사용하지 않는 stateless 구조를 유지한다.
         return http
                 .csrf(AbstractHttpConfigurer::disable)
                 .formLogin(AbstractHttpConfigurer::disable)
@@ -34,6 +38,7 @@ public class SecurityConfig {
                 .exceptionHandling(exception -> exception.authenticationEntryPoint(
                         (request, response, authException) -> response.sendError(HttpServletResponse.SC_UNAUTHORIZED)))
                 .authorizeHttpRequests(auth -> auth
+                        // 브라우저 CORS preflight와 운영/문서 엔드포인트는 인증 없이 접근 가능해야 한다.
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/health").permitAll()
                         .requestMatchers(HttpMethod.GET, "/actuator/health", "/actuator/health/**").permitAll()
@@ -53,6 +58,7 @@ public class SecurityConfig {
         configuration.setExposedHeaders(List.of("Authorization"));
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        // 모든 API 경로에 같은 CORS 정책을 적용해 프론트 개발 서버와 배포 환경을 한 설정으로 다룬다.
         source.registerCorsConfiguration("/**", configuration);
         return source;
     }

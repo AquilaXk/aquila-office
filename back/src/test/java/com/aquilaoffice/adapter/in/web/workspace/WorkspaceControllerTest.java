@@ -28,6 +28,9 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+/**
+ * 워크스페이스 web adapter가 HTTP 요청을 command로 변환하고 공통 응답 계약을 지키는지 검증한다.
+ */
 @WebMvcTest(WorkspaceController.class)
 @AutoConfigureMockMvc(addFilters = false)
 @Import(GlobalExceptionHandler.class)
@@ -69,6 +72,7 @@ class WorkspaceControllerTest {
         ArgumentCaptor<CreateWorkspaceCommand> commandCaptor = ArgumentCaptor.forClass(CreateWorkspaceCommand.class);
         verify(createWorkspaceUseCase).createWorkspace(commandCaptor.capture());
         CreateWorkspaceCommand command = commandCaptor.getValue();
+        // web adapter는 creator 식별자만 정규화하고, name/description 정규화는 domain 계층에 남긴다.
         assertThat(command.name()).isEqualTo(" Team ");
         assertThat(command.description()).isEqualTo(" Description ");
         assertThat(command.creatorGoogleSub()).isEqualTo("google-1");

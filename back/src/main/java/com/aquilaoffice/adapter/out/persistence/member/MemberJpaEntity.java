@@ -9,6 +9,9 @@ import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
 
+/**
+ * 회원 도메인을 users 테이블에 저장하기 위한 JPA entity다.
+ */
 @Entity
 @Table(name = "users")
 public class MemberJpaEntity extends BaseEntity {
@@ -40,6 +43,7 @@ public class MemberJpaEntity extends BaseEntity {
     }
 
     public Member toDomain() {
+        // 현재 도메인 생성자는 역할별 factory만 공개하므로 role 값에 따라 도메인 객체를 복원한다.
         if (role == MemberRole.ADMIN) {
             return Member.createAdmin(googleSub, email, name);
         }

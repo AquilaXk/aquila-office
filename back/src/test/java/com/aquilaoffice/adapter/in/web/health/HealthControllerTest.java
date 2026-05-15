@@ -10,6 +10,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.test.web.servlet.MockMvc;
 
+/**
+ * health check web adapter의 공통 응답 envelope와 상태 필드를 검증한다.
+ */
 @WebMvcTest(HealthController.class)
 class HealthControllerTest {
 
