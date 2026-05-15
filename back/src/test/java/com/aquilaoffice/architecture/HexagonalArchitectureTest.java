@@ -32,7 +32,14 @@ class HexagonalArchitectureTest {
                     .resideInAPackage("..domain..")
                     .should()
                     .dependOnClassesThat()
-                    .resideInAnyPackage("..application..", "..adapter..", "..global..", "org.springframework..")
+                    .resideInAnyPackage(
+                            "..application..",
+                            "..adapter..",
+                            "..global..",
+                            "org.springframework..",
+                            "jakarta.persistence..",
+                            "jakarta.validation..",
+                            "org.hibernate..")
                     .allowEmptyShould(true);
 
     @ArchTest
