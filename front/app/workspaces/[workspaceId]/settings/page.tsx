@@ -5,20 +5,34 @@ import {
   ArrowLeft,
   Building2,
   CalendarDays,
+  CheckCircle2,
   Hash,
   Loader2,
   RefreshCw,
+  Save,
   ShieldCheck,
+  Trash2,
   UserRound,
   Users,
   WifiOff,
 } from "lucide-react";
 import Link from "next/link";
-import { use, useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
+import {
+  use,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type FormEvent,
+  type ReactNode,
+} from "react";
 import { ApiError } from "@/lib/api-client";
 import {
+  deleteWorkspace,
   fetchWorkspaceDetail,
   fetchWorkspaceMembers,
+  updateWorkspace,
   type WorkspaceDetail,
   type WorkspaceMember,
   type WorkspaceMemberRole,
@@ -26,11 +40,19 @@ import {
 
 const TEMP_MEMBER_GOOGLE_SUB =
   process.env.NEXT_PUBLIC_DEV_MEMBER_GOOGLE_SUB ?? "google-1";
+const NAME_MAX_LENGTH = 100;
+const DESCRIPTION_MAX_LENGTH = 500;
 
 type WorkspaceSettingsState =
   | { status: "loading"; workspace: null; members: []; error: null }
   | { status: "ready"; workspace: WorkspaceDetail; members: WorkspaceMember[]; error: null }
   | { status: "error" | "offline"; workspace: null; members: []; error: string };
+
+type MutationState =
+  | { status: "idle"; message: null }
+  | { status: "submitting"; message: null }
+  | { status: "success"; message: string }
+  | { status: "error"; message: string };
 
 export default function WorkspaceSettingsPage({
   params,
@@ -39,11 +61,23 @@ export default function WorkspaceSettingsPage({
 }) {
   const { workspaceId } = use(params);
   const numericWorkspaceId = useMemo(() => Number(workspaceId), [workspaceId]);
+  const router = useRouter();
   const [state, setState] = useState<WorkspaceSettingsState>({
     status: "loading",
     workspace: null,
     members: [],
     error: null,
+  });
+  const [nameInput, setNameInput] = useState("");
+  const [descriptionInput, setDescriptionInput] = useState("");
+  const [updateState, setUpdateState] = useState<MutationState>({
+    status: "idle",
+    message: null,
+  });
+  const [deleteConfirmation, setDeleteConfirmation] = useState("");
+  const [deleteState, setDeleteState] = useState<MutationState>({
+    status: "idle",
+    message: null,
   });
 
   const fetchSettings = useCallback(async () => {
@@ -69,7 +103,13 @@ export default function WorkspaceSettingsPage({
 
   const reloadSettings = useCallback(async () => {
     setState({ status: "loading", workspace: null, members: [], error: null });
-    setState(await fetchSettings());
+    const nextState = await fetchSettings();
+    setState(nextState);
+    if (nextState.status === "ready") {
+      setNameInput(nextState.workspace.name);
+      setDescriptionInput(nextState.workspace.description ?? "");
+      setDeleteConfirmation("");
+    }
   }, [fetchSettings]);
 
   useEffect(() => {
@@ -79,6 +119,11 @@ export default function WorkspaceSettingsPage({
       const nextState = await fetchSettings();
       if (!ignore) {
         setState(nextState);
+        if (nextState.status === "ready") {
+          setNameInput(nextState.workspace.name);
+          setDescriptionInput(nextState.workspace.description ?? "");
+          setDeleteConfirmation("");
+        }
       }
     }
 
@@ -93,6 +138,70 @@ export default function WorkspaceSettingsPage({
   const members = state.status === "ready" ? state.members : [];
   const isAdmin = workspace?.myRole === "ADMIN";
   const adminCount = members.filter((member) => member.role === "ADMIN").length;
+  const trimmedName = nameInput.trim();
+  const trimmedDescription = descriptionInput.trim();
+  const isUpdatingWorkspace = updateState.status === "submitting";
+  const isDeletingWorkspace = deleteState.status === "submitting";
+  const canManageWorkspace = state.status === "ready" && isAdmin;
+  const canUpdateWorkspace =
+    canManageWorkspace && trimmedName.length > 0 && !isUpdatingWorkspace;
+  const canDeleteWorkspace =
+    canManageWorkspace &&
+    deleteConfirmation === workspace?.name &&
+    !isDeletingWorkspace;
+
+  const handleUpdateWorkspace = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (!canManageWorkspace || state.status !== "ready") {
+      return;
+    }
+
+    if (!trimmedName) {
+      setUpdateState({ status: "error", message: "워크스페이스 이름을 입력해 주세요." });
+      return;
+    }
+
+    setUpdateState({ status: "submitting", message: null });
+    try {
+      const updated = await updateWorkspace(TEMP_MEMBER_GOOGLE_SUB, numericWorkspaceId, {
+        name: trimmedName,
+        description: trimmedDescription || undefined,
+      });
+      setState({ ...state, workspace: updated });
+      setNameInput(updated.name);
+      setDescriptionInput(updated.description ?? "");
+      setDeleteConfirmation("");
+      setUpdateState({ status: "success", message: "워크스페이스 정보가 저장되었습니다." });
+    } catch (error) {
+      setUpdateState({
+        status: "error",
+        message: messageFromError(error, "워크스페이스 정보를 저장하지 못했습니다."),
+      });
+    }
+  };
+
+  const handleDeleteWorkspace = async () => {
+    if (!canManageWorkspace || state.status !== "ready" || !workspace) {
+      return;
+    }
+
+    if (deleteConfirmation !== workspace.name) {
+      setDeleteState({ status: "error", message: "워크스페이스 이름을 정확히 입력해 주세요." });
+      return;
+    }
+
+    setDeleteState({ status: "submitting", message: null });
+    try {
+      await deleteWorkspace(TEMP_MEMBER_GOOGLE_SUB, numericWorkspaceId);
+      router.replace("/");
+    } catch (error) {
+      setDeleteState({
+        status: "error",
+        message: messageFromError(error, "워크스페이스를 삭제하지 못했습니다."),
+      });
+    }
+  };
 
   return (
     <main className="workspace-settings-shell">
@@ -194,6 +303,129 @@ export default function WorkspaceSettingsPage({
                 value={workspace.workspaceId}
               />
             </dl>
+
+            <section className="workspace-settings-section" aria-label="워크스페이스 정보 수정">
+              <div className="workspace-section-title">
+                <div>
+                  <span className="workspace-detail-label">Settings</span>
+                  <h2>기본 정보</h2>
+                </div>
+                <span className={canManageWorkspace ? "workspace-count-badge" : "workspace-lock-badge"}>
+                  {canManageWorkspace ? "관리 가능" : "읽기 전용"}
+                </span>
+              </div>
+
+              <form className="workspace-settings-form" onSubmit={handleUpdateWorkspace}>
+                <label className="form-field">
+                  <span>
+                    <strong>이름</strong>
+                    <small>{nameInput.length}/{NAME_MAX_LENGTH}</small>
+                  </span>
+                  <input
+                    value={nameInput}
+                    onChange={(event) => {
+                      setNameInput(event.target.value);
+                      setUpdateState({ status: "idle", message: null });
+                    }}
+                    maxLength={NAME_MAX_LENGTH}
+                    disabled={!canManageWorkspace || isUpdatingWorkspace}
+                  />
+                </label>
+
+                <label className="form-field">
+                  <span>
+                    <strong>설명</strong>
+                    <small>{descriptionInput.length}/{DESCRIPTION_MAX_LENGTH}</small>
+                  </span>
+                  <textarea
+                    value={descriptionInput}
+                    onChange={(event) => {
+                      setDescriptionInput(event.target.value);
+                      setUpdateState({ status: "idle", message: null });
+                    }}
+                    maxLength={DESCRIPTION_MAX_LENGTH}
+                    rows={4}
+                    disabled={!canManageWorkspace || isUpdatingWorkspace}
+                  />
+                </label>
+
+                {updateState.status === "error" ? (
+                  <SettingsNotice tone="danger" icon={<AlertCircle aria-hidden="true" />}>
+                    {updateState.message}
+                  </SettingsNotice>
+                ) : null}
+
+                {updateState.status === "success" ? (
+                  <SettingsNotice tone="success" icon={<CheckCircle2 aria-hidden="true" />}>
+                    {updateState.message}
+                  </SettingsNotice>
+                ) : null}
+
+                <div className="workspace-settings-actions">
+                  <button
+                    className="primary-action primary-action-active"
+                    type="submit"
+                    disabled={!canUpdateWorkspace}
+                  >
+                    {isUpdatingWorkspace ? (
+                      <Loader2 className="spin" aria-hidden="true" />
+                    ) : (
+                      <Save aria-hidden="true" />
+                    )}
+                    <span>{isUpdatingWorkspace ? "저장 중" : "저장"}</span>
+                  </button>
+                </div>
+              </form>
+            </section>
+
+            <section className="workspace-settings-section workspace-settings-danger" aria-label="워크스페이스 삭제">
+              <div className="workspace-section-title">
+                <div>
+                  <span className="workspace-detail-label">Delete</span>
+                  <h2>워크스페이스 삭제</h2>
+                </div>
+                <span className="workspace-lock-badge">ADMIN</span>
+              </div>
+
+              <div className="workspace-settings-form">
+                <label className="form-field">
+                  <span>
+                    <strong>삭제 확인</strong>
+                    <small>{workspace.name}</small>
+                  </span>
+                  <input
+                    value={deleteConfirmation}
+                    onChange={(event) => {
+                      setDeleteConfirmation(event.target.value);
+                      setDeleteState({ status: "idle", message: null });
+                    }}
+                    disabled={!canManageWorkspace || isDeletingWorkspace}
+                  />
+                </label>
+
+                {deleteState.status === "error" ? (
+                  <SettingsNotice tone="danger" icon={<AlertCircle aria-hidden="true" />}>
+                    {deleteState.message}
+                  </SettingsNotice>
+                ) : null}
+
+                <div className="workspace-settings-actions">
+                  <button
+                    className="danger-action"
+                    type="button"
+                    onClick={() => void handleDeleteWorkspace()}
+                    disabled={!canDeleteWorkspace}
+                  >
+                    {isDeletingWorkspace ? (
+                      <Loader2 className="spin" aria-hidden="true" />
+                    ) : (
+                      <Trash2 aria-hidden="true" />
+                    )}
+                    <span>{isDeletingWorkspace ? "삭제 중" : "삭제"}</span>
+                  </button>
+                </div>
+              </div>
+            </section>
 
             <section className="workspace-settings-section" aria-label="멤버 현황">
               <div className="workspace-section-title">
@@ -298,6 +530,23 @@ function SettingsMetaItem({
   );
 }
 
+function SettingsNotice({
+  tone,
+  icon,
+  children,
+}: {
+  tone: "success" | "danger";
+  icon: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <div className={`workspace-settings-notice workspace-settings-notice-${tone}`} role="status">
+      {icon}
+      <span>{children}</span>
+    </div>
+  );
+}
+
 function toFailureState(error: unknown, fallback: string): WorkspaceSettingsState {
   if (error instanceof ApiError) {
     return {
@@ -314,6 +563,14 @@ function toFailureState(error: unknown, fallback: string): WorkspaceSettingsStat
     members: [],
     error: fallback,
   };
+}
+
+function messageFromError(error: unknown, fallback: string): string {
+  if (error instanceof ApiError) {
+    return error.message;
+  }
+
+  return fallback;
 }
 
 function isValidWorkspaceId(workspaceId: number): boolean {
