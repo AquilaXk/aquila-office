@@ -1,5 +1,8 @@
 package com.aquilaoffice.adapter.in.web.workspace;
 
+import com.aquilaoffice.application.port.in.AcceptWorkspaceInviteCommand;
+import com.aquilaoffice.application.port.in.AcceptWorkspaceInviteResult;
+import com.aquilaoffice.application.port.in.AcceptWorkspaceInviteUseCase;
 import com.aquilaoffice.application.port.in.GetWorkspaceInviteQuery;
 import com.aquilaoffice.application.port.in.GetWorkspaceInviteResult;
 import com.aquilaoffice.application.port.in.GetWorkspaceInviteUseCase;
@@ -9,6 +12,8 @@ import com.aquilaoffice.global.response.RsData;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -20,9 +25,13 @@ import org.springframework.web.bind.annotation.RestController;
 public class WorkspaceInviteController {
 
     private final GetWorkspaceInviteUseCase getWorkspaceInviteUseCase;
+    private final AcceptWorkspaceInviteUseCase acceptWorkspaceInviteUseCase;
 
-    public WorkspaceInviteController(GetWorkspaceInviteUseCase getWorkspaceInviteUseCase) {
+    public WorkspaceInviteController(
+            GetWorkspaceInviteUseCase getWorkspaceInviteUseCase,
+            AcceptWorkspaceInviteUseCase acceptWorkspaceInviteUseCase) {
         this.getWorkspaceInviteUseCase = getWorkspaceInviteUseCase;
+        this.acceptWorkspaceInviteUseCase = acceptWorkspaceInviteUseCase;
     }
 
     @GetMapping("/{token}")
@@ -35,5 +44,29 @@ public class WorkspaceInviteController {
             // token은 초대 접근 권한이므로 존재 여부 외의 상세 실패 사유를 노출하지 않는다.
             throw new ServiceException(CommonErrorCode.NOT_FOUND);
         }
+    }
+
+    @PostMapping("/{token}/accept")
+    public ResponseEntity<RsData<AcceptWorkspaceInviteResponse>> acceptWorkspaceInvite(
+            @PathVariable String token,
+            @RequestHeader(name = WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, required = false)
+                    String memberGoogleSub) {
+        String normalizedMemberGoogleSub = requireMemberGoogleSub(memberGoogleSub);
+
+        try {
+            AcceptWorkspaceInviteResult result = acceptWorkspaceInviteUseCase.acceptWorkspaceInvite(
+                    new AcceptWorkspaceInviteCommand(token, normalizedMemberGoogleSub));
+            return ResponseEntity.ok(RsData.ok(AcceptWorkspaceInviteResponse.from(result)));
+        } catch (IllegalArgumentException exception) {
+            // token 수락 실패 사유는 초대 존재 여부와 멤버십 정보를 드러내지 않도록 동일한 404로 응답한다.
+            throw new ServiceException(CommonErrorCode.NOT_FOUND);
+        }
+    }
+
+    private String requireMemberGoogleSub(String memberGoogleSub) {
+        if (memberGoogleSub == null || memberGoogleSub.isBlank()) {
+            throw new ServiceException(CommonErrorCode.BAD_REQUEST);
+        }
+        return memberGoogleSub.trim();
     }
 }
