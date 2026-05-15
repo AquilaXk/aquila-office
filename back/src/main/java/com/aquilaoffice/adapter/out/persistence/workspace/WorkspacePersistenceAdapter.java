@@ -11,6 +11,9 @@ import java.util.Objects;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * 워크스페이스 저장 outbound port를 JPA repository 조합으로 구현하는 persistence adapter다.
+ */
 @Repository
 public class WorkspacePersistenceAdapter implements SaveWorkspacePort {
 
@@ -35,6 +38,7 @@ public class WorkspacePersistenceAdapter implements SaveWorkspacePort {
 
         MemberJpaEntity creatorEntity = findMemberEntity(workspace.getCreatedByMember());
         MemberJpaEntity memberEntity = findMemberEntity(workspaceMember.getMember());
+        // aggregate root 저장 후 생성된 PK를 멤버 조인 entity에 연결한다.
         WorkspaceJpaEntity workspaceEntity = workspaceJpaRepository.save(WorkspaceJpaEntity.from(workspace, creatorEntity));
         workspaceMemberJpaRepository.save(WorkspaceMemberJpaEntity.from(workspaceMember, workspaceEntity, memberEntity));
 

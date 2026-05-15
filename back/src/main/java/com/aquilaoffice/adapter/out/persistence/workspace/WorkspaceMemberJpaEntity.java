@@ -15,6 +15,9 @@ import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import java.time.LocalDateTime;
 
+/**
+ * 워크스페이스와 회원의 조인 관계를 workspace_members 테이블에 저장하는 JPA entity다.
+ */
 @Entity
 @Table(
         name = "workspace_members",
@@ -48,6 +51,7 @@ public class WorkspaceMemberJpaEntity extends BaseEntity {
 
     public static WorkspaceMemberJpaEntity from(
             WorkspaceMember workspaceMember, WorkspaceJpaEntity workspace, MemberJpaEntity member) {
+        // 도메인 관계는 이미 검증되었으므로 여기서는 FK 연결에 필요한 entity 값만 조합한다.
         return new WorkspaceMemberJpaEntity(
                 workspace, member, workspaceMember.getRole(), workspaceMember.getJoinedAt());
     }

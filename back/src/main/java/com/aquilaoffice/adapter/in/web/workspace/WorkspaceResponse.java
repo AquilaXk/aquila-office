@@ -4,6 +4,9 @@ import com.aquilaoffice.application.port.in.CreateWorkspaceResult;
 import com.aquilaoffice.domain.workspace.WorkspaceMemberRole;
 import java.time.LocalDateTime;
 
+/**
+ * 워크스페이스 생성 결과를 클라이언트 응답 형태로 노출하는 DTO다.
+ */
 public record WorkspaceResponse(
         Long workspaceId,
         String name,
@@ -13,6 +16,7 @@ public record WorkspaceResponse(
         LocalDateTime joinedAt) {
 
     static WorkspaceResponse from(CreateWorkspaceResult result) {
+        // application result의 필드명을 API 응답 계약에 맞춰 그대로 매핑한다.
         return new WorkspaceResponse(
                 result.workspaceId(),
                 result.name(),

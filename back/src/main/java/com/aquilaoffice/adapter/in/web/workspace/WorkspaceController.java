@@ -14,6 +14,9 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+/**
+ * 워크스페이스 관련 HTTP 요청을 application use case로 연결하는 inbound web adapter다.
+ */
 @RestController
 @RequestMapping("/api/v1/workspaces")
 public class WorkspaceController {

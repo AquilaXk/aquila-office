@@ -19,6 +19,9 @@ import java.time.ZoneId;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
+/**
+ * 워크스페이스 생성 application service가 domain 조립과 port 호출 계약을 지키는지 검증한다.
+ */
 class CreateWorkspaceServiceTest {
 
     private static final Clock CLOCK =
@@ -72,6 +75,9 @@ class CreateWorkspaceServiceTest {
                 .hasMessage("creatorGoogleSub must not be blank");
     }
 
+    /**
+     * 회원 조회 port 호출 인자와 반환값을 제어하기 위한 테스트용 fake다.
+     */
     private static class FakeLoadMemberPort implements LoadMemberPort {
         private final Optional<Member> member;
         private String requestedGoogleSub;
@@ -87,6 +93,9 @@ class CreateWorkspaceServiceTest {
         }
     }
 
+    /**
+     * 저장 요청된 도메인 객체를 캡처해 application service 조립 결과를 확인하는 테스트용 fake다.
+     */
     private static class FakeSaveWorkspacePort implements SaveWorkspacePort {
         private final SavedWorkspace savedWorkspaceResult;
         private Workspace savedWorkspace;

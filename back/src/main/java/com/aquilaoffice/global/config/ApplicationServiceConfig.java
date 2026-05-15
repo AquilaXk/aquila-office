@@ -8,6 +8,9 @@ import java.time.Clock;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+/**
+ * Spring 밖에 둔 application service를 런타임 bean으로 조립하는 설정이다.
+ */
 @Configuration
 public class ApplicationServiceConfig {
 

@@ -5,6 +5,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import org.junit.jupiter.api.Test;
 
+/**
+ * 회원 도메인 모델의 필수값 정규화와 권한 변경 규칙을 검증한다.
+ */
 class MemberTest {
 
     @Test

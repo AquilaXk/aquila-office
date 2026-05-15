@@ -20,6 +20,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.context.annotation.Import;
 
+/**
+ * 워크스페이스 persistence adapter가 JPA entity와 domain 모델을 올바르게 변환하는지 검증한다.
+ */
 @DataJpaTest
 @Import({MemberPersistenceAdapter.class, WorkspacePersistenceAdapter.class})
 class WorkspacePersistenceAdapterTest {

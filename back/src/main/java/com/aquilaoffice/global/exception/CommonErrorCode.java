@@ -2,6 +2,9 @@ package com.aquilaoffice.global.exception;
 
 import org.springframework.http.HttpStatus;
 
+/**
+ * 여러 계층에서 공통으로 사용할 기본 오류 코드 목록이다.
+ */
 public enum CommonErrorCode implements ErrorCode {
     BAD_REQUEST(HttpStatus.BAD_REQUEST, "400", "잘못된 요청입니다."),
     NOT_FOUND(HttpStatus.NOT_FOUND, "404", "대상을 찾을 수 없습니다."),

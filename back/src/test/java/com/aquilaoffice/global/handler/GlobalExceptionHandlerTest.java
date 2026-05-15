@@ -11,6 +11,7 @@ import com.aquilaoffice.global.response.RsData;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
@@ -18,9 +19,11 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.web.servlet.MockMvc;
 
+/**
+ * 전역 예외 핸들러가 예외 유형별로 공통 실패 envelope를 반환하는지 검증한다.
+ */
 @WebMvcTest(GlobalExceptionHandlerTest.TestController.class)
 @Import({GlobalExceptionHandler.class, GlobalExceptionHandlerTest.TestController.class})
 class GlobalExceptionHandlerTest {
@@ -49,6 +52,9 @@ class GlobalExceptionHandlerTest {
                 .andExpect(jsonPath("$.message").value("잘못된 요청입니다."));
     }
 
+    /**
+     * 예외 핸들러만 검증하기 위해 테스트 내부에서 사용하는 최소 컨트롤러다.
+     */
     @RestController
     static class TestController {
 
@@ -63,5 +69,8 @@ class GlobalExceptionHandlerTest {
         }
     }
 
+    /**
+     * validation 실패 흐름을 재현하기 위한 테스트 요청 DTO다.
+     */
     record TestRequest(@NotBlank String name) {}
 }

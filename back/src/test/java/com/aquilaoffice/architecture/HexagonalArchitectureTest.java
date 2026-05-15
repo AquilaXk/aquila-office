@@ -13,6 +13,9 @@ import org.springframework.stereotype.Repository;
 import org.springframework.stereotype.Service;
 import org.springframework.web.bind.annotation.RestController;
 
+/**
+ * 헥사고날 아키텍처의 계층 의존 방향을 자동으로 검증한다.
+ */
 @AnalyzeClasses(packages = "com.aquilaoffice", importOptions = ImportOption.DoNotIncludeTests.class)
 class HexagonalArchitectureTest {
 

@@ -10,6 +10,9 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.test.web.servlet.MockMvc;
 
+/**
+ * OpenAPI 문서와 Swagger UI가 보안 정책 안에서 공개되는지 검증한다.
+ */
 @SpringBootTest
 @AutoConfigureMockMvc
 class OpenApiConfigTest {
