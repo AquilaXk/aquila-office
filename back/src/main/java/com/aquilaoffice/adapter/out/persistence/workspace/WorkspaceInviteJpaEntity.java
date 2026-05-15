@@ -44,6 +44,9 @@ public class WorkspaceInviteJpaEntity extends BaseEntity {
     @Column(name = "accepted_at")
     private LocalDateTime acceptedAt;
 
+    @Column(name = "revoked_at")
+    private LocalDateTime revokedAt;
+
     protected WorkspaceInviteJpaEntity() {}
 
     private WorkspaceInviteJpaEntity(
@@ -53,7 +56,8 @@ public class WorkspaceInviteJpaEntity extends BaseEntity {
             WorkspaceInviteStatus status,
             LocalDateTime createdAt,
             LocalDateTime expiresAt,
-            LocalDateTime acceptedAt) {
+            LocalDateTime acceptedAt,
+            LocalDateTime revokedAt) {
         this.workspace = requireWorkspaceEntity(workspace);
         this.email = email;
         this.token = token;
@@ -61,6 +65,7 @@ public class WorkspaceInviteJpaEntity extends BaseEntity {
         this.createdAt = createdAt;
         this.expiresAt = expiresAt;
         this.acceptedAt = acceptedAt;
+        this.revokedAt = revokedAt;
     }
 
     public static WorkspaceInviteJpaEntity from(WorkspaceInvite invite, WorkspaceJpaEntity workspace) {
@@ -72,7 +77,8 @@ public class WorkspaceInviteJpaEntity extends BaseEntity {
                 invite.getStatus(),
                 invite.getCreatedAt(),
                 invite.getExpiresAt(),
-                invite.getAcceptedAt());
+                invite.getAcceptedAt(),
+                invite.getRevokedAt());
     }
 
     public void accept(LocalDateTime acceptedAt) {
@@ -81,6 +87,17 @@ public class WorkspaceInviteJpaEntity extends BaseEntity {
         }
         this.status = WorkspaceInviteStatus.ACCEPTED;
         this.acceptedAt = acceptedAt;
+    }
+
+    public void revoke(LocalDateTime revokedAt) {
+        if (revokedAt == null) {
+            throw new IllegalArgumentException("revokedAt must not be null");
+        }
+        if (status != WorkspaceInviteStatus.PENDING) {
+            throw new IllegalStateException("invite is not pending");
+        }
+        this.status = WorkspaceInviteStatus.REVOKED;
+        this.revokedAt = revokedAt;
     }
 
     public WorkspaceJpaEntity getWorkspace() {
@@ -109,6 +126,10 @@ public class WorkspaceInviteJpaEntity extends BaseEntity {
 
     public LocalDateTime getAcceptedAt() {
         return acceptedAt;
+    }
+
+    public LocalDateTime getRevokedAt() {
+        return revokedAt;
     }
 
     private static WorkspaceJpaEntity requireWorkspaceEntity(WorkspaceJpaEntity workspace) {

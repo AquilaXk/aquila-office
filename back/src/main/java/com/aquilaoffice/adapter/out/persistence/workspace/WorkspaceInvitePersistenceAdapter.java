@@ -5,11 +5,17 @@ import com.aquilaoffice.adapter.out.persistence.member.MemberJpaRepository;
 import com.aquilaoffice.application.port.out.AcceptWorkspaceInvitePort;
 import com.aquilaoffice.application.port.out.AcceptedWorkspaceInvite;
 import com.aquilaoffice.application.port.out.LoadWorkspaceInvitePort;
+import com.aquilaoffice.application.port.out.LoadWorkspaceInvitesPort;
+import com.aquilaoffice.application.port.out.RevokeWorkspaceInvitePort;
 import com.aquilaoffice.application.port.out.SaveWorkspaceInvitePort;
 import com.aquilaoffice.application.port.out.SavedWorkspaceInvite;
 import com.aquilaoffice.application.port.out.WorkspaceInviteAcceptance;
 import com.aquilaoffice.application.port.out.WorkspaceInviteLookup;
+import com.aquilaoffice.application.port.out.WorkspaceInviteManagement;
+import com.aquilaoffice.application.port.out.WorkspaceInviteRevocation;
 import com.aquilaoffice.domain.workspace.WorkspaceInvite;
+import com.aquilaoffice.domain.workspace.WorkspaceInviteStatus;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import org.springframework.stereotype.Repository;
@@ -20,7 +26,11 @@ import org.springframework.transaction.annotation.Transactional;
  */
 @Repository
 public class WorkspaceInvitePersistenceAdapter
-        implements SaveWorkspaceInvitePort, LoadWorkspaceInvitePort, AcceptWorkspaceInvitePort {
+        implements SaveWorkspaceInvitePort,
+                LoadWorkspaceInvitePort,
+                AcceptWorkspaceInvitePort,
+                LoadWorkspaceInvitesPort,
+                RevokeWorkspaceInvitePort {
 
     private final MemberJpaRepository memberJpaRepository;
     private final WorkspaceJpaRepository workspaceJpaRepository;
@@ -63,6 +73,19 @@ public class WorkspaceInvitePersistenceAdapter
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public List<WorkspaceInviteManagement> findWorkspaceInvites(Long workspaceId, WorkspaceInviteStatus status) {
+        Objects.requireNonNull(workspaceId, "workspaceId must not be null");
+
+        List<WorkspaceInviteJpaEntity> inviteEntities = status == null
+                ? workspaceInviteJpaRepository.findAllByWorkspaceIdOrderByIdDesc(workspaceId)
+                : workspaceInviteJpaRepository.findAllByWorkspaceIdAndStatusOrderByIdDesc(workspaceId, status);
+        return inviteEntities.stream()
+                .map(this::toManagement)
+                .toList();
+    }
+
+    @Override
     @Transactional
     public AcceptedWorkspaceInvite accept(WorkspaceInviteAcceptance acceptance) {
         Objects.requireNonNull(acceptance, "acceptance must not be null");
@@ -95,6 +118,17 @@ public class WorkspaceInvitePersistenceAdapter
                 inviteEntity.getAcceptedAt());
     }
 
+    @Override
+    @Transactional
+    public void revoke(WorkspaceInviteRevocation revocation) {
+        Objects.requireNonNull(revocation, "revocation must not be null");
+        WorkspaceInviteJpaEntity inviteEntity = workspaceInviteJpaRepository
+                .findByIdAndWorkspaceId(revocation.inviteId(), revocation.workspaceId())
+                .orElseThrow(() -> new IllegalArgumentException("workspace invite entity not found"));
+
+        inviteEntity.revoke(revocation.revokedAt());
+    }
+
     private WorkspaceInviteLookup toLookup(WorkspaceInviteJpaEntity inviteEntity) {
         return new WorkspaceInviteLookup(
                 inviteEntity.getId(),
@@ -105,5 +139,18 @@ public class WorkspaceInvitePersistenceAdapter
                 inviteEntity.getCreatedAt(),
                 inviteEntity.getExpiresAt(),
                 inviteEntity.getAcceptedAt());
+    }
+
+    private WorkspaceInviteManagement toManagement(WorkspaceInviteJpaEntity inviteEntity) {
+        return new WorkspaceInviteManagement(
+                inviteEntity.getId(),
+                inviteEntity.getWorkspace().getId(),
+                inviteEntity.getEmail(),
+                inviteEntity.getToken(),
+                inviteEntity.getStatus(),
+                inviteEntity.getCreatedAt(),
+                inviteEntity.getExpiresAt(),
+                inviteEntity.getAcceptedAt(),
+                inviteEntity.getRevokedAt());
     }
 }

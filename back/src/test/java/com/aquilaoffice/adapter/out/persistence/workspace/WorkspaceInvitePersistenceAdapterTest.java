@@ -8,9 +8,12 @@ import com.aquilaoffice.adapter.out.persistence.member.MemberJpaRepository;
 import com.aquilaoffice.application.port.out.AcceptWorkspaceInvitePort;
 import com.aquilaoffice.application.port.out.AcceptedWorkspaceInvite;
 import com.aquilaoffice.application.port.out.LoadWorkspaceInvitePort;
+import com.aquilaoffice.application.port.out.LoadWorkspaceInvitesPort;
+import com.aquilaoffice.application.port.out.RevokeWorkspaceInvitePort;
 import com.aquilaoffice.application.port.out.SaveWorkspaceInvitePort;
 import com.aquilaoffice.application.port.out.SavedWorkspaceInvite;
 import com.aquilaoffice.application.port.out.WorkspaceInviteAcceptance;
+import com.aquilaoffice.application.port.out.WorkspaceInviteRevocation;
 import com.aquilaoffice.domain.member.Member;
 import com.aquilaoffice.domain.member.MemberRole;
 import com.aquilaoffice.domain.workspace.Workspace;
@@ -50,6 +53,12 @@ class WorkspaceInvitePersistenceAdapterTest {
 
     @Autowired
     private AcceptWorkspaceInvitePort acceptWorkspaceInvitePort;
+
+    @Autowired
+    private LoadWorkspaceInvitesPort loadWorkspaceInvitesPort;
+
+    @Autowired
+    private RevokeWorkspaceInvitePort revokeWorkspaceInvitePort;
 
     @Test
     void savePersistsInviteAndFindByTokenReturnsLookup() {
@@ -185,6 +194,86 @@ class WorkspaceInvitePersistenceAdapterTest {
         assertThat(savedInvite.getStatus()).isEqualTo(WorkspaceInviteStatus.PENDING);
         assertThat(savedInvite.getAcceptedAt()).isNull();
         assertThat(workspaceMemberJpaRepository.count()).isZero();
+    }
+
+    @Test
+    void findWorkspaceInvitesReturnsWorkspaceInvitesInNewestOrder() {
+        WorkspaceJpaEntity firstWorkspace = saveWorkspaceEntity("creator-google");
+        WorkspaceJpaEntity secondWorkspace = saveWorkspaceEntity("other-google");
+        WorkspaceInviteJpaEntity olderInvite = saveInviteEntity(firstWorkspace);
+        WorkspaceInviteJpaEntity newerInvite = saveInviteEntity(firstWorkspace);
+        saveInviteEntity(secondWorkspace);
+
+        assertThat(loadWorkspaceInvitesPort.findWorkspaceInvites(firstWorkspace.getId(), null))
+                .extracting(invite -> invite.inviteId())
+                .containsExactly(newerInvite.getId(), olderInvite.getId());
+    }
+
+    @Test
+    void findWorkspaceInvitesFiltersByStatus() {
+        WorkspaceJpaEntity workspaceEntity = saveWorkspaceEntity("creator-google");
+        WorkspaceInviteJpaEntity pendingInvite = saveInviteEntity(workspaceEntity);
+        WorkspaceInviteJpaEntity acceptedInvite = saveInviteEntity(workspaceEntity);
+        acceptedInvite.accept(LocalDateTime.of(2026, 5, 16, 10, 0));
+
+        assertThat(loadWorkspaceInvitesPort.findWorkspaceInvites(workspaceEntity.getId(), WorkspaceInviteStatus.PENDING))
+                .singleElement()
+                .satisfies(invite -> {
+                    assertThat(invite.inviteId()).isEqualTo(pendingInvite.getId());
+                    assertThat(invite.workspaceId()).isEqualTo(workspaceEntity.getId());
+                    assertThat(invite.email()).isEqualTo("invitee@example.com");
+                    assertThat(invite.status()).isEqualTo(WorkspaceInviteStatus.PENDING);
+                    assertThat(invite.revokedAt()).isNull();
+                });
+    }
+
+    @Test
+    void revokeUpdatesPendingInviteToRevoked() {
+        WorkspaceJpaEntity workspaceEntity = saveWorkspaceEntity("creator-google");
+        WorkspaceInviteJpaEntity inviteEntity = saveInviteEntity(workspaceEntity);
+        LocalDateTime revokedAt = LocalDateTime.of(2026, 5, 16, 11, 0);
+
+        revokeWorkspaceInvitePort.revoke(
+                new WorkspaceInviteRevocation(workspaceEntity.getId(), inviteEntity.getId(), revokedAt));
+
+        WorkspaceInviteJpaEntity savedInvite =
+                workspaceInviteJpaRepository.findById(inviteEntity.getId()).orElseThrow();
+        assertThat(savedInvite.getStatus()).isEqualTo(WorkspaceInviteStatus.REVOKED);
+        assertThat(savedInvite.getRevokedAt()).isEqualTo(revokedAt);
+    }
+
+    @Test
+    void revokeRejectsAcceptedInvite() {
+        WorkspaceJpaEntity workspaceEntity = saveWorkspaceEntity("creator-google");
+        WorkspaceInviteJpaEntity inviteEntity = saveInviteEntity(workspaceEntity);
+        LocalDateTime acceptedAt = LocalDateTime.of(2026, 5, 16, 10, 0);
+        inviteEntity.accept(acceptedAt);
+
+        assertThatThrownBy(() -> revokeWorkspaceInvitePort.revoke(new WorkspaceInviteRevocation(
+                        workspaceEntity.getId(),
+                        inviteEntity.getId(),
+                        LocalDateTime.of(2026, 5, 16, 11, 0))))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("invite is not pending");
+        WorkspaceInviteJpaEntity savedInvite =
+                workspaceInviteJpaRepository.findById(inviteEntity.getId()).orElseThrow();
+        assertThat(savedInvite.getStatus()).isEqualTo(WorkspaceInviteStatus.ACCEPTED);
+        assertThat(savedInvite.getAcceptedAt()).isEqualTo(acceptedAt);
+        assertThat(savedInvite.getRevokedAt()).isNull();
+    }
+
+    @Test
+    void revokeRejectsInviteFromDifferentWorkspace() {
+        WorkspaceJpaEntity workspaceEntity = saveWorkspaceEntity("creator-google");
+        WorkspaceJpaEntity otherWorkspaceEntity = saveWorkspaceEntity("other-google");
+        WorkspaceInviteJpaEntity inviteEntity = saveInviteEntity(otherWorkspaceEntity);
+
+        assertThatThrownBy(() -> revokeWorkspaceInvitePort.revoke(new WorkspaceInviteRevocation(
+                        workspaceEntity.getId(),
+                        inviteEntity.getId(),
+                        LocalDateTime.of(2026, 5, 16, 11, 0))))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("workspace invite entity not found");
     }
 
     private WorkspaceJpaEntity saveWorkspaceEntity(String googleSub) {
