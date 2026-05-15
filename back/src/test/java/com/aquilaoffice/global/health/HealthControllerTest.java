@@ -20,8 +20,11 @@ class HealthControllerTest {
     void healthReturnsServiceStatus() throws Exception {
         mockMvc.perform(get("/api/health"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value("ok"))
-                .andExpect(jsonPath("$.service").value("aquila-office-back"))
-                .andExpect(jsonPath("$.checkedAt", notNullValue()));
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.code").value("200"))
+                .andExpect(jsonPath("$.message").value("OK"))
+                .andExpect(jsonPath("$.data.status").value("ok"))
+                .andExpect(jsonPath("$.data.service").value("aquila-office-back"))
+                .andExpect(jsonPath("$.data.checkedAt", notNullValue()));
     }
 }
