@@ -75,6 +75,14 @@ public class WorkspaceInviteJpaEntity extends BaseEntity {
                 invite.getAcceptedAt());
     }
 
+    public void accept(LocalDateTime acceptedAt) {
+        if (acceptedAt == null) {
+            throw new IllegalArgumentException("acceptedAt must not be null");
+        }
+        this.status = WorkspaceInviteStatus.ACCEPTED;
+        this.acceptedAt = acceptedAt;
+    }
+
     public WorkspaceJpaEntity getWorkspace() {
         return workspace;
     }
