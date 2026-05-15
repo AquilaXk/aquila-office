@@ -72,6 +72,16 @@ type InviteLogState =
   | { status: "ready"; invites: WorkspaceInviteManagement[]; error: null }
   | { status: "error"; invites: []; error: string };
 
+type InviteStatusFilter = WorkspaceInviteManagementStatus | "ALL";
+
+const INVITE_STATUS_FILTERS: { value: InviteStatusFilter; label: string }[] = [
+  { value: "PENDING", label: "대기" },
+  { value: "ACCEPTED", label: "수락" },
+  { value: "EXPIRED", label: "만료" },
+  { value: "REVOKED", label: "취소" },
+  { value: "ALL", label: "전체" },
+];
+
 export default function WorkspaceSettingsPage({
   params,
 }: {
@@ -107,6 +117,7 @@ export default function WorkspaceSettingsPage({
     invites: [],
     error: null,
   });
+  const [inviteFilter, setInviteFilter] = useState<InviteStatusFilter>("PENDING");
 
   const fetchSettings = useCallback(async () => {
     if (!isValidWorkspaceId(numericWorkspaceId)) {
@@ -195,7 +206,7 @@ export default function WorkspaceSettingsPage({
         setInviteLogState({ status: "loading", invites: [], error: null });
       }
 
-      const nextState = await fetchInviteLog();
+      const nextState = await fetchInviteLog(toInviteStatusParam(inviteFilter));
       if (!ignore) {
         setInviteLogState(nextState);
       }
@@ -206,7 +217,7 @@ export default function WorkspaceSettingsPage({
     return () => {
       ignore = true;
     };
-  }, [fetchInviteLog, state]);
+  }, [fetchInviteLog, inviteFilter, state]);
 
   const workspace = state.workspace;
   const members = state.status === "ready" ? state.members : [];
@@ -224,6 +235,16 @@ export default function WorkspaceSettingsPage({
     deleteConfirmation === workspace?.name &&
     !isDeletingWorkspace;
   const canManageMembers = state.status === "ready" && isAdmin;
+  const isInviteLogLoading = inviteLogState.status === "loading";
+
+  const reloadInviteLog = async () => {
+    if (!isAdmin) {
+      return;
+    }
+
+    setInviteLogState({ status: "loading", invites: [], error: null });
+    setInviteLogState(await fetchInviteLog(toInviteStatusParam(inviteFilter)));
+  };
 
   const handleUpdateWorkspace = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -666,6 +687,40 @@ export default function WorkspaceSettingsPage({
                 </p>
               ) : null}
 
+              {isAdmin ? (
+                <div className="workspace-invite-management-toolbar" aria-label="초대 상태 필터">
+                  <div className="workspace-invite-filters">
+                    {INVITE_STATUS_FILTERS.map((filter) => (
+                      <button
+                        className={
+                          filter.value === inviteFilter
+                            ? "workspace-invite-filter workspace-invite-filter-active"
+                            : "workspace-invite-filter"
+                        }
+                        type="button"
+                        key={filter.value}
+                        onClick={() => setInviteFilter(filter.value)}
+                        disabled={isInviteLogLoading}
+                      >
+                        {filter.label}
+                      </button>
+                    ))}
+                  </div>
+                  <button
+                    className="secondary-action workspace-invite-refresh"
+                    type="button"
+                    onClick={() => void reloadInviteLog()}
+                    disabled={isInviteLogLoading}
+                  >
+                    <RefreshCw
+                      className={isInviteLogLoading ? "spin" : undefined}
+                      aria-hidden="true"
+                    />
+                    <span>새로고침</span>
+                  </button>
+                </div>
+              ) : null}
+
               {isAdmin && inviteLogState.status === "loading" ? (
                 <div className="workspace-member-empty">
                   <Loader2 className="spin" aria-hidden="true" />
@@ -880,6 +935,12 @@ function formatInviteStatus(status: WorkspaceInviteManagementStatus): string {
     case "REVOKED":
       return "취소";
   }
+}
+
+function toInviteStatusParam(
+  filter: InviteStatusFilter,
+): WorkspaceInviteManagementStatus | undefined {
+  return filter === "ALL" ? undefined : filter;
 }
 
 function isLastAdmin(
