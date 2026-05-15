@@ -7,11 +7,20 @@ import com.aquilaoffice.adapter.out.persistence.member.MemberJpaEntity;
 import com.aquilaoffice.adapter.out.persistence.member.MemberJpaRepository;
 import com.aquilaoffice.adapter.out.persistence.member.MemberPersistenceAdapter;
 import com.aquilaoffice.application.port.in.ListWorkspaceMembersResult;
+import com.aquilaoffice.application.port.out.ChangeWorkspaceMemberRolePort;
+import com.aquilaoffice.application.port.out.DeleteWorkspacePort;
 import com.aquilaoffice.application.port.out.LoadMemberPort;
 import com.aquilaoffice.application.port.out.LoadWorkspaceMemberPort;
 import com.aquilaoffice.application.port.out.LoadWorkspacePort;
+import com.aquilaoffice.application.port.out.RemoveWorkspaceMemberPort;
 import com.aquilaoffice.application.port.out.SaveWorkspacePort;
 import com.aquilaoffice.application.port.out.SavedWorkspace;
+import com.aquilaoffice.application.port.out.UpdateWorkspacePort;
+import com.aquilaoffice.application.port.out.UpdatedWorkspace;
+import com.aquilaoffice.application.port.out.WorkspaceDeletion;
+import com.aquilaoffice.application.port.out.WorkspaceMemberRemoval;
+import com.aquilaoffice.application.port.out.WorkspaceMemberRoleChange;
+import com.aquilaoffice.application.port.out.WorkspaceUpdate;
 import com.aquilaoffice.domain.member.Member;
 import com.aquilaoffice.domain.member.MemberRole;
 import com.aquilaoffice.domain.workspace.Workspace;
@@ -52,6 +61,18 @@ class WorkspacePersistenceAdapterTest {
     @Autowired
     private LoadWorkspaceMemberPort loadWorkspaceMemberPort;
 
+    @Autowired
+    private UpdateWorkspacePort updateWorkspacePort;
+
+    @Autowired
+    private DeleteWorkspacePort deleteWorkspacePort;
+
+    @Autowired
+    private ChangeWorkspaceMemberRolePort changeWorkspaceMemberRolePort;
+
+    @Autowired
+    private RemoveWorkspaceMemberPort removeWorkspaceMemberPort;
+
     @Test
     void loadMemberByGoogleSubReturnsDomainMember() {
         memberJpaRepository.save(MemberJpaEntity.create(
@@ -91,6 +112,46 @@ class WorkspacePersistenceAdapterTest {
                 .orElseThrow();
         assertThat(savedMemberEntity.getRole()).isEqualTo(WorkspaceMemberRole.ADMIN);
         assertThat(savedMemberEntity.getJoinedAt()).isEqualTo(joinedAt);
+    }
+
+    @Test
+    void workspaceEntityUpdatesMetadataAndSoftDeletesOnce() {
+        MemberJpaEntity creatorEntity = memberJpaRepository.save(MemberJpaEntity.create(
+                "google-1", "user@example.com", "User", MemberRole.USER));
+        Workspace workspace = Workspace.create(
+                "Team", "Description", Member.createUser("google-1", "user@example.com", "User"));
+        WorkspaceJpaEntity workspaceEntity = workspaceJpaRepository.save(WorkspaceJpaEntity.from(workspace, creatorEntity));
+
+        workspaceEntity.update(" Updated Team ", " Updated Description ");
+        workspaceEntity.softDelete(LocalDateTime.of(2026, 5, 16, 10, 0));
+        workspaceEntity.softDelete(LocalDateTime.of(2026, 5, 17, 10, 0));
+
+        assertThat(workspaceEntity.getName()).isEqualTo("Updated Team");
+        assertThat(workspaceEntity.getDescription()).isEqualTo("Updated Description");
+        assertThat(workspaceEntity.getDeletedAt()).isEqualTo(LocalDateTime.of(2026, 5, 16, 10, 0));
+    }
+
+    @Test
+    void workspaceMemberEntityChangesRole() {
+        MemberJpaEntity adminEntity = memberJpaRepository.save(MemberJpaEntity.create(
+                "google-1", "admin@example.com", "Admin", MemberRole.USER));
+        Member admin = Member.createUser("google-1", "admin@example.com", "Admin");
+        Workspace workspace = Workspace.create("Team", "Description", admin);
+        Long workspaceId = saveWorkspacePort.save(
+                        workspace,
+                        WorkspaceMember.create(
+                                workspace,
+                                admin,
+                                WorkspaceMemberRole.ADMIN,
+                                LocalDateTime.of(2026, 5, 15, 10, 0)))
+                .workspaceId();
+        WorkspaceMemberJpaEntity workspaceMemberEntity = workspaceMemberJpaRepository
+                .findByWorkspaceIdAndMemberId(workspaceId, adminEntity.getId())
+                .orElseThrow();
+
+        workspaceMemberEntity.changeRole(WorkspaceMemberRole.MEMBER);
+
+        assertThat(workspaceMemberEntity.getRole()).isEqualTo(WorkspaceMemberRole.MEMBER);
     }
 
     @Test
@@ -280,5 +341,204 @@ class WorkspacePersistenceAdapterTest {
 
         assertThat(loadWorkspaceMemberPort.findActiveWorkspaceMembersByWorkspaceId(deletedWorkspaceId))
                 .isEmpty();
+    }
+
+    @Test
+    void updateWorkspaceUpdatesActiveWorkspaceOnly() {
+        Member admin = Member.createUser("google-1", "admin@example.com", "Admin");
+        memberJpaRepository.save(MemberJpaEntity.create(
+                "google-1", "admin@example.com", "Admin", MemberRole.USER));
+        Workspace workspace = Workspace.create("Team", "Description", admin);
+        Long workspaceId = saveWorkspacePort.save(
+                        workspace,
+                        WorkspaceMember.create(
+                                workspace,
+                                admin,
+                                WorkspaceMemberRole.ADMIN,
+                                LocalDateTime.of(2026, 5, 15, 10, 0)))
+                .workspaceId();
+
+        UpdatedWorkspace updatedWorkspace =
+                updateWorkspacePort.update(new WorkspaceUpdate(workspaceId, " Updated Team ", " "));
+
+        assertThat(updatedWorkspace.workspaceId()).isEqualTo(workspaceId);
+        assertThat(updatedWorkspace.name()).isEqualTo("Updated Team");
+        assertThat(updatedWorkspace.description()).isNull();
+        assertThat(updatedWorkspace.creatorGoogleSub()).isEqualTo("google-1");
+
+        WorkspaceJpaEntity savedWorkspace = workspaceJpaRepository.findById(workspaceId).orElseThrow();
+        assertThat(savedWorkspace.getName()).isEqualTo("Updated Team");
+        assertThat(savedWorkspace.getDescription()).isNull();
+    }
+
+    @Test
+    void updateWorkspaceRejectsMissingOrDeletedWorkspaceEntity() {
+        Member admin = Member.createUser("google-1", "admin@example.com", "Admin");
+        memberJpaRepository.save(MemberJpaEntity.create(
+                "google-1", "admin@example.com", "Admin", MemberRole.USER));
+        Workspace deletedWorkspace = Workspace.create("Deleted", null, admin);
+        deletedWorkspace.softDelete(LocalDateTime.of(2026, 5, 15, 11, 0));
+        Long deletedWorkspaceId = saveWorkspacePort.save(
+                        deletedWorkspace,
+                        WorkspaceMember.create(
+                                deletedWorkspace,
+                                admin,
+                                WorkspaceMemberRole.ADMIN,
+                                LocalDateTime.of(2026, 5, 15, 10, 0)))
+                .workspaceId();
+
+        assertThatThrownBy(() -> updateWorkspacePort.update(
+                        new WorkspaceUpdate(404L, "Updated", null)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("workspace entity not found");
+        assertThatThrownBy(() -> updateWorkspacePort.update(
+                        new WorkspaceUpdate(deletedWorkspaceId, "Updated", null)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("workspace entity not found");
+    }
+
+    @Test
+    void deleteWorkspaceSoftDeletesActiveWorkspace() {
+        Member admin = Member.createUser("google-1", "admin@example.com", "Admin");
+        memberJpaRepository.save(MemberJpaEntity.create(
+                "google-1", "admin@example.com", "Admin", MemberRole.USER));
+        Workspace workspace = Workspace.create("Team", "Description", admin);
+        Long workspaceId = saveWorkspacePort.save(
+                        workspace,
+                        WorkspaceMember.create(
+                                workspace,
+                                admin,
+                                WorkspaceMemberRole.ADMIN,
+                                LocalDateTime.of(2026, 5, 15, 10, 0)))
+                .workspaceId();
+
+        deleteWorkspacePort.delete(new WorkspaceDeletion(workspaceId, LocalDateTime.of(2026, 5, 16, 10, 0)));
+
+        WorkspaceJpaEntity savedWorkspace = workspaceJpaRepository.findById(workspaceId).orElseThrow();
+        assertThat(savedWorkspace.getDeletedAt()).isEqualTo(LocalDateTime.of(2026, 5, 16, 10, 0));
+        assertThat(loadWorkspacePort.findJoinedWorkspaceByIdAndMemberGoogleSub(workspaceId, "google-1")).isEmpty();
+    }
+
+    @Test
+    void deleteWorkspaceRejectsMissingOrDeletedWorkspaceEntity() {
+        Member admin = Member.createUser("google-1", "admin@example.com", "Admin");
+        memberJpaRepository.save(MemberJpaEntity.create(
+                "google-1", "admin@example.com", "Admin", MemberRole.USER));
+        Workspace deletedWorkspace = Workspace.create("Deleted", null, admin);
+        deletedWorkspace.softDelete(LocalDateTime.of(2026, 5, 15, 11, 0));
+        Long deletedWorkspaceId = saveWorkspacePort.save(
+                        deletedWorkspace,
+                        WorkspaceMember.create(
+                                deletedWorkspace,
+                                admin,
+                                WorkspaceMemberRole.ADMIN,
+                                LocalDateTime.of(2026, 5, 15, 10, 0)))
+                .workspaceId();
+
+        assertThatThrownBy(() -> deleteWorkspacePort.delete(
+                        new WorkspaceDeletion(404L, LocalDateTime.of(2026, 5, 16, 10, 0))))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("workspace entity not found");
+        assertThatThrownBy(() -> deleteWorkspacePort.delete(
+                        new WorkspaceDeletion(deletedWorkspaceId, LocalDateTime.of(2026, 5, 16, 10, 0))))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("workspace entity not found");
+    }
+
+    @Test
+    void changeWorkspaceMemberRoleUpdatesActiveWorkspaceMember() {
+        MemberJpaEntity adminEntity = memberJpaRepository.save(MemberJpaEntity.create(
+                "google-1", "admin@example.com", "Admin", MemberRole.USER));
+        Member admin = Member.createUser("google-1", "admin@example.com", "Admin");
+        Workspace workspace = Workspace.create("Team", "Description", admin);
+        Long workspaceId = saveWorkspacePort.save(
+                        workspace,
+                        WorkspaceMember.create(
+                                workspace,
+                                admin,
+                                WorkspaceMemberRole.ADMIN,
+                                LocalDateTime.of(2026, 5, 15, 10, 0)))
+                .workspaceId();
+
+        changeWorkspaceMemberRolePort.changeRole(new WorkspaceMemberRoleChange(
+                workspaceId, adminEntity.getId(), WorkspaceMemberRole.MEMBER));
+
+        WorkspaceMemberJpaEntity savedMember = workspaceMemberJpaRepository
+                .findByWorkspaceIdAndMemberId(workspaceId, adminEntity.getId())
+                .orElseThrow();
+        assertThat(savedMember.getRole()).isEqualTo(WorkspaceMemberRole.MEMBER);
+    }
+
+    @Test
+    void changeWorkspaceMemberRoleRejectsMissingOrDeletedWorkspaceMember() {
+        MemberJpaEntity adminEntity = memberJpaRepository.save(MemberJpaEntity.create(
+                "google-1", "admin@example.com", "Admin", MemberRole.USER));
+        Member admin = Member.createUser("google-1", "admin@example.com", "Admin");
+        Workspace deletedWorkspace = Workspace.create("Deleted", null, admin);
+        deletedWorkspace.softDelete(LocalDateTime.of(2026, 5, 15, 11, 0));
+        Long deletedWorkspaceId = saveWorkspacePort.save(
+                        deletedWorkspace,
+                        WorkspaceMember.create(
+                                deletedWorkspace,
+                                admin,
+                                WorkspaceMemberRole.ADMIN,
+                                LocalDateTime.of(2026, 5, 15, 10, 0)))
+                .workspaceId();
+
+        assertThatThrownBy(() -> changeWorkspaceMemberRolePort.changeRole(
+                        new WorkspaceMemberRoleChange(404L, adminEntity.getId(), WorkspaceMemberRole.MEMBER)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("workspace member entity not found");
+        assertThatThrownBy(() -> changeWorkspaceMemberRolePort.changeRole(
+                        new WorkspaceMemberRoleChange(deletedWorkspaceId, adminEntity.getId(), WorkspaceMemberRole.MEMBER)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("workspace member entity not found");
+    }
+
+    @Test
+    void removeWorkspaceMemberDeletesActiveWorkspaceMember() {
+        MemberJpaEntity adminEntity = memberJpaRepository.save(MemberJpaEntity.create(
+                "google-1", "admin@example.com", "Admin", MemberRole.USER));
+        Member admin = Member.createUser("google-1", "admin@example.com", "Admin");
+        Workspace workspace = Workspace.create("Team", "Description", admin);
+        Long workspaceId = saveWorkspacePort.save(
+                        workspace,
+                        WorkspaceMember.create(
+                                workspace,
+                                admin,
+                                WorkspaceMemberRole.ADMIN,
+                                LocalDateTime.of(2026, 5, 15, 10, 0)))
+                .workspaceId();
+
+        removeWorkspaceMemberPort.remove(new WorkspaceMemberRemoval(workspaceId, adminEntity.getId()));
+
+        assertThat(workspaceMemberJpaRepository.findByWorkspaceIdAndMemberId(workspaceId, adminEntity.getId()))
+                .isEmpty();
+    }
+
+    @Test
+    void removeWorkspaceMemberRejectsMissingOrDeletedWorkspaceMember() {
+        MemberJpaEntity adminEntity = memberJpaRepository.save(MemberJpaEntity.create(
+                "google-1", "admin@example.com", "Admin", MemberRole.USER));
+        Member admin = Member.createUser("google-1", "admin@example.com", "Admin");
+        Workspace deletedWorkspace = Workspace.create("Deleted", null, admin);
+        deletedWorkspace.softDelete(LocalDateTime.of(2026, 5, 15, 11, 0));
+        Long deletedWorkspaceId = saveWorkspacePort.save(
+                        deletedWorkspace,
+                        WorkspaceMember.create(
+                                deletedWorkspace,
+                                admin,
+                                WorkspaceMemberRole.ADMIN,
+                                LocalDateTime.of(2026, 5, 15, 10, 0)))
+                .workspaceId();
+
+        assertThatThrownBy(() -> removeWorkspaceMemberPort.remove(
+                        new WorkspaceMemberRemoval(404L, adminEntity.getId())))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("workspace member entity not found");
+        assertThatThrownBy(() -> removeWorkspaceMemberPort.remove(
+                        new WorkspaceMemberRemoval(deletedWorkspaceId, adminEntity.getId())))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("workspace member entity not found");
     }
 }

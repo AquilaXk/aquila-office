@@ -3,23 +3,35 @@ package com.aquilaoffice.global.config;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.aquilaoffice.application.port.in.AcceptWorkspaceInviteUseCase;
+import com.aquilaoffice.application.port.in.ChangeWorkspaceMemberRoleUseCase;
+import com.aquilaoffice.application.port.in.DeleteWorkspaceUseCase;
 import com.aquilaoffice.application.port.in.ListWorkspaceInvitesUseCase;
 import com.aquilaoffice.application.port.in.ListWorkspaceMembersUseCase;
+import com.aquilaoffice.application.port.in.RemoveWorkspaceMemberUseCase;
+import com.aquilaoffice.application.port.in.UpdateWorkspaceUseCase;
 import com.aquilaoffice.application.port.in.RevokeWorkspaceInviteUseCase;
 import com.aquilaoffice.application.port.out.AcceptWorkspaceInvitePort;
+import com.aquilaoffice.application.port.out.ChangeWorkspaceMemberRolePort;
+import com.aquilaoffice.application.port.out.DeleteWorkspacePort;
 import com.aquilaoffice.application.port.out.GenerateWorkspaceInviteTokenPort;
 import com.aquilaoffice.application.port.out.LoadMemberPort;
 import com.aquilaoffice.application.port.out.LoadWorkspaceInvitePort;
 import com.aquilaoffice.application.port.out.LoadWorkspaceInvitesPort;
 import com.aquilaoffice.application.port.out.LoadWorkspaceMemberPort;
 import com.aquilaoffice.application.port.out.LoadWorkspacePort;
+import com.aquilaoffice.application.port.out.RemoveWorkspaceMemberPort;
 import com.aquilaoffice.application.port.out.RevokeWorkspaceInvitePort;
 import com.aquilaoffice.application.port.out.SaveWorkspaceInvitePort;
 import com.aquilaoffice.application.port.out.SaveWorkspacePort;
+import com.aquilaoffice.application.port.out.UpdateWorkspacePort;
 import com.aquilaoffice.application.service.AcceptWorkspaceInviteService;
+import com.aquilaoffice.application.service.ChangeWorkspaceMemberRoleService;
+import com.aquilaoffice.application.service.DeleteWorkspaceService;
 import com.aquilaoffice.application.service.ListWorkspaceInvitesService;
 import com.aquilaoffice.application.service.ListWorkspaceMembersService;
+import com.aquilaoffice.application.service.RemoveWorkspaceMemberService;
 import com.aquilaoffice.application.service.RevokeWorkspaceInviteService;
+import com.aquilaoffice.application.service.UpdateWorkspaceService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -59,6 +71,18 @@ class ApplicationServiceConfigTest {
     private RevokeWorkspaceInvitePort revokeWorkspaceInvitePort;
 
     @MockitoBean
+    private UpdateWorkspacePort updateWorkspacePort;
+
+    @MockitoBean
+    private DeleteWorkspacePort deleteWorkspacePort;
+
+    @MockitoBean
+    private ChangeWorkspaceMemberRolePort changeWorkspaceMemberRolePort;
+
+    @MockitoBean
+    private RemoveWorkspaceMemberPort removeWorkspaceMemberPort;
+
+    @MockitoBean
     private GenerateWorkspaceInviteTokenPort generateWorkspaceInviteTokenPort;
 
     @Autowired
@@ -72,6 +96,18 @@ class ApplicationServiceConfigTest {
 
     @Autowired
     private RevokeWorkspaceInviteUseCase revokeWorkspaceInviteUseCase;
+
+    @Autowired
+    private UpdateWorkspaceUseCase updateWorkspaceUseCase;
+
+    @Autowired
+    private DeleteWorkspaceUseCase deleteWorkspaceUseCase;
+
+    @Autowired
+    private ChangeWorkspaceMemberRoleUseCase changeWorkspaceMemberRoleUseCase;
+
+    @Autowired
+    private RemoveWorkspaceMemberUseCase removeWorkspaceMemberUseCase;
 
     @Test
     void registersAcceptWorkspaceInviteUseCase() {
@@ -91,5 +127,25 @@ class ApplicationServiceConfigTest {
     @Test
     void registersRevokeWorkspaceInviteUseCase() {
         assertThat(revokeWorkspaceInviteUseCase).isInstanceOf(RevokeWorkspaceInviteService.class);
+    }
+
+    @Test
+    void registersUpdateWorkspaceUseCase() {
+        assertThat(updateWorkspaceUseCase).isInstanceOf(UpdateWorkspaceService.class);
+    }
+
+    @Test
+    void registersDeleteWorkspaceUseCase() {
+        assertThat(deleteWorkspaceUseCase).isInstanceOf(DeleteWorkspaceService.class);
+    }
+
+    @Test
+    void registersChangeWorkspaceMemberRoleUseCase() {
+        assertThat(changeWorkspaceMemberRoleUseCase).isInstanceOf(ChangeWorkspaceMemberRoleService.class);
+    }
+
+    @Test
+    void registersRemoveWorkspaceMemberUseCase() {
+        assertThat(removeWorkspaceMemberUseCase).isInstanceOf(RemoveWorkspaceMemberService.class);
     }
 }

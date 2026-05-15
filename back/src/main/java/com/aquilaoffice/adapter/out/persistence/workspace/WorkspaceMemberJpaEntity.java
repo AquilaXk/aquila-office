@@ -62,6 +62,13 @@ public class WorkspaceMemberJpaEntity extends BaseEntity {
         return new WorkspaceMemberJpaEntity(workspace, member, role, joinedAt);
     }
 
+    public void changeRole(WorkspaceMemberRole role) {
+        if (role == null) {
+            throw new IllegalArgumentException("role must not be null");
+        }
+        this.role = role;
+    }
+
     public WorkspaceJpaEntity getWorkspace() {
         return workspace;
     }
