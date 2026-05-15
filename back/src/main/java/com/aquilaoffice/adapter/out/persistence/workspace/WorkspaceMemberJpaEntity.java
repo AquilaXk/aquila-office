@@ -56,6 +56,12 @@ public class WorkspaceMemberJpaEntity extends BaseEntity {
                 workspace, member, workspaceMember.getRole(), workspaceMember.getJoinedAt());
     }
 
+    public static WorkspaceMemberJpaEntity create(
+            WorkspaceJpaEntity workspace, MemberJpaEntity member, WorkspaceMemberRole role, LocalDateTime joinedAt) {
+        // 초대 수락은 application service에서 검증된 role/joinedAt으로 조인 row만 생성한다.
+        return new WorkspaceMemberJpaEntity(workspace, member, role, joinedAt);
+    }
+
     public WorkspaceJpaEntity getWorkspace() {
         return workspace;
     }

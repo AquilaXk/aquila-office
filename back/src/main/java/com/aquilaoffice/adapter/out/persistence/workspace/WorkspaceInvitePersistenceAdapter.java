@@ -1,8 +1,13 @@
 package com.aquilaoffice.adapter.out.persistence.workspace;
 
+import com.aquilaoffice.adapter.out.persistence.member.MemberJpaEntity;
+import com.aquilaoffice.adapter.out.persistence.member.MemberJpaRepository;
+import com.aquilaoffice.application.port.out.AcceptWorkspaceInvitePort;
+import com.aquilaoffice.application.port.out.AcceptedWorkspaceInvite;
 import com.aquilaoffice.application.port.out.LoadWorkspaceInvitePort;
 import com.aquilaoffice.application.port.out.SaveWorkspaceInvitePort;
 import com.aquilaoffice.application.port.out.SavedWorkspaceInvite;
+import com.aquilaoffice.application.port.out.WorkspaceInviteAcceptance;
 import com.aquilaoffice.application.port.out.WorkspaceInviteLookup;
 import com.aquilaoffice.domain.workspace.WorkspaceInvite;
 import java.util.Objects;
@@ -14,16 +19,23 @@ import org.springframework.transaction.annotation.Transactional;
  * 워크스페이스 초대 outbound port를 JPA repository 조합으로 구현하는 persistence adapter다.
  */
 @Repository
-public class WorkspaceInvitePersistenceAdapter implements SaveWorkspaceInvitePort, LoadWorkspaceInvitePort {
+public class WorkspaceInvitePersistenceAdapter
+        implements SaveWorkspaceInvitePort, LoadWorkspaceInvitePort, AcceptWorkspaceInvitePort {
 
+    private final MemberJpaRepository memberJpaRepository;
     private final WorkspaceJpaRepository workspaceJpaRepository;
     private final WorkspaceInviteJpaRepository workspaceInviteJpaRepository;
+    private final WorkspaceMemberJpaRepository workspaceMemberJpaRepository;
 
     public WorkspaceInvitePersistenceAdapter(
+            MemberJpaRepository memberJpaRepository,
             WorkspaceJpaRepository workspaceJpaRepository,
-            WorkspaceInviteJpaRepository workspaceInviteJpaRepository) {
+            WorkspaceInviteJpaRepository workspaceInviteJpaRepository,
+            WorkspaceMemberJpaRepository workspaceMemberJpaRepository) {
+        this.memberJpaRepository = memberJpaRepository;
         this.workspaceJpaRepository = workspaceJpaRepository;
         this.workspaceInviteJpaRepository = workspaceInviteJpaRepository;
+        this.workspaceMemberJpaRepository = workspaceMemberJpaRepository;
     }
 
     @Override
@@ -48,6 +60,39 @@ public class WorkspaceInvitePersistenceAdapter implements SaveWorkspaceInvitePor
         Objects.requireNonNull(token, "token must not be null");
 
         return workspaceInviteJpaRepository.findByToken(token).map(this::toLookup);
+    }
+
+    @Override
+    @Transactional
+    public AcceptedWorkspaceInvite accept(WorkspaceInviteAcceptance acceptance) {
+        Objects.requireNonNull(acceptance, "acceptance must not be null");
+        Objects.requireNonNull(acceptance.inviteId(), "inviteId must not be null");
+        Objects.requireNonNull(acceptance.workspaceId(), "workspaceId must not be null");
+        Objects.requireNonNull(acceptance.memberGoogleSub(), "memberGoogleSub must not be null");
+        Objects.requireNonNull(acceptance.role(), "role must not be null");
+        Objects.requireNonNull(acceptance.acceptedAt(), "acceptedAt must not be null");
+
+        WorkspaceInviteJpaEntity inviteEntity = workspaceInviteJpaRepository
+                .findById(acceptance.inviteId())
+                .orElseThrow(() -> new IllegalArgumentException("workspace invite entity not found"));
+        WorkspaceJpaEntity workspaceEntity = workspaceJpaRepository
+                .findById(acceptance.workspaceId())
+                .orElseThrow(() -> new IllegalArgumentException("workspace entity not found"));
+        MemberJpaEntity memberEntity = memberJpaRepository
+                .findByGoogleSub(acceptance.memberGoogleSub())
+                .orElseThrow(() -> new IllegalArgumentException("member entity not found"));
+
+        inviteEntity.accept(acceptance.acceptedAt());
+        WorkspaceMemberJpaEntity memberJoinEntity = WorkspaceMemberJpaEntity.create(
+                workspaceEntity, memberEntity, acceptance.role(), acceptance.acceptedAt());
+        workspaceMemberJpaRepository.save(memberJoinEntity);
+
+        return new AcceptedWorkspaceInvite(
+                inviteEntity.getId(),
+                workspaceEntity.getId(),
+                memberEntity.getGoogleSub(),
+                memberJoinEntity.getRole(),
+                inviteEntity.getAcceptedAt());
     }
 
     private WorkspaceInviteLookup toLookup(WorkspaceInviteJpaEntity inviteEntity) {
