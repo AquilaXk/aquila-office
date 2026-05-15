@@ -8,6 +8,7 @@ import {
   CheckCircle2,
   Hash,
   Loader2,
+  Mail,
   RefreshCw,
   Save,
   ShieldCheck,
@@ -28,6 +29,11 @@ import {
   type ReactNode,
 } from "react";
 import { ApiError } from "@/lib/api-client";
+import {
+  fetchWorkspaceInvites,
+  type WorkspaceInviteManagement,
+  type WorkspaceInviteManagementStatus,
+} from "@/lib/invites";
 import {
   changeWorkspaceMemberRole,
   deleteWorkspace,
@@ -60,6 +66,12 @@ type MemberAction =
   | { type: "role"; memberId: number }
   | { type: "remove"; memberId: number };
 
+type InviteLogState =
+  | { status: "idle"; invites: []; error: null }
+  | { status: "loading"; invites: []; error: null }
+  | { status: "ready"; invites: WorkspaceInviteManagement[]; error: null }
+  | { status: "error"; invites: []; error: string };
+
 export default function WorkspaceSettingsPage({
   params,
 }: {
@@ -90,6 +102,11 @@ export default function WorkspaceSettingsPage({
     status: "idle",
     message: null,
   });
+  const [inviteLogState, setInviteLogState] = useState<InviteLogState>({
+    status: "idle",
+    invites: [],
+    error: null,
+  });
 
   const fetchSettings = useCallback(async () => {
     if (!isValidWorkspaceId(numericWorkspaceId)) {
@@ -111,6 +128,26 @@ export default function WorkspaceSettingsPage({
       return toFailureState(error, "워크스페이스 설정을 확인하지 못했습니다.");
     }
   }, [numericWorkspaceId]);
+
+  const fetchInviteLog = useCallback(
+    async (status: WorkspaceInviteManagementStatus | undefined = "PENDING") => {
+      try {
+        const invites = await fetchWorkspaceInvites(
+          TEMP_MEMBER_GOOGLE_SUB,
+          numericWorkspaceId,
+          status,
+        );
+        return { status: "ready", invites, error: null } satisfies InviteLogState;
+      } catch (error) {
+        return {
+          status: "error",
+          invites: [],
+          error: messageFromError(error, "초대 목록을 확인하지 못했습니다."),
+        } satisfies InviteLogState;
+      }
+    },
+    [numericWorkspaceId],
+  );
 
   const reloadSettings = useCallback(async () => {
     setState({ status: "loading", workspace: null, members: [], error: null });
@@ -144,6 +181,32 @@ export default function WorkspaceSettingsPage({
       ignore = true;
     };
   }, [fetchSettings]);
+
+  useEffect(() => {
+    let ignore = false;
+
+    async function loadInitialInviteLog() {
+      if (state.status !== "ready" || state.workspace.myRole !== "ADMIN") {
+        return;
+      }
+
+      await Promise.resolve();
+      if (!ignore) {
+        setInviteLogState({ status: "loading", invites: [], error: null });
+      }
+
+      const nextState = await fetchInviteLog();
+      if (!ignore) {
+        setInviteLogState(nextState);
+      }
+    }
+
+    void loadInitialInviteLog();
+
+    return () => {
+      ignore = true;
+    };
+  }, [fetchInviteLog, state]);
 
   const workspace = state.workspace;
   const members = state.status === "ready" ? state.members : [];
@@ -585,6 +648,67 @@ export default function WorkspaceSettingsPage({
                 </div>
               )}
             </section>
+
+            <section className="workspace-settings-section" aria-label="워크스페이스 초대 관리">
+              <div className="workspace-section-title">
+                <div>
+                  <span className="workspace-detail-label">Invites</span>
+                  <h2>초대 관리</h2>
+                </div>
+                <span className={isAdmin ? "workspace-count-badge" : "workspace-lock-badge"}>
+                  {isAdmin ? "ADMIN" : "읽기 전용"}
+                </span>
+              </div>
+
+              {!isAdmin ? (
+                <p className="workspace-invite-help">
+                  관리자 역할만 초대 목록을 확인할 수 있습니다.
+                </p>
+              ) : null}
+
+              {isAdmin && inviteLogState.status === "loading" ? (
+                <div className="workspace-member-empty">
+                  <Loader2 className="spin" aria-hidden="true" />
+                  <strong>초대 목록 확인 중</strong>
+                  <p>워크스페이스 초대 목록을 불러오고 있습니다.</p>
+                </div>
+              ) : null}
+
+              {isAdmin && inviteLogState.status === "error" ? (
+                <SettingsNotice tone="danger" icon={<AlertCircle aria-hidden="true" />}>
+                  {inviteLogState.error}
+                </SettingsNotice>
+              ) : null}
+
+              {isAdmin && inviteLogState.status === "ready" && inviteLogState.invites.length > 0 ? (
+                <div className="workspace-settings-member-list">
+                  {inviteLogState.invites.map((invite) => (
+                    <article className="workspace-settings-member-row" key={invite.inviteId}>
+                      <div className="workspace-member-avatar">
+                        <Mail aria-hidden="true" />
+                      </div>
+                      <div className="workspace-member-main">
+                        <strong>{invite.email}</strong>
+                        <p>{`/invites/${invite.token}`}</p>
+                        <span>생성 {formatDateTime(invite.createdAt)}</span>
+                      </div>
+                      <div className="workspace-member-meta">
+                        <span className="role-badge">{formatInviteStatus(invite.status)}</span>
+                        <span>만료 {formatDateTime(invite.expiresAt)}</span>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              ) : null}
+
+              {isAdmin && inviteLogState.status === "ready" && inviteLogState.invites.length === 0 ? (
+                <div className="workspace-member-empty">
+                  <Mail aria-hidden="true" />
+                  <strong>표시할 초대가 없습니다</strong>
+                  <p>조건에 맞는 워크스페이스 초대가 생기면 이곳에 표시됩니다.</p>
+                </div>
+              ) : null}
+            </section>
           </section>
         ) : null}
       </section>
@@ -743,6 +867,19 @@ function isValidWorkspaceId(workspaceId: number): boolean {
 
 function formatRole(role: WorkspaceMemberRole): string {
   return role === "ADMIN" ? "관리자" : "멤버";
+}
+
+function formatInviteStatus(status: WorkspaceInviteManagementStatus): string {
+  switch (status) {
+    case "PENDING":
+      return "대기";
+    case "ACCEPTED":
+      return "수락";
+    case "EXPIRED":
+      return "만료";
+    case "REVOKED":
+      return "취소";
+  }
 }
 
 function isLastAdmin(
