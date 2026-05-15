@@ -11,6 +11,7 @@ import {
   Wifi,
   WifiOff,
 } from "lucide-react";
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { API_BASE_URL, ApiError, apiFetch } from "@/lib/api-client";
 import { fetchWorkspaces, type WorkspaceSummary } from "@/lib/workspaces";
@@ -154,10 +155,10 @@ export default function Home() {
               <p className="eyebrow">Workspace</p>
               <h2>내 워크스페이스</h2>
             </div>
-            <button className="primary-action" type="button" disabled>
+            <Link className="primary-action primary-action-active" href="/workspaces/new">
               <Plus aria-hidden="true" />
-              <span>생성 준비 중</span>
-            </button>
+              <span>생성</span>
+            </Link>
           </div>
 
           {workspaces.status === "ready" && workspaces.data.length > 0 ? (
@@ -212,7 +213,7 @@ function WorkspaceStatePanel({ state }: { state: WorkspaceState }) {
     <div className="state-panel">
       <UserRound aria-hidden="true" />
       <strong>가입된 워크스페이스가 없습니다</strong>
-      <p>생성 흐름이 연결되면 이곳에서 바로 확인할 수 있습니다.</p>
+      <p>새 워크스페이스를 만들면 이곳에서 바로 확인할 수 있습니다.</p>
     </div>
   );
 }
