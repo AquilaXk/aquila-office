@@ -1,4 +1,4 @@
-package com.aquilaoffice.global.health;
+package com.aquilaoffice.adapter.in.web.health;
 
 import static org.hamcrest.Matchers.notNullValue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
