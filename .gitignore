@@ -1,0 +1,97 @@
+# Workspace metadata
+.DS_Store
+.idea/
+.vscode/
+.fleet/
+*.iws
+*.iml
+*.ipr
+
+# Runtime logs and temp files
+logs/
+*.log
+tmp/
+temp/
+.cache/
+
+# Root build artifacts
+/build/
+/out/
+/dist/
+
+# Environment files
+.env
+.env.*
+!.env.example
+compose.override.yml
+
+# Backend local files
+/back/.gradle/
+/back/.gradle-user/
+/back/.kotlin/
+/back/build/
+/back/out/
+/back/bin/
+/back/.env
+/back/.env.*
+!/back/.env.example
+!/back/.env.default
+!/back/.env.test
+/back/src/main/resources/application-local.yml
+/back/src/main/resources/application-local.yaml
+/back/src/main/resources/application-*.local.yml
+/back/src/main/resources/application-*.local.yaml
+
+# Frontend local files
+/front/node_modules/
+/front/.next/
+/front/out/
+/front/build/
+/front/dist/
+/front/coverage/
+/front/test-results/
+/front/playwright-report/
+/front/storybook-static/
+/front/.env
+/front/.env.local
+/front/.env.development.local
+/front/.env.test.local
+/front/.env.production.local
+/front/tsconfig.tsbuildinfo
+/front/next-env.d.ts
+
+# Agent-only local docs and state
+AGENTS.md
+CLAUDE.md
+GEMINI.md
+CURSOR.md
+COPILOT.md
+docs/
+.codex/
+.claude/
+.cursor/
+.aider/
+.aider*
+.windsurf/
+.ai/
+.playwright-mcp/
+
+# Local current-task helpers and hooks
+tools/guards/current-task-*.sh
+.githooks/commit-msg
+
+# Terraform local state
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+*.tfplan
+crash.log
+crash.*.log
+
+# Local performance/test artifacts
+perf/k6/results/*.json
+perf/k6/results/*.txt
+*.har
+*.trace.zip
