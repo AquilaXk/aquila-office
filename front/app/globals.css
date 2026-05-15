@@ -1209,10 +1209,23 @@ h2 {
   line-height: 1.45;
 }
 
-.workspace-invite-open {
+.workspace-invite-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.workspace-invite-open,
+.workspace-invite-copy {
   width: fit-content;
   min-height: 36px;
-  margin-top: 10px;
+  margin-top: 0;
+}
+
+.workspace-invite-copy svg {
+  width: 16px;
+  height: 16px;
 }
 
 .workspace-invite-help {
@@ -1344,6 +1357,42 @@ h2 {
 
   .workspace-detail-meta {
     grid-template-columns: 1fr;
+  }
+
+  .workspace-section-title {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .workspace-count-badge,
+  .workspace-lock-badge {
+    justify-content: center;
+    width: 100%;
+  }
+
+  .workspace-member-row {
+    grid-template-columns: 42px minmax(0, 1fr);
+  }
+
+  .workspace-member-meta {
+    grid-column: 2;
+    justify-items: start;
+    white-space: normal;
+  }
+
+  .workspace-invite-result {
+    grid-template-columns: 1fr;
+  }
+
+  .workspace-invite-actions {
+    flex-direction: column;
+  }
+
+  .workspace-invite-open,
+  .workspace-invite-copy,
+  .workspace-invite-submit {
+    justify-content: center;
+    width: 100%;
   }
 
   .form-actions {

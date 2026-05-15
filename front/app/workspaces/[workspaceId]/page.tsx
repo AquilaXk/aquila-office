@@ -5,6 +5,7 @@ import {
   ArrowLeft,
   Building2,
   CalendarDays,
+  Copy,
   Hash,
   Loader2,
   Mail,
@@ -54,6 +55,7 @@ export default function WorkspaceDetailPage({
     error: null,
   });
   const [inviteEmail, setInviteEmail] = useState("");
+  const [copiedInvite, setCopiedInvite] = useState(false);
   const [inviteState, setInviteState] = useState<InviteCreateState>({
     status: "idle",
     invite: null,
@@ -162,6 +164,7 @@ export default function WorkspaceDetailPage({
       inviteUrl: null,
       error: null,
     });
+    setCopiedInvite(false);
 
     try {
       const invite = await createWorkspaceInvite(
@@ -172,6 +175,7 @@ export default function WorkspaceDetailPage({
       const invitePath = `/invites/${invite.token}`;
       const inviteUrl = `${window.location.origin}${invitePath}`;
       setInviteState({ status: "created", invite, invitePath, inviteUrl, error: null });
+      setCopiedInvite(false);
       setInviteEmail("");
     } catch (error) {
       setInviteState({
@@ -181,6 +185,19 @@ export default function WorkspaceDetailPage({
         inviteUrl: null,
         error: messageFromError(error, "초대 생성을 처리하지 못했습니다."),
       });
+    }
+  };
+
+  const copyInviteUrl = async () => {
+    if (inviteState.status !== "created") {
+      return;
+    }
+
+    try {
+      await window.navigator.clipboard?.writeText(inviteState.inviteUrl);
+      setCopiedInvite(true);
+    } catch {
+      setCopiedInvite(false);
     }
   };
 
@@ -343,9 +360,19 @@ export default function WorkspaceDetailPage({
                     <div>
                       <strong>{inviteState.invite.email}</strong>
                       <p>{inviteState.inviteUrl}</p>
-                      <Link className="secondary-action workspace-invite-open" href={inviteState.invitePath}>
-                        초대 열기
-                      </Link>
+                      <div className="workspace-invite-actions">
+                        <Link className="secondary-action workspace-invite-open" href={inviteState.invitePath}>
+                          초대 열기
+                        </Link>
+                        <button
+                          className="secondary-action workspace-invite-copy"
+                          type="button"
+                          onClick={() => void copyInviteUrl()}
+                        >
+                          <Copy aria-hidden="true" />
+                          <span>{copiedInvite ? "복사됨" : "복사"}</span>
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ) : null}
