@@ -7,15 +7,18 @@ import {
   CalendarDays,
   Hash,
   Loader2,
+  Mail,
   RefreshCw,
+  Send,
   ShieldCheck,
   UserRound,
   Users,
   WifiOff,
 } from "lucide-react";
 import Link from "next/link";
-import { use, useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { use, useCallback, useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
 import { ApiError } from "@/lib/api-client";
+import { createWorkspaceInvite, type WorkspaceInvite } from "@/lib/invites";
 import {
   fetchWorkspaceDetail,
   fetchWorkspaceMembers,
@@ -32,6 +35,12 @@ type WorkspaceDetailState =
   | { status: "ready"; workspace: WorkspaceDetail; members: WorkspaceMember[]; error: null }
   | { status: "error" | "offline"; workspace: null; error: string };
 
+type InviteCreateState =
+  | { status: "idle"; invite: null; invitePath: null; inviteUrl: null; error: null }
+  | { status: "submitting"; invite: null; invitePath: null; inviteUrl: null; error: null }
+  | { status: "created"; invite: WorkspaceInvite; invitePath: string; inviteUrl: string; error: null }
+  | { status: "error"; invite: null; invitePath: null; inviteUrl: null; error: string };
+
 export default function WorkspaceDetailPage({
   params,
 }: {
@@ -42,6 +51,14 @@ export default function WorkspaceDetailPage({
   const [state, setState] = useState<WorkspaceDetailState>({
     status: "loading",
     workspace: null,
+    error: null,
+  });
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteState, setInviteState] = useState<InviteCreateState>({
+    status: "idle",
+    invite: null,
+    invitePath: null,
+    inviteUrl: null,
     error: null,
   });
 
@@ -108,6 +125,64 @@ export default function WorkspaceDetailPage({
   const workspace = state.workspace;
   const members = state.status === "ready" ? state.members : [];
   const adminCount = members.filter((member) => member.role === "ADMIN").length;
+  const canCreateInvite = workspace?.myRole === "ADMIN";
+  const isCreatingInvite = inviteState.status === "submitting";
+  const canSubmitInvite = canCreateInvite && inviteEmail.trim().length > 0 && !isCreatingInvite;
+
+  const handleCreateInvite = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (!isValidWorkspaceId(numericWorkspaceId)) {
+      setInviteState({
+        status: "error",
+        invite: null,
+        invitePath: null,
+        inviteUrl: null,
+        error: "올바르지 않은 워크스페이스입니다.",
+      });
+      return;
+    }
+
+    const email = inviteEmail.trim();
+    if (!email) {
+      setInviteState({
+        status: "error",
+        invite: null,
+        invitePath: null,
+        inviteUrl: null,
+        error: "초대할 이메일을 입력해 주세요.",
+      });
+      return;
+    }
+
+    setInviteState({
+      status: "submitting",
+      invite: null,
+      invitePath: null,
+      inviteUrl: null,
+      error: null,
+    });
+
+    try {
+      const invite = await createWorkspaceInvite(
+        TEMP_MEMBER_GOOGLE_SUB,
+        numericWorkspaceId,
+        { email },
+      );
+      const invitePath = `/invites/${invite.token}`;
+      const inviteUrl = `${window.location.origin}${invitePath}`;
+      setInviteState({ status: "created", invite, invitePath, inviteUrl, error: null });
+      setInviteEmail("");
+    } catch (error) {
+      setInviteState({
+        status: "error",
+        invite: null,
+        invitePath: null,
+        inviteUrl: null,
+        error: messageFromError(error, "초대 생성을 처리하지 못했습니다."),
+      });
+    }
+  };
 
   return (
     <main className="workspace-detail-shell">
@@ -228,6 +303,73 @@ export default function WorkspaceDetailPage({
                 </div>
               )}
             </section>
+
+            <section className="workspace-invite-section" aria-label="워크스페이스 초대 생성">
+              <div className="workspace-section-title">
+                <div>
+                  <span className="workspace-detail-label">Invite</span>
+                  <h2>멤버 초대</h2>
+                </div>
+                <span className={canCreateInvite ? "workspace-count-badge" : "workspace-lock-badge"}>
+                  {canCreateInvite ? "ADMIN" : "MEMBER"}
+                </span>
+              </div>
+
+              <form className="workspace-invite-form" onSubmit={handleCreateInvite}>
+                <label className="form-field">
+                  <span>
+                    <strong>초대 이메일</strong>
+                    <small>{canCreateInvite ? "7일 유효" : "관리자 전용"}</small>
+                  </span>
+                  <input
+                    type="email"
+                    value={inviteEmail}
+                    onChange={(event) => setInviteEmail(event.target.value)}
+                    placeholder="member@example.com"
+                    disabled={!canCreateInvite || isCreatingInvite}
+                  />
+                </label>
+
+                {inviteState.status === "error" ? (
+                  <div className="form-notice form-notice-error" role="alert">
+                    <AlertCircle aria-hidden="true" />
+                    <span>{inviteState.error}</span>
+                  </div>
+                ) : null}
+
+                {inviteState.status === "created" ? (
+                  <div className="workspace-invite-result" role="status">
+                    <Mail aria-hidden="true" />
+                    <div>
+                      <strong>{inviteState.invite.email}</strong>
+                      <p>{inviteState.inviteUrl}</p>
+                      <Link className="secondary-action workspace-invite-open" href={inviteState.invitePath}>
+                        초대 열기
+                      </Link>
+                    </div>
+                  </div>
+                ) : null}
+
+                {!canCreateInvite ? (
+                  <p className="workspace-invite-help">
+                    관리자 역할만 새 초대를 생성할 수 있습니다.
+                  </p>
+                ) : null}
+
+                <button
+                  className="primary-action primary-action-active workspace-invite-submit"
+                  type="submit"
+                  disabled={!canSubmitInvite}
+                >
+                  {isCreatingInvite ? (
+                    <Loader2 className="spin" aria-hidden="true" />
+                  ) : (
+                    <Send aria-hidden="true" />
+                  )}
+                  <span>{isCreatingInvite ? "생성 중" : "초대 생성"}</span>
+                </button>
+              </form>
+            </section>
           </section>
         ) : null}
       </section>
@@ -310,6 +452,13 @@ function toFailureState(error: unknown, fallback: string): WorkspaceDetailState 
     workspace: null,
     error: fallback,
   };
+}
+
+function messageFromError(error: unknown, fallback: string): string {
+  if (error instanceof ApiError) {
+    return error.message;
+  }
+  return fallback;
 }
 
 function isValidWorkspaceId(workspaceId: number): boolean {

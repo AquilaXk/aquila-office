@@ -1055,6 +1055,20 @@ h2 {
   white-space: nowrap;
 }
 
+.workspace-lock-badge {
+  display: inline-flex;
+  min-height: 28px;
+  align-items: center;
+  border: 1px solid #f4c7c3;
+  border-radius: 999px;
+  background: #fff8f7;
+  color: var(--red);
+  font-size: 12px;
+  font-weight: 800;
+  padding: 0 10px;
+  white-space: nowrap;
+}
+
 .workspace-member-list {
   display: grid;
   gap: 10px;
@@ -1147,6 +1161,70 @@ h2 {
   color: var(--text-muted);
   font-size: 14px;
   line-height: 1.5;
+}
+
+.workspace-invite-section {
+  display: grid;
+  gap: 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fbfcfe;
+  padding: 16px;
+}
+
+.workspace-invite-form {
+  display: grid;
+  gap: 12px;
+}
+
+.workspace-invite-result {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  gap: 12px;
+  border: 1px solid #c6eadc;
+  border-radius: 8px;
+  background: #e8f5ef;
+  color: #08764f;
+  padding: 12px;
+}
+
+.workspace-invite-result > svg {
+  width: 22px;
+  height: 22px;
+  margin-top: 2px;
+}
+
+.workspace-invite-result strong {
+  display: block;
+  margin-bottom: 4px;
+  overflow-wrap: anywhere;
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+.workspace-invite-result p {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.workspace-invite-open {
+  width: fit-content;
+  min-height: 36px;
+  margin-top: 10px;
+}
+
+.workspace-invite-help {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.workspace-invite-submit {
+  width: fit-content;
+  justify-self: end;
 }
 
 .workspace-detail-side {
