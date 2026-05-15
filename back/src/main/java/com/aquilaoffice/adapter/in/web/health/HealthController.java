@@ -1,4 +1,4 @@
-package com.aquilaoffice.global.health;
+package com.aquilaoffice.adapter.in.web.health;
 
 import java.time.Instant;
 import com.aquilaoffice.global.response.RsData;
