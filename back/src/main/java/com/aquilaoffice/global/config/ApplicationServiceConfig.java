@@ -1,9 +1,12 @@
 package com.aquilaoffice.global.config;
 
 import com.aquilaoffice.application.port.in.CreateWorkspaceUseCase;
+import com.aquilaoffice.application.port.in.ListWorkspacesUseCase;
 import com.aquilaoffice.application.port.out.LoadMemberPort;
+import com.aquilaoffice.application.port.out.LoadWorkspacePort;
 import com.aquilaoffice.application.port.out.SaveWorkspacePort;
 import com.aquilaoffice.application.service.CreateWorkspaceService;
+import com.aquilaoffice.application.service.ListWorkspacesService;
 import java.time.Clock;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -26,5 +29,12 @@ public class ApplicationServiceConfig {
             SaveWorkspacePort saveWorkspacePort,
             Clock applicationClock) {
         return new CreateWorkspaceService(loadMemberPort, saveWorkspacePort, applicationClock);
+    }
+
+    @Bean
+    public ListWorkspacesUseCase listWorkspacesUseCase(
+            LoadMemberPort loadMemberPort,
+            LoadWorkspacePort loadWorkspacePort) {
+        return new ListWorkspacesService(loadMemberPort, loadWorkspacePort);
     }
 }

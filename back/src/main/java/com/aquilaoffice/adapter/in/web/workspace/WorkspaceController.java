@@ -2,12 +2,17 @@ package com.aquilaoffice.adapter.in.web.workspace;
 
 import com.aquilaoffice.application.port.in.CreateWorkspaceResult;
 import com.aquilaoffice.application.port.in.CreateWorkspaceUseCase;
+import com.aquilaoffice.application.port.in.ListWorkspacesQuery;
+import com.aquilaoffice.application.port.in.ListWorkspacesResult;
+import com.aquilaoffice.application.port.in.ListWorkspacesUseCase;
 import com.aquilaoffice.global.exception.CommonErrorCode;
 import com.aquilaoffice.global.exception.ServiceException;
 import com.aquilaoffice.global.response.RsData;
 import jakarta.validation.Valid;
 import java.net.URI;
+import java.util.List;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
@@ -25,9 +30,26 @@ public class WorkspaceController {
     public static final String CREATOR_GOOGLE_SUB_HEADER = "X-Aquila-Creator-Google-Sub";
 
     private final CreateWorkspaceUseCase createWorkspaceUseCase;
+    private final ListWorkspacesUseCase listWorkspacesUseCase;
 
-    public WorkspaceController(CreateWorkspaceUseCase createWorkspaceUseCase) {
+    public WorkspaceController(
+            CreateWorkspaceUseCase createWorkspaceUseCase,
+            ListWorkspacesUseCase listWorkspacesUseCase) {
         this.createWorkspaceUseCase = createWorkspaceUseCase;
+        this.listWorkspacesUseCase = listWorkspacesUseCase;
+    }
+
+    @GetMapping
+    public ResponseEntity<RsData<List<WorkspaceResponse>>> listWorkspaces(
+            @RequestHeader(name = CREATOR_GOOGLE_SUB_HEADER, required = false) String creatorGoogleSub) {
+        String normalizedCreatorGoogleSub = requireCreatorGoogleSub(creatorGoogleSub);
+
+        List<ListWorkspacesResult> results =
+                listWorkspacesUseCase.listWorkspaces(new ListWorkspacesQuery(normalizedCreatorGoogleSub));
+
+        return ResponseEntity.ok(RsData.ok(results.stream()
+                .map(WorkspaceResponse::from)
+                .toList()));
     }
 
     @PostMapping

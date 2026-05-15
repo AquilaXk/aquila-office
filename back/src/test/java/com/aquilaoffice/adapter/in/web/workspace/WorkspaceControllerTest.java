@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -14,9 +15,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.aquilaoffice.application.port.in.CreateWorkspaceCommand;
 import com.aquilaoffice.application.port.in.CreateWorkspaceResult;
 import com.aquilaoffice.application.port.in.CreateWorkspaceUseCase;
+import com.aquilaoffice.application.port.in.ListWorkspacesQuery;
+import com.aquilaoffice.application.port.in.ListWorkspacesResult;
+import com.aquilaoffice.application.port.in.ListWorkspacesUseCase;
 import com.aquilaoffice.domain.workspace.WorkspaceMemberRole;
 import com.aquilaoffice.global.handler.GlobalExceptionHandler;
 import java.time.LocalDateTime;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -41,6 +46,9 @@ class WorkspaceControllerTest {
 
     @MockitoBean
     private CreateWorkspaceUseCase createWorkspaceUseCase;
+
+    @MockitoBean
+    private ListWorkspacesUseCase listWorkspacesUseCase;
 
     @Test
     void createWorkspaceReturnsCreatedEnvelope() throws Exception {
@@ -102,5 +110,45 @@ class WorkspaceControllerTest {
                 .andExpect(jsonPath("$.code").value("400"));
 
         verifyNoInteractions(createWorkspaceUseCase);
+    }
+
+    @Test
+    void listWorkspacesReturnsOkEnvelope() throws Exception {
+        given(listWorkspacesUseCase.listWorkspaces(any(ListWorkspacesQuery.class)))
+                .willReturn(List.of(new ListWorkspacesResult(
+                        101L,
+                        "Team",
+                        "Description",
+                        "google-1",
+                        WorkspaceMemberRole.ADMIN,
+                        LocalDateTime.of(2026, 5, 15, 10, 0))));
+
+        mockMvc.perform(get("/api/v1/workspaces")
+                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, " google-1 "))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.code").value("200"))
+                .andExpect(jsonPath("$.message").value("OK"))
+                .andExpect(jsonPath("$.data[0].workspaceId").value(101))
+                .andExpect(jsonPath("$.data[0].name").value("Team"))
+                .andExpect(jsonPath("$.data[0].description").value("Description"))
+                .andExpect(jsonPath("$.data[0].creatorGoogleSub").value("google-1"))
+                .andExpect(jsonPath("$.data[0].myRole").value("ADMIN"))
+                .andExpect(jsonPath("$.data[0].joinedAt", notNullValue()));
+
+        ArgumentCaptor<ListWorkspacesQuery> queryCaptor = ArgumentCaptor.forClass(ListWorkspacesQuery.class);
+        verify(listWorkspacesUseCase).listWorkspaces(queryCaptor.capture());
+        assertThat(queryCaptor.getValue().memberGoogleSub()).isEqualTo("google-1");
+    }
+
+    @Test
+    void listWorkspacesRejectsBlankCreatorHeader() throws Exception {
+        mockMvc.perform(get("/api/v1/workspaces")
+                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, " "))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code").value("400"));
+
+        verifyNoInteractions(listWorkspacesUseCase);
     }
 }
