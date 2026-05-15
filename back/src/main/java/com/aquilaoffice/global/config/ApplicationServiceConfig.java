@@ -1,16 +1,19 @@
 package com.aquilaoffice.global.config;
 
+import com.aquilaoffice.application.port.in.AcceptWorkspaceInviteUseCase;
 import com.aquilaoffice.application.port.in.CreateWorkspaceUseCase;
 import com.aquilaoffice.application.port.in.CreateWorkspaceInviteUseCase;
 import com.aquilaoffice.application.port.in.GetWorkspaceDetailUseCase;
 import com.aquilaoffice.application.port.in.GetWorkspaceInviteUseCase;
 import com.aquilaoffice.application.port.in.ListWorkspacesUseCase;
+import com.aquilaoffice.application.port.out.AcceptWorkspaceInvitePort;
 import com.aquilaoffice.application.port.out.GenerateWorkspaceInviteTokenPort;
 import com.aquilaoffice.application.port.out.LoadMemberPort;
 import com.aquilaoffice.application.port.out.LoadWorkspacePort;
 import com.aquilaoffice.application.port.out.LoadWorkspaceInvitePort;
 import com.aquilaoffice.application.port.out.SaveWorkspaceInvitePort;
 import com.aquilaoffice.application.port.out.SaveWorkspacePort;
+import com.aquilaoffice.application.service.AcceptWorkspaceInviteService;
 import com.aquilaoffice.application.service.CreateWorkspaceService;
 import com.aquilaoffice.application.service.CreateWorkspaceInviteService;
 import com.aquilaoffice.application.service.GetWorkspaceDetailService;
@@ -72,5 +75,15 @@ public class ApplicationServiceConfig {
     @Bean
     public GetWorkspaceInviteUseCase getWorkspaceInviteUseCase(LoadWorkspaceInvitePort loadWorkspaceInvitePort) {
         return new GetWorkspaceInviteService(loadWorkspaceInvitePort);
+    }
+
+    @Bean
+    public AcceptWorkspaceInviteUseCase acceptWorkspaceInviteUseCase(
+            LoadMemberPort loadMemberPort,
+            LoadWorkspaceInvitePort loadWorkspaceInvitePort,
+            AcceptWorkspaceInvitePort acceptWorkspaceInvitePort,
+            Clock applicationClock) {
+        return new AcceptWorkspaceInviteService(
+                loadMemberPort, loadWorkspaceInvitePort, acceptWorkspaceInvitePort, applicationClock);
     }
 }

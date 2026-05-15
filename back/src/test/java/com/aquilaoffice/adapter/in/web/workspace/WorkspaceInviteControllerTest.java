@@ -5,14 +5,20 @@ import static org.hamcrest.Matchers.notNullValue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.aquilaoffice.application.port.in.AcceptWorkspaceInviteCommand;
+import com.aquilaoffice.application.port.in.AcceptWorkspaceInviteResult;
+import com.aquilaoffice.application.port.in.AcceptWorkspaceInviteUseCase;
 import com.aquilaoffice.application.port.in.GetWorkspaceInviteQuery;
 import com.aquilaoffice.application.port.in.GetWorkspaceInviteResult;
 import com.aquilaoffice.application.port.in.GetWorkspaceInviteUseCase;
 import com.aquilaoffice.domain.workspace.WorkspaceInviteStatus;
+import com.aquilaoffice.domain.workspace.WorkspaceMemberRole;
 import com.aquilaoffice.global.handler.GlobalExceptionHandler;
 import java.time.LocalDateTime;
 import org.junit.jupiter.api.Test;
@@ -37,6 +43,9 @@ class WorkspaceInviteControllerTest {
 
     @MockitoBean
     private GetWorkspaceInviteUseCase getWorkspaceInviteUseCase;
+
+    @MockitoBean
+    private AcceptWorkspaceInviteUseCase acceptWorkspaceInviteUseCase;
 
     @Test
     void getWorkspaceInviteReturnsOkEnvelope() throws Exception {
@@ -75,6 +84,60 @@ class WorkspaceInviteControllerTest {
                 .willThrow(new IllegalArgumentException("workspace invite not found"));
 
         mockMvc.perform(get("/api/v1/workspace-invites/missing-token"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code").value("404"));
+    }
+
+    @Test
+    void acceptWorkspaceInviteReturnsOkEnvelope() throws Exception {
+        LocalDateTime acceptedAt = LocalDateTime.of(2026, 5, 16, 10, 0);
+        given(acceptWorkspaceInviteUseCase.acceptWorkspaceInvite(any(AcceptWorkspaceInviteCommand.class)))
+                .willReturn(new AcceptWorkspaceInviteResult(
+                        501L,
+                        101L,
+                        "google-1",
+                        WorkspaceMemberRole.MEMBER,
+                        acceptedAt));
+
+        mockMvc.perform(post("/api/v1/workspace-invites/invite-token/accept")
+                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, " google-1 "))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.code").value("200"))
+                .andExpect(jsonPath("$.message").value("OK"))
+                .andExpect(jsonPath("$.data.inviteId").value(501))
+                .andExpect(jsonPath("$.data.workspaceId").value(101))
+                .andExpect(jsonPath("$.data.memberGoogleSub").value("google-1"))
+                .andExpect(jsonPath("$.data.role").value("MEMBER"))
+                .andExpect(jsonPath("$.data.acceptedAt", notNullValue()));
+
+        ArgumentCaptor<AcceptWorkspaceInviteCommand> commandCaptor =
+                ArgumentCaptor.forClass(AcceptWorkspaceInviteCommand.class);
+        verify(acceptWorkspaceInviteUseCase).acceptWorkspaceInvite(commandCaptor.capture());
+        AcceptWorkspaceInviteCommand command = commandCaptor.getValue();
+        assertThat(command.token()).isEqualTo("invite-token");
+        assertThat(command.memberGoogleSub()).isEqualTo("google-1");
+    }
+
+    @Test
+    void acceptWorkspaceInviteRejectsBlankMemberHeader() throws Exception {
+        mockMvc.perform(post("/api/v1/workspace-invites/invite-token/accept")
+                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, " "))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code").value("400"));
+
+        verifyNoInteractions(acceptWorkspaceInviteUseCase);
+    }
+
+    @Test
+    void acceptWorkspaceInviteReturnsNotFoundEnvelope() throws Exception {
+        given(acceptWorkspaceInviteUseCase.acceptWorkspaceInvite(any(AcceptWorkspaceInviteCommand.class)))
+                .willThrow(new IllegalArgumentException("workspace invite not found"));
+
+        mockMvc.perform(post("/api/v1/workspace-invites/missing-token/accept")
+                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, "google-1"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.code").value("404"));
