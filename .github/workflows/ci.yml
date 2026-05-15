@@ -1,0 +1,74 @@
+name: CI
+
+on:
+  pull_request:
+    branches: ["main"]
+    paths:
+      - ".github/workflows/ci.yml"
+      - "back/**"
+      - "front/**"
+      - "README.md"
+  push:
+    branches: ["main"]
+    paths:
+      - ".github/workflows/ci.yml"
+      - "back/**"
+      - "front/**"
+      - "README.md"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+
+      - name: Grant Gradle wrapper permission
+        run: chmod +x back/gradlew
+
+      - name: Run backend tests
+        run: ./back/gradlew -p back test
+
+  frontend:
+    name: Frontend Quality Gate
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: front/package-lock.json
+
+      - name: Install dependencies
+        working-directory: front
+        run: npm ci
+
+      - name: Run frontend lint
+        working-directory: front
+        run: npm run lint
+
+      - name: Run frontend build
+        working-directory: front
+        run: npm run build
+
+      - name: Run frontend audit
+        working-directory: front
+        run: npm audit --audit-level=moderate
