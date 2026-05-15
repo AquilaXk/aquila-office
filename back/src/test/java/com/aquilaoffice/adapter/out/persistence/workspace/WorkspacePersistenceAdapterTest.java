@@ -94,6 +94,46 @@ class WorkspacePersistenceAdapterTest {
     }
 
     @Test
+    void workspaceEntityUpdatesMetadataAndSoftDeletesOnce() {
+        MemberJpaEntity creatorEntity = memberJpaRepository.save(MemberJpaEntity.create(
+                "google-1", "user@example.com", "User", MemberRole.USER));
+        Workspace workspace = Workspace.create(
+                "Team", "Description", Member.createUser("google-1", "user@example.com", "User"));
+        WorkspaceJpaEntity workspaceEntity = workspaceJpaRepository.save(WorkspaceJpaEntity.from(workspace, creatorEntity));
+
+        workspaceEntity.update(" Updated Team ", " Updated Description ");
+        workspaceEntity.softDelete(LocalDateTime.of(2026, 5, 16, 10, 0));
+        workspaceEntity.softDelete(LocalDateTime.of(2026, 5, 17, 10, 0));
+
+        assertThat(workspaceEntity.getName()).isEqualTo("Updated Team");
+        assertThat(workspaceEntity.getDescription()).isEqualTo("Updated Description");
+        assertThat(workspaceEntity.getDeletedAt()).isEqualTo(LocalDateTime.of(2026, 5, 16, 10, 0));
+    }
+
+    @Test
+    void workspaceMemberEntityChangesRole() {
+        MemberJpaEntity adminEntity = memberJpaRepository.save(MemberJpaEntity.create(
+                "google-1", "admin@example.com", "Admin", MemberRole.USER));
+        Member admin = Member.createUser("google-1", "admin@example.com", "Admin");
+        Workspace workspace = Workspace.create("Team", "Description", admin);
+        Long workspaceId = saveWorkspacePort.save(
+                        workspace,
+                        WorkspaceMember.create(
+                                workspace,
+                                admin,
+                                WorkspaceMemberRole.ADMIN,
+                                LocalDateTime.of(2026, 5, 15, 10, 0)))
+                .workspaceId();
+        WorkspaceMemberJpaEntity workspaceMemberEntity = workspaceMemberJpaRepository
+                .findByWorkspaceIdAndMemberId(workspaceId, adminEntity.getId())
+                .orElseThrow();
+
+        workspaceMemberEntity.changeRole(WorkspaceMemberRole.MEMBER);
+
+        assertThat(workspaceMemberEntity.getRole()).isEqualTo(WorkspaceMemberRole.MEMBER);
+    }
+
+    @Test
     void saveRejectsMissingMemberEntity() {
         Member creator = Member.createUser("missing", "user@example.com", "User");
         Workspace workspace = Workspace.create("Team", null, creator);

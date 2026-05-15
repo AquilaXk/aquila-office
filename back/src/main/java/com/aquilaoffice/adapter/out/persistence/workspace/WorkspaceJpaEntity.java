@@ -47,6 +47,21 @@ public class WorkspaceJpaEntity extends BaseEntity {
                 workspace.getName(), workspace.getDescription(), createdByMember, workspace.getDeletedAt());
     }
 
+    public void update(String name, String description) {
+        this.name = requireNotBlank(name, "name");
+        this.description = normalizeDescription(description);
+    }
+
+    public void softDelete(LocalDateTime deletedAt) {
+        if (deletedAt == null) {
+            throw new IllegalArgumentException("deletedAt must not be null");
+        }
+        // soft delete는 첫 삭제 시각을 보존해 중복 요청에도 삭제 이력이 바뀌지 않게 한다.
+        if (this.deletedAt == null) {
+            this.deletedAt = deletedAt;
+        }
+    }
+
     public String getName() {
         return name;
     }
@@ -61,5 +76,19 @@ public class WorkspaceJpaEntity extends BaseEntity {
 
     public LocalDateTime getDeletedAt() {
         return deletedAt;
+    }
+
+    private static String requireNotBlank(String value, String fieldName) {
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException(fieldName + " must not be blank");
+        }
+        return value.trim();
+    }
+
+    private static String normalizeDescription(String description) {
+        if (description == null || description.isBlank()) {
+            return null;
+        }
+        return description.trim();
     }
 }
