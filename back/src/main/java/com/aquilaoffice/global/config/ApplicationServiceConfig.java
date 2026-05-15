@@ -1,12 +1,16 @@
 package com.aquilaoffice.global.config;
 
 import com.aquilaoffice.application.port.in.CreateWorkspaceUseCase;
+import com.aquilaoffice.application.port.in.CreateWorkspaceInviteUseCase;
 import com.aquilaoffice.application.port.in.GetWorkspaceDetailUseCase;
 import com.aquilaoffice.application.port.in.ListWorkspacesUseCase;
+import com.aquilaoffice.application.port.out.GenerateWorkspaceInviteTokenPort;
 import com.aquilaoffice.application.port.out.LoadMemberPort;
 import com.aquilaoffice.application.port.out.LoadWorkspacePort;
+import com.aquilaoffice.application.port.out.SaveWorkspaceInvitePort;
 import com.aquilaoffice.application.port.out.SaveWorkspacePort;
 import com.aquilaoffice.application.service.CreateWorkspaceService;
+import com.aquilaoffice.application.service.CreateWorkspaceInviteService;
 import com.aquilaoffice.application.service.GetWorkspaceDetailService;
 import com.aquilaoffice.application.service.ListWorkspacesService;
 import java.time.Clock;
@@ -31,6 +35,21 @@ public class ApplicationServiceConfig {
             SaveWorkspacePort saveWorkspacePort,
             Clock applicationClock) {
         return new CreateWorkspaceService(loadMemberPort, saveWorkspacePort, applicationClock);
+    }
+
+    @Bean
+    public CreateWorkspaceInviteUseCase createWorkspaceInviteUseCase(
+            LoadMemberPort loadMemberPort,
+            LoadWorkspacePort loadWorkspacePort,
+            SaveWorkspaceInvitePort saveWorkspaceInvitePort,
+            GenerateWorkspaceInviteTokenPort generateWorkspaceInviteTokenPort,
+            Clock applicationClock) {
+        return new CreateWorkspaceInviteService(
+                loadMemberPort,
+                loadWorkspacePort,
+                saveWorkspaceInvitePort,
+                generateWorkspaceInviteTokenPort,
+                applicationClock);
     }
 
     @Bean
