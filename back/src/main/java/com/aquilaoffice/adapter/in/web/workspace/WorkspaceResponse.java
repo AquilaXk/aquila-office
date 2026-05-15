@@ -3,6 +3,7 @@ package com.aquilaoffice.adapter.in.web.workspace;
 import com.aquilaoffice.application.port.in.CreateWorkspaceResult;
 import com.aquilaoffice.application.port.in.GetWorkspaceDetailResult;
 import com.aquilaoffice.application.port.in.ListWorkspacesResult;
+import com.aquilaoffice.application.port.in.UpdateWorkspaceResult;
 import com.aquilaoffice.domain.workspace.WorkspaceMemberRole;
 import java.time.LocalDateTime;
 
@@ -39,6 +40,16 @@ public record WorkspaceResponse(
     }
 
     static WorkspaceResponse from(GetWorkspaceDetailResult result) {
+        return new WorkspaceResponse(
+                result.workspaceId(),
+                result.name(),
+                result.description(),
+                result.creatorGoogleSub(),
+                result.myRole(),
+                result.joinedAt());
+    }
+
+    static WorkspaceResponse from(UpdateWorkspaceResult result) {
         return new WorkspaceResponse(
                 result.workspaceId(),
                 result.name(),

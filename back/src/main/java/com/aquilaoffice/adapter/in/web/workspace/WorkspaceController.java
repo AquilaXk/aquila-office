@@ -4,6 +4,9 @@ import com.aquilaoffice.application.port.in.CreateWorkspaceInviteResult;
 import com.aquilaoffice.application.port.in.CreateWorkspaceInviteUseCase;
 import com.aquilaoffice.application.port.in.CreateWorkspaceResult;
 import com.aquilaoffice.application.port.in.CreateWorkspaceUseCase;
+import com.aquilaoffice.application.port.in.ChangeWorkspaceMemberRoleUseCase;
+import com.aquilaoffice.application.port.in.DeleteWorkspaceCommand;
+import com.aquilaoffice.application.port.in.DeleteWorkspaceUseCase;
 import com.aquilaoffice.application.port.in.GetWorkspaceDetailQuery;
 import com.aquilaoffice.application.port.in.GetWorkspaceDetailResult;
 import com.aquilaoffice.application.port.in.GetWorkspaceDetailUseCase;
@@ -16,8 +19,12 @@ import com.aquilaoffice.application.port.in.ListWorkspaceInvitesUseCase;
 import com.aquilaoffice.application.port.in.ListWorkspacesQuery;
 import com.aquilaoffice.application.port.in.ListWorkspacesResult;
 import com.aquilaoffice.application.port.in.ListWorkspacesUseCase;
+import com.aquilaoffice.application.port.in.RemoveWorkspaceMemberCommand;
+import com.aquilaoffice.application.port.in.RemoveWorkspaceMemberUseCase;
 import com.aquilaoffice.application.port.in.RevokeWorkspaceInviteCommand;
 import com.aquilaoffice.application.port.in.RevokeWorkspaceInviteUseCase;
+import com.aquilaoffice.application.port.in.UpdateWorkspaceResult;
+import com.aquilaoffice.application.port.in.UpdateWorkspaceUseCase;
 import com.aquilaoffice.domain.workspace.WorkspaceInviteStatus;
 import com.aquilaoffice.global.exception.CommonErrorCode;
 import com.aquilaoffice.global.exception.ServiceException;
@@ -29,6 +36,7 @@ import java.util.Locale;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -54,6 +62,10 @@ public class WorkspaceController {
     private final ListWorkspaceMembersUseCase listWorkspaceMembersUseCase;
     private final ListWorkspaceInvitesUseCase listWorkspaceInvitesUseCase;
     private final RevokeWorkspaceInviteUseCase revokeWorkspaceInviteUseCase;
+    private final UpdateWorkspaceUseCase updateWorkspaceUseCase;
+    private final DeleteWorkspaceUseCase deleteWorkspaceUseCase;
+    private final ChangeWorkspaceMemberRoleUseCase changeWorkspaceMemberRoleUseCase;
+    private final RemoveWorkspaceMemberUseCase removeWorkspaceMemberUseCase;
 
     public WorkspaceController(
             CreateWorkspaceUseCase createWorkspaceUseCase,
@@ -62,7 +74,11 @@ public class WorkspaceController {
             GetWorkspaceDetailUseCase getWorkspaceDetailUseCase,
             ListWorkspaceMembersUseCase listWorkspaceMembersUseCase,
             ListWorkspaceInvitesUseCase listWorkspaceInvitesUseCase,
-            RevokeWorkspaceInviteUseCase revokeWorkspaceInviteUseCase) {
+            RevokeWorkspaceInviteUseCase revokeWorkspaceInviteUseCase,
+            UpdateWorkspaceUseCase updateWorkspaceUseCase,
+            DeleteWorkspaceUseCase deleteWorkspaceUseCase,
+            ChangeWorkspaceMemberRoleUseCase changeWorkspaceMemberRoleUseCase,
+            RemoveWorkspaceMemberUseCase removeWorkspaceMemberUseCase) {
         this.createWorkspaceUseCase = createWorkspaceUseCase;
         this.createWorkspaceInviteUseCase = createWorkspaceInviteUseCase;
         this.listWorkspacesUseCase = listWorkspacesUseCase;
@@ -70,6 +86,10 @@ public class WorkspaceController {
         this.listWorkspaceMembersUseCase = listWorkspaceMembersUseCase;
         this.listWorkspaceInvitesUseCase = listWorkspaceInvitesUseCase;
         this.revokeWorkspaceInviteUseCase = revokeWorkspaceInviteUseCase;
+        this.updateWorkspaceUseCase = updateWorkspaceUseCase;
+        this.deleteWorkspaceUseCase = deleteWorkspaceUseCase;
+        this.changeWorkspaceMemberRoleUseCase = changeWorkspaceMemberRoleUseCase;
+        this.removeWorkspaceMemberUseCase = removeWorkspaceMemberUseCase;
     }
 
     @GetMapping
@@ -135,6 +155,77 @@ public class WorkspaceController {
                     .toList()));
         } catch (IllegalArgumentException exception) {
             // 초대 목록은 관리자에게만 노출하므로 없는 워크스페이스와 권한 부족을 같은 404로 숨긴다.
+            throw new ServiceException(CommonErrorCode.NOT_FOUND);
+        }
+    }
+
+    @PatchMapping("/{workspaceId}")
+    public ResponseEntity<RsData<WorkspaceResponse>> updateWorkspace(
+            @PathVariable Long workspaceId,
+            @RequestHeader(name = CREATOR_GOOGLE_SUB_HEADER, required = false) String creatorGoogleSub,
+            @Valid @RequestBody UpdateWorkspaceRequest request) {
+        String normalizedCreatorGoogleSub = requireCreatorGoogleSub(creatorGoogleSub);
+
+        try {
+            UpdateWorkspaceResult result =
+                    updateWorkspaceUseCase.updateWorkspace(request.toCommand(workspaceId, normalizedCreatorGoogleSub));
+            return ResponseEntity.ok(RsData.ok(WorkspaceResponse.from(result)));
+        } catch (IllegalArgumentException exception) {
+            // 설정 변경 권한이 없거나 대상 워크스페이스를 찾을 수 없는 경우 같은 404로 응답한다.
+            throw new ServiceException(CommonErrorCode.NOT_FOUND);
+        }
+    }
+
+    @DeleteMapping("/{workspaceId}")
+    public ResponseEntity<RsData<Void>> deleteWorkspace(
+            @PathVariable Long workspaceId,
+            @RequestHeader(name = CREATOR_GOOGLE_SUB_HEADER, required = false) String creatorGoogleSub) {
+        String normalizedCreatorGoogleSub = requireCreatorGoogleSub(creatorGoogleSub);
+
+        try {
+            deleteWorkspaceUseCase.deleteWorkspace(new DeleteWorkspaceCommand(workspaceId, normalizedCreatorGoogleSub));
+            return ResponseEntity.ok(RsData.ok(null));
+        } catch (IllegalArgumentException exception) {
+            // 삭제 권한이 없거나 대상 워크스페이스를 찾을 수 없는 경우 같은 404로 응답한다.
+            throw new ServiceException(CommonErrorCode.NOT_FOUND);
+        }
+    }
+
+    @PatchMapping("/{workspaceId}/members/{memberId}")
+    public ResponseEntity<RsData<Void>> changeWorkspaceMemberRole(
+            @PathVariable Long workspaceId,
+            @PathVariable Long memberId,
+            @RequestHeader(name = CREATOR_GOOGLE_SUB_HEADER, required = false) String creatorGoogleSub,
+            @Valid @RequestBody ChangeWorkspaceMemberRoleRequest request) {
+        String normalizedCreatorGoogleSub = requireCreatorGoogleSub(creatorGoogleSub);
+
+        try {
+            changeWorkspaceMemberRoleUseCase.changeWorkspaceMemberRole(
+                    request.toCommand(workspaceId, memberId, normalizedCreatorGoogleSub));
+            return ResponseEntity.ok(RsData.ok(null));
+        } catch (IllegalStateException exception) {
+            throw new ServiceException(CommonErrorCode.BAD_REQUEST);
+        } catch (IllegalArgumentException exception) {
+            // 멤버 관리 권한이 없거나 대상 멤버를 찾을 수 없는 경우 같은 404로 응답한다.
+            throw new ServiceException(CommonErrorCode.NOT_FOUND);
+        }
+    }
+
+    @DeleteMapping("/{workspaceId}/members/{memberId}")
+    public ResponseEntity<RsData<Void>> removeWorkspaceMember(
+            @PathVariable Long workspaceId,
+            @PathVariable Long memberId,
+            @RequestHeader(name = CREATOR_GOOGLE_SUB_HEADER, required = false) String creatorGoogleSub) {
+        String normalizedCreatorGoogleSub = requireCreatorGoogleSub(creatorGoogleSub);
+
+        try {
+            removeWorkspaceMemberUseCase.removeWorkspaceMember(
+                    new RemoveWorkspaceMemberCommand(workspaceId, memberId, normalizedCreatorGoogleSub));
+            return ResponseEntity.ok(RsData.ok(null));
+        } catch (IllegalStateException exception) {
+            throw new ServiceException(CommonErrorCode.BAD_REQUEST);
+        } catch (IllegalArgumentException exception) {
+            // 멤버 관리 권한이 없거나 대상 멤버를 찾을 수 없는 경우 같은 404로 응답한다.
             throw new ServiceException(CommonErrorCode.NOT_FOUND);
         }
     }

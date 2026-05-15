@@ -19,6 +19,10 @@ import com.aquilaoffice.application.port.in.CreateWorkspaceInviteResult;
 import com.aquilaoffice.application.port.in.CreateWorkspaceInviteUseCase;
 import com.aquilaoffice.application.port.in.CreateWorkspaceResult;
 import com.aquilaoffice.application.port.in.CreateWorkspaceUseCase;
+import com.aquilaoffice.application.port.in.ChangeWorkspaceMemberRoleCommand;
+import com.aquilaoffice.application.port.in.ChangeWorkspaceMemberRoleUseCase;
+import com.aquilaoffice.application.port.in.DeleteWorkspaceCommand;
+import com.aquilaoffice.application.port.in.DeleteWorkspaceUseCase;
 import com.aquilaoffice.application.port.in.GetWorkspaceDetailQuery;
 import com.aquilaoffice.application.port.in.GetWorkspaceDetailResult;
 import com.aquilaoffice.application.port.in.GetWorkspaceDetailUseCase;
@@ -31,8 +35,13 @@ import com.aquilaoffice.application.port.in.ListWorkspaceInvitesUseCase;
 import com.aquilaoffice.application.port.in.ListWorkspacesQuery;
 import com.aquilaoffice.application.port.in.ListWorkspacesResult;
 import com.aquilaoffice.application.port.in.ListWorkspacesUseCase;
+import com.aquilaoffice.application.port.in.RemoveWorkspaceMemberCommand;
+import com.aquilaoffice.application.port.in.RemoveWorkspaceMemberUseCase;
 import com.aquilaoffice.application.port.in.RevokeWorkspaceInviteCommand;
 import com.aquilaoffice.application.port.in.RevokeWorkspaceInviteUseCase;
+import com.aquilaoffice.application.port.in.UpdateWorkspaceCommand;
+import com.aquilaoffice.application.port.in.UpdateWorkspaceResult;
+import com.aquilaoffice.application.port.in.UpdateWorkspaceUseCase;
 import com.aquilaoffice.domain.workspace.WorkspaceInviteStatus;
 import com.aquilaoffice.domain.workspace.WorkspaceMemberRole;
 import com.aquilaoffice.global.exception.CommonErrorCode;
@@ -82,6 +91,18 @@ class WorkspaceControllerTest {
 
     @MockitoBean
     private RevokeWorkspaceInviteUseCase revokeWorkspaceInviteUseCase;
+
+    @MockitoBean
+    private UpdateWorkspaceUseCase updateWorkspaceUseCase;
+
+    @MockitoBean
+    private DeleteWorkspaceUseCase deleteWorkspaceUseCase;
+
+    @MockitoBean
+    private ChangeWorkspaceMemberRoleUseCase changeWorkspaceMemberRoleUseCase;
+
+    @MockitoBean
+    private RemoveWorkspaceMemberUseCase removeWorkspaceMemberUseCase;
 
     @Test
     void createWorkspaceReturnsCreatedEnvelope() throws Exception {
@@ -319,6 +340,66 @@ class WorkspaceControllerTest {
     }
 
     @Test
+    void updateWorkspaceReturnsOkEnvelope() throws Exception {
+        given(updateWorkspaceUseCase.updateWorkspace(any(UpdateWorkspaceCommand.class)))
+                .willReturn(new UpdateWorkspaceResult(
+                        101L,
+                        "Updated Team",
+                        "Updated Description",
+                        "google-1",
+                        WorkspaceMemberRole.ADMIN,
+                        LocalDateTime.of(2026, 5, 15, 10, 0)));
+
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch("/api/v1/workspaces/101")
+                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, " google-1 ")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\" Updated Team \",\"description\":\" Updated Description \"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.code").value("200"))
+                .andExpect(jsonPath("$.data.workspaceId").value(101))
+                .andExpect(jsonPath("$.data.name").value("Updated Team"))
+                .andExpect(jsonPath("$.data.description").value("Updated Description"))
+                .andExpect(jsonPath("$.data.myRole").value("ADMIN"));
+
+        ArgumentCaptor<UpdateWorkspaceCommand> commandCaptor =
+                ArgumentCaptor.forClass(UpdateWorkspaceCommand.class);
+        verify(updateWorkspaceUseCase).updateWorkspace(commandCaptor.capture());
+        assertThat(commandCaptor.getValue().workspaceId()).isEqualTo(101L);
+        assertThat(commandCaptor.getValue().requesterGoogleSub()).isEqualTo("google-1");
+        assertThat(commandCaptor.getValue().name()).isEqualTo("Updated Team");
+        assertThat(commandCaptor.getValue().description()).isEqualTo(" Updated Description ");
+    }
+
+    @Test
+    void updateWorkspaceRejectsBlankName() throws Exception {
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch("/api/v1/workspaces/101")
+                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, "google-1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\" \",\"description\":\"Description\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code").value("400"));
+
+        verifyNoInteractions(updateWorkspaceUseCase);
+    }
+
+    @Test
+    void deleteWorkspaceReturnsOkEnvelope() throws Exception {
+        mockMvc.perform(delete("/api/v1/workspaces/101")
+                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, " google-1 "))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.code").value("200"));
+
+        ArgumentCaptor<DeleteWorkspaceCommand> commandCaptor =
+                ArgumentCaptor.forClass(DeleteWorkspaceCommand.class);
+        verify(deleteWorkspaceUseCase).deleteWorkspace(commandCaptor.capture());
+        assertThat(commandCaptor.getValue().workspaceId()).isEqualTo(101L);
+        assertThat(commandCaptor.getValue().requesterGoogleSub()).isEqualTo("google-1");
+    }
+
+    @Test
     void listWorkspaceMembersReturnsOkEnvelope() throws Exception {
         given(listWorkspaceMembersUseCase.listWorkspaceMembers(any(ListWorkspaceMembersQuery.class)))
                 .willReturn(List.of(
@@ -381,6 +462,58 @@ class WorkspaceControllerTest {
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.code").value("404"));
+    }
+
+    @Test
+    void changeWorkspaceMemberRoleReturnsOkEnvelope() throws Exception {
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch(
+                                "/api/v1/workspaces/101/members/2")
+                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, " google-1 ")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"role\":\"ADMIN\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.code").value("200"));
+
+        ArgumentCaptor<ChangeWorkspaceMemberRoleCommand> commandCaptor =
+                ArgumentCaptor.forClass(ChangeWorkspaceMemberRoleCommand.class);
+        verify(changeWorkspaceMemberRoleUseCase).changeWorkspaceMemberRole(commandCaptor.capture());
+        assertThat(commandCaptor.getValue().workspaceId()).isEqualTo(101L);
+        assertThat(commandCaptor.getValue().memberId()).isEqualTo(2L);
+        assertThat(commandCaptor.getValue().requesterGoogleSub()).isEqualTo("google-1");
+        assertThat(commandCaptor.getValue().role()).isEqualTo(WorkspaceMemberRole.ADMIN);
+    }
+
+    @Test
+    void changeWorkspaceMemberRoleReturnsBadRequestForLastAdminRule() throws Exception {
+        org.mockito.BDDMockito.willThrow(new IllegalStateException("last admin cannot be changed"))
+                .given(changeWorkspaceMemberRoleUseCase)
+                .changeWorkspaceMemberRole(any(ChangeWorkspaceMemberRoleCommand.class));
+
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch(
+                                "/api/v1/workspaces/101/members/1")
+                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, "google-1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"role\":\"MEMBER\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code").value("400"));
+    }
+
+    @Test
+    void removeWorkspaceMemberReturnsOkEnvelope() throws Exception {
+        mockMvc.perform(delete("/api/v1/workspaces/101/members/2")
+                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, " google-1 "))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.code").value("200"));
+
+        ArgumentCaptor<RemoveWorkspaceMemberCommand> commandCaptor =
+                ArgumentCaptor.forClass(RemoveWorkspaceMemberCommand.class);
+        verify(removeWorkspaceMemberUseCase).removeWorkspaceMember(commandCaptor.capture());
+        assertThat(commandCaptor.getValue().workspaceId()).isEqualTo(101L);
+        assertThat(commandCaptor.getValue().memberId()).isEqualTo(2L);
+        assertThat(commandCaptor.getValue().requesterGoogleSub()).isEqualTo("google-1");
     }
 
     @Test
