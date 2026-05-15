@@ -15,14 +15,19 @@ import {
 import Link from "next/link";
 import { use, useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { ApiError } from "@/lib/api-client";
-import { fetchWorkspaceDetail, type WorkspaceDetail } from "@/lib/workspaces";
+import {
+  fetchWorkspaceDetail,
+  fetchWorkspaceMembers,
+  type WorkspaceDetail,
+  type WorkspaceMember,
+} from "@/lib/workspaces";
 
 const TEMP_MEMBER_GOOGLE_SUB =
   process.env.NEXT_PUBLIC_DEV_MEMBER_GOOGLE_SUB ?? "google-1";
 
 type WorkspaceDetailState =
   | { status: "loading"; workspace: null; error: null }
-  | { status: "ready"; workspace: WorkspaceDetail; error: null }
+  | { status: "ready"; workspace: WorkspaceDetail; members: WorkspaceMember[]; error: null }
   | { status: "error" | "offline"; workspace: null; error: string };
 
 export default function WorkspaceDetailPage({
@@ -51,11 +56,11 @@ export default function WorkspaceDetailPage({
     }
 
     try {
-      const workspace = await fetchWorkspaceDetail(
-        TEMP_MEMBER_GOOGLE_SUB,
-        numericWorkspaceId,
-      );
-      setState({ status: "ready", workspace, error: null });
+      const [workspace, members] = await Promise.all([
+        fetchWorkspaceDetail(TEMP_MEMBER_GOOGLE_SUB, numericWorkspaceId),
+        fetchWorkspaceMembers(TEMP_MEMBER_GOOGLE_SUB, numericWorkspaceId),
+      ]);
+      setState({ status: "ready", workspace, members, error: null });
     } catch (error) {
       setState(toFailureState(error, "워크스페이스 정보를 확인하지 못했습니다."));
     }
@@ -77,12 +82,12 @@ export default function WorkspaceDetailPage({
       }
 
       try {
-        const workspace = await fetchWorkspaceDetail(
-          TEMP_MEMBER_GOOGLE_SUB,
-          numericWorkspaceId,
-        );
+        const [workspace, members] = await Promise.all([
+          fetchWorkspaceDetail(TEMP_MEMBER_GOOGLE_SUB, numericWorkspaceId),
+          fetchWorkspaceMembers(TEMP_MEMBER_GOOGLE_SUB, numericWorkspaceId),
+        ]);
         if (!ignore) {
-          setState({ status: "ready", workspace, error: null });
+          setState({ status: "ready", workspace, members, error: null });
         }
       } catch (error) {
         if (!ignore) {
@@ -99,6 +104,8 @@ export default function WorkspaceDetailPage({
   }, [numericWorkspaceId]);
 
   const workspace = state.workspace;
+  const members = state.status === "ready" ? state.members : [];
+  const adminCount = members.filter((member) => member.role === "ADMIN").length;
 
   return (
     <main className="workspace-detail-shell">
@@ -197,6 +204,11 @@ export default function WorkspaceDetailPage({
           <Hash aria-hidden="true" />
           <strong>{isValidWorkspaceId(numericWorkspaceId) ? numericWorkspaceId : "-"}</strong>
           <span>요청 워크스페이스 ID</span>
+        </div>
+        <div>
+          <ShieldCheck aria-hidden="true" />
+          <strong>{members.length}명</strong>
+          <span>멤버 {members.length}명 · 관리자 {adminCount}명</span>
         </div>
       </aside>
     </main>
