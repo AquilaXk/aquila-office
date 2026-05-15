@@ -2,16 +2,27 @@ import { apiFetch } from "@/lib/api-client";
 
 export const WORKSPACE_MEMBER_HEADER = "X-Aquila-Creator-Google-Sub";
 
+export type WorkspaceMemberRole = "ADMIN" | "MEMBER";
+
 export type WorkspaceSummary = {
   workspaceId: number;
   name: string;
   description: string | null;
   creatorGoogleSub: string;
-  myRole: "ADMIN" | "MEMBER";
+  myRole: WorkspaceMemberRole;
   joinedAt: string;
 };
 
 export type WorkspaceDetail = WorkspaceSummary;
+
+export type WorkspaceMember = {
+  memberId: number;
+  memberGoogleSub: string;
+  email: string;
+  name: string;
+  role: WorkspaceMemberRole;
+  joinedAt: string;
+};
 
 export type CreateWorkspaceInput = {
   name: string;
@@ -31,6 +42,17 @@ export async function fetchWorkspaceDetail(
   workspaceId: number,
 ): Promise<WorkspaceDetail> {
   return apiFetch<WorkspaceDetail>(`/api/v1/workspaces/${workspaceId}`, {
+    headers: {
+      [WORKSPACE_MEMBER_HEADER]: memberGoogleSub,
+    },
+  });
+}
+
+export async function fetchWorkspaceMembers(
+  memberGoogleSub: string,
+  workspaceId: number,
+): Promise<WorkspaceMember[]> {
+  return apiFetch<WorkspaceMember[]>(`/api/v1/workspaces/${workspaceId}/members`, {
     headers: {
       [WORKSPACE_MEMBER_HEADER]: memberGoogleSub,
     },
