@@ -14,6 +14,7 @@ public class WorkspaceInvite {
     private final LocalDateTime expiresAt;
     private WorkspaceInviteStatus status;
     private LocalDateTime acceptedAt;
+    private LocalDateTime revokedAt;
 
     private WorkspaceInvite(
             Workspace workspace,
@@ -58,6 +59,15 @@ public class WorkspaceInvite {
         }
     }
 
+    public void revoke(LocalDateTime revokedAt) {
+        LocalDateTime requestedRevokedAt = requireRevokedAt(revokedAt);
+        if (status != WorkspaceInviteStatus.PENDING) {
+            throw new IllegalStateException("invite is not pending");
+        }
+        this.status = WorkspaceInviteStatus.REVOKED;
+        this.revokedAt = requestedRevokedAt;
+    }
+
     public boolean isExpiredAt(LocalDateTime now) {
         LocalDateTime requestedNow = requireNow(now);
         if (status == WorkspaceInviteStatus.ACCEPTED) {
@@ -94,6 +104,10 @@ public class WorkspaceInvite {
         return acceptedAt;
     }
 
+    public LocalDateTime getRevokedAt() {
+        return revokedAt;
+    }
+
     private static Workspace requireWorkspace(Workspace workspace) {
         if (workspace == null) {
             throw new IllegalArgumentException("workspace must not be null");
@@ -123,6 +137,13 @@ public class WorkspaceInvite {
             throw new IllegalArgumentException("acceptedAt must not be null");
         }
         return acceptedAt;
+    }
+
+    private static LocalDateTime requireRevokedAt(LocalDateTime revokedAt) {
+        if (revokedAt == null) {
+            throw new IllegalArgumentException("revokedAt must not be null");
+        }
+        return revokedAt;
     }
 
     private static LocalDateTime requireNow(LocalDateTime now) {

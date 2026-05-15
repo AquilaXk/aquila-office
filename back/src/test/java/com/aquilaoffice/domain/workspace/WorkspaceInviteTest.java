@@ -28,6 +28,7 @@ class WorkspaceInviteTest {
         assertThat(invite.getExpiresAt()).isEqualTo(expiresAt);
         assertThat(invite.getStatus()).isEqualTo(WorkspaceInviteStatus.PENDING);
         assertThat(invite.getAcceptedAt()).isNull();
+        assertThat(invite.getRevokedAt()).isNull();
     }
 
     @Test
@@ -105,6 +106,33 @@ class WorkspaceInviteTest {
 
         assertThat(invite.getStatus()).isEqualTo(WorkspaceInviteStatus.ACCEPTED);
         assertThat(invite.isExpiredAt(LocalDateTime.of(2026, 5, 17, 10, 0))).isFalse();
+    }
+
+    @Test
+    void revokeChangesPendingInviteToRevoked() {
+        LocalDateTime createdAt = LocalDateTime.of(2026, 5, 15, 10, 0);
+        WorkspaceInvite invite = WorkspaceInvite.create(
+                workspace(), "user@example.com", "token", createdAt, createdAt.plusDays(7));
+        LocalDateTime revokedAt = LocalDateTime.of(2026, 5, 15, 12, 0);
+
+        invite.revoke(revokedAt);
+
+        assertThat(invite.getStatus()).isEqualTo(WorkspaceInviteStatus.REVOKED);
+        assertThat(invite.getRevokedAt()).isEqualTo(revokedAt);
+    }
+
+    @Test
+    void revokeRejectsAcceptedInvite() {
+        LocalDateTime createdAt = LocalDateTime.of(2026, 5, 15, 10, 0);
+        WorkspaceInvite invite = WorkspaceInvite.create(
+                workspace(), "user@example.com", "token", createdAt, createdAt.plusDays(7));
+        invite.accept(LocalDateTime.of(2026, 5, 15, 11, 0));
+
+        assertThatThrownBy(() -> invite.revoke(LocalDateTime.of(2026, 5, 15, 12, 0)))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("invite is not pending");
+        assertThat(invite.getStatus()).isEqualTo(WorkspaceInviteStatus.ACCEPTED);
+        assertThat(invite.getRevokedAt()).isNull();
     }
 
     private Workspace workspace() {

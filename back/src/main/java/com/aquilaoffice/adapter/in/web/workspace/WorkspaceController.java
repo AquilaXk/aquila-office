@@ -10,19 +10,28 @@ import com.aquilaoffice.application.port.in.GetWorkspaceDetailUseCase;
 import com.aquilaoffice.application.port.in.ListWorkspaceMembersQuery;
 import com.aquilaoffice.application.port.in.ListWorkspaceMembersResult;
 import com.aquilaoffice.application.port.in.ListWorkspaceMembersUseCase;
+import com.aquilaoffice.application.port.in.ListWorkspaceInvitesQuery;
+import com.aquilaoffice.application.port.in.ListWorkspaceInvitesResult;
+import com.aquilaoffice.application.port.in.ListWorkspaceInvitesUseCase;
 import com.aquilaoffice.application.port.in.ListWorkspacesQuery;
 import com.aquilaoffice.application.port.in.ListWorkspacesResult;
 import com.aquilaoffice.application.port.in.ListWorkspacesUseCase;
+import com.aquilaoffice.application.port.in.RevokeWorkspaceInviteCommand;
+import com.aquilaoffice.application.port.in.RevokeWorkspaceInviteUseCase;
+import com.aquilaoffice.domain.workspace.WorkspaceInviteStatus;
 import com.aquilaoffice.global.exception.CommonErrorCode;
 import com.aquilaoffice.global.exception.ServiceException;
 import com.aquilaoffice.global.response.RsData;
 import jakarta.validation.Valid;
 import java.net.URI;
 import java.util.List;
+import java.util.Locale;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -43,18 +52,24 @@ public class WorkspaceController {
     private final ListWorkspacesUseCase listWorkspacesUseCase;
     private final GetWorkspaceDetailUseCase getWorkspaceDetailUseCase;
     private final ListWorkspaceMembersUseCase listWorkspaceMembersUseCase;
+    private final ListWorkspaceInvitesUseCase listWorkspaceInvitesUseCase;
+    private final RevokeWorkspaceInviteUseCase revokeWorkspaceInviteUseCase;
 
     public WorkspaceController(
             CreateWorkspaceUseCase createWorkspaceUseCase,
             CreateWorkspaceInviteUseCase createWorkspaceInviteUseCase,
             ListWorkspacesUseCase listWorkspacesUseCase,
             GetWorkspaceDetailUseCase getWorkspaceDetailUseCase,
-            ListWorkspaceMembersUseCase listWorkspaceMembersUseCase) {
+            ListWorkspaceMembersUseCase listWorkspaceMembersUseCase,
+            ListWorkspaceInvitesUseCase listWorkspaceInvitesUseCase,
+            RevokeWorkspaceInviteUseCase revokeWorkspaceInviteUseCase) {
         this.createWorkspaceUseCase = createWorkspaceUseCase;
         this.createWorkspaceInviteUseCase = createWorkspaceInviteUseCase;
         this.listWorkspacesUseCase = listWorkspacesUseCase;
         this.getWorkspaceDetailUseCase = getWorkspaceDetailUseCase;
         this.listWorkspaceMembersUseCase = listWorkspaceMembersUseCase;
+        this.listWorkspaceInvitesUseCase = listWorkspaceInvitesUseCase;
+        this.revokeWorkspaceInviteUseCase = revokeWorkspaceInviteUseCase;
     }
 
     @GetMapping
@@ -104,6 +119,26 @@ public class WorkspaceController {
         }
     }
 
+    @GetMapping("/{workspaceId}/invites")
+    public ResponseEntity<RsData<List<WorkspaceInviteManagementResponse>>> listWorkspaceInvites(
+            @PathVariable Long workspaceId,
+            @RequestParam(name = "status", required = false) String status,
+            @RequestHeader(name = CREATOR_GOOGLE_SUB_HEADER, required = false) String creatorGoogleSub) {
+        String normalizedCreatorGoogleSub = requireCreatorGoogleSub(creatorGoogleSub);
+        WorkspaceInviteStatus statusFilter = parseInviteStatus(status);
+
+        try {
+            List<ListWorkspaceInvitesResult> results = listWorkspaceInvitesUseCase.listWorkspaceInvites(
+                    new ListWorkspaceInvitesQuery(workspaceId, normalizedCreatorGoogleSub, statusFilter));
+            return ResponseEntity.ok(RsData.ok(results.stream()
+                    .map(WorkspaceInviteManagementResponse::from)
+                    .toList()));
+        } catch (IllegalArgumentException exception) {
+            // 초대 목록은 관리자에게만 노출하므로 없는 워크스페이스와 권한 부족을 같은 404로 숨긴다.
+            throw new ServiceException(CommonErrorCode.NOT_FOUND);
+        }
+    }
+
     @PostMapping
     public ResponseEntity<RsData<WorkspaceResponse>> createWorkspace(
             @RequestHeader(name = CREATOR_GOOGLE_SUB_HEADER, required = false) String creatorGoogleSub,
@@ -144,10 +179,38 @@ public class WorkspaceController {
         }
     }
 
+    @DeleteMapping("/{workspaceId}/invites/{inviteId}")
+    public ResponseEntity<RsData<Void>> revokeWorkspaceInvite(
+            @PathVariable Long workspaceId,
+            @PathVariable Long inviteId,
+            @RequestHeader(name = CREATOR_GOOGLE_SUB_HEADER, required = false) String creatorGoogleSub) {
+        String normalizedCreatorGoogleSub = requireCreatorGoogleSub(creatorGoogleSub);
+
+        try {
+            revokeWorkspaceInviteUseCase.revokeWorkspaceInvite(
+                    new RevokeWorkspaceInviteCommand(workspaceId, inviteId, normalizedCreatorGoogleSub));
+            return ResponseEntity.ok(RsData.ok(null));
+        } catch (IllegalArgumentException exception) {
+            // 취소 대상 초대가 없는 경우에도 워크스페이스/초대 존재 여부를 구분하지 않는다.
+            throw new ServiceException(CommonErrorCode.NOT_FOUND);
+        }
+    }
+
     private String requireCreatorGoogleSub(String creatorGoogleSub) {
         if (creatorGoogleSub == null || creatorGoogleSub.isBlank()) {
             throw new ServiceException(CommonErrorCode.BAD_REQUEST);
         }
         return creatorGoogleSub.trim();
+    }
+
+    private WorkspaceInviteStatus parseInviteStatus(String status) {
+        if (status == null || status.isBlank()) {
+            return null;
+        }
+        try {
+            return WorkspaceInviteStatus.valueOf(status.trim().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException exception) {
+            throw new ServiceException(CommonErrorCode.BAD_REQUEST);
+        }
     }
 }

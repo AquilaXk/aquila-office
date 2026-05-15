@@ -3,17 +3,23 @@ package com.aquilaoffice.global.config;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.aquilaoffice.application.port.in.AcceptWorkspaceInviteUseCase;
+import com.aquilaoffice.application.port.in.ListWorkspaceInvitesUseCase;
 import com.aquilaoffice.application.port.in.ListWorkspaceMembersUseCase;
+import com.aquilaoffice.application.port.in.RevokeWorkspaceInviteUseCase;
 import com.aquilaoffice.application.port.out.AcceptWorkspaceInvitePort;
 import com.aquilaoffice.application.port.out.GenerateWorkspaceInviteTokenPort;
 import com.aquilaoffice.application.port.out.LoadMemberPort;
 import com.aquilaoffice.application.port.out.LoadWorkspaceInvitePort;
+import com.aquilaoffice.application.port.out.LoadWorkspaceInvitesPort;
 import com.aquilaoffice.application.port.out.LoadWorkspaceMemberPort;
 import com.aquilaoffice.application.port.out.LoadWorkspacePort;
+import com.aquilaoffice.application.port.out.RevokeWorkspaceInvitePort;
 import com.aquilaoffice.application.port.out.SaveWorkspaceInvitePort;
 import com.aquilaoffice.application.port.out.SaveWorkspacePort;
 import com.aquilaoffice.application.service.AcceptWorkspaceInviteService;
+import com.aquilaoffice.application.service.ListWorkspaceInvitesService;
 import com.aquilaoffice.application.service.ListWorkspaceMembersService;
+import com.aquilaoffice.application.service.RevokeWorkspaceInviteService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -47,6 +53,12 @@ class ApplicationServiceConfigTest {
     private AcceptWorkspaceInvitePort acceptWorkspaceInvitePort;
 
     @MockitoBean
+    private LoadWorkspaceInvitesPort loadWorkspaceInvitesPort;
+
+    @MockitoBean
+    private RevokeWorkspaceInvitePort revokeWorkspaceInvitePort;
+
+    @MockitoBean
     private GenerateWorkspaceInviteTokenPort generateWorkspaceInviteTokenPort;
 
     @Autowired
@@ -54,6 +66,12 @@ class ApplicationServiceConfigTest {
 
     @Autowired
     private ListWorkspaceMembersUseCase listWorkspaceMembersUseCase;
+
+    @Autowired
+    private ListWorkspaceInvitesUseCase listWorkspaceInvitesUseCase;
+
+    @Autowired
+    private RevokeWorkspaceInviteUseCase revokeWorkspaceInviteUseCase;
 
     @Test
     void registersAcceptWorkspaceInviteUseCase() {
@@ -63,5 +81,15 @@ class ApplicationServiceConfigTest {
     @Test
     void registersListWorkspaceMembersUseCase() {
         assertThat(listWorkspaceMembersUseCase).isInstanceOf(ListWorkspaceMembersService.class);
+    }
+
+    @Test
+    void registersListWorkspaceInvitesUseCase() {
+        assertThat(listWorkspaceInvitesUseCase).isInstanceOf(ListWorkspaceInvitesService.class);
+    }
+
+    @Test
+    void registersRevokeWorkspaceInviteUseCase() {
+        assertThat(revokeWorkspaceInviteUseCase).isInstanceOf(RevokeWorkspaceInviteService.class);
     }
 }

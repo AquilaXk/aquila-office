@@ -6,5 +6,6 @@ package com.aquilaoffice.domain.workspace;
 public enum WorkspaceInviteStatus {
     PENDING,
     ACCEPTED,
-    EXPIRED
+    EXPIRED,
+    REVOKED
 }
