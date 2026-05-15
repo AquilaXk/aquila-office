@@ -5,14 +5,18 @@ import com.aquilaoffice.adapter.out.persistence.member.MemberJpaRepository;
 import com.aquilaoffice.application.port.in.GetWorkspaceDetailResult;
 import com.aquilaoffice.application.port.in.ListWorkspaceMembersResult;
 import com.aquilaoffice.application.port.in.ListWorkspacesResult;
+import com.aquilaoffice.application.port.out.ChangeWorkspaceMemberRolePort;
 import com.aquilaoffice.application.port.out.DeleteWorkspacePort;
 import com.aquilaoffice.application.port.out.LoadWorkspaceMemberPort;
 import com.aquilaoffice.application.port.out.LoadWorkspacePort;
+import com.aquilaoffice.application.port.out.RemoveWorkspaceMemberPort;
 import com.aquilaoffice.application.port.out.SaveWorkspacePort;
 import com.aquilaoffice.application.port.out.SavedWorkspace;
 import com.aquilaoffice.application.port.out.UpdateWorkspacePort;
 import com.aquilaoffice.application.port.out.UpdatedWorkspace;
 import com.aquilaoffice.application.port.out.WorkspaceDeletion;
+import com.aquilaoffice.application.port.out.WorkspaceMemberRemoval;
+import com.aquilaoffice.application.port.out.WorkspaceMemberRoleChange;
 import com.aquilaoffice.application.port.out.WorkspaceUpdate;
 import com.aquilaoffice.domain.member.Member;
 import com.aquilaoffice.domain.workspace.Workspace;
@@ -32,7 +36,9 @@ public class WorkspacePersistenceAdapter
                 LoadWorkspacePort,
                 LoadWorkspaceMemberPort,
                 UpdateWorkspacePort,
-                DeleteWorkspacePort {
+                DeleteWorkspacePort,
+                ChangeWorkspaceMemberRolePort,
+                RemoveWorkspaceMemberPort {
 
     private final MemberJpaRepository memberJpaRepository;
     private final WorkspaceJpaRepository workspaceJpaRepository;
@@ -125,6 +131,28 @@ public class WorkspacePersistenceAdapter
                 .orElseThrow(() -> new IllegalArgumentException("workspace entity not found"));
 
         workspaceEntity.softDelete(deletion.deletedAt());
+    }
+
+    @Override
+    @Transactional
+    public void changeRole(WorkspaceMemberRoleChange change) {
+        Objects.requireNonNull(change, "change must not be null");
+        WorkspaceMemberJpaEntity workspaceMemberEntity = workspaceMemberJpaRepository
+                .findActiveWorkspaceMemberByWorkspaceIdAndMemberId(change.workspaceId(), change.memberId())
+                .orElseThrow(() -> new IllegalArgumentException("workspace member entity not found"));
+
+        workspaceMemberEntity.changeRole(change.role());
+    }
+
+    @Override
+    @Transactional
+    public void remove(WorkspaceMemberRemoval removal) {
+        Objects.requireNonNull(removal, "removal must not be null");
+        WorkspaceMemberJpaEntity workspaceMemberEntity = workspaceMemberJpaRepository
+                .findActiveWorkspaceMemberByWorkspaceIdAndMemberId(removal.workspaceId(), removal.memberId())
+                .orElseThrow(() -> new IllegalArgumentException("workspace member entity not found"));
+
+        workspaceMemberJpaRepository.delete(workspaceMemberEntity);
     }
 
     private ListWorkspacesResult toListResult(WorkspaceMemberJpaEntity workspaceMemberEntity) {

@@ -17,6 +17,19 @@ public interface WorkspaceMemberJpaRepository extends JpaRepository<WorkspaceMem
             select wm
             from WorkspaceMemberJpaEntity wm
             join fetch wm.workspace w
+            join fetch wm.member m
+            where w.id = :workspaceId
+              and m.id = :memberId
+              and w.deletedAt is null
+            """)
+    Optional<WorkspaceMemberJpaEntity> findActiveWorkspaceMemberByWorkspaceIdAndMemberId(
+            @Param("workspaceId") Long workspaceId,
+            @Param("memberId") Long memberId);
+
+    @Query("""
+            select wm
+            from WorkspaceMemberJpaEntity wm
+            join fetch wm.workspace w
             join fetch w.createdByMember
             where wm.member.googleSub = :googleSub
               and w.deletedAt is null
