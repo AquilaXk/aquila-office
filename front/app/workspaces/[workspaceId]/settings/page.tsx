@@ -797,7 +797,9 @@ export default function WorkspaceSettingsPage({
                       </div>
                       <div className="workspace-settings-member-actions">
                         <div className="workspace-member-meta">
-                          <span className="role-badge">{formatInviteStatus(invite.status)}</span>
+                          <span className={`invite-status-badge invite-status-${invite.status.toLowerCase()}`}>
+                            {formatInviteStatus(invite.status)}
+                          </span>
                           <span>만료 {formatDateTime(invite.expiresAt)}</span>
                         </div>
                         <button

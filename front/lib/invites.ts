@@ -15,8 +15,15 @@ export type WorkspaceInvite = {
   acceptedAt: string | null;
 };
 
-export type WorkspaceInviteManagement = WorkspaceInvite & {
+export type WorkspaceInviteManagement = {
+  inviteId: number;
+  workspaceId: number;
+  email: string;
+  token: string;
   status: WorkspaceInviteManagementStatus;
+  createdAt: string;
+  expiresAt: string;
+  acceptedAt: string | null;
   revokedAt: string | null;
 };
 

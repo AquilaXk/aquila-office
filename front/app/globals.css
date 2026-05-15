@@ -1572,6 +1572,87 @@ h2 {
   min-height: 36px;
 }
 
+.workspace-invite-management-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.workspace-invite-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.workspace-invite-filter {
+  min-height: 36px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #ffffff;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 800;
+  padding: 0 12px;
+}
+
+.workspace-invite-filter-active {
+  border-color: #bfdbfe;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.workspace-invite-filter:disabled,
+.workspace-invite-refresh:disabled {
+  cursor: wait;
+  opacity: 0.72;
+}
+
+.workspace-invite-refresh {
+  flex: 0 0 auto;
+  min-height: 36px;
+  margin-top: 0;
+}
+
+.invite-status-badge {
+  display: inline-flex;
+  min-height: 24px;
+  align-items: center;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 0 8px;
+}
+
+.invite-status-pending {
+  border: 1px solid #bfdbfe;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.invite-status-accepted {
+  border: 1px solid #c6eadc;
+  background: #e8f5ef;
+  color: #08764f;
+}
+
+.invite-status-expired {
+  border: 1px solid #f6d7a6;
+  background: #fff7ed;
+  color: var(--yellow);
+}
+
+.invite-status-revoked {
+  border: 1px solid #f4c7c3;
+  background: #fff8f7;
+  color: var(--red);
+}
+
+.workspace-invite-revoke {
+  min-height: 36px;
+}
+
 .workspace-settings-side {
   display: grid;
   gap: 12px;
@@ -1758,11 +1839,26 @@ h2 {
   }
 
   .workspace-role-control,
-  .workspace-member-remove {
+  .workspace-member-remove,
+  .workspace-invite-revoke {
     width: 100%;
   }
 
   .workspace-role-option {
+    flex: 1;
+  }
+
+  .workspace-invite-management-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .workspace-invite-filters,
+  .workspace-invite-refresh {
+    width: 100%;
+  }
+
+  .workspace-invite-filter {
     flex: 1;
   }
 
