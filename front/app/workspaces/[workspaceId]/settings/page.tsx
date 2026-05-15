@@ -31,6 +31,7 @@ import {
 import { ApiError } from "@/lib/api-client";
 import {
   fetchWorkspaceInvites,
+  revokeWorkspaceInvite,
   type WorkspaceInviteManagement,
   type WorkspaceInviteManagementStatus,
 } from "@/lib/invites";
@@ -118,6 +119,11 @@ export default function WorkspaceSettingsPage({
     error: null,
   });
   const [inviteFilter, setInviteFilter] = useState<InviteStatusFilter>("PENDING");
+  const [inviteActionId, setInviteActionId] = useState<number | null>(null);
+  const [inviteActionState, setInviteActionState] = useState<MutationState>({
+    status: "idle",
+    message: null,
+  });
 
   const fetchSettings = useCallback(async () => {
     if (!isValidWorkspaceId(numericWorkspaceId)) {
@@ -236,6 +242,7 @@ export default function WorkspaceSettingsPage({
     !isDeletingWorkspace;
   const canManageMembers = state.status === "ready" && isAdmin;
   const isInviteLogLoading = inviteLogState.status === "loading";
+  const hasInviteAction = inviteActionId !== null;
 
   const reloadInviteLog = async () => {
     if (!isAdmin) {
@@ -243,7 +250,36 @@ export default function WorkspaceSettingsPage({
     }
 
     setInviteLogState({ status: "loading", invites: [], error: null });
+    setInviteActionState({ status: "idle", message: null });
     setInviteLogState(await fetchInviteLog(toInviteStatusParam(inviteFilter)));
+  };
+
+  const handleRevokeInvite = async (invite: WorkspaceInviteManagement) => {
+    if (!isAdmin || invite.status !== "PENDING" || hasInviteAction) {
+      return;
+    }
+
+    setInviteActionId(invite.inviteId);
+    setInviteActionState({ status: "submitting", message: null });
+    try {
+      await revokeWorkspaceInvite(TEMP_MEMBER_GOOGLE_SUB, numericWorkspaceId, invite.inviteId);
+      setInviteLogState((previous) =>
+        previous.status === "ready"
+          ? {
+              ...previous,
+              invites: updateInviteLogAfterRevoke(previous.invites, invite.inviteId, inviteFilter),
+            }
+          : previous,
+      );
+      setInviteActionState({ status: "success", message: "초대가 취소되었습니다." });
+    } catch (error) {
+      setInviteActionState({
+        status: "error",
+        message: messageFromError(error, "초대를 취소하지 못했습니다."),
+      });
+    } finally {
+      setInviteActionId(null);
+    }
   };
 
   const handleUpdateWorkspace = async (event: FormEvent<HTMLFormElement>) => {
@@ -721,6 +757,18 @@ export default function WorkspaceSettingsPage({
                 </div>
               ) : null}
 
+              {isAdmin && inviteActionState.status === "error" ? (
+                <SettingsNotice tone="danger" icon={<AlertCircle aria-hidden="true" />}>
+                  {inviteActionState.message}
+                </SettingsNotice>
+              ) : null}
+
+              {isAdmin && inviteActionState.status === "success" ? (
+                <SettingsNotice tone="success" icon={<CheckCircle2 aria-hidden="true" />}>
+                  {inviteActionState.message}
+                </SettingsNotice>
+              ) : null}
+
               {isAdmin && inviteLogState.status === "loading" ? (
                 <div className="workspace-member-empty">
                   <Loader2 className="spin" aria-hidden="true" />
@@ -747,9 +795,24 @@ export default function WorkspaceSettingsPage({
                         <p>{`/invites/${invite.token}`}</p>
                         <span>생성 {formatDateTime(invite.createdAt)}</span>
                       </div>
-                      <div className="workspace-member-meta">
-                        <span className="role-badge">{formatInviteStatus(invite.status)}</span>
-                        <span>만료 {formatDateTime(invite.expiresAt)}</span>
+                      <div className="workspace-settings-member-actions">
+                        <div className="workspace-member-meta">
+                          <span className="role-badge">{formatInviteStatus(invite.status)}</span>
+                          <span>만료 {formatDateTime(invite.expiresAt)}</span>
+                        </div>
+                        <button
+                          className="danger-action workspace-invite-revoke"
+                          type="button"
+                          onClick={() => void handleRevokeInvite(invite)}
+                          disabled={!isAdmin || invite.status !== "PENDING" || hasInviteAction}
+                        >
+                          {inviteActionId === invite.inviteId ? (
+                            <Loader2 className="spin" aria-hidden="true" />
+                          ) : (
+                            <Trash2 aria-hidden="true" />
+                          )}
+                          <span>{inviteActionId === invite.inviteId ? "취소 중" : "취소"}</span>
+                        </button>
                       </div>
                     </article>
                   ))}
@@ -941,6 +1004,23 @@ function toInviteStatusParam(
   filter: InviteStatusFilter,
 ): WorkspaceInviteManagementStatus | undefined {
   return filter === "ALL" ? undefined : filter;
+}
+
+function updateInviteLogAfterRevoke(
+  invites: WorkspaceInviteManagement[],
+  inviteId: number,
+  filter: InviteStatusFilter,
+): WorkspaceInviteManagement[] {
+  if (filter === "PENDING") {
+    return invites.filter((invite) => invite.inviteId !== inviteId);
+  }
+
+  const revokedAt = new Date().toISOString();
+  return invites.map((invite) =>
+    invite.inviteId === inviteId
+      ? { ...invite, status: "REVOKED", revokedAt }
+      : invite,
+  );
 }
 
 function isLastAdmin(
