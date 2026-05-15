@@ -2,11 +2,14 @@ package com.aquilaoffice.adapter.out.persistence.workspace;
 
 import com.aquilaoffice.adapter.out.persistence.member.MemberJpaEntity;
 import com.aquilaoffice.adapter.out.persistence.member.MemberJpaRepository;
+import com.aquilaoffice.application.port.in.ListWorkspacesResult;
+import com.aquilaoffice.application.port.out.LoadWorkspacePort;
 import com.aquilaoffice.application.port.out.SaveWorkspacePort;
 import com.aquilaoffice.application.port.out.SavedWorkspace;
 import com.aquilaoffice.domain.member.Member;
 import com.aquilaoffice.domain.workspace.Workspace;
 import com.aquilaoffice.domain.workspace.WorkspaceMember;
+import java.util.List;
 import java.util.Objects;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
@@ -15,7 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
  * 워크스페이스 저장 outbound port를 JPA repository 조합으로 구현하는 persistence adapter다.
  */
 @Repository
-public class WorkspacePersistenceAdapter implements SaveWorkspacePort {
+public class WorkspacePersistenceAdapter implements SaveWorkspacePort, LoadWorkspacePort {
 
     private final MemberJpaRepository memberJpaRepository;
     private final WorkspaceJpaRepository workspaceJpaRepository;
@@ -49,5 +52,26 @@ public class WorkspacePersistenceAdapter implements SaveWorkspacePort {
         return memberJpaRepository
                 .findByGoogleSub(member.getGoogleSub())
                 .orElseThrow(() -> new IllegalArgumentException("member entity not found"));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ListWorkspacesResult> findJoinedWorkspacesByMemberGoogleSub(String googleSub) {
+        Objects.requireNonNull(googleSub, "googleSub must not be null");
+
+        return workspaceMemberJpaRepository.findActiveJoinedWorkspacesByMemberGoogleSub(googleSub).stream()
+                .map(this::toListResult)
+                .toList();
+    }
+
+    private ListWorkspacesResult toListResult(WorkspaceMemberJpaEntity workspaceMemberEntity) {
+        WorkspaceJpaEntity workspaceEntity = workspaceMemberEntity.getWorkspace();
+        return new ListWorkspacesResult(
+                workspaceEntity.getId(),
+                workspaceEntity.getName(),
+                workspaceEntity.getDescription(),
+                workspaceEntity.getCreatedByMember().getGoogleSub(),
+                workspaceMemberEntity.getRole(),
+                workspaceMemberEntity.getJoinedAt());
     }
 }

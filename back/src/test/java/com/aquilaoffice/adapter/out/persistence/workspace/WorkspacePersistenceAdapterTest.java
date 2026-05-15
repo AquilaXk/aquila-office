@@ -7,6 +7,7 @@ import com.aquilaoffice.adapter.out.persistence.member.MemberJpaEntity;
 import com.aquilaoffice.adapter.out.persistence.member.MemberJpaRepository;
 import com.aquilaoffice.adapter.out.persistence.member.MemberPersistenceAdapter;
 import com.aquilaoffice.application.port.out.LoadMemberPort;
+import com.aquilaoffice.application.port.out.LoadWorkspacePort;
 import com.aquilaoffice.application.port.out.SaveWorkspacePort;
 import com.aquilaoffice.application.port.out.SavedWorkspace;
 import com.aquilaoffice.domain.member.Member;
@@ -41,6 +42,9 @@ class WorkspacePersistenceAdapterTest {
 
     @Autowired
     private SaveWorkspacePort saveWorkspacePort;
+
+    @Autowired
+    private LoadWorkspacePort loadWorkspacePort;
 
     @Test
     void loadMemberByGoogleSubReturnsDomainMember() {
@@ -95,5 +99,61 @@ class WorkspacePersistenceAdapterTest {
                 .hasMessage("member entity not found");
         assertThat(workspaceJpaRepository.count()).isZero();
         assertThat(workspaceMemberJpaRepository.count()).isZero();
+    }
+
+    @Test
+    void findJoinedWorkspacesByMemberGoogleSubReturnsOnlyActiveJoinedWorkspaces() {
+        MemberJpaEntity memberEntity = memberJpaRepository.save(MemberJpaEntity.create(
+                "google-1", "user@example.com", "User", MemberRole.USER));
+        memberJpaRepository.save(MemberJpaEntity.create(
+                "google-2", "other@example.com", "Other", MemberRole.USER));
+        Member member = Member.createUser("google-1", "user@example.com", "User");
+        Member other = Member.createUser("google-2", "other@example.com", "Other");
+
+        Workspace activeWorkspace = Workspace.create("Active", "Visible", member);
+        saveWorkspacePort.save(
+                activeWorkspace,
+                WorkspaceMember.create(
+                        activeWorkspace,
+                        member,
+                        WorkspaceMemberRole.ADMIN,
+                        LocalDateTime.of(2026, 5, 15, 10, 0)));
+
+        Workspace deletedWorkspace = Workspace.create("Deleted", "Hidden", member);
+        deletedWorkspace.softDelete(LocalDateTime.of(2026, 5, 15, 11, 0));
+        saveWorkspacePort.save(
+                deletedWorkspace,
+                WorkspaceMember.create(
+                        deletedWorkspace,
+                        member,
+                        WorkspaceMemberRole.MEMBER,
+                        LocalDateTime.of(2026, 5, 15, 10, 30)));
+
+        Workspace otherWorkspace = Workspace.create("Other", "Not joined", other);
+        saveWorkspacePort.save(
+                otherWorkspace,
+                WorkspaceMember.create(
+                        otherWorkspace,
+                        other,
+                        WorkspaceMemberRole.ADMIN,
+                        LocalDateTime.of(2026, 5, 15, 12, 0)));
+
+        assertThat(loadWorkspacePort.findJoinedWorkspacesByMemberGoogleSub("google-1"))
+                .singleElement()
+                .satisfies(result -> {
+                    assertThat(result.name()).isEqualTo("Active");
+                    assertThat(result.description()).isEqualTo("Visible");
+                    assertThat(result.creatorGoogleSub()).isEqualTo("google-1");
+                    assertThat(result.myRole()).isEqualTo(WorkspaceMemberRole.ADMIN);
+                    assertThat(result.joinedAt()).isEqualTo(LocalDateTime.of(2026, 5, 15, 10, 0));
+                    assertThat(result.workspaceId()).isNotNull();
+                });
+        assertThat(workspaceMemberJpaRepository
+                        .findByWorkspaceIdAndMemberId(
+                                loadWorkspacePort.findJoinedWorkspacesByMemberGoogleSub("google-1")
+                                        .getFirst()
+                                        .workspaceId(),
+                                memberEntity.getId()))
+                .isPresent();
     }
 }
