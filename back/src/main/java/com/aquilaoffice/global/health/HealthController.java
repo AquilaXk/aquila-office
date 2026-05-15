@@ -1,6 +1,7 @@
 package com.aquilaoffice.global.health;
 
 import java.time.Instant;
+import com.aquilaoffice.global.response.RsData;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -10,8 +11,8 @@ import org.springframework.web.bind.annotation.RestController;
 public class HealthController {
 
     @GetMapping
-    public HealthResponse health() {
-        return new HealthResponse("ok", "aquila-office-back", Instant.now());
+    public RsData<HealthResponse> health() {
+        return RsData.ok(new HealthResponse("ok", "aquila-office-back", Instant.now()));
     }
 
     public record HealthResponse(String status, String service, Instant checkedAt) {}
