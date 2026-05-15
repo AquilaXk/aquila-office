@@ -100,5 +100,11 @@ class ListWorkspacesServiceTest {
             this.requestedGoogleSub = googleSub;
             return results;
         }
+
+        @Override
+        public Optional<com.aquilaoffice.application.port.in.GetWorkspaceDetailResult>
+                findJoinedWorkspaceByIdAndMemberGoogleSub(Long workspaceId, String googleSub) {
+            throw new UnsupportedOperationException("not used in list service test");
+        }
     }
 }

@@ -2,6 +2,9 @@ package com.aquilaoffice.adapter.in.web.workspace;
 
 import com.aquilaoffice.application.port.in.CreateWorkspaceResult;
 import com.aquilaoffice.application.port.in.CreateWorkspaceUseCase;
+import com.aquilaoffice.application.port.in.GetWorkspaceDetailQuery;
+import com.aquilaoffice.application.port.in.GetWorkspaceDetailResult;
+import com.aquilaoffice.application.port.in.GetWorkspaceDetailUseCase;
 import com.aquilaoffice.application.port.in.ListWorkspacesQuery;
 import com.aquilaoffice.application.port.in.ListWorkspacesResult;
 import com.aquilaoffice.application.port.in.ListWorkspacesUseCase;
@@ -13,6 +16,7 @@ import java.net.URI;
 import java.util.List;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
@@ -31,12 +35,15 @@ public class WorkspaceController {
 
     private final CreateWorkspaceUseCase createWorkspaceUseCase;
     private final ListWorkspacesUseCase listWorkspacesUseCase;
+    private final GetWorkspaceDetailUseCase getWorkspaceDetailUseCase;
 
     public WorkspaceController(
             CreateWorkspaceUseCase createWorkspaceUseCase,
-            ListWorkspacesUseCase listWorkspacesUseCase) {
+            ListWorkspacesUseCase listWorkspacesUseCase,
+            GetWorkspaceDetailUseCase getWorkspaceDetailUseCase) {
         this.createWorkspaceUseCase = createWorkspaceUseCase;
         this.listWorkspacesUseCase = listWorkspacesUseCase;
+        this.getWorkspaceDetailUseCase = getWorkspaceDetailUseCase;
     }
 
     @GetMapping
@@ -50,6 +57,22 @@ public class WorkspaceController {
         return ResponseEntity.ok(RsData.ok(results.stream()
                 .map(WorkspaceResponse::from)
                 .toList()));
+    }
+
+    @GetMapping("/{workspaceId}")
+    public ResponseEntity<RsData<WorkspaceResponse>> getWorkspaceDetail(
+            @PathVariable Long workspaceId,
+            @RequestHeader(name = CREATOR_GOOGLE_SUB_HEADER, required = false) String creatorGoogleSub) {
+        String normalizedCreatorGoogleSub = requireCreatorGoogleSub(creatorGoogleSub);
+
+        try {
+            GetWorkspaceDetailResult result = getWorkspaceDetailUseCase.getWorkspaceDetail(
+                    new GetWorkspaceDetailQuery(workspaceId, normalizedCreatorGoogleSub));
+            return ResponseEntity.ok(RsData.ok(WorkspaceResponse.from(result)));
+        } catch (IllegalArgumentException exception) {
+            // 존재하지 않거나 가입하지 않은 워크스페이스는 상세 노출 없이 동일한 404로 응답한다.
+            throw new ServiceException(CommonErrorCode.NOT_FOUND);
+        }
     }
 
     @PostMapping
