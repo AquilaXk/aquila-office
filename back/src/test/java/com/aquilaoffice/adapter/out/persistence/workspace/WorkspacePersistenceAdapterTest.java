@@ -1,0 +1,96 @@
+package com.aquilaoffice.adapter.out.persistence.workspace;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+import com.aquilaoffice.adapter.out.persistence.member.MemberJpaEntity;
+import com.aquilaoffice.adapter.out.persistence.member.MemberJpaRepository;
+import com.aquilaoffice.adapter.out.persistence.member.MemberPersistenceAdapter;
+import com.aquilaoffice.application.port.out.LoadMemberPort;
+import com.aquilaoffice.application.port.out.SaveWorkspacePort;
+import com.aquilaoffice.application.port.out.SavedWorkspace;
+import com.aquilaoffice.domain.member.Member;
+import com.aquilaoffice.domain.member.MemberRole;
+import com.aquilaoffice.domain.workspace.Workspace;
+import com.aquilaoffice.domain.workspace.WorkspaceMember;
+import com.aquilaoffice.domain.workspace.WorkspaceMemberRole;
+import java.time.LocalDateTime;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
+import org.springframework.context.annotation.Import;
+
+@DataJpaTest
+@Import({MemberPersistenceAdapter.class, WorkspacePersistenceAdapter.class})
+class WorkspacePersistenceAdapterTest {
+
+    @Autowired
+    private MemberJpaRepository memberJpaRepository;
+
+    @Autowired
+    private WorkspaceJpaRepository workspaceJpaRepository;
+
+    @Autowired
+    private WorkspaceMemberJpaRepository workspaceMemberJpaRepository;
+
+    @Autowired
+    private LoadMemberPort loadMemberPort;
+
+    @Autowired
+    private SaveWorkspacePort saveWorkspacePort;
+
+    @Test
+    void loadMemberByGoogleSubReturnsDomainMember() {
+        memberJpaRepository.save(MemberJpaEntity.create(
+                "google-1", "user@example.com", "User", MemberRole.USER));
+
+        assertThat(loadMemberPort.findByGoogleSub("google-1"))
+                .hasValueSatisfying(member -> {
+                    assertThat(member.getGoogleSub()).isEqualTo("google-1");
+                    assertThat(member.getEmail()).isEqualTo("user@example.com");
+                    assertThat(member.getName()).isEqualTo("User");
+                    assertThat(member.getRole()).isEqualTo(MemberRole.USER);
+                });
+        assertThat(loadMemberPort.findByGoogleSub("missing")).isEmpty();
+    }
+
+    @Test
+    void savePersistsWorkspaceAndAdminMembership() {
+        MemberJpaEntity creatorEntity = memberJpaRepository.save(MemberJpaEntity.create(
+                "google-1", "user@example.com", "User", MemberRole.USER));
+        Member creator = Member.createUser("google-1", "user@example.com", "User");
+        Workspace workspace = Workspace.create("Team", "Description", creator);
+        LocalDateTime joinedAt = LocalDateTime.of(2026, 5, 15, 10, 0);
+        WorkspaceMember workspaceMember =
+                WorkspaceMember.create(workspace, creator, WorkspaceMemberRole.ADMIN, joinedAt);
+
+        SavedWorkspace savedWorkspace = saveWorkspacePort.save(workspace, workspaceMember);
+
+        assertThat(savedWorkspace.workspaceId()).isNotNull();
+        WorkspaceJpaEntity savedWorkspaceEntity =
+                workspaceJpaRepository.findById(savedWorkspace.workspaceId()).orElseThrow();
+        assertThat(savedWorkspaceEntity.getName()).isEqualTo("Team");
+        assertThat(savedWorkspaceEntity.getDescription()).isEqualTo("Description");
+        assertThat(savedWorkspaceEntity.getCreatedByMember().getId()).isEqualTo(creatorEntity.getId());
+
+        WorkspaceMemberJpaEntity savedMemberEntity = workspaceMemberJpaRepository
+                .findByWorkspaceIdAndMemberId(savedWorkspace.workspaceId(), creatorEntity.getId())
+                .orElseThrow();
+        assertThat(savedMemberEntity.getRole()).isEqualTo(WorkspaceMemberRole.ADMIN);
+        assertThat(savedMemberEntity.getJoinedAt()).isEqualTo(joinedAt);
+    }
+
+    @Test
+    void saveRejectsMissingMemberEntity() {
+        Member creator = Member.createUser("missing", "user@example.com", "User");
+        Workspace workspace = Workspace.create("Team", null, creator);
+        WorkspaceMember workspaceMember =
+                WorkspaceMember.create(workspace, creator, WorkspaceMemberRole.ADMIN, LocalDateTime.now());
+
+        assertThatThrownBy(() -> saveWorkspacePort.save(workspace, workspaceMember))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("member entity not found");
+        assertThat(workspaceJpaRepository.count()).isZero();
+        assertThat(workspaceMemberJpaRepository.count()).isZero();
+    }
+}

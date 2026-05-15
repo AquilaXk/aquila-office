@@ -1,0 +1,49 @@
+package com.aquilaoffice.adapter.out.persistence.workspace;
+
+import com.aquilaoffice.adapter.out.persistence.member.MemberJpaEntity;
+import com.aquilaoffice.adapter.out.persistence.member.MemberJpaRepository;
+import com.aquilaoffice.application.port.out.SaveWorkspacePort;
+import com.aquilaoffice.application.port.out.SavedWorkspace;
+import com.aquilaoffice.domain.member.Member;
+import com.aquilaoffice.domain.workspace.Workspace;
+import com.aquilaoffice.domain.workspace.WorkspaceMember;
+import java.util.Objects;
+import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
+
+@Repository
+public class WorkspacePersistenceAdapter implements SaveWorkspacePort {
+
+    private final MemberJpaRepository memberJpaRepository;
+    private final WorkspaceJpaRepository workspaceJpaRepository;
+    private final WorkspaceMemberJpaRepository workspaceMemberJpaRepository;
+
+    public WorkspacePersistenceAdapter(
+            MemberJpaRepository memberJpaRepository,
+            WorkspaceJpaRepository workspaceJpaRepository,
+            WorkspaceMemberJpaRepository workspaceMemberJpaRepository) {
+        this.memberJpaRepository = memberJpaRepository;
+        this.workspaceJpaRepository = workspaceJpaRepository;
+        this.workspaceMemberJpaRepository = workspaceMemberJpaRepository;
+    }
+
+    @Override
+    @Transactional
+    public SavedWorkspace save(Workspace workspace, WorkspaceMember workspaceMember) {
+        Objects.requireNonNull(workspace, "workspace must not be null");
+        Objects.requireNonNull(workspaceMember, "workspaceMember must not be null");
+
+        MemberJpaEntity creatorEntity = findMemberEntity(workspace.getCreatedByMember());
+        MemberJpaEntity memberEntity = findMemberEntity(workspaceMember.getMember());
+        WorkspaceJpaEntity workspaceEntity = workspaceJpaRepository.save(WorkspaceJpaEntity.from(workspace, creatorEntity));
+        workspaceMemberJpaRepository.save(WorkspaceMemberJpaEntity.from(workspaceMember, workspaceEntity, memberEntity));
+
+        return new SavedWorkspace(workspaceEntity.getId());
+    }
+
+    private MemberJpaEntity findMemberEntity(Member member) {
+        return memberJpaRepository
+                .findByGoogleSub(member.getGoogleSub())
+                .orElseThrow(() -> new IllegalArgumentException("member entity not found"));
+    }
+}
