@@ -86,13 +86,18 @@ public class WorkspaceController {
             @Valid @RequestBody CreateWorkspaceRequest request) {
         String normalizedCreatorGoogleSub = requireCreatorGoogleSub(creatorGoogleSub);
 
-        // inbound adapter는 HTTP 입력을 application command로 바꾸고, 실제 생성 규칙은 use case에 위임한다.
-        CreateWorkspaceResult result = createWorkspaceUseCase.createWorkspace(
-                request.toCommand(normalizedCreatorGoogleSub));
+        try {
+            // inbound adapter는 HTTP 입력을 application command로 바꾸고, 실제 생성 규칙은 use case에 위임한다.
+            CreateWorkspaceResult result = createWorkspaceUseCase.createWorkspace(
+                    request.toCommand(normalizedCreatorGoogleSub));
 
-        return ResponseEntity
-                .created(URI.create("/api/v1/workspaces/" + result.workspaceId()))
-                .body(RsData.ok(WorkspaceResponse.from(result)));
+            return ResponseEntity
+                    .created(URI.create("/api/v1/workspaces/" + result.workspaceId()))
+                    .body(RsData.ok(WorkspaceResponse.from(result)));
+        } catch (IllegalArgumentException exception) {
+            // 생성자 회원을 찾을 수 없는 경우도 회원 존재 여부를 드러내지 않도록 동일한 404로 응답한다.
+            throw new ServiceException(CommonErrorCode.NOT_FOUND);
+        }
     }
 
     @PostMapping("/{workspaceId}/invites")
