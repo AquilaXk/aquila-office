@@ -7,6 +7,9 @@ import com.aquilaoffice.application.port.in.CreateWorkspaceUseCase;
 import com.aquilaoffice.application.port.in.GetWorkspaceDetailQuery;
 import com.aquilaoffice.application.port.in.GetWorkspaceDetailResult;
 import com.aquilaoffice.application.port.in.GetWorkspaceDetailUseCase;
+import com.aquilaoffice.application.port.in.ListWorkspaceMembersQuery;
+import com.aquilaoffice.application.port.in.ListWorkspaceMembersResult;
+import com.aquilaoffice.application.port.in.ListWorkspaceMembersUseCase;
 import com.aquilaoffice.application.port.in.ListWorkspacesQuery;
 import com.aquilaoffice.application.port.in.ListWorkspacesResult;
 import com.aquilaoffice.application.port.in.ListWorkspacesUseCase;
@@ -39,16 +42,19 @@ public class WorkspaceController {
     private final CreateWorkspaceInviteUseCase createWorkspaceInviteUseCase;
     private final ListWorkspacesUseCase listWorkspacesUseCase;
     private final GetWorkspaceDetailUseCase getWorkspaceDetailUseCase;
+    private final ListWorkspaceMembersUseCase listWorkspaceMembersUseCase;
 
     public WorkspaceController(
             CreateWorkspaceUseCase createWorkspaceUseCase,
             CreateWorkspaceInviteUseCase createWorkspaceInviteUseCase,
             ListWorkspacesUseCase listWorkspacesUseCase,
-            GetWorkspaceDetailUseCase getWorkspaceDetailUseCase) {
+            GetWorkspaceDetailUseCase getWorkspaceDetailUseCase,
+            ListWorkspaceMembersUseCase listWorkspaceMembersUseCase) {
         this.createWorkspaceUseCase = createWorkspaceUseCase;
         this.createWorkspaceInviteUseCase = createWorkspaceInviteUseCase;
         this.listWorkspacesUseCase = listWorkspacesUseCase;
         this.getWorkspaceDetailUseCase = getWorkspaceDetailUseCase;
+        this.listWorkspaceMembersUseCase = listWorkspaceMembersUseCase;
     }
 
     @GetMapping
@@ -76,6 +82,24 @@ public class WorkspaceController {
             return ResponseEntity.ok(RsData.ok(WorkspaceResponse.from(result)));
         } catch (IllegalArgumentException exception) {
             // 존재하지 않거나 가입하지 않은 워크스페이스는 상세 노출 없이 동일한 404로 응답한다.
+            throw new ServiceException(CommonErrorCode.NOT_FOUND);
+        }
+    }
+
+    @GetMapping("/{workspaceId}/members")
+    public ResponseEntity<RsData<List<WorkspaceMemberResponse>>> listWorkspaceMembers(
+            @PathVariable Long workspaceId,
+            @RequestHeader(name = CREATOR_GOOGLE_SUB_HEADER, required = false) String creatorGoogleSub) {
+        String normalizedCreatorGoogleSub = requireCreatorGoogleSub(creatorGoogleSub);
+
+        try {
+            List<ListWorkspaceMembersResult> results = listWorkspaceMembersUseCase.listWorkspaceMembers(
+                    new ListWorkspaceMembersQuery(workspaceId, normalizedCreatorGoogleSub));
+            return ResponseEntity.ok(RsData.ok(results.stream()
+                    .map(WorkspaceMemberResponse::from)
+                    .toList()));
+        } catch (IllegalArgumentException exception) {
+            // 가입하지 않은 워크스페이스와 없는 워크스페이스는 멤버 목록 노출 없이 동일한 404로 응답한다.
             throw new ServiceException(CommonErrorCode.NOT_FOUND);
         }
     }
