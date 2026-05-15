@@ -264,6 +264,19 @@ h2 {
   padding: 14px;
 }
 
+.workspace-row-link {
+  color: inherit;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.workspace-row-link:hover,
+.workspace-row-link:focus-visible {
+  border-color: #0d8b61;
+  box-shadow: 0 0 0 3px rgba(15, 159, 110, 0.12);
+  outline: none;
+}
+
 .workspace-row-icon {
   display: grid;
   width: 44px;
