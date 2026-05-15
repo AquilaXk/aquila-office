@@ -6,7 +6,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.aquilaoffice.adapter.out.persistence.member.MemberJpaEntity;
 import com.aquilaoffice.adapter.out.persistence.member.MemberJpaRepository;
 import com.aquilaoffice.adapter.out.persistence.member.MemberPersistenceAdapter;
+import com.aquilaoffice.application.port.in.ListWorkspaceMembersResult;
 import com.aquilaoffice.application.port.out.LoadMemberPort;
+import com.aquilaoffice.application.port.out.LoadWorkspaceMemberPort;
 import com.aquilaoffice.application.port.out.LoadWorkspacePort;
 import com.aquilaoffice.application.port.out.SaveWorkspacePort;
 import com.aquilaoffice.application.port.out.SavedWorkspace;
@@ -16,6 +18,7 @@ import com.aquilaoffice.domain.workspace.Workspace;
 import com.aquilaoffice.domain.workspace.WorkspaceMember;
 import com.aquilaoffice.domain.workspace.WorkspaceMemberRole;
 import java.time.LocalDateTime;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
@@ -45,6 +48,9 @@ class WorkspacePersistenceAdapterTest {
 
     @Autowired
     private LoadWorkspacePort loadWorkspacePort;
+
+    @Autowired
+    private LoadWorkspaceMemberPort loadWorkspaceMemberPort;
 
     @Test
     void loadMemberByGoogleSubReturnsDomainMember() {
@@ -218,6 +224,61 @@ class WorkspacePersistenceAdapterTest {
         assertThat(loadWorkspacePort.findJoinedWorkspaceByIdAndMemberGoogleSub(deletedWorkspaceId, "google-1"))
                 .isEmpty();
         assertThat(loadWorkspacePort.findJoinedWorkspaceByIdAndMemberGoogleSub(otherWorkspaceId, "google-1"))
+                .isEmpty();
+    }
+
+    @Test
+    void findActiveWorkspaceMembersByWorkspaceIdReturnsOnlyMembersOfActiveWorkspace() {
+        MemberJpaEntity adminEntity = memberJpaRepository.save(MemberJpaEntity.create(
+                "google-1", "admin@example.com", "Admin", MemberRole.USER));
+        MemberJpaEntity memberEntity = memberJpaRepository.save(MemberJpaEntity.create(
+                "google-2", "member@example.com", "Member", MemberRole.USER));
+        Member admin = Member.createUser("google-1", "admin@example.com", "Admin");
+
+        Workspace activeWorkspace = Workspace.create("Active", "Visible", admin);
+        Long activeWorkspaceId = saveWorkspacePort.save(
+                        activeWorkspace,
+                        WorkspaceMember.create(
+                                activeWorkspace,
+                                admin,
+                                WorkspaceMemberRole.ADMIN,
+                                LocalDateTime.of(2026, 5, 15, 10, 0)))
+                .workspaceId();
+        WorkspaceJpaEntity activeWorkspaceEntity =
+                workspaceJpaRepository.findById(activeWorkspaceId).orElseThrow();
+        workspaceMemberJpaRepository.save(WorkspaceMemberJpaEntity.create(
+                activeWorkspaceEntity,
+                memberEntity,
+                WorkspaceMemberRole.MEMBER,
+                LocalDateTime.of(2026, 5, 15, 11, 0)));
+
+        Workspace deletedWorkspace = Workspace.create("Deleted", "Hidden", admin);
+        deletedWorkspace.softDelete(LocalDateTime.of(2026, 5, 15, 12, 0));
+        Long deletedWorkspaceId = saveWorkspacePort.save(
+                        deletedWorkspace,
+                        WorkspaceMember.create(
+                                deletedWorkspace,
+                                admin,
+                                WorkspaceMemberRole.ADMIN,
+                                LocalDateTime.of(2026, 5, 15, 12, 30)))
+                .workspaceId();
+
+        List<ListWorkspaceMembersResult> results =
+                loadWorkspaceMemberPort.findActiveWorkspaceMembersByWorkspaceId(activeWorkspaceId);
+
+        assertThat(results).hasSize(2);
+        assertThat(results.get(0).memberId()).isEqualTo(adminEntity.getId());
+        assertThat(results.get(0).memberGoogleSub()).isEqualTo("google-1");
+        assertThat(results.get(0).email()).isEqualTo("admin@example.com");
+        assertThat(results.get(0).name()).isEqualTo("Admin");
+        assertThat(results.get(0).role()).isEqualTo(WorkspaceMemberRole.ADMIN);
+        assertThat(results.get(0).joinedAt()).isEqualTo(LocalDateTime.of(2026, 5, 15, 10, 0));
+        assertThat(results.get(1).memberId()).isEqualTo(memberEntity.getId());
+        assertThat(results.get(1).memberGoogleSub()).isEqualTo("google-2");
+        assertThat(results.get(1).role()).isEqualTo(WorkspaceMemberRole.MEMBER);
+        assertThat(results.get(1).joinedAt()).isEqualTo(LocalDateTime.of(2026, 5, 15, 11, 0));
+
+        assertThat(loadWorkspaceMemberPort.findActiveWorkspaceMembersByWorkspaceId(deletedWorkspaceId))
                 .isEmpty();
     }
 }
