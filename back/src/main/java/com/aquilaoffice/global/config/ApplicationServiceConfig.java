@@ -5,12 +5,14 @@ import com.aquilaoffice.application.port.in.CreateWorkspaceUseCase;
 import com.aquilaoffice.application.port.in.CreateWorkspaceInviteUseCase;
 import com.aquilaoffice.application.port.in.GetWorkspaceDetailUseCase;
 import com.aquilaoffice.application.port.in.GetWorkspaceInviteUseCase;
+import com.aquilaoffice.application.port.in.ListWorkspaceMembersUseCase;
 import com.aquilaoffice.application.port.in.ListWorkspacesUseCase;
 import com.aquilaoffice.application.port.out.AcceptWorkspaceInvitePort;
 import com.aquilaoffice.application.port.out.GenerateWorkspaceInviteTokenPort;
 import com.aquilaoffice.application.port.out.LoadMemberPort;
 import com.aquilaoffice.application.port.out.LoadWorkspacePort;
 import com.aquilaoffice.application.port.out.LoadWorkspaceInvitePort;
+import com.aquilaoffice.application.port.out.LoadWorkspaceMemberPort;
 import com.aquilaoffice.application.port.out.SaveWorkspaceInvitePort;
 import com.aquilaoffice.application.port.out.SaveWorkspacePort;
 import com.aquilaoffice.application.service.AcceptWorkspaceInviteService;
@@ -18,6 +20,7 @@ import com.aquilaoffice.application.service.CreateWorkspaceService;
 import com.aquilaoffice.application.service.CreateWorkspaceInviteService;
 import com.aquilaoffice.application.service.GetWorkspaceDetailService;
 import com.aquilaoffice.application.service.GetWorkspaceInviteService;
+import com.aquilaoffice.application.service.ListWorkspaceMembersService;
 import com.aquilaoffice.application.service.ListWorkspacesService;
 import java.time.Clock;
 import org.springframework.context.annotation.Bean;
@@ -70,6 +73,14 @@ public class ApplicationServiceConfig {
             LoadMemberPort loadMemberPort,
             LoadWorkspacePort loadWorkspacePort) {
         return new GetWorkspaceDetailService(loadMemberPort, loadWorkspacePort);
+    }
+
+    @Bean
+    public ListWorkspaceMembersUseCase listWorkspaceMembersUseCase(
+            LoadMemberPort loadMemberPort,
+            LoadWorkspacePort loadWorkspacePort,
+            LoadWorkspaceMemberPort loadWorkspaceMemberPort) {
+        return new ListWorkspaceMembersService(loadMemberPort, loadWorkspacePort, loadWorkspaceMemberPort);
     }
 
     @Bean

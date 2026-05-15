@@ -3,14 +3,17 @@ package com.aquilaoffice.global.config;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.aquilaoffice.application.port.in.AcceptWorkspaceInviteUseCase;
+import com.aquilaoffice.application.port.in.ListWorkspaceMembersUseCase;
 import com.aquilaoffice.application.port.out.AcceptWorkspaceInvitePort;
 import com.aquilaoffice.application.port.out.GenerateWorkspaceInviteTokenPort;
 import com.aquilaoffice.application.port.out.LoadMemberPort;
 import com.aquilaoffice.application.port.out.LoadWorkspaceInvitePort;
+import com.aquilaoffice.application.port.out.LoadWorkspaceMemberPort;
 import com.aquilaoffice.application.port.out.LoadWorkspacePort;
 import com.aquilaoffice.application.port.out.SaveWorkspaceInvitePort;
 import com.aquilaoffice.application.port.out.SaveWorkspacePort;
 import com.aquilaoffice.application.service.AcceptWorkspaceInviteService;
+import com.aquilaoffice.application.service.ListWorkspaceMembersService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -27,6 +30,9 @@ class ApplicationServiceConfigTest {
 
     @MockitoBean
     private LoadWorkspacePort loadWorkspacePort;
+
+    @MockitoBean
+    private LoadWorkspaceMemberPort loadWorkspaceMemberPort;
 
     @MockitoBean
     private SaveWorkspacePort saveWorkspacePort;
@@ -46,8 +52,16 @@ class ApplicationServiceConfigTest {
     @Autowired
     private AcceptWorkspaceInviteUseCase acceptWorkspaceInviteUseCase;
 
+    @Autowired
+    private ListWorkspaceMembersUseCase listWorkspaceMembersUseCase;
+
     @Test
     void registersAcceptWorkspaceInviteUseCase() {
         assertThat(acceptWorkspaceInviteUseCase).isInstanceOf(AcceptWorkspaceInviteService.class);
+    }
+
+    @Test
+    void registersListWorkspaceMembersUseCase() {
+        assertThat(listWorkspaceMembersUseCase).isInstanceOf(ListWorkspaceMembersService.class);
     }
 }
