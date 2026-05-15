@@ -803,6 +803,10 @@ h2 {
   gap: 10px;
 }
 
+.form-actions .secondary-action {
+  margin-top: 0;
+}
+
 .primary-action-active {
   border-color: #0d8b61;
   background: var(--green);

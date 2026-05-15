@@ -1,6 +1,14 @@
 "use client";
 
-import { AlertCircle, ArrowLeft, CheckCircle2, Loader2, Plus, Save } from "lucide-react";
+import {
+  AlertCircle,
+  ArrowLeft,
+  Building2,
+  CheckCircle2,
+  Loader2,
+  Plus,
+  Save,
+} from "lucide-react";
 import Link from "next/link";
 import { useState, type FormEvent } from "react";
 import { ApiError } from "@/lib/api-client";
@@ -30,6 +38,10 @@ export default function NewWorkspacePage() {
   const trimmedName = name.trim();
   const trimmedDescription = description.trim();
   const canSubmit = trimmedName.length > 0 && !isSubmitting;
+  const createdWorkspaceHref =
+    submitState.status === "created"
+      ? `/workspaces/${submitState.created.workspaceId}`
+      : null;
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -127,10 +139,17 @@ export default function NewWorkspacePage() {
             <Link className="secondary-action" href="/">
               취소
             </Link>
-            <button className="primary-action primary-action-active" type="submit" disabled={!canSubmit}>
-              {isSubmitting ? <Loader2 className="spin" aria-hidden="true" /> : <Save aria-hidden="true" />}
-              <span>{isSubmitting ? "생성 중" : "생성"}</span>
-            </button>
+            {createdWorkspaceHref ? (
+              <Link className="primary-action primary-action-active" href={createdWorkspaceHref}>
+                <Building2 aria-hidden="true" />
+                <span>상세 보기</span>
+              </Link>
+            ) : (
+              <button className="primary-action primary-action-active" type="submit" disabled={!canSubmit}>
+                {isSubmitting ? <Loader2 className="spin" aria-hidden="true" /> : <Save aria-hidden="true" />}
+                <span>{isSubmitting ? "생성 중" : "생성"}</span>
+              </button>
+            )}
           </div>
         </form>
       </section>
