@@ -11,6 +11,8 @@ export type WorkspaceSummary = {
   joinedAt: string;
 };
 
+export type WorkspaceDetail = WorkspaceSummary;
+
 export type CreateWorkspaceInput = {
   name: string;
   description?: string;
@@ -18,6 +20,17 @@ export type CreateWorkspaceInput = {
 
 export async function fetchWorkspaces(memberGoogleSub: string): Promise<WorkspaceSummary[]> {
   return apiFetch<WorkspaceSummary[]>("/api/v1/workspaces", {
+    headers: {
+      [WORKSPACE_MEMBER_HEADER]: memberGoogleSub,
+    },
+  });
+}
+
+export async function fetchWorkspaceDetail(
+  memberGoogleSub: string,
+  workspaceId: number,
+): Promise<WorkspaceDetail> {
+  return apiFetch<WorkspaceDetail>(`/api/v1/workspaces/${workspaceId}`, {
     headers: {
       [WORKSPACE_MEMBER_HEADER]: memberGoogleSub,
     },

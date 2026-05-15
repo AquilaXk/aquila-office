@@ -164,7 +164,12 @@ export default function Home() {
           {workspaces.status === "ready" && workspaces.data.length > 0 ? (
             <div className="workspace-list">
               {workspaces.data.map((workspace) => (
-                <article className="workspace-row" key={workspace.workspaceId}>
+                <Link
+                  className="workspace-row workspace-row-link"
+                  href={`/workspaces/${workspace.workspaceId}`}
+                  key={workspace.workspaceId}
+                  aria-label={`${workspace.name} 상세 보기`}
+                >
                   <div className="workspace-row-icon">
                     <Building2 aria-hidden="true" />
                   </div>
@@ -176,7 +181,7 @@ export default function Home() {
                     <span className="role-badge">{workspace.myRole}</span>
                     <span>{formatDate(workspace.joinedAt)}</span>
                   </div>
-                </article>
+                </Link>
               ))}
             </div>
           ) : (
