@@ -29,9 +29,11 @@ import {
 } from "react";
 import { ApiError } from "@/lib/api-client";
 import {
+  changeWorkspaceMemberRole,
   deleteWorkspace,
   fetchWorkspaceDetail,
   fetchWorkspaceMembers,
+  removeWorkspaceMember,
   updateWorkspace,
   type WorkspaceDetail,
   type WorkspaceMember,
@@ -53,6 +55,10 @@ type MutationState =
   | { status: "submitting"; message: null }
   | { status: "success"; message: string }
   | { status: "error"; message: string };
+
+type MemberAction =
+  | { type: "role"; memberId: number }
+  | { type: "remove"; memberId: number };
 
 export default function WorkspaceSettingsPage({
   params,
@@ -76,6 +82,11 @@ export default function WorkspaceSettingsPage({
   });
   const [deleteConfirmation, setDeleteConfirmation] = useState("");
   const [deleteState, setDeleteState] = useState<MutationState>({
+    status: "idle",
+    message: null,
+  });
+  const [memberAction, setMemberAction] = useState<MemberAction | null>(null);
+  const [memberState, setMemberState] = useState<MutationState>({
     status: "idle",
     message: null,
   });
@@ -149,6 +160,7 @@ export default function WorkspaceSettingsPage({
     canManageWorkspace &&
     deleteConfirmation === workspace?.name &&
     !isDeletingWorkspace;
+  const canManageMembers = state.status === "ready" && isAdmin;
 
   const handleUpdateWorkspace = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -200,6 +212,76 @@ export default function WorkspaceSettingsPage({
         status: "error",
         message: messageFromError(error, "워크스페이스를 삭제하지 못했습니다."),
       });
+    }
+  };
+
+  const handleChangeMemberRole = async (
+    member: WorkspaceMember,
+    nextRole: WorkspaceMemberRole,
+  ) => {
+    if (!canManageMembers || member.role === nextRole || isLastAdmin(member, adminCount, nextRole)) {
+      return;
+    }
+
+    setMemberAction({ type: "role", memberId: member.memberId });
+    setMemberState({ status: "submitting", message: null });
+    try {
+      await changeWorkspaceMemberRole(
+        TEMP_MEMBER_GOOGLE_SUB,
+        numericWorkspaceId,
+        member.memberId,
+        nextRole,
+      );
+      setState((previous) =>
+        previous.status === "ready"
+          ? {
+              ...previous,
+              members: previous.members.map((currentMember) =>
+                currentMember.memberId === member.memberId
+                  ? { ...currentMember, role: nextRole }
+                  : currentMember,
+              ),
+            }
+          : previous,
+      );
+      setMemberState({ status: "success", message: "멤버 역할이 변경되었습니다." });
+    } catch (error) {
+      setMemberState({
+        status: "error",
+        message: messageFromError(error, "멤버 역할을 변경하지 못했습니다."),
+      });
+    } finally {
+      setMemberAction(null);
+    }
+  };
+
+  const handleRemoveMember = async (member: WorkspaceMember) => {
+    if (!canManageMembers || isLastAdmin(member, adminCount)) {
+      return;
+    }
+
+    setMemberAction({ type: "remove", memberId: member.memberId });
+    setMemberState({ status: "submitting", message: null });
+    try {
+      await removeWorkspaceMember(TEMP_MEMBER_GOOGLE_SUB, numericWorkspaceId, member.memberId);
+      setState((previous) =>
+        previous.status === "ready"
+          ? {
+              ...previous,
+              members: previous.members.filter(
+                (currentMember) => currentMember.memberId !== member.memberId,
+              ),
+            }
+          : previous,
+      );
+      setMemberState({ status: "success", message: "멤버가 제거되었습니다." });
+    } catch (error) {
+      setMemberState({
+        status: "error",
+        message: messageFromError(error, "멤버를 제거하지 못했습니다."),
+      });
+    } finally {
+      setMemberAction(null);
     }
   };
 
@@ -431,28 +513,69 @@ export default function WorkspaceSettingsPage({
               <div className="workspace-section-title">
                 <div>
                   <span className="workspace-detail-label">Members</span>
-                  <h2>멤버 현황</h2>
+                  <h2>멤버 관리</h2>
                 </div>
-                <span className="workspace-count-badge">{members.length}명</span>
+                <span className={canManageMembers ? "workspace-count-badge" : "workspace-lock-badge"}>
+                  {members.length}명
+                </span>
               </div>
+
+              {memberState.status === "error" ? (
+                <SettingsNotice tone="danger" icon={<AlertCircle aria-hidden="true" />}>
+                  {memberState.message}
+                </SettingsNotice>
+              ) : null}
+
+              {memberState.status === "success" ? (
+                <SettingsNotice tone="success" icon={<CheckCircle2 aria-hidden="true" />}>
+                  {memberState.message}
+                </SettingsNotice>
+              ) : null}
 
               {members.length > 0 ? (
                 <div className="workspace-settings-member-list">
-                  {members.map((member) => (
-                    <article className="workspace-settings-member-row" key={member.memberId}>
-                      <div className="workspace-member-avatar">
-                        <UserRound aria-hidden="true" />
-                      </div>
-                      <div className="workspace-member-main">
-                        <strong>{member.name}</strong>
-                        <p>{member.email}</p>
-                      </div>
-                      <div className="workspace-member-meta">
-                        <span className="role-badge">{formatRole(member.role)}</span>
-                        <span>{formatDateTime(member.joinedAt)}</span>
-                      </div>
-                    </article>
-                  ))}
+                  {members.map((member) => {
+                    const roleBusy =
+                      memberAction?.type === "role" && memberAction.memberId === member.memberId;
+                    const removeBusy =
+                      memberAction?.type === "remove" && memberAction.memberId === member.memberId;
+                    const lastAdmin = isLastAdmin(member, adminCount);
+
+                    return (
+                      <article className="workspace-settings-member-row" key={member.memberId}>
+                        <div className="workspace-member-avatar">
+                          <UserRound aria-hidden="true" />
+                        </div>
+                        <div className="workspace-member-main">
+                          <strong>{member.name}</strong>
+                          <p>{member.email}</p>
+                          <span>{formatDateTime(member.joinedAt)}</span>
+                        </div>
+                        <div className="workspace-settings-member-actions">
+                          <RoleSegmentedControl
+                            role={member.role}
+                            busy={roleBusy}
+                            disabled={!canManageMembers || Boolean(memberAction)}
+                            disableAdminDemotion={lastAdmin}
+                            onChange={(nextRole) => void handleChangeMemberRole(member, nextRole)}
+                          />
+                          <button
+                            className="danger-action workspace-member-remove"
+                            type="button"
+                            onClick={() => void handleRemoveMember(member)}
+                            disabled={!canManageMembers || Boolean(memberAction) || lastAdmin}
+                          >
+                            {removeBusy ? (
+                              <Loader2 className="spin" aria-hidden="true" />
+                            ) : (
+                              <Trash2 aria-hidden="true" />
+                            )}
+                            <span>{removeBusy ? "제거 중" : "제거"}</span>
+                          </button>
+                        </div>
+                      </article>
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="workspace-member-empty">
@@ -547,6 +670,47 @@ function SettingsNotice({
   );
 }
 
+function RoleSegmentedControl({
+  role,
+  busy,
+  disabled,
+  disableAdminDemotion,
+  onChange,
+}: {
+  role: WorkspaceMemberRole;
+  busy: boolean;
+  disabled: boolean;
+  disableAdminDemotion: boolean;
+  onChange: (role: WorkspaceMemberRole) => void;
+}) {
+  const roles: WorkspaceMemberRole[] = ["ADMIN", "MEMBER"];
+
+  return (
+    <div className="workspace-role-control" role="group" aria-label="멤버 역할 변경">
+      {roles.map((candidateRole) => {
+        const active = candidateRole === role;
+        const blockedLastAdmin = disableAdminDemotion && role === "ADMIN" && candidateRole === "MEMBER";
+        return (
+          <button
+            className={active ? "workspace-role-option workspace-role-option-active" : "workspace-role-option"}
+            type="button"
+            key={candidateRole}
+            aria-pressed={active}
+            onClick={() => {
+              if (!active && !blockedLastAdmin) {
+                onChange(candidateRole);
+              }
+            }}
+            disabled={disabled || active || blockedLastAdmin}
+          >
+            {busy && active ? "..." : formatRole(candidateRole)}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 function toFailureState(error: unknown, fallback: string): WorkspaceSettingsState {
   if (error instanceof ApiError) {
     return {
@@ -579,6 +743,18 @@ function isValidWorkspaceId(workspaceId: number): boolean {
 
 function formatRole(role: WorkspaceMemberRole): string {
   return role === "ADMIN" ? "관리자" : "멤버";
+}
+
+function isLastAdmin(
+  member: WorkspaceMember,
+  adminCount: number,
+  nextRole?: WorkspaceMemberRole,
+): boolean {
+  if (member.role !== "ADMIN" || adminCount > 1) {
+    return false;
+  }
+
+  return nextRole === undefined || nextRole !== "ADMIN";
 }
 
 function formatDateTime(value: string): string {
