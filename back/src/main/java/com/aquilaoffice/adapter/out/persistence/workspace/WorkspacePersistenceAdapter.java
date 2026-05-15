@@ -3,7 +3,9 @@ package com.aquilaoffice.adapter.out.persistence.workspace;
 import com.aquilaoffice.adapter.out.persistence.member.MemberJpaEntity;
 import com.aquilaoffice.adapter.out.persistence.member.MemberJpaRepository;
 import com.aquilaoffice.application.port.in.GetWorkspaceDetailResult;
+import com.aquilaoffice.application.port.in.ListWorkspaceMembersResult;
 import com.aquilaoffice.application.port.in.ListWorkspacesResult;
+import com.aquilaoffice.application.port.out.LoadWorkspaceMemberPort;
 import com.aquilaoffice.application.port.out.LoadWorkspacePort;
 import com.aquilaoffice.application.port.out.SaveWorkspacePort;
 import com.aquilaoffice.application.port.out.SavedWorkspace;
@@ -20,7 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
  * 워크스페이스 저장 outbound port를 JPA repository 조합으로 구현하는 persistence adapter다.
  */
 @Repository
-public class WorkspacePersistenceAdapter implements SaveWorkspacePort, LoadWorkspacePort {
+public class WorkspacePersistenceAdapter implements SaveWorkspacePort, LoadWorkspacePort, LoadWorkspaceMemberPort {
 
     private final MemberJpaRepository memberJpaRepository;
     private final WorkspaceJpaRepository workspaceJpaRepository;
@@ -78,6 +80,16 @@ public class WorkspacePersistenceAdapter implements SaveWorkspacePort, LoadWorks
                 .map(this::toDetailResult);
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public List<ListWorkspaceMembersResult> findActiveWorkspaceMembersByWorkspaceId(Long workspaceId) {
+        Objects.requireNonNull(workspaceId, "workspaceId must not be null");
+
+        return workspaceMemberJpaRepository.findActiveWorkspaceMembersByWorkspaceId(workspaceId).stream()
+                .map(this::toMemberResult)
+                .toList();
+    }
+
     private ListWorkspacesResult toListResult(WorkspaceMemberJpaEntity workspaceMemberEntity) {
         WorkspaceJpaEntity workspaceEntity = workspaceMemberEntity.getWorkspace();
         return new ListWorkspacesResult(
@@ -96,6 +108,17 @@ public class WorkspacePersistenceAdapter implements SaveWorkspacePort, LoadWorks
                 workspaceEntity.getName(),
                 workspaceEntity.getDescription(),
                 workspaceEntity.getCreatedByMember().getGoogleSub(),
+                workspaceMemberEntity.getRole(),
+                workspaceMemberEntity.getJoinedAt());
+    }
+
+    private ListWorkspaceMembersResult toMemberResult(WorkspaceMemberJpaEntity workspaceMemberEntity) {
+        MemberJpaEntity memberEntity = workspaceMemberEntity.getMember();
+        return new ListWorkspaceMembersResult(
+                memberEntity.getId(),
+                memberEntity.getGoogleSub(),
+                memberEntity.getEmail(),
+                memberEntity.getName(),
                 workspaceMemberEntity.getRole(),
                 workspaceMemberEntity.getJoinedAt());
     }
