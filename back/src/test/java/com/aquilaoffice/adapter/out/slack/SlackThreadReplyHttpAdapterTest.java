@@ -118,6 +118,11 @@ class SlackThreadReplyHttpAdapterTest {
         }
 
         @Override
+        public Optional<SlackChannelMapping> findActiveByIdAndWorkspaceId(Long mappingId, Long workspaceId) {
+            throw new UnsupportedOperationException("not used in slack thread reply adapter test");
+        }
+
+        @Override
         public Optional<SlackChannelMapping> findActiveByTeamIdAndChannelId(String teamId, String channelId) {
             this.teamId = teamId;
             this.channelId = channelId;

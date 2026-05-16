@@ -13,6 +13,7 @@ import com.aquilaoffice.application.port.in.CreateWorkspaceGatewayBindingUseCase
 import com.aquilaoffice.application.port.in.DeleteWorkspaceAgentUseCase;
 import com.aquilaoffice.application.port.in.DeleteWorkspaceUseCase;
 import com.aquilaoffice.application.port.in.DeleteGithubCredentialUseCase;
+import com.aquilaoffice.application.port.in.DeleteSlackIntegrationUseCase;
 import com.aquilaoffice.application.port.in.GetArtifactFileUseCase;
 import com.aquilaoffice.application.port.in.GetArtifactTreeUseCase;
 import com.aquilaoffice.application.port.in.GetOrchestrationPlanArtifactUseCase;
@@ -33,8 +34,9 @@ import com.aquilaoffice.application.port.in.RemoveWorkspaceMemberUseCase;
 import com.aquilaoffice.application.port.in.RunTaskUseCase;
 import com.aquilaoffice.application.port.in.SendChatMessageUseCase;
 import com.aquilaoffice.application.port.in.TestWorkspaceGatewayConnectionUseCase;
-import com.aquilaoffice.application.port.in.UpdateTaskStatusUseCase;
 import com.aquilaoffice.application.port.in.UpdateGithubCredentialUseCase;
+import com.aquilaoffice.application.port.in.UpdateSlackIntegrationUseCase;
+import com.aquilaoffice.application.port.in.UpdateTaskStatusUseCase;
 import com.aquilaoffice.application.port.in.UpdateWorkspaceUseCase;
 import com.aquilaoffice.application.port.in.RevokeWorkspaceInviteUseCase;
 import com.aquilaoffice.application.port.out.AcceptWorkspaceInvitePort;
@@ -89,6 +91,7 @@ import com.aquilaoffice.application.service.CreateWorkspaceGatewayBindingService
 import com.aquilaoffice.application.service.DeleteWorkspaceAgentService;
 import com.aquilaoffice.application.service.DeleteWorkspaceService;
 import com.aquilaoffice.application.service.DeleteGithubCredentialService;
+import com.aquilaoffice.application.service.DeleteSlackIntegrationService;
 import com.aquilaoffice.application.service.GetArtifactFileService;
 import com.aquilaoffice.application.service.GetArtifactTreeService;
 import com.aquilaoffice.application.service.GetOrchestrationPlanArtifactService;
@@ -111,6 +114,7 @@ import com.aquilaoffice.application.service.RunTaskService;
 import com.aquilaoffice.application.service.SendChatMessageService;
 import com.aquilaoffice.application.service.TestWorkspaceGatewayConnectionService;
 import com.aquilaoffice.application.service.UpdateGithubCredentialService;
+import com.aquilaoffice.application.service.UpdateSlackIntegrationService;
 import com.aquilaoffice.application.service.UpdateTaskStatusService;
 import com.aquilaoffice.application.service.UpdateWorkspaceService;
 import org.junit.jupiter.api.Test;
@@ -354,6 +358,12 @@ class ApplicationServiceConfigTest {
     private ListSlackChannelMappingsUseCase listSlackChannelMappingsUseCase;
 
     @Autowired
+    private UpdateSlackIntegrationUseCase updateSlackIntegrationUseCase;
+
+    @Autowired
+    private DeleteSlackIntegrationUseCase deleteSlackIntegrationUseCase;
+
+    @Autowired
     private SlackSignatureVerifier slackSignatureVerifier;
 
     @Test
@@ -532,6 +542,16 @@ class ApplicationServiceConfigTest {
     @Test
     void registersListSlackChannelMappingsUseCase() {
         assertThat(listSlackChannelMappingsUseCase).isInstanceOf(ListSlackChannelMappingsService.class);
+    }
+
+    @Test
+    void registersUpdateSlackIntegrationUseCase() {
+        assertThat(updateSlackIntegrationUseCase).isInstanceOf(UpdateSlackIntegrationService.class);
+    }
+
+    @Test
+    void registersDeleteSlackIntegrationUseCase() {
+        assertThat(deleteSlackIntegrationUseCase).isInstanceOf(DeleteSlackIntegrationService.class);
     }
 
     @Test

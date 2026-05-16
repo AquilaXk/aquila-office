@@ -10,6 +10,7 @@ import com.aquilaoffice.application.port.in.CreateWorkspaceGatewayBindingUseCase
 import com.aquilaoffice.application.port.in.CreateWorkspaceUseCase;
 import com.aquilaoffice.application.port.in.CreateWorkspaceInviteUseCase;
 import com.aquilaoffice.application.port.in.DeleteGithubCredentialUseCase;
+import com.aquilaoffice.application.port.in.DeleteSlackIntegrationUseCase;
 import com.aquilaoffice.application.port.in.DeleteWorkspaceAgentUseCase;
 import com.aquilaoffice.application.port.in.DeleteWorkspaceUseCase;
 import com.aquilaoffice.application.port.in.GetArtifactFileUseCase;
@@ -37,6 +38,7 @@ import com.aquilaoffice.application.port.in.RunTaskUseCase;
 import com.aquilaoffice.application.port.in.SendChatMessageUseCase;
 import com.aquilaoffice.application.port.in.TestWorkspaceGatewayConnectionUseCase;
 import com.aquilaoffice.application.port.in.UpdateGithubCredentialUseCase;
+import com.aquilaoffice.application.port.in.UpdateSlackIntegrationUseCase;
 import com.aquilaoffice.application.port.in.UpdateTaskStatusUseCase;
 import com.aquilaoffice.application.port.in.UpdateWorkspaceUseCase;
 import com.aquilaoffice.application.port.out.AcceptWorkspaceInvitePort;
@@ -91,6 +93,7 @@ import com.aquilaoffice.application.service.CreateWorkspaceGatewayBindingService
 import com.aquilaoffice.application.service.CreateWorkspaceService;
 import com.aquilaoffice.application.service.CreateWorkspaceInviteService;
 import com.aquilaoffice.application.service.DeleteGithubCredentialService;
+import com.aquilaoffice.application.service.DeleteSlackIntegrationService;
 import com.aquilaoffice.application.service.DeleteWorkspaceAgentService;
 import com.aquilaoffice.application.service.DeleteWorkspaceService;
 import com.aquilaoffice.application.service.GetArtifactFileService;
@@ -119,6 +122,7 @@ import com.aquilaoffice.application.service.SendChatMessageService;
 import com.aquilaoffice.application.service.SlackAgentCommandParser;
 import com.aquilaoffice.application.service.TestWorkspaceGatewayConnectionService;
 import com.aquilaoffice.application.service.UpdateGithubCredentialService;
+import com.aquilaoffice.application.service.UpdateSlackIntegrationService;
 import com.aquilaoffice.application.service.UpdateTaskStatusService;
 import com.aquilaoffice.application.service.UpdateWorkspaceService;
 import com.aquilaoffice.adapter.in.web.slack.SlackSignatureVerifier;
@@ -527,6 +531,32 @@ public class ApplicationServiceConfig {
                 loadMemberPort,
                 loadWorkspacePort,
                 loadSlackChannelMappingPort);
+    }
+
+    @Bean
+    public UpdateSlackIntegrationUseCase updateSlackIntegrationUseCase(
+            LoadMemberPort loadMemberPort,
+            LoadWorkspacePort loadWorkspacePort,
+            LoadSlackChannelMappingPort loadSlackChannelMappingPort,
+            SaveSlackChannelMappingPort saveSlackChannelMappingPort) {
+        return new UpdateSlackIntegrationService(
+                loadMemberPort,
+                loadWorkspacePort,
+                loadSlackChannelMappingPort,
+                saveSlackChannelMappingPort);
+    }
+
+    @Bean
+    public DeleteSlackIntegrationUseCase deleteSlackIntegrationUseCase(
+            LoadMemberPort loadMemberPort,
+            LoadWorkspacePort loadWorkspacePort,
+            LoadSlackChannelMappingPort loadSlackChannelMappingPort,
+            SaveSlackChannelMappingPort saveSlackChannelMappingPort) {
+        return new DeleteSlackIntegrationService(
+                loadMemberPort,
+                loadWorkspacePort,
+                loadSlackChannelMappingPort,
+                saveSlackChannelMappingPort);
     }
 
     @Bean

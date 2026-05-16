@@ -2,6 +2,7 @@ package com.aquilaoffice.adapter.in.web.slack;
 
 import com.aquilaoffice.application.port.in.CreateSlackChannelMappingResult;
 import com.aquilaoffice.application.port.in.ListSlackChannelMappingsResult;
+import com.aquilaoffice.application.port.in.UpdateSlackIntegrationResult;
 
 /**
  * Slack 수동 연동 HTTP 응답 모델이다.
@@ -34,6 +35,18 @@ public record SlackIntegrationResponse(
                 result.workspaceId(),
                 result.teamId(),
                 result.channelId(),
+                result.channelName(),
+                result.maskedBotToken(),
+                result.createdByGoogleSub(),
+                result.active());
+    }
+
+    public static SlackIntegrationResponse from(UpdateSlackIntegrationResult result) {
+        return new SlackIntegrationResponse(
+                result.id(),
+                result.workspaceId(),
+                result.slackTeamId(),
+                result.slackChannelId(),
                 result.channelName(),
                 result.maskedBotToken(),
                 result.createdByGoogleSub(),

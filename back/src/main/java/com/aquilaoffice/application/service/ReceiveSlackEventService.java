@@ -178,6 +178,11 @@ public class ReceiveSlackEventService implements ReceiveSlackEventUseCase {
     private static class EmptySlackChannelMappingPort implements LoadSlackChannelMappingPort {
 
         @Override
+        public Optional<SlackChannelMapping> findActiveByIdAndWorkspaceId(Long mappingId, Long workspaceId) {
+            return Optional.empty();
+        }
+
+        @Override
         public Optional<SlackChannelMapping> findActiveByTeamIdAndChannelId(String teamId, String channelId) {
             return Optional.empty();
         }

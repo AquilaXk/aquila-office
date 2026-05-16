@@ -9,6 +9,8 @@ import java.util.Optional;
  */
 public interface LoadSlackChannelMappingPort {
 
+    Optional<SlackChannelMapping> findActiveByIdAndWorkspaceId(Long mappingId, Long workspaceId);
+
     Optional<SlackChannelMapping> findActiveByTeamIdAndChannelId(String teamId, String channelId);
 
     List<SlackChannelMapping> findActiveByWorkspaceId(Long workspaceId);
