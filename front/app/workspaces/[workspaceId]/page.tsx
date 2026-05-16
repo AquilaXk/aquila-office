@@ -7,6 +7,7 @@ import {
   CalendarDays,
   Copy,
   Hash,
+  ListChecks,
   Loader2,
   Mail,
   RefreshCw,
@@ -21,6 +22,7 @@ import Link from "next/link";
 import { use, useCallback, useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
 import { ApiError } from "@/lib/api-client";
 import { createWorkspaceInvite, type WorkspaceInvite } from "@/lib/invites";
+import { fetchWorkspaceTasks, type TaskPriority, type TaskStatus, type TaskType, type WorkspaceTask } from "@/lib/tasks";
 import {
   fetchWorkspaceDetail,
   fetchWorkspaceMembers,
@@ -43,6 +45,25 @@ type InviteCreateState =
   | { status: "created"; invite: WorkspaceInvite; invitePath: string; inviteUrl: string; error: null }
   | { status: "error"; invite: null; invitePath: null; inviteUrl: null; error: string };
 
+type TaskLoadState =
+  | { status: "loading"; error: null }
+  | { status: "ready"; error: null }
+  | { status: "error"; error: string };
+
+type TaskGroup = {
+  key: string;
+  label: string;
+  statuses: TaskStatus[];
+  tone: "muted" | "blue" | "green" | "red";
+};
+
+const TASK_GROUPS: TaskGroup[] = [
+  { key: "waiting", label: "대기", statuses: ["REQUESTED", "ASSIGNED"], tone: "muted" },
+  { key: "progress", label: "진행", statuses: ["IN_PROGRESS", "WAITING_USER"], tone: "blue" },
+  { key: "done", label: "완료", statuses: ["COMPLETED"], tone: "green" },
+  { key: "stopped", label: "중단", statuses: ["FAILED", "CANCELED"], tone: "red" },
+];
+
 export default function WorkspaceDetailPage({
   params,
 }: {
@@ -64,6 +85,36 @@ export default function WorkspaceDetailPage({
     inviteUrl: null,
     error: null,
   });
+  const [tasks, setTasks] = useState<WorkspaceTask[]>([]);
+  const [taskState, setTaskState] = useState<TaskLoadState>({
+    status: "loading",
+    error: null,
+  });
+
+  const reloadTasks = useCallback(async () => {
+    if (!isValidWorkspaceId(numericWorkspaceId)) {
+      setTasks([]);
+      setTaskState({
+        status: "error",
+        error: "올바르지 않은 워크스페이스입니다.",
+      });
+      return;
+    }
+
+    setTaskState({ status: "loading", error: null });
+
+    try {
+      const nextTasks = await fetchWorkspaceTasks(TEMP_MEMBER_GOOGLE_SUB, numericWorkspaceId);
+      setTasks(nextTasks);
+      setTaskState({ status: "ready", error: null });
+    } catch (error) {
+      setTasks([]);
+      setTaskState({
+        status: "error",
+        error: messageFromError(error, "Task 목록을 불러오지 못했습니다."),
+      });
+    }
+  }, [numericWorkspaceId]);
 
   const reloadWorkspace = useCallback(async () => {
     setState({ status: "loading", workspace: null, error: null });
@@ -83,10 +134,11 @@ export default function WorkspaceDetailPage({
         fetchWorkspaceMembers(TEMP_MEMBER_GOOGLE_SUB, numericWorkspaceId),
       ]);
       setState({ status: "ready", workspace, members, error: null });
+      void reloadTasks();
     } catch (error) {
       setState(toFailureState(error, "워크스페이스 정보를 확인하지 못했습니다."));
     }
-  }, [numericWorkspaceId]);
+  }, [numericWorkspaceId, reloadTasks]);
 
   useEffect(() => {
     let ignore = false;
@@ -99,17 +151,35 @@ export default function WorkspaceDetailPage({
             workspace: null,
             error: "올바르지 않은 워크스페이스입니다.",
           });
+          setTasks([]);
+          setTaskState({
+            status: "error",
+            error: "올바르지 않은 워크스페이스입니다.",
+          });
         }
         return;
       }
 
       try {
-        const [workspace, members] = await Promise.all([
+        const [workspace, members, initialTasksResult] = await Promise.all([
           fetchWorkspaceDetail(TEMP_MEMBER_GOOGLE_SUB, numericWorkspaceId),
           fetchWorkspaceMembers(TEMP_MEMBER_GOOGLE_SUB, numericWorkspaceId),
+          fetchWorkspaceTasks(TEMP_MEMBER_GOOGLE_SUB, numericWorkspaceId)
+            .then((nextTasks) => ({ ok: true as const, nextTasks }))
+            .catch((error) => ({ ok: false as const, error })),
         ]);
         if (!ignore) {
           setState({ status: "ready", workspace, members, error: null });
+          if (initialTasksResult.ok) {
+            setTasks(initialTasksResult.nextTasks);
+            setTaskState({ status: "ready", error: null });
+          } else {
+            setTasks([]);
+            setTaskState({
+              status: "error",
+              error: messageFromError(initialTasksResult.error, "Task 목록을 불러오지 못했습니다."),
+            });
+          }
         }
       } catch (error) {
         if (!ignore) {
@@ -128,6 +198,14 @@ export default function WorkspaceDetailPage({
   const workspace = state.workspace;
   const members = state.status === "ready" ? state.members : [];
   const adminCount = members.filter((member) => member.role === "ADMIN").length;
+  const groupedTasks = useMemo(
+    () =>
+      TASK_GROUPS.map((group) => ({
+        ...group,
+        tasks: tasks.filter((task) => group.statuses.includes(task.status)),
+      })),
+    [tasks],
+  );
   const canCreateInvite = workspace?.myRole === "ADMIN";
   const isCreatingInvite = inviteState.status === "submitting";
   const canSubmitInvite = canCreateInvite && inviteEmail.trim().length > 0 && !isCreatingInvite;
@@ -273,6 +351,65 @@ export default function WorkspaceDetailPage({
               <strong>{workspace.name}</strong>
               <p>{workspace.description ?? "설명 없음"}</p>
             </div>
+
+            <section className="workspace-task-section" aria-label="워크스페이스 Task">
+              <div className="workspace-section-title">
+                <div>
+                  <span className="workspace-detail-label">Tasks</span>
+                  <h2>작업 보드</h2>
+                </div>
+                <button
+                  className="secondary-action workspace-task-refresh"
+                  type="button"
+                  onClick={() => void reloadTasks()}
+                  disabled={taskState.status === "loading"}
+                >
+                  {taskState.status === "loading" ? (
+                    <Loader2 className="spin" aria-hidden="true" />
+                  ) : (
+                    <RefreshCw aria-hidden="true" />
+                  )}
+                  <span>새로고침</span>
+                </button>
+              </div>
+
+              {taskState.status === "error" ? (
+                <div className="workspace-task-notice" role="alert">
+                  <AlertCircle aria-hidden="true" />
+                  <span>{taskState.error}</span>
+                </div>
+              ) : null}
+
+              {taskState.status === "loading" ? (
+                <div className="workspace-task-notice">
+                  <Loader2 className="spin" aria-hidden="true" />
+                  <span>Task 목록을 불러오고 있습니다.</span>
+                </div>
+              ) : null}
+
+              <div className="workspace-task-board">
+                {groupedTasks.map((group) => (
+                  <article className={`workspace-task-column workspace-task-column-${group.tone}`} key={group.key}>
+                    <div className="workspace-task-column-header">
+                      <strong>{group.label}</strong>
+                      <span>{group.tasks.length}</span>
+                    </div>
+                    {group.tasks.length > 0 ? (
+                      <div className="workspace-task-list">
+                        {group.tasks.map((task) => (
+                          <TaskCard task={task} key={task.taskId} />
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="workspace-task-empty">
+                        <ListChecks aria-hidden="true" />
+                        <span>표시할 Task가 없습니다.</span>
+                      </div>
+                    )}
+                  </article>
+                ))}
+              </div>
+            </section>
 
             <dl className="workspace-detail-meta">
               <DetailMetaItem
@@ -434,6 +571,25 @@ export default function WorkspaceDetailPage({
   );
 }
 
+function TaskCard({ task }: { task: WorkspaceTask }) {
+  return (
+    <article className="workspace-task-card">
+      <div className="workspace-task-card-title">
+        <strong>{task.title}</strong>
+        <span className={`task-status-badge task-status-${task.status.toLowerCase().replaceAll("_", "-")}`}>
+          {formatTaskStatus(task.status)}
+        </span>
+      </div>
+      {task.description ? <p>{task.description}</p> : null}
+      <div className="workspace-task-card-meta">
+        <span>{formatTaskType(task.type)}</span>
+        <span>{formatTaskPriority(task.priority)}</span>
+        <span>{formatDateTime(task.updatedAt ?? task.createdAt ?? "")}</span>
+      </div>
+    </article>
+  );
+}
+
 function WorkspaceDetailStateMessage({
   tone,
   icon,
@@ -506,6 +662,48 @@ function isValidWorkspaceId(workspaceId: number): boolean {
 
 function formatRole(role: WorkspaceMemberRole): string {
   return role === "ADMIN" ? "관리자" : "멤버";
+}
+
+function formatTaskStatus(status: TaskStatus): string {
+  switch (status) {
+    case "REQUESTED":
+      return "요청됨";
+    case "ASSIGNED":
+      return "배정됨";
+    case "IN_PROGRESS":
+      return "진행 중";
+    case "WAITING_USER":
+      return "대기";
+    case "COMPLETED":
+      return "완료";
+    case "FAILED":
+      return "실패";
+    case "CANCELED":
+      return "취소";
+  }
+}
+
+function formatTaskType(type?: TaskType): string {
+  if (!type) {
+    return "유형 없음";
+  }
+  return type.replaceAll("_", " ");
+}
+
+function formatTaskPriority(priority?: TaskPriority): string {
+  if (!priority) {
+    return "우선순위 없음";
+  }
+  if (priority === "URGENT") {
+    return "긴급";
+  }
+  if (priority === "HIGH") {
+    return "높음";
+  }
+  if (priority === "MEDIUM") {
+    return "보통";
+  }
+  return "낮음";
 }
 
 function formatDateTime(value: string): string {
