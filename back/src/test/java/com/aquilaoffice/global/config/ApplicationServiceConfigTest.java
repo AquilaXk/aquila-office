@@ -11,6 +11,7 @@ import com.aquilaoffice.application.port.in.CreateSlackChannelMappingUseCase;
 import com.aquilaoffice.application.port.in.CreateTaskUseCase;
 import com.aquilaoffice.application.port.in.CreateWorkspaceAgentUseCase;
 import com.aquilaoffice.application.port.in.CreateWorkspaceGatewayBindingUseCase;
+import com.aquilaoffice.application.port.in.CloseWorkspacePresenceStreamUseCase;
 import com.aquilaoffice.application.port.in.DeleteWorkspaceAgentUseCase;
 import com.aquilaoffice.application.port.in.DeleteWorkspaceUseCase;
 import com.aquilaoffice.application.port.in.DeleteGithubCredentialUseCase;
@@ -36,6 +37,7 @@ import com.aquilaoffice.application.port.in.ListWorkspaceInvitesUseCase;
 import com.aquilaoffice.application.port.in.ListWorkspaceMemberTaskStatsUseCase;
 import com.aquilaoffice.application.port.in.ListWorkspaceMembersUseCase;
 import com.aquilaoffice.application.port.in.ReceiveSlackEventUseCase;
+import com.aquilaoffice.application.port.in.OpenWorkspacePresenceStreamUseCase;
 import com.aquilaoffice.application.port.in.RemoveWorkspaceMemberUseCase;
 import com.aquilaoffice.application.port.in.RunTaskUseCase;
 import com.aquilaoffice.application.port.in.SendChatMessageUseCase;
@@ -116,6 +118,7 @@ import com.aquilaoffice.application.service.GetWorkspaceDashboardSummaryService;
 import com.aquilaoffice.application.service.GetTaskDetailService;
 import com.aquilaoffice.application.service.LeaveWorkspaceService;
 import com.aquilaoffice.application.service.MemberProfileService;
+import com.aquilaoffice.application.service.OpenWorkspacePresenceStreamService;
 import com.aquilaoffice.application.service.ListTaskReportsService;
 import com.aquilaoffice.application.service.ListWorkspaceAgentsService;
 import com.aquilaoffice.application.service.ListGithubCredentialsService;
@@ -310,6 +313,12 @@ class ApplicationServiceConfigTest {
     private UpdateWorkspacePresencePositionUseCase updateWorkspacePresencePositionUseCase;
 
     @Autowired
+    private OpenWorkspacePresenceStreamUseCase openWorkspacePresenceStreamUseCase;
+
+    @Autowired
+    private CloseWorkspacePresenceStreamUseCase closeWorkspacePresenceStreamUseCase;
+
+    @Autowired
     private WorkspacePresenceRegistry workspacePresenceRegistry;
 
     @Autowired
@@ -464,6 +473,14 @@ class ApplicationServiceConfigTest {
         assertThat(updateWorkspacePresencePositionUseCase)
                 .isInstanceOf(UpdateWorkspacePresencePositionService.class);
         assertThat(ReflectionTestUtils.getField(updateWorkspacePresencePositionUseCase, "workspacePresenceRegistry"))
+                .isSameAs(workspacePresenceRegistry);
+    }
+
+    @Test
+    void registersWorkspacePresenceStreamUseCases() {
+        assertThat(openWorkspacePresenceStreamUseCase).isInstanceOf(OpenWorkspacePresenceStreamService.class);
+        assertThat(closeWorkspacePresenceStreamUseCase).isSameAs(openWorkspacePresenceStreamUseCase);
+        assertThat(ReflectionTestUtils.getField(openWorkspacePresenceStreamUseCase, "workspacePresenceRegistry"))
                 .isSameAs(workspacePresenceRegistry);
     }
 
