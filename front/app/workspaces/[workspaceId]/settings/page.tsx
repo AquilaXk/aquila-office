@@ -32,6 +32,7 @@ import {
 } from "react";
 import { ApiError } from "@/lib/api-client";
 import {
+  createGithubCredential,
   fetchGithubCredentials,
   type GithubCredential,
 } from "@/lib/github";
@@ -140,6 +141,12 @@ export default function WorkspaceSettingsPage({
     status: "idle",
     credentials: [],
     error: null,
+  });
+  const [githubDisplayNameInput, setGithubDisplayNameInput] = useState("");
+  const [githubTokenInput, setGithubTokenInput] = useState("");
+  const [githubCreateState, setGithubCreateState] = useState<MutationState>({
+    status: "idle",
+    message: null,
   });
 
   const fetchSettings = useCallback(async () => {
@@ -304,6 +311,14 @@ export default function WorkspaceSettingsPage({
   const isInviteLogLoading = inviteLogState.status === "loading";
   const hasInviteAction = inviteActionId !== null;
   const isGithubCredentialLoading = githubCredentialState.status === "loading";
+  const trimmedGithubDisplayName = githubDisplayNameInput.trim();
+  const trimmedGithubToken = githubTokenInput.trim();
+  const isCreatingGithubCredential = githubCreateState.status === "submitting";
+  const canCreateGithubCredential =
+    isAdmin &&
+    trimmedGithubDisplayName.length > 0 &&
+    trimmedGithubToken.length > 0 &&
+    !isCreatingGithubCredential;
 
   const reloadInviteLog = async () => {
     if (!isAdmin) {
@@ -463,6 +478,53 @@ export default function WorkspaceSettingsPage({
       });
     } finally {
       setMemberAction(null);
+    }
+  };
+
+  const handleCreateGithubCredential = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (!isAdmin) {
+      return;
+    }
+
+    if (!trimmedGithubDisplayName || !trimmedGithubToken) {
+      setGithubCreateState({
+        status: "error",
+        message: "이름과 token을 모두 입력해 주세요.",
+      });
+      return;
+    }
+
+    setGithubCreateState({ status: "submitting", message: null });
+    try {
+      const createdCredential = await createGithubCredential(
+        TEMP_MEMBER_GOOGLE_SUB,
+        numericWorkspaceId,
+        {
+          displayName: trimmedGithubDisplayName,
+          token: trimmedGithubToken,
+        },
+      );
+      setGithubCredentialState((previous) =>
+        previous.status === "ready"
+          ? {
+              ...previous,
+              credentials: [createdCredential, ...previous.credentials],
+            }
+          : { status: "ready", credentials: [createdCredential], error: null },
+      );
+      setGithubDisplayNameInput("");
+      setGithubTokenInput("");
+      setGithubCreateState({
+        status: "success",
+        message: "GitHub 자격 증명이 등록되었습니다.",
+      });
+    } catch (error) {
+      setGithubCreateState({
+        status: "error",
+        message: messageFromError(error, "GitHub 자격 증명을 등록하지 못했습니다."),
+      });
     }
   };
 
@@ -906,6 +968,73 @@ export default function WorkspaceSettingsPage({
                 <p className="workspace-github-help">
                   관리자 역할만 GitHub 자격 증명을 관리할 수 있습니다.
                 </p>
+              ) : null}
+
+              {isAdmin ? (
+                <form
+                  className="workspace-settings-form"
+                  onSubmit={handleCreateGithubCredential}
+                >
+                  <label className="form-field">
+                    <span>
+                      <strong>표시 이름</strong>
+                      <small>{githubDisplayNameInput.length}/120</small>
+                    </span>
+                    <input
+                      value={githubDisplayNameInput}
+                      onChange={(event) => {
+                        setGithubDisplayNameInput(event.target.value);
+                        setGithubCreateState({ status: "idle", message: null });
+                      }}
+                      maxLength={120}
+                      disabled={!isAdmin || isCreatingGithubCredential}
+                    />
+                  </label>
+
+                  <label className="form-field">
+                    <span>
+                      <strong>Token</strong>
+                      <small>저장 후 masked token만 표시됩니다</small>
+                    </span>
+                    <input
+                      value={githubTokenInput}
+                      onChange={(event) => {
+                        setGithubTokenInput(event.target.value);
+                        setGithubCreateState({ status: "idle", message: null });
+                      }}
+                      type="password"
+                      autoComplete="off"
+                      disabled={!isAdmin || isCreatingGithubCredential}
+                    />
+                  </label>
+
+                  {githubCreateState.status === "error" ? (
+                    <SettingsNotice tone="danger" icon={<AlertCircle aria-hidden="true" />}>
+                      {githubCreateState.message}
+                    </SettingsNotice>
+                  ) : null}
+
+                  {githubCreateState.status === "success" ? (
+                    <SettingsNotice tone="success" icon={<CheckCircle2 aria-hidden="true" />}>
+                      {githubCreateState.message}
+                    </SettingsNotice>
+                  ) : null}
+
+                  <div className="workspace-settings-actions">
+                    <button
+                      className="primary-action primary-action-active"
+                      type="submit"
+                      disabled={!canCreateGithubCredential}
+                    >
+                      {isCreatingGithubCredential ? (
+                        <Loader2 className="spin" aria-hidden="true" />
+                      ) : (
+                        <KeyRound aria-hidden="true" />
+                      )}
+                      <span>{isCreatingGithubCredential ? "등록 중" : "등록"}</span>
+                    </button>
+                  </div>
+                </form>
               ) : null}
 
               {isAdmin && isGithubCredentialLoading ? (
