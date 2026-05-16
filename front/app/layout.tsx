@@ -1,12 +1,32 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
+import {
+  APPLE_TOUCH_ICON_PATH,
+  FAVICON_PATH,
+  REPRESENTATIVE_IMAGE_PATHS,
+  SERVICE_DESCRIPTION,
+  SERVICE_NAME,
+} from "@/lib/branding";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Aquila Office",
-  description: "Aquila Office frontend",
-  icons: {
-    icon: "/favicon.svg",
+  applicationName: SERVICE_NAME,
+  title: SERVICE_NAME,
+  description: SERVICE_DESCRIPTION,
+  openGraph: {
+    title: SERVICE_NAME,
+    description: SERVICE_DESCRIPTION,
+    siteName: SERVICE_NAME,
+    images: [...REPRESENTATIVE_IMAGE_PATHS],
   },
+  icons: {
+    icon: FAVICON_PATH,
+    apple: APPLE_TOUCH_ICON_PATH,
+  },
+};
+
+export const viewport: Viewport = {
+  colorScheme: "dark",
+  themeColor: "#101214",
 };
 
 export default function RootLayout({
