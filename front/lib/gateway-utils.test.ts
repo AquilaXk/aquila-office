@@ -6,6 +6,9 @@ import {
   isGatewayUrl,
   maskGatewayToken,
   normalizeGatewayForm,
+  workspaceGatewayBindingPath,
+  workspaceGatewayConnectionTestPath,
+  workspaceGatewayStatusPath,
 } from "./gateway-utils.ts";
 
 test("normalizeGatewayForm trims values and validates http gateway URL", () => {
@@ -55,4 +58,16 @@ test("gateway labels match settings screen copy", () => {
   assert.equal(gatewayConnectionStatusLabel("CONNECTED"), "연결 가능");
   assert.equal(gatewayConnectionStatusLabel("TOKEN_INVALID"), "토큰 오류");
   assert.equal(gatewayConnectionStatusLabel("TIMEOUT"), "시간 초과");
+});
+
+test("workspace gateway paths target a single workspace", () => {
+  assert.equal(workspaceGatewayStatusPath(101), "/api/v1/workspaces/101/gateway");
+  assert.equal(
+    workspaceGatewayConnectionTestPath(101),
+    "/api/v1/workspaces/101/gateway/connection-test",
+  );
+  assert.equal(
+    workspaceGatewayBindingPath(101),
+    "/api/v1/workspaces/101/gateway/binding",
+  );
 });

@@ -84,3 +84,15 @@ export function gatewayConnectionStatusLabel(status: GatewayConnectionStatus): s
       return "실패";
   }
 }
+
+export function workspaceGatewayStatusPath(workspaceId: number): string {
+  return `/api/v1/workspaces/${workspaceId}/gateway`;
+}
+
+export function workspaceGatewayConnectionTestPath(workspaceId: number): string {
+  return `/api/v1/workspaces/${workspaceId}/gateway/connection-test`;
+}
+
+export function workspaceGatewayBindingPath(workspaceId: number): string {
+  return `/api/v1/workspaces/${workspaceId}/gateway/binding`;
+}
