@@ -13,6 +13,7 @@ import com.aquilaoffice.application.port.in.CreateWorkspaceGatewayBindingUseCase
 import com.aquilaoffice.application.port.in.DeleteWorkspaceAgentUseCase;
 import com.aquilaoffice.application.port.in.DeleteWorkspaceUseCase;
 import com.aquilaoffice.application.port.in.DeleteGithubCredentialUseCase;
+import com.aquilaoffice.application.port.in.DeleteSlackIntegrationUseCase;
 import com.aquilaoffice.application.port.in.GetArtifactFileUseCase;
 import com.aquilaoffice.application.port.in.GetArtifactTreeUseCase;
 import com.aquilaoffice.application.port.in.GetOrchestrationPlanArtifactUseCase;
@@ -90,6 +91,7 @@ import com.aquilaoffice.application.service.CreateWorkspaceGatewayBindingService
 import com.aquilaoffice.application.service.DeleteWorkspaceAgentService;
 import com.aquilaoffice.application.service.DeleteWorkspaceService;
 import com.aquilaoffice.application.service.DeleteGithubCredentialService;
+import com.aquilaoffice.application.service.DeleteSlackIntegrationService;
 import com.aquilaoffice.application.service.GetArtifactFileService;
 import com.aquilaoffice.application.service.GetArtifactTreeService;
 import com.aquilaoffice.application.service.GetOrchestrationPlanArtifactService;
@@ -359,6 +361,9 @@ class ApplicationServiceConfigTest {
     private UpdateSlackIntegrationUseCase updateSlackIntegrationUseCase;
 
     @Autowired
+    private DeleteSlackIntegrationUseCase deleteSlackIntegrationUseCase;
+
+    @Autowired
     private SlackSignatureVerifier slackSignatureVerifier;
 
     @Test
@@ -542,6 +547,11 @@ class ApplicationServiceConfigTest {
     @Test
     void registersUpdateSlackIntegrationUseCase() {
         assertThat(updateSlackIntegrationUseCase).isInstanceOf(UpdateSlackIntegrationService.class);
+    }
+
+    @Test
+    void registersDeleteSlackIntegrationUseCase() {
+        assertThat(deleteSlackIntegrationUseCase).isInstanceOf(DeleteSlackIntegrationService.class);
     }
 
     @Test

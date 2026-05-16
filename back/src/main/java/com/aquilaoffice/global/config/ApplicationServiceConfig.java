@@ -10,6 +10,7 @@ import com.aquilaoffice.application.port.in.CreateWorkspaceGatewayBindingUseCase
 import com.aquilaoffice.application.port.in.CreateWorkspaceUseCase;
 import com.aquilaoffice.application.port.in.CreateWorkspaceInviteUseCase;
 import com.aquilaoffice.application.port.in.DeleteGithubCredentialUseCase;
+import com.aquilaoffice.application.port.in.DeleteSlackIntegrationUseCase;
 import com.aquilaoffice.application.port.in.DeleteWorkspaceAgentUseCase;
 import com.aquilaoffice.application.port.in.DeleteWorkspaceUseCase;
 import com.aquilaoffice.application.port.in.GetArtifactFileUseCase;
@@ -92,6 +93,7 @@ import com.aquilaoffice.application.service.CreateWorkspaceGatewayBindingService
 import com.aquilaoffice.application.service.CreateWorkspaceService;
 import com.aquilaoffice.application.service.CreateWorkspaceInviteService;
 import com.aquilaoffice.application.service.DeleteGithubCredentialService;
+import com.aquilaoffice.application.service.DeleteSlackIntegrationService;
 import com.aquilaoffice.application.service.DeleteWorkspaceAgentService;
 import com.aquilaoffice.application.service.DeleteWorkspaceService;
 import com.aquilaoffice.application.service.GetArtifactFileService;
@@ -538,6 +540,19 @@ public class ApplicationServiceConfig {
             LoadSlackChannelMappingPort loadSlackChannelMappingPort,
             SaveSlackChannelMappingPort saveSlackChannelMappingPort) {
         return new UpdateSlackIntegrationService(
+                loadMemberPort,
+                loadWorkspacePort,
+                loadSlackChannelMappingPort,
+                saveSlackChannelMappingPort);
+    }
+
+    @Bean
+    public DeleteSlackIntegrationUseCase deleteSlackIntegrationUseCase(
+            LoadMemberPort loadMemberPort,
+            LoadWorkspacePort loadWorkspacePort,
+            LoadSlackChannelMappingPort loadSlackChannelMappingPort,
+            SaveSlackChannelMappingPort saveSlackChannelMappingPort) {
+        return new DeleteSlackIntegrationService(
                 loadMemberPort,
                 loadWorkspacePort,
                 loadSlackChannelMappingPort,
