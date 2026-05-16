@@ -6,6 +6,8 @@ import com.aquilaoffice.application.port.in.ReceiveSlackEventUseCase;
 import com.aquilaoffice.global.exception.CommonErrorCode;
 import com.aquilaoffice.global.exception.ServiceException;
 import com.aquilaoffice.global.response.RsData;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.Map;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -23,9 +25,14 @@ import org.springframework.web.bind.annotation.RestController;
 public class SlackEventController {
 
     private final ReceiveSlackEventUseCase receiveSlackEventUseCase;
+    private final SlackSignatureVerifier slackSignatureVerifier;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
-    public SlackEventController(ReceiveSlackEventUseCase receiveSlackEventUseCase) {
+    public SlackEventController(
+            ReceiveSlackEventUseCase receiveSlackEventUseCase,
+            SlackSignatureVerifier slackSignatureVerifier) {
         this.receiveSlackEventUseCase = receiveSlackEventUseCase;
+        this.slackSignatureVerifier = slackSignatureVerifier;
     }
 
     @PostMapping("/events")
@@ -33,8 +40,11 @@ public class SlackEventController {
             @PathVariable Long workspaceId,
             @RequestHeader(name = WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, required = false)
                     String requesterGoogleSub,
-            @RequestBody SlackEventRequest request) {
+            @RequestHeader(name = "X-Slack-Request-Timestamp", required = false) String slackRequestTimestamp,
+            @RequestHeader(name = "X-Slack-Signature", required = false) String slackSignature,
+            @RequestBody String rawBody) {
         String normalizedRequesterGoogleSub = requireRequesterGoogleSub(requesterGoogleSub);
+        SlackEventRequest request = parseVerifiedRequest(slackRequestTimestamp, slackSignature, rawBody);
 
         try {
             ReceiveSlackEventResult result = receiveSlackEventUseCase.receiveSlackEvent(
@@ -46,6 +56,17 @@ public class SlackEventController {
             return ResponseEntity.ok(RsData.ok(SlackEventResponse.from(result)));
         } catch (IllegalArgumentException | IllegalStateException exception) {
             throw new ServiceException(CommonErrorCode.NOT_FOUND);
+        }
+    }
+
+    private SlackEventRequest parseVerifiedRequest(String timestamp, String signature, String rawBody) {
+        try {
+            slackSignatureVerifier.verifyOrThrow(timestamp, signature, rawBody);
+            return objectMapper.readValue(rawBody, SlackEventRequest.class);
+        } catch (JsonProcessingException | IllegalArgumentException exception) {
+            throw new ServiceException(CommonErrorCode.BAD_REQUEST);
+        } catch (IllegalStateException exception) {
+            throw new ServiceException(CommonErrorCode.INTERNAL_SERVER_ERROR);
         }
     }
 

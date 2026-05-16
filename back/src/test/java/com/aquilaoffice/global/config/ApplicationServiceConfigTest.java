@@ -2,6 +2,7 @@ package com.aquilaoffice.global.config;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.aquilaoffice.adapter.in.web.slack.SlackSignatureVerifier;
 import com.aquilaoffice.application.port.in.AcceptWorkspaceInviteUseCase;
 import com.aquilaoffice.application.port.in.ChangeWorkspaceMemberRoleUseCase;
 import com.aquilaoffice.application.port.in.CreateGithubCredentialUseCase;
@@ -329,6 +330,9 @@ class ApplicationServiceConfigTest {
     @Autowired
     private ReceiveSlackEventUseCase receiveSlackEventUseCase;
 
+    @Autowired
+    private SlackSignatureVerifier slackSignatureVerifier;
+
     @Test
     void registersAcceptWorkspaceInviteUseCase() {
         assertThat(acceptWorkspaceInviteUseCase).isInstanceOf(AcceptWorkspaceInviteService.class);
@@ -487,5 +491,10 @@ class ApplicationServiceConfigTest {
     @Test
     void registersReceiveSlackEventUseCase() {
         assertThat(receiveSlackEventUseCase).isInstanceOf(ReceiveSlackEventService.class);
+    }
+
+    @Test
+    void registersSlackSignatureVerifier() {
+        assertThat(slackSignatureVerifier).isNotNull();
     }
 }
