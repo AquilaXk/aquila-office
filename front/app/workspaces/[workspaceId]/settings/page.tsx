@@ -32,6 +32,11 @@ import {
 } from "react";
 import { ApiError } from "@/lib/api-client";
 import {
+  fetchWorkspaceGatewayStatus,
+  type WorkspaceGatewayStatus,
+} from "@/lib/gateway";
+import { gatewayStatusLabel } from "@/lib/gateway-utils";
+import {
   createGithubCredential,
   deleteGithubCredential,
   fetchGithubCredentials,
@@ -87,6 +92,12 @@ type GithubCredentialState =
   | { status: "loading"; credentials: []; error: null }
   | { status: "ready"; credentials: GithubCredential[]; error: null }
   | { status: "error"; credentials: []; error: string };
+
+type GatewayStatusState =
+  | { status: "idle"; gateway: null; error: null }
+  | { status: "loading"; gateway: null; error: null }
+  | { status: "ready"; gateway: WorkspaceGatewayStatus; error: null }
+  | { status: "error"; gateway: null; error: string };
 
 type InviteStatusFilter = WorkspaceInviteManagementStatus | "ALL";
 
@@ -162,6 +173,11 @@ export default function WorkspaceSettingsPage({
     status: "idle",
     message: null,
   });
+  const [gatewayStatusState, setGatewayStatusState] = useState<GatewayStatusState>({
+    status: "idle",
+    gateway: null,
+    error: null,
+  });
 
   const fetchSettings = useCallback(async () => {
     if (!isValidWorkspaceId(numericWorkspaceId)) {
@@ -217,6 +233,22 @@ export default function WorkspaceSettingsPage({
         credentials: [],
         error: messageFromError(error, "GitHub 자격 증명 목록을 확인하지 못했습니다."),
       } satisfies GithubCredentialState;
+    }
+  }, [numericWorkspaceId]);
+
+  const fetchGatewayStatus = useCallback(async () => {
+    try {
+      const gateway = await fetchWorkspaceGatewayStatus(
+        TEMP_MEMBER_GOOGLE_SUB,
+        numericWorkspaceId,
+      );
+      return { status: "ready", gateway, error: null } satisfies GatewayStatusState;
+    } catch (error) {
+      return {
+        status: "error",
+        gateway: null,
+        error: messageFromError(error, "gateway 상태를 확인하지 못했습니다."),
+      } satisfies GatewayStatusState;
     }
   }, [numericWorkspaceId]);
 
@@ -306,6 +338,33 @@ export default function WorkspaceSettingsPage({
     };
   }, [fetchGithubCredentialList, state]);
 
+  useEffect(() => {
+    let ignore = false;
+
+    async function loadGatewayStatus() {
+      if (state.status !== "ready" || state.workspace.myRole !== "ADMIN") {
+        setGatewayStatusState({ status: "idle", gateway: null, error: null });
+        return;
+      }
+
+      await Promise.resolve();
+      if (!ignore) {
+        setGatewayStatusState({ status: "loading", gateway: null, error: null });
+      }
+
+      const nextState = await fetchGatewayStatus();
+      if (!ignore) {
+        setGatewayStatusState(nextState);
+      }
+    }
+
+    void loadGatewayStatus();
+
+    return () => {
+      ignore = true;
+    };
+  }, [fetchGatewayStatus, state]);
+
   const workspace = state.workspace;
   const members = state.status === "ready" ? state.members : [];
   const isAdmin = workspace?.myRole === "ADMIN";
@@ -325,6 +384,7 @@ export default function WorkspaceSettingsPage({
   const isInviteLogLoading = inviteLogState.status === "loading";
   const hasInviteAction = inviteActionId !== null;
   const isGithubCredentialLoading = githubCredentialState.status === "loading";
+  const isGatewayStatusLoading = gatewayStatusState.status === "loading";
   const trimmedGithubDisplayName = githubDisplayNameInput.trim();
   const trimmedGithubToken = githubTokenInput.trim();
   const isCreatingGithubCredential = githubCreateState.status === "submitting";
@@ -344,6 +404,15 @@ export default function WorkspaceSettingsPage({
     setInviteLogState({ status: "loading", invites: [], error: null });
     setInviteActionState({ status: "idle", message: null });
     setInviteLogState(await fetchInviteLog(toInviteStatusParam(inviteFilter)));
+  };
+
+  const reloadGatewayStatus = async () => {
+    if (!isAdmin) {
+      return;
+    }
+
+    setGatewayStatusState({ status: "loading", gateway: null, error: null });
+    setGatewayStatusState(await fetchGatewayStatus());
   };
 
   const handleRevokeInvite = async (invite: WorkspaceInviteManagement) => {
@@ -1090,6 +1159,86 @@ export default function WorkspaceSettingsPage({
                   <Mail aria-hidden="true" />
                   <strong>표시할 초대가 없습니다</strong>
                   <p>조건에 맞는 워크스페이스 초대가 생기면 이곳에 표시됩니다.</p>
+                </div>
+              ) : null}
+            </section>
+
+            <section className="workspace-settings-section" aria-label="Gateway 설정">
+              <div className="workspace-section-title">
+                <div>
+                  <span className="workspace-detail-label">Gateway</span>
+                  <h2>연결 상태</h2>
+                </div>
+                <span className={isAdmin ? "workspace-count-badge" : "workspace-lock-badge"}>
+                  {isAdmin ? "ADMIN" : "읽기 전용"}
+                </span>
+              </div>
+
+              {!isAdmin ? (
+                <p className="workspace-github-help">
+                  관리자 역할만 gateway 연결 상태를 확인하고 등록할 수 있습니다.
+                </p>
+              ) : null}
+
+              {isAdmin ? (
+                <div className="workspace-invite-management-toolbar">
+                  <button
+                    className="secondary-action workspace-invite-refresh"
+                    type="button"
+                    onClick={() => void reloadGatewayStatus()}
+                    disabled={isGatewayStatusLoading}
+                  >
+                    <RefreshCw
+                      className={isGatewayStatusLoading ? "spin" : undefined}
+                      aria-hidden="true"
+                    />
+                    <span>상태 새로고침</span>
+                  </button>
+                </div>
+              ) : null}
+
+              {isAdmin && gatewayStatusState.status === "loading" ? (
+                <div className="workspace-member-empty">
+                  <Loader2 className="spin" aria-hidden="true" />
+                  <strong>gateway 상태 확인 중</strong>
+                  <p>워크스페이스 gateway binding 상태를 불러오고 있습니다.</p>
+                </div>
+              ) : null}
+
+              {isAdmin && gatewayStatusState.status === "error" ? (
+                <SettingsNotice tone="danger" icon={<AlertCircle aria-hidden="true" />}>
+                  {gatewayStatusState.error}
+                </SettingsNotice>
+              ) : null}
+
+              {isAdmin && gatewayStatusState.status === "ready" ? (
+                <div className="workspace-settings-member-list">
+                  <article className="workspace-settings-member-row">
+                    <div className="workspace-member-avatar">
+                      <KeyRound aria-hidden="true" />
+                    </div>
+                    <div className="workspace-member-main">
+                      <strong>{gatewayStatusLabel(gatewayStatusState.gateway.status)}</strong>
+                      <p>{gatewayStatusState.gateway.gatewayUrl ?? "등록된 gateway URL이 없습니다"}</p>
+                      <span>
+                        {gatewayStatusState.gateway.maskedToken
+                          ? `Token ${gatewayStatusState.gateway.maskedToken}`
+                          : "Token 미등록"}
+                      </span>
+                    </div>
+                    <div className="workspace-settings-member-actions">
+                      <div className="workspace-member-meta">
+                        <span className="role-badge">
+                          {gatewayStatusState.gateway.mode ?? "UNBOUND"}
+                        </span>
+                        <span>
+                          {gatewayStatusState.gateway.updatedAt
+                            ? `수정 ${formatDateTime(gatewayStatusState.gateway.updatedAt)}`
+                            : "수정 이력 없음"}
+                        </span>
+                      </div>
+                    </div>
+                  </article>
                 </div>
               ) : null}
             </section>
