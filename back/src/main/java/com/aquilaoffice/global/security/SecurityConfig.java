@@ -1,5 +1,6 @@
 package com.aquilaoffice.global.security;
 
+import com.aquilaoffice.application.port.out.LoadMemberPort;
 import com.aquilaoffice.application.port.out.ResolveAccessTokenPort;
 import com.aquilaoffice.global.config.properties.CorsProperties;
 import jakarta.servlet.http.HttpServletResponse;
@@ -79,7 +80,8 @@ public class SecurityConfig {
     @Bean
     public AccessTokenAuthenticationFilter accessTokenAuthenticationFilter(
             BearerTokenResolver bearerTokenResolver,
-            ResolveAccessTokenPort resolveAccessTokenPort) {
-        return new AccessTokenAuthenticationFilter(bearerTokenResolver, resolveAccessTokenPort);
+            ResolveAccessTokenPort resolveAccessTokenPort,
+            LoadMemberPort loadMemberPort) {
+        return new AccessTokenAuthenticationFilter(bearerTokenResolver, resolveAccessTokenPort, loadMemberPort);
     }
 }

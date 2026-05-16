@@ -9,4 +9,8 @@ import java.util.Optional;
 public interface LoadMemberPort {
 
     Optional<Member> findByGoogleSub(String googleSub);
+
+    default Optional<Member> findByEmail(String email) {
+        return Optional.empty();
+    }
 }

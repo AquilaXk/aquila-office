@@ -31,6 +31,14 @@ public class MemberPersistenceAdapter implements LoadMemberPort, SaveGoogleLogin
     }
 
     @Override
+    public Optional<Member> findByEmail(String email) {
+        if (email == null || email.isBlank()) {
+            return Optional.empty();
+        }
+        return memberJpaRepository.findByEmail(email.trim()).map(MemberJpaEntity::toDomain);
+    }
+
+    @Override
     @Transactional
     public SavedGoogleLoginMember saveOrUpdate(String googleSub, String email, String name, MemberRole role) {
         String normalizedGoogleSub = requireNotBlank(googleSub, "googleSub");
