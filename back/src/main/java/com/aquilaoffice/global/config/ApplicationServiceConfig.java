@@ -11,11 +11,14 @@ import com.aquilaoffice.application.port.in.CreateWorkspaceInviteUseCase;
 import com.aquilaoffice.application.port.in.DeleteGithubCredentialUseCase;
 import com.aquilaoffice.application.port.in.DeleteWorkspaceAgentUseCase;
 import com.aquilaoffice.application.port.in.DeleteWorkspaceUseCase;
+import com.aquilaoffice.application.port.in.GetArtifactFileUseCase;
+import com.aquilaoffice.application.port.in.GetArtifactTreeUseCase;
 import com.aquilaoffice.application.port.in.GetWorkspaceAgentUseCase;
 import com.aquilaoffice.application.port.in.GetWorkspaceGatewayStatusUseCase;
 import com.aquilaoffice.application.port.in.GetWorkspaceDetailUseCase;
 import com.aquilaoffice.application.port.in.GetWorkspaceInviteUseCase;
 import com.aquilaoffice.application.port.in.GetTaskDetailUseCase;
+import com.aquilaoffice.application.port.in.ListTaskReportsUseCase;
 import com.aquilaoffice.application.port.in.ListGithubCredentialsUseCase;
 import com.aquilaoffice.application.port.in.ListChatSessionMessagesUseCase;
 import com.aquilaoffice.application.port.in.ListChatTaskMessagesUseCase;
@@ -44,8 +47,10 @@ import com.aquilaoffice.application.port.out.LoadGithubCredentialsPort;
 import com.aquilaoffice.application.port.out.LoadChatMessagesPort;
 import com.aquilaoffice.application.port.out.LoadChatSessionPort;
 import com.aquilaoffice.application.port.out.LoadMemberPort;
+import com.aquilaoffice.application.port.out.LoadTaskExecutionReportsPort;
 import com.aquilaoffice.application.port.out.LoadTaskPort;
 import com.aquilaoffice.application.port.out.LoadTasksPort;
+import com.aquilaoffice.application.port.out.LoadWorkspaceArtifactsPort;
 import com.aquilaoffice.application.port.out.LoadWorkspaceAgentPort;
 import com.aquilaoffice.application.port.out.LoadWorkspaceGatewayBindingPort;
 import com.aquilaoffice.application.port.out.LoadWorkspacePort;
@@ -79,11 +84,14 @@ import com.aquilaoffice.application.service.CreateWorkspaceInviteService;
 import com.aquilaoffice.application.service.DeleteGithubCredentialService;
 import com.aquilaoffice.application.service.DeleteWorkspaceAgentService;
 import com.aquilaoffice.application.service.DeleteWorkspaceService;
+import com.aquilaoffice.application.service.GetArtifactFileService;
+import com.aquilaoffice.application.service.GetArtifactTreeService;
 import com.aquilaoffice.application.service.GetWorkspaceAgentService;
 import com.aquilaoffice.application.service.GetWorkspaceGatewayStatusService;
 import com.aquilaoffice.application.service.GetWorkspaceDetailService;
 import com.aquilaoffice.application.service.GetWorkspaceInviteService;
 import com.aquilaoffice.application.service.GetTaskDetailService;
+import com.aquilaoffice.application.service.ListTaskReportsService;
 import com.aquilaoffice.application.service.ListGithubCredentialsService;
 import com.aquilaoffice.application.service.ListChatSessionMessagesService;
 import com.aquilaoffice.application.service.ListChatTaskMessagesService;
@@ -382,6 +390,32 @@ public class ApplicationServiceConfig {
                 updateTaskExecutionPort,
                 updateTaskStatusPort,
                 runWorkspaceAgentPort);
+    }
+
+    @Bean
+    public ListTaskReportsUseCase listTaskReportsUseCase(
+            LoadMemberPort loadMemberPort,
+            LoadWorkspacePort loadWorkspacePort,
+            LoadTaskPort loadTaskPort,
+            LoadTaskExecutionReportsPort loadTaskExecutionReportsPort) {
+        return new ListTaskReportsService(
+                loadMemberPort, loadWorkspacePort, loadTaskPort, loadTaskExecutionReportsPort);
+    }
+
+    @Bean
+    public GetArtifactTreeUseCase getArtifactTreeUseCase(
+            LoadMemberPort loadMemberPort,
+            LoadWorkspacePort loadWorkspacePort,
+            LoadWorkspaceArtifactsPort loadWorkspaceArtifactsPort) {
+        return new GetArtifactTreeService(loadMemberPort, loadWorkspacePort, loadWorkspaceArtifactsPort);
+    }
+
+    @Bean
+    public GetArtifactFileUseCase getArtifactFileUseCase(
+            LoadMemberPort loadMemberPort,
+            LoadWorkspacePort loadWorkspacePort,
+            LoadWorkspaceArtifactsPort loadWorkspaceArtifactsPort) {
+        return new GetArtifactFileService(loadMemberPort, loadWorkspacePort, loadWorkspaceArtifactsPort);
     }
 
     @Bean

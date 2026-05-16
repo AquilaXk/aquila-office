@@ -11,9 +11,12 @@ import com.aquilaoffice.application.port.in.CreateWorkspaceGatewayBindingUseCase
 import com.aquilaoffice.application.port.in.DeleteWorkspaceAgentUseCase;
 import com.aquilaoffice.application.port.in.DeleteWorkspaceUseCase;
 import com.aquilaoffice.application.port.in.DeleteGithubCredentialUseCase;
+import com.aquilaoffice.application.port.in.GetArtifactFileUseCase;
+import com.aquilaoffice.application.port.in.GetArtifactTreeUseCase;
 import com.aquilaoffice.application.port.in.GetWorkspaceAgentUseCase;
 import com.aquilaoffice.application.port.in.GetWorkspaceGatewayStatusUseCase;
 import com.aquilaoffice.application.port.in.GetTaskDetailUseCase;
+import com.aquilaoffice.application.port.in.ListTaskReportsUseCase;
 import com.aquilaoffice.application.port.in.ListWorkspaceAgentsUseCase;
 import com.aquilaoffice.application.port.in.ListGithubCredentialsUseCase;
 import com.aquilaoffice.application.port.in.ListChatSessionMessagesUseCase;
@@ -41,8 +44,10 @@ import com.aquilaoffice.application.port.out.LoadGithubCredentialsPort;
 import com.aquilaoffice.application.port.out.LoadChatMessagesPort;
 import com.aquilaoffice.application.port.out.LoadChatSessionPort;
 import com.aquilaoffice.application.port.out.LoadMemberPort;
+import com.aquilaoffice.application.port.out.LoadTaskExecutionReportsPort;
 import com.aquilaoffice.application.port.out.LoadTaskPort;
 import com.aquilaoffice.application.port.out.LoadTasksPort;
+import com.aquilaoffice.application.port.out.LoadWorkspaceArtifactsPort;
 import com.aquilaoffice.application.port.out.LoadWorkspaceAgentPort;
 import com.aquilaoffice.application.port.out.LoadWorkspaceGatewayBindingPort;
 import com.aquilaoffice.application.port.out.LoadWorkspaceInvitePort;
@@ -74,9 +79,12 @@ import com.aquilaoffice.application.service.CreateWorkspaceGatewayBindingService
 import com.aquilaoffice.application.service.DeleteWorkspaceAgentService;
 import com.aquilaoffice.application.service.DeleteWorkspaceService;
 import com.aquilaoffice.application.service.DeleteGithubCredentialService;
+import com.aquilaoffice.application.service.GetArtifactFileService;
+import com.aquilaoffice.application.service.GetArtifactTreeService;
 import com.aquilaoffice.application.service.GetWorkspaceAgentService;
 import com.aquilaoffice.application.service.GetWorkspaceGatewayStatusService;
 import com.aquilaoffice.application.service.GetTaskDetailService;
+import com.aquilaoffice.application.service.ListTaskReportsService;
 import com.aquilaoffice.application.service.ListWorkspaceAgentsService;
 import com.aquilaoffice.application.service.ListGithubCredentialsService;
 import com.aquilaoffice.application.service.ListChatSessionMessagesService;
@@ -197,6 +205,12 @@ class ApplicationServiceConfigTest {
     private UpdateTaskExecutionPort updateTaskExecutionPort;
 
     @MockitoBean
+    private LoadTaskExecutionReportsPort loadTaskExecutionReportsPort;
+
+    @MockitoBean
+    private LoadWorkspaceArtifactsPort loadWorkspaceArtifactsPort;
+
+    @MockitoBean
     private RunWorkspaceAgentPort runWorkspaceAgentPort;
 
     @MockitoBean
@@ -282,6 +296,15 @@ class ApplicationServiceConfigTest {
 
     @Autowired
     private RunTaskUseCase runTaskUseCase;
+
+    @Autowired
+    private ListTaskReportsUseCase listTaskReportsUseCase;
+
+    @Autowired
+    private GetArtifactTreeUseCase getArtifactTreeUseCase;
+
+    @Autowired
+    private GetArtifactFileUseCase getArtifactFileUseCase;
 
     @Autowired
     private SendChatMessageUseCase sendChatMessageUseCase;
@@ -410,6 +433,21 @@ class ApplicationServiceConfigTest {
     @Test
     void registersRunTaskUseCase() {
         assertThat(runTaskUseCase).isInstanceOf(RunTaskService.class);
+    }
+
+    @Test
+    void registersListTaskReportsUseCase() {
+        assertThat(listTaskReportsUseCase).isInstanceOf(ListTaskReportsService.class);
+    }
+
+    @Test
+    void registersGetArtifactTreeUseCase() {
+        assertThat(getArtifactTreeUseCase).isInstanceOf(GetArtifactTreeService.class);
+    }
+
+    @Test
+    void registersGetArtifactFileUseCase() {
+        assertThat(getArtifactFileUseCase).isInstanceOf(GetArtifactFileService.class);
     }
 
     @Test
