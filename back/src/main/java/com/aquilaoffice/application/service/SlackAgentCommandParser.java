@@ -3,13 +3,13 @@ package com.aquilaoffice.application.service;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-class SlackAgentCommandParser {
+public class SlackAgentCommandParser {
 
     private static final Pattern SLACK_MENTION_PATTERN = Pattern.compile("<@[A-Z0-9]+>");
     private static final Pattern AGENT_COMMAND_PATTERN =
             Pattern.compile("^/agent\\s+(\\d+)(?:\\s+(.*))?$", Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
 
-    ParsedCommand parse(String text) {
+    public ParsedCommand parse(String text) {
         String sanitizedText = sanitizeText(text);
         if (sanitizedText.isBlank()) {
             return new ParsedCommand(false, null, "");
@@ -32,7 +32,7 @@ class SlackAgentCommandParser {
         return SLACK_MENTION_PATTERN.matcher(text).replaceAll("").strip();
     }
 
-    record ParsedCommand(
+    public record ParsedCommand(
             boolean matched,
             Long agentId,
             String message) {}

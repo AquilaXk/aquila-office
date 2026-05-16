@@ -25,6 +25,7 @@ import com.aquilaoffice.application.port.in.ListChatTaskMessagesUseCase;
 import com.aquilaoffice.application.port.in.ListTasksUseCase;
 import com.aquilaoffice.application.port.in.ListWorkspaceInvitesUseCase;
 import com.aquilaoffice.application.port.in.ListWorkspaceMembersUseCase;
+import com.aquilaoffice.application.port.in.ReceiveSlackEventUseCase;
 import com.aquilaoffice.application.port.in.RemoveWorkspaceMemberUseCase;
 import com.aquilaoffice.application.port.in.RunTaskUseCase;
 import com.aquilaoffice.application.port.in.SendChatMessageUseCase;
@@ -95,6 +96,7 @@ import com.aquilaoffice.application.service.ListChatTaskMessagesService;
 import com.aquilaoffice.application.service.ListTasksService;
 import com.aquilaoffice.application.service.ListWorkspaceInvitesService;
 import com.aquilaoffice.application.service.ListWorkspaceMembersService;
+import com.aquilaoffice.application.service.ReceiveSlackEventService;
 import com.aquilaoffice.application.service.RemoveWorkspaceMemberService;
 import com.aquilaoffice.application.service.RevokeWorkspaceInviteService;
 import com.aquilaoffice.application.service.RunTaskService;
@@ -324,6 +326,9 @@ class ApplicationServiceConfigTest {
     @Autowired
     private ListChatSessionMessagesUseCase listChatSessionMessagesUseCase;
 
+    @Autowired
+    private ReceiveSlackEventUseCase receiveSlackEventUseCase;
+
     @Test
     void registersAcceptWorkspaceInviteUseCase() {
         assertThat(acceptWorkspaceInviteUseCase).isInstanceOf(AcceptWorkspaceInviteService.class);
@@ -477,5 +482,10 @@ class ApplicationServiceConfigTest {
     @Test
     void registersListChatSessionMessagesUseCase() {
         assertThat(listChatSessionMessagesUseCase).isInstanceOf(ListChatSessionMessagesService.class);
+    }
+
+    @Test
+    void registersReceiveSlackEventUseCase() {
+        assertThat(receiveSlackEventUseCase).isInstanceOf(ReceiveSlackEventService.class);
     }
 }
