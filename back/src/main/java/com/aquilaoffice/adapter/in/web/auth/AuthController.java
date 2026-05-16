@@ -2,6 +2,8 @@ package com.aquilaoffice.adapter.in.web.auth;
 
 import com.aquilaoffice.application.port.in.GoogleLoginResult;
 import com.aquilaoffice.application.port.in.GoogleLoginUseCase;
+import com.aquilaoffice.application.port.in.RefreshAuthTokenResult;
+import com.aquilaoffice.application.port.in.RefreshAuthTokenUseCase;
 import com.aquilaoffice.global.exception.CommonErrorCode;
 import com.aquilaoffice.global.exception.ServiceException;
 import com.aquilaoffice.global.response.RsData;
@@ -20,9 +22,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class AuthController {
 
     private final GoogleLoginUseCase googleLoginUseCase;
+    private final RefreshAuthTokenUseCase refreshAuthTokenUseCase;
 
-    public AuthController(GoogleLoginUseCase googleLoginUseCase) {
+    public AuthController(GoogleLoginUseCase googleLoginUseCase, RefreshAuthTokenUseCase refreshAuthTokenUseCase) {
         this.googleLoginUseCase = googleLoginUseCase;
+        this.refreshAuthTokenUseCase = refreshAuthTokenUseCase;
     }
 
     @PostMapping("/google/login")
@@ -31,6 +35,17 @@ public class AuthController {
         try {
             GoogleLoginResult result = googleLoginUseCase.login(request.toCommand());
             return ResponseEntity.ok(RsData.ok(GoogleLoginResponse.from(result)));
+        } catch (IllegalArgumentException exception) {
+            throw new ServiceException(CommonErrorCode.UNAUTHORIZED);
+        }
+    }
+
+    @PostMapping("/token/refresh")
+    public ResponseEntity<RsData<RefreshAuthTokenResponse>> refreshToken(
+            @Valid @RequestBody RefreshAuthTokenRequest request) {
+        try {
+            RefreshAuthTokenResult result = refreshAuthTokenUseCase.refresh(request.toCommand());
+            return ResponseEntity.ok(RsData.ok(RefreshAuthTokenResponse.from(result)));
         } catch (IllegalArgumentException exception) {
             throw new ServiceException(CommonErrorCode.UNAUTHORIZED);
         }
