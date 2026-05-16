@@ -33,7 +33,9 @@ import {
 import { ApiError } from "@/lib/api-client";
 import {
   createGithubCredential,
+  deleteGithubCredential,
   fetchGithubCredentials,
+  updateGithubCredential,
   type GithubCredential,
 } from "@/lib/github";
 import {
@@ -87,6 +89,10 @@ type GithubCredentialState =
   | { status: "error"; credentials: []; error: string };
 
 type InviteStatusFilter = WorkspaceInviteManagementStatus | "ALL";
+
+type GithubCredentialAction =
+  | { type: "update"; credentialId: number }
+  | { type: "delete"; credentialId: number };
 
 const INVITE_STATUS_FILTERS: { value: InviteStatusFilter; label: string }[] = [
   { value: "PENDING", label: "대기" },
@@ -145,6 +151,14 @@ export default function WorkspaceSettingsPage({
   const [githubDisplayNameInput, setGithubDisplayNameInput] = useState("");
   const [githubTokenInput, setGithubTokenInput] = useState("");
   const [githubCreateState, setGithubCreateState] = useState<MutationState>({
+    status: "idle",
+    message: null,
+  });
+  const [githubAction, setGithubAction] = useState<GithubCredentialAction | null>(null);
+  const [editingGithubCredentialId, setEditingGithubCredentialId] = useState<number | null>(null);
+  const [githubEditDisplayName, setGithubEditDisplayName] = useState("");
+  const [githubEditToken, setGithubEditToken] = useState("");
+  const [githubActionState, setGithubActionState] = useState<MutationState>({
     status: "idle",
     message: null,
   });
@@ -314,11 +328,13 @@ export default function WorkspaceSettingsPage({
   const trimmedGithubDisplayName = githubDisplayNameInput.trim();
   const trimmedGithubToken = githubTokenInput.trim();
   const isCreatingGithubCredential = githubCreateState.status === "submitting";
+  const hasGithubCredentialAction = githubAction !== null;
   const canCreateGithubCredential =
     isAdmin &&
     trimmedGithubDisplayName.length > 0 &&
     trimmedGithubToken.length > 0 &&
-    !isCreatingGithubCredential;
+    !isCreatingGithubCredential &&
+    !hasGithubCredentialAction;
 
   const reloadInviteLog = async () => {
     if (!isAdmin) {
@@ -525,6 +541,131 @@ export default function WorkspaceSettingsPage({
         status: "error",
         message: messageFromError(error, "GitHub 자격 증명을 등록하지 못했습니다."),
       });
+    }
+  };
+
+  const startGithubCredentialEdit = (credential: GithubCredential) => {
+    if (!isAdmin || hasGithubCredentialAction) {
+      return;
+    }
+
+    setEditingGithubCredentialId(credential.credentialId);
+    setGithubEditDisplayName(credential.displayName);
+    setGithubEditToken("");
+    setGithubActionState({ status: "idle", message: null });
+  };
+
+  const cancelGithubCredentialEdit = () => {
+    if (hasGithubCredentialAction) {
+      return;
+    }
+
+    setEditingGithubCredentialId(null);
+    setGithubEditDisplayName("");
+    setGithubEditToken("");
+  };
+
+  const handleUpdateGithubCredential = async (
+    event: FormEvent<HTMLFormElement>,
+    credential: GithubCredential,
+  ) => {
+    event.preventDefault();
+
+    if (!isAdmin || hasGithubCredentialAction) {
+      return;
+    }
+
+    const nextDisplayName = githubEditDisplayName.trim();
+    const nextToken = githubEditToken.trim();
+    if (!nextDisplayName) {
+      setGithubActionState({
+        status: "error",
+        message: "표시 이름을 입력해 주세요.",
+      });
+      return;
+    }
+
+    setGithubAction({ type: "update", credentialId: credential.credentialId });
+    setGithubActionState({ status: "submitting", message: null });
+    try {
+      const updatedCredential = await updateGithubCredential(
+        TEMP_MEMBER_GOOGLE_SUB,
+        numericWorkspaceId,
+        credential.credentialId,
+        {
+          displayName: nextDisplayName,
+          token: nextToken || undefined,
+        },
+      );
+      setGithubCredentialState((previous) =>
+        previous.status === "ready"
+          ? {
+              ...previous,
+              credentials: previous.credentials.map((currentCredential) =>
+                currentCredential.credentialId === updatedCredential.credentialId
+                  ? updatedCredential
+                  : currentCredential,
+              ),
+            }
+          : previous,
+      );
+      setEditingGithubCredentialId(null);
+      setGithubEditDisplayName("");
+      setGithubEditToken("");
+      setGithubActionState({
+        status: "success",
+        message: "GitHub 자격 증명이 수정되었습니다.",
+      });
+    } catch (error) {
+      setGithubActionState({
+        status: "error",
+        message: messageFromError(error, "GitHub 자격 증명을 수정하지 못했습니다."),
+      });
+    } finally {
+      setGithubAction(null);
+    }
+  };
+
+  const handleDeleteGithubCredential = async (credential: GithubCredential) => {
+    if (!isAdmin || hasGithubCredentialAction) {
+      return;
+    }
+
+    setGithubAction({ type: "delete", credentialId: credential.credentialId });
+    setGithubActionState({ status: "submitting", message: null });
+    try {
+      await deleteGithubCredential(
+        TEMP_MEMBER_GOOGLE_SUB,
+        numericWorkspaceId,
+        credential.credentialId,
+      );
+      setGithubCredentialState((previous) =>
+        previous.status === "ready"
+          ? {
+              ...previous,
+              credentials: previous.credentials.filter(
+                (currentCredential) =>
+                  currentCredential.credentialId !== credential.credentialId,
+              ),
+            }
+          : previous,
+      );
+      if (editingGithubCredentialId === credential.credentialId) {
+        setEditingGithubCredentialId(null);
+        setGithubEditDisplayName("");
+        setGithubEditToken("");
+      }
+      setGithubActionState({
+        status: "success",
+        message: "GitHub 자격 증명이 삭제되었습니다.",
+      });
+    } catch (error) {
+      setGithubActionState({
+        status: "error",
+        message: messageFromError(error, "GitHub 자격 증명을 삭제하지 못했습니다."),
+      });
+    } finally {
+      setGithubAction(null);
     }
   };
 
@@ -1051,29 +1192,138 @@ export default function WorkspaceSettingsPage({
                 </SettingsNotice>
               ) : null}
 
+              {isAdmin && githubActionState.status === "error" ? (
+                <SettingsNotice tone="danger" icon={<AlertCircle aria-hidden="true" />}>
+                  {githubActionState.message}
+                </SettingsNotice>
+              ) : null}
+
+              {isAdmin && githubActionState.status === "success" ? (
+                <SettingsNotice tone="success" icon={<CheckCircle2 aria-hidden="true" />}>
+                  {githubActionState.message}
+                </SettingsNotice>
+              ) : null}
+
               {isAdmin &&
               githubCredentialState.status === "ready" &&
               githubCredentialState.credentials.length > 0 ? (
                 <div className="workspace-settings-member-list">
-                  {githubCredentialState.credentials.map((credential) => (
-                    <article
-                      className="workspace-settings-member-row"
-                      key={credential.credentialId}
-                    >
-                      <div className="workspace-member-avatar">
-                        <Github aria-hidden="true" />
-                      </div>
-                      <div className="workspace-member-main">
-                        <strong>{credential.displayName}</strong>
-                        <p>{credential.maskedToken}</p>
-                        <span>{`Credential #${credential.credentialId}`}</span>
-                      </div>
-                      <div className="workspace-member-meta">
-                        <span className="role-badge">등록됨</span>
-                        <span>{`Workspace #${credential.workspaceId}`}</span>
-                      </div>
-                    </article>
-                  ))}
+                  {githubCredentialState.credentials.map((credential) => {
+                    const isEditing = editingGithubCredentialId === credential.credentialId;
+                    const updateBusy =
+                      githubAction?.type === "update" &&
+                      githubAction.credentialId === credential.credentialId;
+                    const deleteBusy =
+                      githubAction?.type === "delete" &&
+                      githubAction.credentialId === credential.credentialId;
+
+                    return (
+                      <article
+                        className="workspace-settings-member-row"
+                        key={credential.credentialId}
+                      >
+                        <div className="workspace-member-avatar">
+                          <Github aria-hidden="true" />
+                        </div>
+
+                        {isEditing ? (
+                          <form
+                            className="workspace-github-edit-form"
+                            onSubmit={(event) =>
+                              void handleUpdateGithubCredential(event, credential)
+                            }
+                          >
+                            <label className="form-field workspace-github-edit-field">
+                              <span>
+                                <strong>표시 이름</strong>
+                              </span>
+                              <input
+                                value={githubEditDisplayName}
+                                onChange={(event) => {
+                                  setGithubEditDisplayName(event.target.value);
+                                  setGithubActionState({ status: "idle", message: null });
+                                }}
+                                maxLength={120}
+                                disabled={hasGithubCredentialAction}
+                              />
+                            </label>
+                            <label className="form-field workspace-github-edit-field">
+                              <span>
+                                <strong>새 token</strong>
+                              </span>
+                              <input
+                                value={githubEditToken}
+                                onChange={(event) => {
+                                  setGithubEditToken(event.target.value);
+                                  setGithubActionState({ status: "idle", message: null });
+                                }}
+                                type="password"
+                                autoComplete="off"
+                                disabled={hasGithubCredentialAction}
+                              />
+                            </label>
+                            <div className="workspace-github-row-actions">
+                              <button
+                                className="primary-action primary-action-active workspace-github-row-button"
+                                type="submit"
+                                disabled={hasGithubCredentialAction || !githubEditDisplayName.trim()}
+                              >
+                                {updateBusy ? (
+                                  <Loader2 className="spin" aria-hidden="true" />
+                                ) : (
+                                  <Save aria-hidden="true" />
+                                )}
+                                <span>{updateBusy ? "저장 중" : "저장"}</span>
+                              </button>
+                              <button
+                                className="secondary-action workspace-github-row-button"
+                                type="button"
+                                onClick={cancelGithubCredentialEdit}
+                                disabled={hasGithubCredentialAction}
+                              >
+                                취소
+                              </button>
+                            </div>
+                          </form>
+                        ) : (
+                          <>
+                            <div className="workspace-member-main">
+                              <strong>{credential.displayName}</strong>
+                              <p>{credential.maskedToken}</p>
+                              <span>{`Credential #${credential.credentialId}`}</span>
+                            </div>
+                            <div className="workspace-settings-member-actions">
+                              <div className="workspace-member-meta">
+                                <span className="role-badge">등록됨</span>
+                                <span>{`Workspace #${credential.workspaceId}`}</span>
+                              </div>
+                              <button
+                                className="secondary-action workspace-github-row-button"
+                                type="button"
+                                onClick={() => startGithubCredentialEdit(credential)}
+                                disabled={hasGithubCredentialAction}
+                              >
+                                수정
+                              </button>
+                              <button
+                                className="danger-action workspace-github-row-button"
+                                type="button"
+                                onClick={() => void handleDeleteGithubCredential(credential)}
+                                disabled={hasGithubCredentialAction}
+                              >
+                                {deleteBusy ? (
+                                  <Loader2 className="spin" aria-hidden="true" />
+                                ) : (
+                                  <Trash2 aria-hidden="true" />
+                                )}
+                                <span>{deleteBusy ? "삭제 중" : "삭제"}</span>
+                              </button>
+                            </div>
+                          </>
+                        )}
+                      </article>
+                    );
+                  })}
                 </div>
               ) : null}
 
