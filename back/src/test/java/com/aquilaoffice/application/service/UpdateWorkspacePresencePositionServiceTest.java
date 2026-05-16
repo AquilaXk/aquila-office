@@ -12,8 +12,10 @@ import com.aquilaoffice.application.port.out.LoadWorkspaceMemberPort;
 import com.aquilaoffice.application.port.out.LoadWorkspacePort;
 import com.aquilaoffice.domain.member.Member;
 import com.aquilaoffice.domain.workspace.WorkspaceMemberRole;
+import com.aquilaoffice.domain.workspace.WorkspacePresenceMessage;
 import com.aquilaoffice.domain.workspace.WorkspacePresencePosition;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
@@ -43,6 +45,33 @@ class UpdateWorkspacePresencePositionServiceTest {
         assertThat(state.get().position().left()).isEqualTo("18px");
         assertThat(state.get().position().top()).isEqualTo("24px");
         assertThat(state.get().status()).isEqualTo("reviewing");
+    }
+
+    @Test
+    void updatePositionBroadcastsPositionEventToConnectedSinks() {
+        WorkspacePresenceRegistry registry = new WorkspacePresenceRegistry();
+        RecordingPresenceEventSink sink = new RecordingPresenceEventSink();
+        registry.join(101L, 2L, sink);
+        UpdateWorkspacePresencePositionService service = service(
+                "google-2",
+                Optional.of(workspaceDetail(WorkspaceMemberRole.MEMBER)),
+                members(adminMember(1L), memberMember(2L)),
+                registry);
+
+        service.updatePosition(new UpdateWorkspacePresencePositionCommand(
+                101L,
+                "google-2",
+                new WorkspacePresencePosition("18px", "24px"),
+                "reviewing"));
+
+        assertThat(sink.messages()).hasSize(1);
+        WorkspacePresenceMessage event = sink.messages().getFirst();
+        assertThat(event.type()).isEqualTo("presence.position");
+        assertThat(event.workspaceId()).isEqualTo(101L);
+        assertThat(event.memberId()).isEqualTo(2L);
+        assertThat(event.position().left()).isEqualTo("18px");
+        assertThat(event.position().top()).isEqualTo("24px");
+        assertThat(event.status()).isEqualTo("reviewing");
     }
 
     @Test
@@ -203,6 +232,19 @@ class UpdateWorkspacePresencePositionServiceTest {
         @Override
         public List<ListWorkspaceMembersResult> findActiveWorkspaceMembersByWorkspaceId(Long workspaceId) {
             return members;
+        }
+    }
+
+    private static class RecordingPresenceEventSink implements WorkspacePresenceEventSink {
+        private final List<WorkspacePresenceMessage> messages = new ArrayList<>();
+
+        @Override
+        public void send(WorkspacePresenceMessage message) {
+            messages.add(message);
+        }
+
+        private List<WorkspacePresenceMessage> messages() {
+            return messages;
         }
     }
 }

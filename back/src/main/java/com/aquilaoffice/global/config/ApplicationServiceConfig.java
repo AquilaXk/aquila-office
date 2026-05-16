@@ -37,6 +37,8 @@ import com.aquilaoffice.application.port.in.ListWorkspaceMemberTaskStatsUseCase;
 import com.aquilaoffice.application.port.in.ListWorkspaceMembersUseCase;
 import com.aquilaoffice.application.port.in.ListWorkspaceInvitesUseCase;
 import com.aquilaoffice.application.port.in.ListWorkspacesUseCase;
+import com.aquilaoffice.application.port.in.CloseWorkspacePresenceStreamUseCase;
+import com.aquilaoffice.application.port.in.OpenWorkspacePresenceStreamUseCase;
 import com.aquilaoffice.application.port.in.ReceiveSlackEventUseCase;
 import com.aquilaoffice.application.port.in.RemoveWorkspaceMemberUseCase;
 import com.aquilaoffice.application.port.in.RevokeWorkspaceInviteUseCase;
@@ -122,6 +124,7 @@ import com.aquilaoffice.application.service.GetWorkspaceInviteService;
 import com.aquilaoffice.application.service.GetTaskDetailService;
 import com.aquilaoffice.application.service.LeaveWorkspaceService;
 import com.aquilaoffice.application.service.MemberProfileService;
+import com.aquilaoffice.application.service.OpenWorkspacePresenceStreamService;
 import com.aquilaoffice.application.service.ListTaskReportsService;
 import com.aquilaoffice.application.service.ListGithubCredentialsService;
 import com.aquilaoffice.application.service.ListChatSessionMessagesService;
@@ -270,6 +273,31 @@ public class ApplicationServiceConfig {
                 loadWorkspacePort,
                 loadWorkspaceMemberPort,
                 workspacePresenceRegistry);
+    }
+
+    @Bean
+    public OpenWorkspacePresenceStreamService workspacePresenceStreamService(
+            LoadMemberPort loadMemberPort,
+            LoadWorkspacePort loadWorkspacePort,
+            LoadWorkspaceMemberPort loadWorkspaceMemberPort,
+            WorkspacePresenceRegistry workspacePresenceRegistry) {
+        return new OpenWorkspacePresenceStreamService(
+                loadMemberPort,
+                loadWorkspacePort,
+                loadWorkspaceMemberPort,
+                workspacePresenceRegistry);
+    }
+
+    @Bean
+    public OpenWorkspacePresenceStreamUseCase openWorkspacePresenceStreamUseCase(
+            OpenWorkspacePresenceStreamService workspacePresenceStreamService) {
+        return workspacePresenceStreamService;
+    }
+
+    @Bean
+    public CloseWorkspacePresenceStreamUseCase closeWorkspacePresenceStreamUseCase(
+            OpenWorkspacePresenceStreamService workspacePresenceStreamService) {
+        return workspacePresenceStreamService;
     }
 
     @Bean

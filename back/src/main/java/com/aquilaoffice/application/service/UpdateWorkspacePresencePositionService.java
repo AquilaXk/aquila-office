@@ -7,6 +7,7 @@ import com.aquilaoffice.application.port.out.LoadMemberPort;
 import com.aquilaoffice.application.port.out.LoadWorkspaceMemberPort;
 import com.aquilaoffice.application.port.out.LoadWorkspacePort;
 import com.aquilaoffice.domain.member.Member;
+import com.aquilaoffice.domain.workspace.WorkspacePresenceMessage;
 import java.util.List;
 import java.util.Objects;
 
@@ -44,7 +45,13 @@ public class UpdateWorkspacePresencePositionService implements UpdateWorkspacePr
                 .orElseThrow(() -> new IllegalArgumentException("workspace not found"));
 
         Long memberId = findRequesterMemberId(command.workspaceId(), requester.getGoogleSub());
-        workspacePresenceRegistry.updatePosition(command.workspaceId(), memberId, command.position(), command.status());
+        WorkspacePresenceMessage event =
+                workspacePresenceRegistry.updatePosition(
+                        command.workspaceId(),
+                        memberId,
+                        command.position(),
+                        command.status());
+        broadcast(command.workspaceId(), event);
     }
 
     private Long findRequesterMemberId(Long workspaceId, String requesterGoogleSub) {
@@ -56,5 +63,16 @@ public class UpdateWorkspacePresencePositionService implements UpdateWorkspacePr
                 .map(ListWorkspaceMembersResult::memberId)
                 .findFirst()
                 .orElseThrow(() -> new IllegalArgumentException("workspace member not found"));
+    }
+
+    private void broadcast(Long workspaceId, WorkspacePresenceMessage message) {
+        for (WorkspacePresenceRegistry.WorkspacePresenceConnection connection :
+                workspacePresenceRegistry.connectionsInWorkspace(workspaceId)) {
+            try {
+                connection.sink().send(message);
+            } catch (RuntimeException exception) {
+                workspacePresenceRegistry.leave(connection.workspaceId(), connection.memberId(), connection.sink());
+            }
+        }
     }
 }
