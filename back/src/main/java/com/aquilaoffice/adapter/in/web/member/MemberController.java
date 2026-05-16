@@ -8,7 +8,9 @@ import com.aquilaoffice.application.port.in.UpdateMemberProfileUseCase;
 import com.aquilaoffice.global.exception.CommonErrorCode;
 import com.aquilaoffice.global.exception.ServiceException;
 import com.aquilaoffice.global.response.RsData;
+import com.aquilaoffice.global.security.AuthenticatedMember;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -35,9 +37,8 @@ public class MemberController {
 
     @GetMapping("/me/profile")
     public ResponseEntity<RsData<MemberProfileResponse>> getMyProfile(
-            @RequestHeader(name = WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, required = false)
-                    String memberGoogleSub) {
-        String normalizedMemberGoogleSub = requireMemberGoogleSub(memberGoogleSub);
+            Authentication authentication) {
+        String normalizedMemberGoogleSub = requireAuthenticatedMemberGoogleSub(authentication);
 
         try {
             MemberProfileResult result =
@@ -77,5 +78,12 @@ public class MemberController {
         }
         return memberGoogleSub.trim();
     }
-}
 
+    private String requireAuthenticatedMemberGoogleSub(Authentication authentication) {
+        if (authentication == null
+                || !(authentication.getPrincipal() instanceof AuthenticatedMember authenticatedMember)) {
+            throw new ServiceException(CommonErrorCode.UNAUTHORIZED);
+        }
+        return authenticatedMember.googleSub();
+    }
+}
