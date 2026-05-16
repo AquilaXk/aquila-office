@@ -63,11 +63,13 @@ class TaskPersistenceAdapterTest {
                 " 서비스 테스트 추가 ",
                 TaskType.TEST_CREATION,
                 TaskPriority.HIGH,
-                501L));
+                501L,
+                "T123:C456:1715841000.000100"));
 
         assertThat(saved.taskId()).isNotNull();
         assertThat(saved.title()).isEqualTo("테스트 작성");
         assertThat(saved.status()).isEqualTo(TaskStatus.ASSIGNED);
+        assertThat(saved.sourceRef()).isEqualTo("T123:C456:1715841000.000100");
 
         assertThat(loadTasksPort.findByWorkspaceId(workspaceEntity.getId()))
                 .singleElement()
@@ -80,6 +82,7 @@ class TaskPersistenceAdapterTest {
                 .hasValueSatisfying(task -> {
                     assertThat(task.description()).isEqualTo("서비스 테스트 추가");
                     assertThat(task.priority()).isEqualTo(TaskPriority.HIGH);
+                    assertThat(task.sourceRef()).isEqualTo("T123:C456:1715841000.000100");
                 });
     }
 
