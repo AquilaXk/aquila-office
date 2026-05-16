@@ -8,6 +8,7 @@ import com.aquilaoffice.application.port.in.GoogleLoginResult;
 import com.aquilaoffice.application.port.out.IssueAuthTokenPort;
 import com.aquilaoffice.application.port.out.IssuedAuthTokens;
 import com.aquilaoffice.application.port.out.SaveGoogleLoginMemberPort;
+import com.aquilaoffice.application.port.out.SaveRefreshTokenPort;
 import com.aquilaoffice.application.port.out.SavedGoogleLoginMember;
 import com.aquilaoffice.application.port.out.VerifyGoogleIdTokenPort;
 import com.aquilaoffice.application.port.out.VerifiedGoogleUser;
@@ -22,6 +23,7 @@ class GoogleLoginServiceTest {
     @Test
     void googleLoginCreatesUserMemberAndReturnsIssuedTokens() {
         FakeSaveGoogleLoginMemberPort saveMemberPort = new FakeSaveGoogleLoginMemberPort(1L);
+        FakeSaveRefreshTokenPort saveRefreshTokenPort = new FakeSaveRefreshTokenPort();
         GoogleLoginService service = new GoogleLoginService(
                 new FakeVerifyGoogleIdTokenPort(new VerifiedGoogleUser(
                         " google-1 ",
@@ -29,6 +31,7 @@ class GoogleLoginServiceTest {
                         " User One ")),
                 saveMemberPort,
                 new FakeIssueAuthTokenPort(),
+                saveRefreshTokenPort,
                 "");
 
         GoogleLoginResult result = service.login(new GoogleLoginCommand(" id-token "));
@@ -43,11 +46,14 @@ class GoogleLoginServiceTest {
         assertThat(result.role()).isEqualTo("USER");
         assertThat(result.accessToken()).isEqualTo("access-1-USER");
         assertThat(result.refreshToken()).isEqualTo("refresh-1-USER");
+        assertThat(saveRefreshTokenPort.saved.memberId()).isEqualTo(1L);
+        assertThat(saveRefreshTokenPort.saved.refreshToken()).isEqualTo("refresh-1-USER");
     }
 
     @Test
     void googleLoginPromotesAllowlistedEmailToAdmin() {
         FakeSaveGoogleLoginMemberPort saveMemberPort = new FakeSaveGoogleLoginMemberPort(2L);
+        FakeSaveRefreshTokenPort saveRefreshTokenPort = new FakeSaveRefreshTokenPort();
         GoogleLoginService service = new GoogleLoginService(
                 new FakeVerifyGoogleIdTokenPort(new VerifiedGoogleUser(
                         "google-admin",
@@ -55,11 +61,13 @@ class GoogleLoginServiceTest {
                         "Admin")),
                 saveMemberPort,
                 new FakeIssueAuthTokenPort(),
+                saveRefreshTokenPort,
                 " owner@example.com, ADMIN@example.com ");
 
         GoogleLoginResult result = service.login(new GoogleLoginCommand("id-token"));
 
         assertThat(saveMemberPort.saved.role()).isEqualTo(MemberRole.ADMIN);
+        assertThat(saveRefreshTokenPort.saved.refreshToken()).isEqualTo("refresh-2-ADMIN");
         assertThat(result.role()).isEqualTo("ADMIN");
         assertThat(result.accessToken()).isEqualTo("access-2-ADMIN");
     }
@@ -72,6 +80,8 @@ class GoogleLoginServiceTest {
     }
 
     private record SavedRequest(String googleSub, String email, String name, MemberRole role) {}
+
+    private record SavedRefreshToken(Long memberId, String refreshToken) {}
 
     private static class FakeVerifyGoogleIdTokenPort implements VerifyGoogleIdTokenPort {
         private final VerifiedGoogleUser user;
@@ -109,7 +119,18 @@ class GoogleLoginServiceTest {
 
         @Override
         public IssuedAuthTokens issue(Long memberId, String email, MemberRole role) {
-            return new IssuedAuthTokens("access-" + memberId + "-" + role.name(), "refresh-" + memberId + "-" + role.name());
+            return new IssuedAuthTokens(
+                    "access-" + memberId + "-" + role.name(),
+                    "refresh-" + memberId + "-" + role.name());
+        }
+    }
+
+    private static class FakeSaveRefreshTokenPort implements SaveRefreshTokenPort {
+        private SavedRefreshToken saved;
+
+        @Override
+        public void saveOrRotate(Long memberId, String refreshToken) {
+            this.saved = new SavedRefreshToken(memberId, refreshToken);
         }
     }
 }
