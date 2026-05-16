@@ -10,7 +10,6 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.aquilaoffice.adapter.in.web.workspace.WorkspaceController;
 import com.aquilaoffice.application.port.in.GetMemberProfileQuery;
 import com.aquilaoffice.application.port.in.GetMemberProfileUseCase;
 import com.aquilaoffice.application.port.in.MemberAvatarColorsResult;
@@ -78,7 +77,7 @@ class MemberControllerTest {
                 .willReturn(updatedProfileResult());
 
         mockMvc.perform(patch("/api/v1/members/me/profile")
-                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, " google-1 ")
+                        .principal(authenticatedPrincipal("google-1"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -124,7 +123,7 @@ class MemberControllerTest {
     @Test
     void invalidAvatarColorReturnsBadRequestAndDoesNotCallUseCase() throws Exception {
         mockMvc.perform(patch("/api/v1/members/me/profile")
-                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, "google-1")
+                        .principal(authenticatedPrincipal("google-1"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -136,6 +135,18 @@ class MemberControllerTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.code").value("400"));
+
+        verifyNoInteractions(updateMemberProfileUseCase);
+    }
+
+    @Test
+    void missingPrincipalOnUpdateReturnsUnauthorizedAndDoesNotCallUseCase() throws Exception {
+        mockMvc.perform(patch("/api/v1/members/me/profile")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code").value("401"));
 
         verifyNoInteractions(updateMemberProfileUseCase);
     }
