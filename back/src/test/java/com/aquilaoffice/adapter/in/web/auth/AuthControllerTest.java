@@ -13,6 +13,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.aquilaoffice.application.port.in.GoogleLoginCommand;
 import com.aquilaoffice.application.port.in.GoogleLoginResult;
 import com.aquilaoffice.application.port.in.GoogleLoginUseCase;
+import com.aquilaoffice.application.port.in.RefreshAuthTokenCommand;
+import com.aquilaoffice.application.port.in.RefreshAuthTokenResult;
+import com.aquilaoffice.application.port.in.RefreshAuthTokenUseCase;
 import com.aquilaoffice.global.handler.GlobalExceptionHandler;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -37,6 +40,9 @@ class AuthControllerTest {
 
     @MockitoBean
     private GoogleLoginUseCase googleLoginUseCase;
+
+    @MockitoBean
+    private RefreshAuthTokenUseCase refreshAuthTokenUseCase;
 
     @Test
     void loginWithGoogleReturnsTokenEnvelope() throws Exception {
@@ -89,6 +95,53 @@ class AuthControllerTest {
         mockMvc.perform(post("/api/v1/auth/google/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"idToken\":\"bad-token\"}"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code").value("401"));
+    }
+
+    @Test
+    void refreshTokenReturnsRotatedTokenEnvelope() throws Exception {
+        given(refreshAuthTokenUseCase.refresh(any(RefreshAuthTokenCommand.class)))
+                .willReturn(new RefreshAuthTokenResult("new-access-token", "new-refresh-token"));
+
+        mockMvc.perform(post("/api/v1/auth/token/refresh")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"refreshToken\":\" old-refresh-token \"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.code").value("200"))
+                .andExpect(jsonPath("$.message").value("OK"))
+                .andExpect(jsonPath("$.data.accessToken").value("new-access-token"))
+                .andExpect(jsonPath("$.data.refreshToken").value("new-refresh-token"));
+
+        ArgumentCaptor<RefreshAuthTokenCommand> commandCaptor =
+                ArgumentCaptor.forClass(RefreshAuthTokenCommand.class);
+        verify(refreshAuthTokenUseCase).refresh(commandCaptor.capture());
+        assertThat(commandCaptor.getValue().refreshToken()).isEqualTo("old-refresh-token");
+    }
+
+    @Test
+    void refreshTokenRejectsBlankRefreshToken() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/token/refresh")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"refreshToken\":\" \"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code").value("400"));
+
+        verifyNoInteractions(refreshAuthTokenUseCase);
+    }
+
+    @Test
+    void refreshTokenReturnsUnauthorizedWhenRefreshTokenIsInvalid() throws Exception {
+        willThrow(new IllegalArgumentException("refreshToken is invalid"))
+                .given(refreshAuthTokenUseCase)
+                .refresh(any(RefreshAuthTokenCommand.class));
+
+        mockMvc.perform(post("/api/v1/auth/token/refresh")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"refreshToken\":\"bad-refresh-token\"}"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.code").value("401"));
