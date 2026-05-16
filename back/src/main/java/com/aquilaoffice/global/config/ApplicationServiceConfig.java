@@ -23,6 +23,7 @@ import com.aquilaoffice.application.port.in.GetWorkspaceDetailUseCase;
 import com.aquilaoffice.application.port.in.GetWorkspaceDashboardSummaryUseCase;
 import com.aquilaoffice.application.port.in.GetWorkspaceInviteUseCase;
 import com.aquilaoffice.application.port.in.GetTaskDetailUseCase;
+import com.aquilaoffice.application.port.in.GetMemberProfileUseCase;
 import com.aquilaoffice.application.port.in.LeaveWorkspaceUseCase;
 import com.aquilaoffice.application.port.in.ListTaskReportsUseCase;
 import com.aquilaoffice.application.port.in.ListGithubCredentialsUseCase;
@@ -42,6 +43,7 @@ import com.aquilaoffice.application.port.in.RunTaskUseCase;
 import com.aquilaoffice.application.port.in.SendChatMessageUseCase;
 import com.aquilaoffice.application.port.in.TestWorkspaceGatewayConnectionUseCase;
 import com.aquilaoffice.application.port.in.UpdateGithubCredentialUseCase;
+import com.aquilaoffice.application.port.in.UpdateMemberProfileUseCase;
 import com.aquilaoffice.application.port.in.UpdateSlackIntegrationUseCase;
 import com.aquilaoffice.application.port.in.UpdateTaskStatusUseCase;
 import com.aquilaoffice.application.port.in.UpdateWorkspaceUseCase;
@@ -58,6 +60,7 @@ import com.aquilaoffice.application.port.out.LoadGithubCredentialsPort;
 import com.aquilaoffice.application.port.out.LoadChatMessagesPort;
 import com.aquilaoffice.application.port.out.LoadChatSessionPort;
 import com.aquilaoffice.application.port.out.LoadMemberPort;
+import com.aquilaoffice.application.port.out.LoadMemberProfilePort;
 import com.aquilaoffice.application.port.out.LoadOrchestrationPlanArtifactPort;
 import com.aquilaoffice.application.port.out.LoadSlackChannelMappingPort;
 import com.aquilaoffice.application.port.out.LoadTaskExecutionReportsPort;
@@ -86,6 +89,7 @@ import com.aquilaoffice.application.port.out.SaveWorkspaceInvitePort;
 import com.aquilaoffice.application.port.out.SaveWorkspacePort;
 import com.aquilaoffice.application.port.out.SendSlackReplyPort;
 import com.aquilaoffice.application.port.out.UpdateGithubCredentialPort;
+import com.aquilaoffice.application.port.out.UpdateMemberProfilePort;
 import com.aquilaoffice.application.port.out.UpdateTaskExecutionPort;
 import com.aquilaoffice.application.port.out.UpdateTaskStatusPort;
 import com.aquilaoffice.application.port.out.UpdateWorkspacePort;
@@ -113,6 +117,7 @@ import com.aquilaoffice.application.service.GetWorkspaceDashboardSummaryService;
 import com.aquilaoffice.application.service.GetWorkspaceInviteService;
 import com.aquilaoffice.application.service.GetTaskDetailService;
 import com.aquilaoffice.application.service.LeaveWorkspaceService;
+import com.aquilaoffice.application.service.MemberProfileService;
 import com.aquilaoffice.application.service.ListTaskReportsService;
 import com.aquilaoffice.application.service.ListGithubCredentialsService;
 import com.aquilaoffice.application.service.ListChatSessionMessagesService;
@@ -223,6 +228,24 @@ public class ApplicationServiceConfig {
                 loadWorkspaceMemberPort,
                 loadWorkspaceAgentPort,
                 loadTasksPort);
+    }
+
+    @Bean
+    public MemberProfileService memberProfileService(
+            LoadMemberPort loadMemberPort,
+            LoadMemberProfilePort loadMemberProfilePort,
+            UpdateMemberProfilePort updateMemberProfilePort) {
+        return new MemberProfileService(loadMemberPort, loadMemberProfilePort, updateMemberProfilePort);
+    }
+
+    @Bean
+    public GetMemberProfileUseCase getMemberProfileUseCase(MemberProfileService memberProfileService) {
+        return memberProfileService;
+    }
+
+    @Bean
+    public UpdateMemberProfileUseCase updateMemberProfileUseCase(MemberProfileService memberProfileService) {
+        return memberProfileService;
     }
 
     @Bean

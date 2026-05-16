@@ -17,6 +17,7 @@ import com.aquilaoffice.application.port.in.DeleteGithubCredentialUseCase;
 import com.aquilaoffice.application.port.in.DeleteSlackIntegrationUseCase;
 import com.aquilaoffice.application.port.in.GetArtifactFileUseCase;
 import com.aquilaoffice.application.port.in.GetArtifactTreeUseCase;
+import com.aquilaoffice.application.port.in.GetMemberProfileUseCase;
 import com.aquilaoffice.application.port.in.GetOrchestrationPlanArtifactUseCase;
 import com.aquilaoffice.application.port.in.GetWorkspaceAgentUseCase;
 import com.aquilaoffice.application.port.in.GetWorkspaceGatewayStatusUseCase;
@@ -39,6 +40,7 @@ import com.aquilaoffice.application.port.in.RunTaskUseCase;
 import com.aquilaoffice.application.port.in.SendChatMessageUseCase;
 import com.aquilaoffice.application.port.in.TestWorkspaceGatewayConnectionUseCase;
 import com.aquilaoffice.application.port.in.UpdateGithubCredentialUseCase;
+import com.aquilaoffice.application.port.in.UpdateMemberProfileUseCase;
 import com.aquilaoffice.application.port.in.UpdateSlackIntegrationUseCase;
 import com.aquilaoffice.application.port.in.UpdateTaskStatusUseCase;
 import com.aquilaoffice.application.port.in.UpdateWorkspaceUseCase;
@@ -56,6 +58,7 @@ import com.aquilaoffice.application.port.out.LoadGithubCredentialsPort;
 import com.aquilaoffice.application.port.out.LoadChatMessagesPort;
 import com.aquilaoffice.application.port.out.LoadChatSessionPort;
 import com.aquilaoffice.application.port.out.LoadMemberPort;
+import com.aquilaoffice.application.port.out.LoadMemberProfilePort;
 import com.aquilaoffice.application.port.out.LoadOrchestrationPlanArtifactPort;
 import com.aquilaoffice.application.port.out.LoadSlackChannelMappingPort;
 import com.aquilaoffice.application.port.out.LoadTaskExecutionReportsPort;
@@ -85,6 +88,7 @@ import com.aquilaoffice.application.port.out.SaveWorkspacePort;
 import com.aquilaoffice.application.port.out.SendSlackReplyPort;
 import com.aquilaoffice.application.port.out.UpdateTaskExecutionPort;
 import com.aquilaoffice.application.port.out.UpdateGithubCredentialPort;
+import com.aquilaoffice.application.port.out.UpdateMemberProfilePort;
 import com.aquilaoffice.application.port.out.UpdateTaskStatusPort;
 import com.aquilaoffice.application.port.out.UpdateWorkspacePort;
 import com.aquilaoffice.application.service.AcceptWorkspaceInviteService;
@@ -107,6 +111,7 @@ import com.aquilaoffice.application.service.GetWorkspaceGatewayStatusService;
 import com.aquilaoffice.application.service.GetWorkspaceDashboardSummaryService;
 import com.aquilaoffice.application.service.GetTaskDetailService;
 import com.aquilaoffice.application.service.LeaveWorkspaceService;
+import com.aquilaoffice.application.service.MemberProfileService;
 import com.aquilaoffice.application.service.ListTaskReportsService;
 import com.aquilaoffice.application.service.ListWorkspaceAgentsService;
 import com.aquilaoffice.application.service.ListGithubCredentialsService;
@@ -141,6 +146,12 @@ class ApplicationServiceConfigTest {
 
     @MockitoBean
     private LoadMemberPort loadMemberPort;
+
+    @MockitoBean
+    private LoadMemberProfilePort loadMemberProfilePort;
+
+    @MockitoBean
+    private UpdateMemberProfilePort updateMemberProfilePort;
 
     @MockitoBean
     private LoadWorkspacePort loadWorkspacePort;
@@ -281,6 +292,12 @@ class ApplicationServiceConfigTest {
     private ListWorkspaceMemberTaskStatsUseCase listWorkspaceMemberTaskStatsUseCase;
 
     @Autowired
+    private GetMemberProfileUseCase getMemberProfileUseCase;
+
+    @Autowired
+    private UpdateMemberProfileUseCase updateMemberProfileUseCase;
+
+    @Autowired
     private ListWorkspaceInvitesUseCase listWorkspaceInvitesUseCase;
 
     @Autowired
@@ -407,6 +424,16 @@ class ApplicationServiceConfigTest {
     @Test
     void registersListWorkspaceMemberTaskStatsUseCase() {
         assertThat(listWorkspaceMemberTaskStatsUseCase).isInstanceOf(ListWorkspaceMemberTaskStatsService.class);
+    }
+
+    @Test
+    void registersGetMemberProfileUseCase() {
+        assertThat(getMemberProfileUseCase).isInstanceOf(MemberProfileService.class);
+    }
+
+    @Test
+    void registersUpdateMemberProfileUseCase() {
+        assertThat(updateMemberProfileUseCase).isInstanceOf(MemberProfileService.class);
     }
 
     @Test
