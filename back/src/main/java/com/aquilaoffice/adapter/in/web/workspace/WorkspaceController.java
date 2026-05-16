@@ -10,6 +10,9 @@ import com.aquilaoffice.application.port.in.DeleteWorkspaceUseCase;
 import com.aquilaoffice.application.port.in.GetWorkspaceDetailQuery;
 import com.aquilaoffice.application.port.in.GetWorkspaceDetailResult;
 import com.aquilaoffice.application.port.in.GetWorkspaceDetailUseCase;
+import com.aquilaoffice.application.port.in.GetWorkspaceDashboardSummaryQuery;
+import com.aquilaoffice.application.port.in.GetWorkspaceDashboardSummaryResult;
+import com.aquilaoffice.application.port.in.GetWorkspaceDashboardSummaryUseCase;
 import com.aquilaoffice.application.port.in.ListWorkspaceMembersQuery;
 import com.aquilaoffice.application.port.in.ListWorkspaceMembersResult;
 import com.aquilaoffice.application.port.in.ListWorkspaceMembersUseCase;
@@ -59,6 +62,7 @@ public class WorkspaceController {
     private final CreateWorkspaceInviteUseCase createWorkspaceInviteUseCase;
     private final ListWorkspacesUseCase listWorkspacesUseCase;
     private final GetWorkspaceDetailUseCase getWorkspaceDetailUseCase;
+    private final GetWorkspaceDashboardSummaryUseCase getWorkspaceDashboardSummaryUseCase;
     private final ListWorkspaceMembersUseCase listWorkspaceMembersUseCase;
     private final ListWorkspaceInvitesUseCase listWorkspaceInvitesUseCase;
     private final RevokeWorkspaceInviteUseCase revokeWorkspaceInviteUseCase;
@@ -72,6 +76,7 @@ public class WorkspaceController {
             CreateWorkspaceInviteUseCase createWorkspaceInviteUseCase,
             ListWorkspacesUseCase listWorkspacesUseCase,
             GetWorkspaceDetailUseCase getWorkspaceDetailUseCase,
+            GetWorkspaceDashboardSummaryUseCase getWorkspaceDashboardSummaryUseCase,
             ListWorkspaceMembersUseCase listWorkspaceMembersUseCase,
             ListWorkspaceInvitesUseCase listWorkspaceInvitesUseCase,
             RevokeWorkspaceInviteUseCase revokeWorkspaceInviteUseCase,
@@ -83,6 +88,7 @@ public class WorkspaceController {
         this.createWorkspaceInviteUseCase = createWorkspaceInviteUseCase;
         this.listWorkspacesUseCase = listWorkspacesUseCase;
         this.getWorkspaceDetailUseCase = getWorkspaceDetailUseCase;
+        this.getWorkspaceDashboardSummaryUseCase = getWorkspaceDashboardSummaryUseCase;
         this.listWorkspaceMembersUseCase = listWorkspaceMembersUseCase;
         this.listWorkspaceInvitesUseCase = listWorkspaceInvitesUseCase;
         this.revokeWorkspaceInviteUseCase = revokeWorkspaceInviteUseCase;
@@ -117,6 +123,22 @@ public class WorkspaceController {
             return ResponseEntity.ok(RsData.ok(WorkspaceResponse.from(result)));
         } catch (IllegalArgumentException exception) {
             // 존재하지 않거나 가입하지 않은 워크스페이스는 상세 노출 없이 동일한 404로 응답한다.
+            throw new ServiceException(CommonErrorCode.NOT_FOUND);
+        }
+    }
+
+    @GetMapping("/{workspaceId}/dashboard/summary")
+    public ResponseEntity<RsData<WorkspaceDashboardSummaryResponse>> getWorkspaceDashboardSummary(
+            @PathVariable Long workspaceId,
+            @RequestHeader(name = CREATOR_GOOGLE_SUB_HEADER, required = false) String creatorGoogleSub) {
+        String normalizedCreatorGoogleSub = requireCreatorGoogleSub(creatorGoogleSub);
+
+        try {
+            GetWorkspaceDashboardSummaryResult result = getWorkspaceDashboardSummaryUseCase.getSummary(
+                    new GetWorkspaceDashboardSummaryQuery(workspaceId, normalizedCreatorGoogleSub));
+            return ResponseEntity.ok(RsData.ok(WorkspaceDashboardSummaryResponse.from(result)));
+        } catch (IllegalArgumentException exception) {
+            // 대시보드 집계는 가입된 워크스페이스에만 노출하므로 미가입/미존재를 같은 404로 숨긴다.
             throw new ServiceException(CommonErrorCode.NOT_FOUND);
         }
     }

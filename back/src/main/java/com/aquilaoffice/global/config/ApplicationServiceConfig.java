@@ -20,6 +20,7 @@ import com.aquilaoffice.application.port.in.GetOrchestrationPlanArtifactUseCase;
 import com.aquilaoffice.application.port.in.GetWorkspaceAgentUseCase;
 import com.aquilaoffice.application.port.in.GetWorkspaceGatewayStatusUseCase;
 import com.aquilaoffice.application.port.in.GetWorkspaceDetailUseCase;
+import com.aquilaoffice.application.port.in.GetWorkspaceDashboardSummaryUseCase;
 import com.aquilaoffice.application.port.in.GetWorkspaceInviteUseCase;
 import com.aquilaoffice.application.port.in.GetTaskDetailUseCase;
 import com.aquilaoffice.application.port.in.ListTaskReportsUseCase;
@@ -62,6 +63,7 @@ import com.aquilaoffice.application.port.out.LoadTaskPort;
 import com.aquilaoffice.application.port.out.LoadTasksPort;
 import com.aquilaoffice.application.port.out.LoadWorkspaceArtifactsPort;
 import com.aquilaoffice.application.port.out.LoadWorkspaceAgentPort;
+import com.aquilaoffice.application.port.out.LoadWorkspaceDashboardSummaryPort;
 import com.aquilaoffice.application.port.out.LoadWorkspaceGatewayBindingPort;
 import com.aquilaoffice.application.port.out.LoadWorkspacePort;
 import com.aquilaoffice.application.port.out.LoadWorkspaceInvitePort;
@@ -105,6 +107,7 @@ import com.aquilaoffice.application.service.GetOrchestrationPlanArtifactService;
 import com.aquilaoffice.application.service.GetWorkspaceAgentService;
 import com.aquilaoffice.application.service.GetWorkspaceGatewayStatusService;
 import com.aquilaoffice.application.service.GetWorkspaceDetailService;
+import com.aquilaoffice.application.service.GetWorkspaceDashboardSummaryService;
 import com.aquilaoffice.application.service.GetWorkspaceInviteService;
 import com.aquilaoffice.application.service.GetTaskDetailService;
 import com.aquilaoffice.application.service.ListTaskReportsService;
@@ -182,6 +185,17 @@ public class ApplicationServiceConfig {
             LoadMemberPort loadMemberPort,
             LoadWorkspacePort loadWorkspacePort) {
         return new GetWorkspaceDetailService(loadMemberPort, loadWorkspacePort);
+    }
+
+    @Bean
+    public GetWorkspaceDashboardSummaryUseCase getWorkspaceDashboardSummaryUseCase(
+            LoadMemberPort loadMemberPort,
+            LoadWorkspacePort loadWorkspacePort,
+            LoadWorkspaceDashboardSummaryPort loadWorkspaceDashboardSummaryPort) {
+        return new GetWorkspaceDashboardSummaryService(
+                loadMemberPort,
+                loadWorkspacePort,
+                loadWorkspaceDashboardSummaryPort);
     }
 
     @Bean
