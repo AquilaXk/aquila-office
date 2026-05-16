@@ -10,6 +10,8 @@ import com.aquilaoffice.adapter.out.persistence.workspace.WorkspaceJpaEntity;
 import com.aquilaoffice.adapter.out.persistence.workspace.WorkspaceJpaRepository;
 import com.aquilaoffice.application.port.out.SaveTaskExecutionPort;
 import com.aquilaoffice.application.port.out.SaveTaskPort;
+import com.aquilaoffice.application.port.out.TaskExecutionStatusUpdate;
+import com.aquilaoffice.application.port.out.UpdateTaskExecutionPort;
 import com.aquilaoffice.domain.execution.TaskExecution;
 import com.aquilaoffice.domain.execution.TaskExecutionStatus;
 import com.aquilaoffice.domain.member.Member;
@@ -48,6 +50,9 @@ class TaskExecutionPersistenceAdapterTest {
     @Autowired
     private SaveTaskExecutionPort saveTaskExecutionPort;
 
+    @Autowired
+    private UpdateTaskExecutionPort updateTaskExecutionPort;
+
     @Test
     void savePersistsQueuedTaskExecution() {
         WorkspaceJpaEntity workspaceEntity = saveWorkspaceEntity("creator-google");
@@ -69,6 +74,52 @@ class TaskExecutionPersistenceAdapterTest {
         assertThat(saved.status()).isEqualTo(TaskExecutionStatus.QUEUED);
         assertThat(taskExecutionJpaRepository.count()).isEqualTo(1);
         assertThat(taskJpaRepository.findById(task.taskId())).isPresent();
+    }
+
+    @Test
+    void updateStatusStoresRunningSucceededAndFailedResults() {
+        WorkspaceJpaEntity workspaceEntity = saveWorkspaceEntity("creator-google");
+        var task = saveTaskPort.save(Task.create(
+                workspaceEntity.getId(),
+                "creator-google",
+                "테스트 작성",
+                null,
+                TaskType.TEST_CREATION,
+                TaskPriority.HIGH,
+                501L));
+        var saved = saveTaskExecutionPort.save(TaskExecution.create(workspaceEntity.getId(), task.taskId(), 501L));
+
+        var running = updateTaskExecutionPort.updateStatus(new TaskExecutionStatusUpdate(
+                workspaceEntity.getId(),
+                task.taskId(),
+                saved.executionId(),
+                TaskExecutionStatus.RUNNING,
+                null,
+                null));
+        var succeeded = updateTaskExecutionPort.updateStatus(new TaskExecutionStatusUpdate(
+                workspaceEntity.getId(),
+                task.taskId(),
+                saved.executionId(),
+                TaskExecutionStatus.SUCCEEDED,
+                "실행 완료",
+                null));
+        var failed = updateTaskExecutionPort.updateStatus(new TaskExecutionStatusUpdate(
+                workspaceEntity.getId(),
+                task.taskId(),
+                saved.executionId(),
+                TaskExecutionStatus.FAILED,
+                null,
+                "gateway timeout"));
+
+        assertThat(running.status()).isEqualTo(TaskExecutionStatus.RUNNING);
+        assertThat(succeeded.resultSummary()).isEqualTo("실행 완료");
+        assertThat(failed.status()).isEqualTo(TaskExecutionStatus.FAILED);
+        assertThat(failed.failureReason()).isEqualTo("gateway timeout");
+        assertThat(taskExecutionJpaRepository.findById(saved.executionId()))
+                .hasValueSatisfying(entity -> {
+                    assertThat(entity.getStatus()).isEqualTo(TaskExecutionStatus.FAILED);
+                    assertThat(entity.getFailureReason()).isEqualTo("gateway timeout");
+                });
     }
 
     private WorkspaceJpaEntity saveWorkspaceEntity(String googleSub) {

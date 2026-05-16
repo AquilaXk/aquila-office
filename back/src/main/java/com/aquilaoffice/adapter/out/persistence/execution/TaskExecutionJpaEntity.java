@@ -86,6 +86,16 @@ public class TaskExecutionJpaEntity extends BaseEntity {
                 now);
     }
 
+    public void updateStatus(TaskExecutionStatus status, String resultSummary, String failureReason) {
+        if (status == null) {
+            throw new IllegalArgumentException("status must not be null");
+        }
+        this.status = status;
+        this.resultSummary = normalizeNullable(resultSummary);
+        this.failureReason = normalizeNullable(failureReason);
+        this.updatedAt = LocalDateTime.now();
+    }
+
     public WorkspaceJpaEntity getWorkspace() {
         return workspace;
     }
@@ -130,5 +140,12 @@ public class TaskExecutionJpaEntity extends BaseEntity {
             throw new IllegalArgumentException("task entity must not be null");
         }
         return task;
+    }
+
+    private static String normalizeNullable(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        return value.trim();
     }
 }
