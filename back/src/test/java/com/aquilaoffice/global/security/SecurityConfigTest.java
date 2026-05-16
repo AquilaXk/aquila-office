@@ -7,6 +7,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.aquilaoffice.application.port.out.IssueAuthTokenPort;
+import com.aquilaoffice.application.port.out.SaveGoogleLoginMemberPort;
+import com.aquilaoffice.application.port.out.SavedGoogleLoginMember;
 import com.aquilaoffice.domain.member.MemberRole;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,6 +19,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -34,6 +37,9 @@ class SecurityConfigTest {
     @Autowired
     private IssueAuthTokenPort issueAuthTokenPort;
 
+    @Autowired
+    private SaveGoogleLoginMemberPort saveGoogleLoginMemberPort;
+
     @Test
     void healthEndpointDoesNotRequireAuthentication() throws Exception {
         mockMvc.perform(get("/api/health"))
@@ -48,11 +54,23 @@ class SecurityConfigTest {
 
     @Test
     void bearerAccessTokenAuthenticatesProtectedApi() throws Exception {
-        String accessToken = issueAuthTokenPort.issue(1L, "user@example.com", MemberRole.USER).accessToken();
+        SavedGoogleLoginMember member = saveGoogleLoginMemberPort.saveOrUpdate(
+                "google-1", "user@example.com", "User", MemberRole.USER);
+        String accessToken = issueAuthTokenPort.issue(member.memberId(), member.email(), member.role()).accessToken();
 
         mockMvc.perform(get("/api/private")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken))
-                .andExpect(status().isNoContent());
+                .andExpect(status().isNoContent())
+                .andExpect(header().string("X-Test-Google-Sub", "google-1"));
+    }
+
+    @Test
+    void bearerAccessTokenForMissingMemberReturnsUnauthorized() throws Exception {
+        String accessToken = issueAuthTokenPort.issue(999L, "missing@example.com", MemberRole.USER).accessToken();
+
+        mockMvc.perform(get("/api/private")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken))
+                .andExpect(status().isUnauthorized());
     }
 
     @Test
@@ -101,8 +119,10 @@ class SecurityConfigTest {
     static class ProtectedEndpointController {
 
         @GetMapping("/api/private")
-        ResponseEntity<Void> privateEndpoint() {
-            return ResponseEntity.noContent().build();
+        ResponseEntity<Void> privateEndpoint(@AuthenticationPrincipal AuthenticatedMember authenticatedMember) {
+            return ResponseEntity.noContent()
+                    .header("X-Test-Google-Sub", authenticatedMember.googleSub())
+                    .build();
         }
     }
 }
