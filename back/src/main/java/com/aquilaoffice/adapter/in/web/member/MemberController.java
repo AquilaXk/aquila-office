@@ -1,6 +1,5 @@
 package com.aquilaoffice.adapter.in.web.member;
 
-import com.aquilaoffice.adapter.in.web.workspace.WorkspaceController;
 import com.aquilaoffice.application.port.in.GetMemberProfileQuery;
 import com.aquilaoffice.application.port.in.GetMemberProfileUseCase;
 import com.aquilaoffice.application.port.in.MemberProfileResult;
@@ -14,7 +13,6 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -52,10 +50,9 @@ public class MemberController {
 
     @PatchMapping("/me/profile")
     public ResponseEntity<RsData<MemberProfileResponse>> updateMyProfile(
-            @RequestHeader(name = WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, required = false)
-                    String memberGoogleSub,
+            Authentication authentication,
             @RequestBody(required = false) MemberProfileUpdateRequest request) {
-        String normalizedMemberGoogleSub = requireMemberGoogleSub(memberGoogleSub);
+        String normalizedMemberGoogleSub = requireAuthenticatedMemberGoogleSub(authentication);
         if (request == null) {
             throw new ServiceException(CommonErrorCode.BAD_REQUEST);
         }
@@ -70,13 +67,6 @@ public class MemberController {
             // 없는 회원과 저장소 조회 실패는 프로필 정보를 노출하지 않고 같은 404로 응답한다.
             throw new ServiceException(CommonErrorCode.NOT_FOUND);
         }
-    }
-
-    private String requireMemberGoogleSub(String memberGoogleSub) {
-        if (memberGoogleSub == null || memberGoogleSub.isBlank()) {
-            throw new ServiceException(CommonErrorCode.BAD_REQUEST);
-        }
-        return memberGoogleSub.trim();
     }
 
     private String requireAuthenticatedMemberGoogleSub(Authentication authentication) {
