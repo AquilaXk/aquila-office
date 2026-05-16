@@ -6,6 +6,7 @@ import com.aquilaoffice.application.port.in.GoogleLoginUseCase;
 import com.aquilaoffice.application.port.out.IssueAuthTokenPort;
 import com.aquilaoffice.application.port.out.IssuedAuthTokens;
 import com.aquilaoffice.application.port.out.SaveGoogleLoginMemberPort;
+import com.aquilaoffice.application.port.out.SaveRefreshTokenPort;
 import com.aquilaoffice.application.port.out.SavedGoogleLoginMember;
 import com.aquilaoffice.application.port.out.VerifiedGoogleUser;
 import com.aquilaoffice.application.port.out.VerifyGoogleIdTokenPort;
@@ -22,18 +23,22 @@ public class GoogleLoginService implements GoogleLoginUseCase {
     private final VerifyGoogleIdTokenPort verifyGoogleIdTokenPort;
     private final SaveGoogleLoginMemberPort saveGoogleLoginMemberPort;
     private final IssueAuthTokenPort issueAuthTokenPort;
+    private final SaveRefreshTokenPort saveRefreshTokenPort;
     private final String adminAllowlistEmails;
 
     public GoogleLoginService(
             VerifyGoogleIdTokenPort verifyGoogleIdTokenPort,
             SaveGoogleLoginMemberPort saveGoogleLoginMemberPort,
             IssueAuthTokenPort issueAuthTokenPort,
+            SaveRefreshTokenPort saveRefreshTokenPort,
             String adminAllowlistEmails) {
         this.verifyGoogleIdTokenPort =
                 Objects.requireNonNull(verifyGoogleIdTokenPort, "verifyGoogleIdTokenPort must not be null");
         this.saveGoogleLoginMemberPort =
                 Objects.requireNonNull(saveGoogleLoginMemberPort, "saveGoogleLoginMemberPort must not be null");
         this.issueAuthTokenPort = Objects.requireNonNull(issueAuthTokenPort, "issueAuthTokenPort must not be null");
+        this.saveRefreshTokenPort =
+                Objects.requireNonNull(saveRefreshTokenPort, "saveRefreshTokenPort must not be null");
         this.adminAllowlistEmails = adminAllowlistEmails == null ? "" : adminAllowlistEmails;
     }
 
@@ -48,6 +53,7 @@ public class GoogleLoginService implements GoogleLoginUseCase {
                 googleUser.name(),
                 requestedRole);
         IssuedAuthTokens tokens = issueAuthTokenPort.issue(member.memberId(), member.email(), member.role());
+        saveRefreshTokenPort.saveOrRotate(member.memberId(), tokens.refreshToken());
 
         return new GoogleLoginResult(
                 member.memberId(),

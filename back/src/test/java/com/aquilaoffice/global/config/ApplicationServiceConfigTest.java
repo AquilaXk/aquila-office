@@ -38,6 +38,7 @@ import com.aquilaoffice.application.port.in.ListWorkspaceInvitesUseCase;
 import com.aquilaoffice.application.port.in.ListWorkspaceMemberTaskStatsUseCase;
 import com.aquilaoffice.application.port.in.ListWorkspaceMembersUseCase;
 import com.aquilaoffice.application.port.in.ReceiveSlackEventUseCase;
+import com.aquilaoffice.application.port.in.RefreshAuthTokenUseCase;
 import com.aquilaoffice.application.port.in.OpenWorkspacePresenceStreamUseCase;
 import com.aquilaoffice.application.port.in.RemoveWorkspaceMemberUseCase;
 import com.aquilaoffice.application.port.in.RunTaskUseCase;
@@ -80,12 +81,15 @@ import com.aquilaoffice.application.port.out.LoadWorkspaceInvitesPort;
 import com.aquilaoffice.application.port.out.LoadWorkspaceMemberPort;
 import com.aquilaoffice.application.port.out.LoadWorkspacePort;
 import com.aquilaoffice.application.port.out.RemoveWorkspaceMemberPort;
+import com.aquilaoffice.application.port.out.ResolveRefreshTokenPort;
 import com.aquilaoffice.application.port.out.RevokeWorkspaceInvitePort;
+import com.aquilaoffice.application.port.out.RotateRefreshTokenPort;
 import com.aquilaoffice.application.port.out.RunWorkspaceAgentPort;
 import com.aquilaoffice.application.port.out.SaveGithubCredentialPort;
 import com.aquilaoffice.application.port.out.SaveChatMessagePort;
 import com.aquilaoffice.application.port.out.SaveChatSessionPort;
 import com.aquilaoffice.application.port.out.SaveGoogleLoginMemberPort;
+import com.aquilaoffice.application.port.out.SaveRefreshTokenPort;
 import com.aquilaoffice.application.port.out.SaveSlackChannelMappingPort;
 import com.aquilaoffice.application.port.out.SaveTaskPort;
 import com.aquilaoffice.application.port.out.SaveTaskExecutionPort;
@@ -135,6 +139,7 @@ import com.aquilaoffice.application.service.ListWorkspaceInvitesService;
 import com.aquilaoffice.application.service.ListWorkspaceMemberTaskStatsService;
 import com.aquilaoffice.application.service.ListWorkspaceMembersService;
 import com.aquilaoffice.application.service.ReceiveSlackEventService;
+import com.aquilaoffice.application.service.RefreshAuthTokenService;
 import com.aquilaoffice.application.service.RemoveWorkspaceMemberService;
 import com.aquilaoffice.application.service.RevokeWorkspaceInviteService;
 import com.aquilaoffice.application.service.RunTaskService;
@@ -308,6 +313,15 @@ class ApplicationServiceConfigTest {
     @MockitoBean
     private IssueAuthTokenPort issueAuthTokenPort;
 
+    @MockitoBean
+    private SaveRefreshTokenPort saveRefreshTokenPort;
+
+    @MockitoBean
+    private ResolveRefreshTokenPort resolveRefreshTokenPort;
+
+    @MockitoBean
+    private RotateRefreshTokenPort rotateRefreshTokenPort;
+
     @Autowired
     private AcceptWorkspaceInviteUseCase acceptWorkspaceInviteUseCase;
 
@@ -325,6 +339,9 @@ class ApplicationServiceConfigTest {
 
     @Autowired
     private GoogleLoginUseCase googleLoginUseCase;
+
+    @Autowired
+    private RefreshAuthTokenUseCase refreshAuthTokenUseCase;
 
     @Autowired
     private UpdateWorkspacePresencePositionUseCase updateWorkspacePresencePositionUseCase;
@@ -489,6 +506,19 @@ class ApplicationServiceConfigTest {
                 .isSameAs(saveGoogleLoginMemberPort);
         assertThat(ReflectionTestUtils.getField(googleLoginUseCase, "issueAuthTokenPort"))
                 .isSameAs(issueAuthTokenPort);
+        assertThat(ReflectionTestUtils.getField(googleLoginUseCase, "saveRefreshTokenPort"))
+                .isSameAs(saveRefreshTokenPort);
+    }
+
+    @Test
+    void registersRefreshAuthTokenUseCase() {
+        assertThat(refreshAuthTokenUseCase).isInstanceOf(RefreshAuthTokenService.class);
+        assertThat(ReflectionTestUtils.getField(refreshAuthTokenUseCase, "resolveRefreshTokenPort"))
+                .isSameAs(resolveRefreshTokenPort);
+        assertThat(ReflectionTestUtils.getField(refreshAuthTokenUseCase, "issueAuthTokenPort"))
+                .isSameAs(issueAuthTokenPort);
+        assertThat(ReflectionTestUtils.getField(refreshAuthTokenUseCase, "rotateRefreshTokenPort"))
+                .isSameAs(rotateRefreshTokenPort);
     }
 
     @Test
