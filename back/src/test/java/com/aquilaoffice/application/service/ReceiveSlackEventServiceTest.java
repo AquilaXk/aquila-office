@@ -87,6 +87,38 @@ class ReceiveSlackEventServiceTest {
     }
 
     @Test
+    void receiveSlackEventSendsFailureReasonToSlackThread() {
+        FakeSendChatMessageUseCase sendChatMessageUseCase =
+                new FakeSendChatMessageUseCase(null, "작업 실행 실패");
+        FakeSendSlackReplyPort sendSlackReplyPort = new FakeSendSlackReplyPort();
+        ReceiveSlackEventUseCase service = newService(
+                sendChatMessageUseCase,
+                new FakeLoadSlackChannelMappingPort(Optional.empty()),
+                sendSlackReplyPort);
+
+        ReceiveSlackEventResult result = service.receiveSlackEvent(new ReceiveSlackEventCommand(
+                101L,
+                "google-1",
+                "event_callback",
+                null,
+                "T123",
+                "E123",
+                new ReceiveSlackEventCommand.SlackEventPayload(
+                        "app_mention",
+                        "C456",
+                        "U789",
+                        "<@U123ABC> /agent 501 배포 실패를 확인해주세요",
+                        "1715841000.000100",
+                        "1715840999.000001")));
+
+        assertThat(result.processed()).isTrue();
+        assertThat(result.sourceRef()).isEqualTo("T123:C456:1715840999.000001");
+        assertThat(sendSlackReplyPort.request.sourceRef()).isEqualTo("T123:C456:1715840999.000001");
+        assertThat(sendSlackReplyPort.request.text()).isEqualTo("작업 실행 실패");
+        assertThat(sendSlackReplyPort.request.deduplicationKey()).isEqualTo("task-execution-701");
+    }
+
+    @Test
     void receiveSlackEventResolvesWorkspaceAndRequesterFromActiveChannelMapping() {
         FakeSendChatMessageUseCase sendChatMessageUseCase = new FakeSendChatMessageUseCase();
         ReceiveSlackEventUseCase service = newService(
@@ -152,7 +184,11 @@ class ReceiveSlackEventServiceTest {
     @Test
     void receiveSlackEventIgnoresUnsupportedEventWithoutDispatch() {
         FakeSendChatMessageUseCase sendChatMessageUseCase = new FakeSendChatMessageUseCase();
-        ReceiveSlackEventUseCase service = newService(sendChatMessageUseCase);
+        FakeSendSlackReplyPort sendSlackReplyPort = new FakeSendSlackReplyPort();
+        ReceiveSlackEventUseCase service = newService(
+                sendChatMessageUseCase,
+                new FakeLoadSlackChannelMappingPort(Optional.empty()),
+                sendSlackReplyPort);
 
         ReceiveSlackEventResult result = service.receiveSlackEvent(new ReceiveSlackEventCommand(
                 101L,
@@ -172,6 +208,7 @@ class ReceiveSlackEventServiceTest {
         assertThat(result.processed()).isFalse();
         assertThat(result.ignoredReason()).isEqualTo("unsupported event type");
         assertThat(sendChatMessageUseCase.called).isFalse();
+        assertThat(sendSlackReplyPort.request).isNull();
     }
 
     private static ReceiveSlackEventUseCase newService(SendChatMessageUseCase sendChatMessageUseCase) {
