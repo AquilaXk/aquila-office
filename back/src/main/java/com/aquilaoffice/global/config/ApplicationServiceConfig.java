@@ -114,7 +114,10 @@ import com.aquilaoffice.application.service.TestWorkspaceGatewayConnectionServic
 import com.aquilaoffice.application.service.UpdateGithubCredentialService;
 import com.aquilaoffice.application.service.UpdateTaskStatusService;
 import com.aquilaoffice.application.service.UpdateWorkspaceService;
+import com.aquilaoffice.adapter.in.web.slack.SlackSignatureVerifier;
 import java.time.Clock;
+import java.time.Duration;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -487,5 +490,12 @@ public class ApplicationServiceConfig {
             SlackAgentCommandParser slackAgentCommandParser,
             SendChatMessageUseCase sendChatMessageUseCase) {
         return new ReceiveSlackEventService(slackAgentCommandParser, sendChatMessageUseCase);
+    }
+
+    @Bean
+    public SlackSignatureVerifier slackSignatureVerifier(
+            @Value("${aquila.slack.signing-secret:}") String signingSecret,
+            Clock applicationClock) {
+        return new SlackSignatureVerifier(signingSecret, applicationClock, Duration.ofMinutes(5));
     }
 }
