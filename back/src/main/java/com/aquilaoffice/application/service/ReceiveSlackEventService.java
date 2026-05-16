@@ -7,6 +7,8 @@ import com.aquilaoffice.application.port.in.SendChatMessageCommand;
 import com.aquilaoffice.application.port.in.SendChatMessageResult;
 import com.aquilaoffice.application.port.in.SendChatMessageUseCase;
 import com.aquilaoffice.application.port.out.LoadSlackChannelMappingPort;
+import com.aquilaoffice.application.port.out.SendSlackReplyPort;
+import com.aquilaoffice.application.port.out.SlackReplyRequest;
 import com.aquilaoffice.domain.slack.SlackChannelMapping;
 import com.aquilaoffice.domain.task.TaskPriority;
 import com.aquilaoffice.domain.task.TaskType;
@@ -22,10 +24,12 @@ public class ReceiveSlackEventService implements ReceiveSlackEventUseCase {
     private static final String URL_VERIFICATION_TYPE = "url_verification";
     private static final String APP_MENTION_EVENT_TYPE = "app_mention";
     private static final int TITLE_LIMIT = 64;
+    private static final SendSlackReplyPort NOOP_SLACK_REPLY_PORT = request -> {};
 
     private final SlackAgentCommandParser slackAgentCommandParser;
     private final SendChatMessageUseCase sendChatMessageUseCase;
     private final LoadSlackChannelMappingPort loadSlackChannelMappingPort;
+    private final SendSlackReplyPort sendSlackReplyPort;
 
     public ReceiveSlackEventService(
             SlackAgentCommandParser slackAgentCommandParser,
@@ -37,12 +41,22 @@ public class ReceiveSlackEventService implements ReceiveSlackEventUseCase {
             SlackAgentCommandParser slackAgentCommandParser,
             SendChatMessageUseCase sendChatMessageUseCase,
             LoadSlackChannelMappingPort loadSlackChannelMappingPort) {
+        this(slackAgentCommandParser, sendChatMessageUseCase, loadSlackChannelMappingPort, NOOP_SLACK_REPLY_PORT);
+    }
+
+    public ReceiveSlackEventService(
+            SlackAgentCommandParser slackAgentCommandParser,
+            SendChatMessageUseCase sendChatMessageUseCase,
+            LoadSlackChannelMappingPort loadSlackChannelMappingPort,
+            SendSlackReplyPort sendSlackReplyPort) {
         this.slackAgentCommandParser =
                 Objects.requireNonNull(slackAgentCommandParser, "slackAgentCommandParser must not be null");
         this.sendChatMessageUseCase =
                 Objects.requireNonNull(sendChatMessageUseCase, "sendChatMessageUseCase must not be null");
         this.loadSlackChannelMappingPort =
                 Objects.requireNonNull(loadSlackChannelMappingPort, "loadSlackChannelMappingPort must not be null");
+        this.sendSlackReplyPort =
+                Objects.requireNonNull(sendSlackReplyPort, "sendSlackReplyPort must not be null");
     }
 
     @Override
@@ -80,6 +94,7 @@ public class ReceiveSlackEventService implements ReceiveSlackEventUseCase {
                 true,
                 null,
                 eventSourceRef));
+        sendReplyIfPresent(eventSourceRef, sendResult);
 
         return new ReceiveSlackEventResult(
                 null,
@@ -88,6 +103,32 @@ public class ReceiveSlackEventService implements ReceiveSlackEventUseCase {
                 sendResult.taskId(),
                 sendResult.chatSessionId(),
                 eventSourceRef);
+    }
+
+    private void sendReplyIfPresent(String sourceRef, SendChatMessageResult sendResult) {
+        String replyText = resolveReplyText(sendResult);
+        if (replyText.isBlank()) {
+            return;
+        }
+        sendSlackReplyPort.sendReply(SlackReplyRequest.fromSourceRef(
+                sourceRef,
+                replyText,
+                replyDeduplicationKey(sendResult.taskExecutionId())));
+    }
+
+    private String resolveReplyText(SendChatMessageResult sendResult) {
+        String finalText = normalize(sendResult.finalText());
+        if (!finalText.isBlank()) {
+            return finalText;
+        }
+        return normalize(sendResult.failureReason());
+    }
+
+    private String replyDeduplicationKey(Long taskExecutionId) {
+        if (taskExecutionId == null) {
+            return null;
+        }
+        return "task-execution-" + taskExecutionId;
     }
 
     private ResolvedSlackWorkspace resolveWorkspace(

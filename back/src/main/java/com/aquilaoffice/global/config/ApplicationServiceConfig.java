@@ -76,6 +76,7 @@ import com.aquilaoffice.application.port.out.SaveWorkspaceAgentPort;
 import com.aquilaoffice.application.port.out.SaveWorkspaceGatewayBindingPort;
 import com.aquilaoffice.application.port.out.SaveWorkspaceInvitePort;
 import com.aquilaoffice.application.port.out.SaveWorkspacePort;
+import com.aquilaoffice.application.port.out.SendSlackReplyPort;
 import com.aquilaoffice.application.port.out.UpdateGithubCredentialPort;
 import com.aquilaoffice.application.port.out.UpdateTaskExecutionPort;
 import com.aquilaoffice.application.port.out.UpdateTaskStatusPort;
@@ -495,11 +496,13 @@ public class ApplicationServiceConfig {
     public ReceiveSlackEventUseCase receiveSlackEventUseCase(
             SlackAgentCommandParser slackAgentCommandParser,
             SendChatMessageUseCase sendChatMessageUseCase,
-            LoadSlackChannelMappingPort loadSlackChannelMappingPort) {
+            LoadSlackChannelMappingPort loadSlackChannelMappingPort,
+            SendSlackReplyPort sendSlackReplyPort) {
         return new ReceiveSlackEventService(
                 slackAgentCommandParser,
                 sendChatMessageUseCase,
-                loadSlackChannelMappingPort);
+                loadSlackChannelMappingPort,
+                sendSlackReplyPort);
     }
 
     @Bean
