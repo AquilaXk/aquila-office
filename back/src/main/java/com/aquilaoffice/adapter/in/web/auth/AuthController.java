@@ -1,0 +1,38 @@
+package com.aquilaoffice.adapter.in.web.auth;
+
+import com.aquilaoffice.application.port.in.GoogleLoginResult;
+import com.aquilaoffice.application.port.in.GoogleLoginUseCase;
+import com.aquilaoffice.global.exception.CommonErrorCode;
+import com.aquilaoffice.global.exception.ServiceException;
+import com.aquilaoffice.global.response.RsData;
+import jakarta.validation.Valid;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+/**
+ * 인증 요청을 application use case로 전달하는 inbound web adapter다.
+ */
+@RestController
+@RequestMapping("/api/v1/auth")
+public class AuthController {
+
+    private final GoogleLoginUseCase googleLoginUseCase;
+
+    public AuthController(GoogleLoginUseCase googleLoginUseCase) {
+        this.googleLoginUseCase = googleLoginUseCase;
+    }
+
+    @PostMapping("/google/login")
+    public ResponseEntity<RsData<GoogleLoginResponse>> loginWithGoogle(
+            @Valid @RequestBody GoogleLoginRequest request) {
+        try {
+            GoogleLoginResult result = googleLoginUseCase.login(request.toCommand());
+            return ResponseEntity.ok(RsData.ok(GoogleLoginResponse.from(result)));
+        } catch (IllegalArgumentException exception) {
+            throw new ServiceException(CommonErrorCode.UNAUTHORIZED);
+        }
+    }
+}
