@@ -2,7 +2,9 @@ package com.aquilaoffice.adapter.in.web.slack;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -35,6 +37,9 @@ class SlackEventControllerTest {
     @MockitoBean
     private ReceiveSlackEventUseCase receiveSlackEventUseCase;
 
+    @MockitoBean
+    private SlackSignatureVerifier slackSignatureVerifier;
+
     @Test
     void receiveSlackEventReturnsRawChallenge() throws Exception {
         given(receiveSlackEventUseCase.receiveSlackEvent(any(ReceiveSlackEventCommand.class)))
@@ -42,6 +47,8 @@ class SlackEventControllerTest {
 
         mockMvc.perform(post("/api/v1/workspaces/101/slack/events")
                         .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, " google-1 ")
+                        .header("X-Slack-Request-Timestamp", "1715841000")
+                        .header("X-Slack-Signature", "v0=test-signature")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -59,6 +66,10 @@ class SlackEventControllerTest {
         assertThat(commandCaptor.getValue().requesterGoogleSub()).isEqualTo("google-1");
         assertThat(commandCaptor.getValue().type()).isEqualTo("url_verification");
         assertThat(commandCaptor.getValue().challenge()).isEqualTo("challenge-token");
+        verify(slackSignatureVerifier).verifyOrThrow(
+                eq("1715841000"),
+                eq("v0=test-signature"),
+                any(String.class));
     }
 
     @Test
@@ -74,6 +85,8 @@ class SlackEventControllerTest {
 
         mockMvc.perform(post("/api/v1/workspaces/101/slack/events")
                         .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, "google-1")
+                        .header("X-Slack-Request-Timestamp", "1715841000")
+                        .header("X-Slack-Signature", "v0=test-signature")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -103,6 +116,29 @@ class SlackEventControllerTest {
         assertThat(commandCaptor.getValue().teamId()).isEqualTo("T123");
         assertThat(commandCaptor.getValue().eventId()).isEqualTo("E123");
         assertThat(commandCaptor.getValue().event().threadTs()).isEqualTo("1715841000.000100");
+        verify(slackSignatureVerifier).verifyOrThrow(
+                eq("1715841000"),
+                eq("v0=test-signature"),
+                any(String.class));
+    }
+
+    @Test
+    void invalidSignatureReturnsBadRequestAndDoesNotCallUseCase() throws Exception {
+        willThrow(new IllegalArgumentException("slack request signature mismatch"))
+                .given(slackSignatureVerifier)
+                .verifyOrThrow(any(String.class), any(String.class), any(String.class));
+
+        mockMvc.perform(post("/api/v1/workspaces/101/slack/events")
+                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, "google-1")
+                        .header("X-Slack-Request-Timestamp", "1715841000")
+                        .header("X-Slack-Signature", "v0=invalid")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"type\":\"event_callback\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code").value("400"));
+
+        verifyNoInteractions(receiveSlackEventUseCase);
     }
 
     @Test
