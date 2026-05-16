@@ -10,7 +10,6 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.aquilaoffice.adapter.in.web.workspace.WorkspaceController;
 import com.aquilaoffice.application.port.in.GetMemberProfileQuery;
 import com.aquilaoffice.application.port.in.GetMemberProfileUseCase;
 import com.aquilaoffice.application.port.in.MemberAvatarColorsResult;
@@ -18,6 +17,9 @@ import com.aquilaoffice.application.port.in.MemberProfileResult;
 import com.aquilaoffice.application.port.in.UpdateMemberProfileCommand;
 import com.aquilaoffice.application.port.in.UpdateMemberProfileUseCase;
 import com.aquilaoffice.global.handler.GlobalExceptionHandler;
+import com.aquilaoffice.global.security.AuthenticatedMember;
+import com.aquilaoffice.domain.member.MemberRole;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,6 +27,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -51,7 +54,7 @@ class MemberControllerTest {
                 .willReturn(profileResult());
 
         mockMvc.perform(get("/api/v1/members/me/profile")
-                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, " google-1 "))
+                        .principal(authenticatedPrincipal("google-1")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.code").value("200"))
@@ -74,7 +77,7 @@ class MemberControllerTest {
                 .willReturn(updatedProfileResult());
 
         mockMvc.perform(patch("/api/v1/members/me/profile")
-                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, " google-1 ")
+                        .principal(authenticatedPrincipal("google-1"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -108,11 +111,11 @@ class MemberControllerTest {
     }
 
     @Test
-    void missingHeaderReturnsBadRequestAndDoesNotCallUseCases() throws Exception {
+    void missingPrincipalReturnsUnauthorizedAndDoesNotCallUseCases() throws Exception {
         mockMvc.perform(get("/api/v1/members/me/profile"))
-                .andExpect(status().isBadRequest())
+                .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.success").value(false))
-                .andExpect(jsonPath("$.code").value("400"));
+                .andExpect(jsonPath("$.code").value("401"));
 
         verifyNoInteractions(getMemberProfileUseCase, updateMemberProfileUseCase);
     }
@@ -120,7 +123,7 @@ class MemberControllerTest {
     @Test
     void invalidAvatarColorReturnsBadRequestAndDoesNotCallUseCase() throws Exception {
         mockMvc.perform(patch("/api/v1/members/me/profile")
-                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, "google-1")
+                        .principal(authenticatedPrincipal("google-1"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -137,12 +140,24 @@ class MemberControllerTest {
     }
 
     @Test
+    void missingPrincipalOnUpdateReturnsUnauthorizedAndDoesNotCallUseCase() throws Exception {
+        mockMvc.perform(patch("/api/v1/members/me/profile")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code").value("401"));
+
+        verifyNoInteractions(updateMemberProfileUseCase);
+    }
+
+    @Test
     void useCaseIllegalArgumentReturnsNotFoundEnvelope() throws Exception {
         given(getMemberProfileUseCase.getMemberProfile(any(GetMemberProfileQuery.class)))
                 .willThrow(new IllegalArgumentException("member not found"));
 
         mockMvc.perform(get("/api/v1/members/me/profile")
-                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, "missing"))
+                        .principal(authenticatedPrincipal("missing")))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.code").value("404"));
@@ -162,5 +177,11 @@ class MemberControllerTest {
                 "Operator",
                 "servo-skull",
                 new MemberAvatarColorsResult("#111111", "#1a1a1a", "#333333"));
+    }
+
+    private static UsernamePasswordAuthenticationToken authenticatedPrincipal(String googleSub) {
+        AuthenticatedMember member =
+                new AuthenticatedMember(1L, googleSub, googleSub + "@example.com", MemberRole.USER);
+        return new UsernamePasswordAuthenticationToken(member, null, List.of());
     }
 }
