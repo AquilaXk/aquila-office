@@ -2,6 +2,7 @@ package com.aquilaoffice.adapter.in.web.auth;
 
 import com.aquilaoffice.application.port.in.GoogleLoginResult;
 import com.aquilaoffice.application.port.in.GoogleLoginUseCase;
+import com.aquilaoffice.application.port.in.LogoutAuthUseCase;
 import com.aquilaoffice.application.port.in.RefreshAuthTokenResult;
 import com.aquilaoffice.application.port.in.RefreshAuthTokenUseCase;
 import com.aquilaoffice.global.exception.CommonErrorCode;
@@ -23,10 +24,15 @@ public class AuthController {
 
     private final GoogleLoginUseCase googleLoginUseCase;
     private final RefreshAuthTokenUseCase refreshAuthTokenUseCase;
+    private final LogoutAuthUseCase logoutAuthUseCase;
 
-    public AuthController(GoogleLoginUseCase googleLoginUseCase, RefreshAuthTokenUseCase refreshAuthTokenUseCase) {
+    public AuthController(
+            GoogleLoginUseCase googleLoginUseCase,
+            RefreshAuthTokenUseCase refreshAuthTokenUseCase,
+            LogoutAuthUseCase logoutAuthUseCase) {
         this.googleLoginUseCase = googleLoginUseCase;
         this.refreshAuthTokenUseCase = refreshAuthTokenUseCase;
+        this.logoutAuthUseCase = logoutAuthUseCase;
     }
 
     @PostMapping("/google/login")
@@ -46,6 +52,16 @@ public class AuthController {
         try {
             RefreshAuthTokenResult result = refreshAuthTokenUseCase.refresh(request.toCommand());
             return ResponseEntity.ok(RsData.ok(RefreshAuthTokenResponse.from(result)));
+        } catch (IllegalArgumentException exception) {
+            throw new ServiceException(CommonErrorCode.UNAUTHORIZED);
+        }
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<RsData<Void>> logout(@Valid @RequestBody LogoutAuthRequest request) {
+        try {
+            logoutAuthUseCase.logout(request.toCommand());
+            return ResponseEntity.ok(RsData.ok(null));
         } catch (IllegalArgumentException exception) {
             throw new ServiceException(CommonErrorCode.UNAUTHORIZED);
         }

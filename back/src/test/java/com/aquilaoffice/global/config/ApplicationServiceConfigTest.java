@@ -37,6 +37,7 @@ import com.aquilaoffice.application.port.in.ListTasksUseCase;
 import com.aquilaoffice.application.port.in.ListWorkspaceInvitesUseCase;
 import com.aquilaoffice.application.port.in.ListWorkspaceMemberTaskStatsUseCase;
 import com.aquilaoffice.application.port.in.ListWorkspaceMembersUseCase;
+import com.aquilaoffice.application.port.in.LogoutAuthUseCase;
 import com.aquilaoffice.application.port.in.ReceiveSlackEventUseCase;
 import com.aquilaoffice.application.port.in.RefreshAuthTokenUseCase;
 import com.aquilaoffice.application.port.in.OpenWorkspacePresenceStreamUseCase;
@@ -53,6 +54,7 @@ import com.aquilaoffice.application.port.in.UpdateWorkspaceUseCase;
 import com.aquilaoffice.application.port.in.RevokeWorkspaceInviteUseCase;
 import com.aquilaoffice.application.port.out.AcceptWorkspaceInvitePort;
 import com.aquilaoffice.application.port.out.ChangeWorkspaceMemberRolePort;
+import com.aquilaoffice.application.port.out.DeleteRefreshTokenPort;
 import com.aquilaoffice.application.port.out.DeleteWorkspacePort;
 import com.aquilaoffice.application.port.out.DeleteWorkspaceAgentPort;
 import com.aquilaoffice.application.port.out.DeleteGithubCredentialPort;
@@ -138,6 +140,7 @@ import com.aquilaoffice.application.service.ListTasksService;
 import com.aquilaoffice.application.service.ListWorkspaceInvitesService;
 import com.aquilaoffice.application.service.ListWorkspaceMemberTaskStatsService;
 import com.aquilaoffice.application.service.ListWorkspaceMembersService;
+import com.aquilaoffice.application.service.LogoutAuthService;
 import com.aquilaoffice.application.service.ReceiveSlackEventService;
 import com.aquilaoffice.application.service.RefreshAuthTokenService;
 import com.aquilaoffice.application.service.RemoveWorkspaceMemberService;
@@ -322,6 +325,9 @@ class ApplicationServiceConfigTest {
     @MockitoBean
     private RotateRefreshTokenPort rotateRefreshTokenPort;
 
+    @MockitoBean
+    private DeleteRefreshTokenPort deleteRefreshTokenPort;
+
     @Autowired
     private AcceptWorkspaceInviteUseCase acceptWorkspaceInviteUseCase;
 
@@ -342,6 +348,9 @@ class ApplicationServiceConfigTest {
 
     @Autowired
     private RefreshAuthTokenUseCase refreshAuthTokenUseCase;
+
+    @Autowired
+    private LogoutAuthUseCase logoutAuthUseCase;
 
     @Autowired
     private UpdateWorkspacePresencePositionUseCase updateWorkspacePresencePositionUseCase;
@@ -519,6 +528,15 @@ class ApplicationServiceConfigTest {
                 .isSameAs(issueAuthTokenPort);
         assertThat(ReflectionTestUtils.getField(refreshAuthTokenUseCase, "rotateRefreshTokenPort"))
                 .isSameAs(rotateRefreshTokenPort);
+    }
+
+    @Test
+    void registersLogoutAuthUseCase() {
+        assertThat(logoutAuthUseCase).isInstanceOf(LogoutAuthService.class);
+        assertThat(ReflectionTestUtils.getField(logoutAuthUseCase, "resolveRefreshTokenPort"))
+                .isSameAs(resolveRefreshTokenPort);
+        assertThat(ReflectionTestUtils.getField(logoutAuthUseCase, "deleteRefreshTokenPort"))
+                .isSameAs(deleteRefreshTokenPort);
     }
 
     @Test

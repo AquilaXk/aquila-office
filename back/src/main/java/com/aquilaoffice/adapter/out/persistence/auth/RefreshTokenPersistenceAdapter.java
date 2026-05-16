@@ -1,5 +1,6 @@
 package com.aquilaoffice.adapter.out.persistence.auth;
 
+import com.aquilaoffice.application.port.out.DeleteRefreshTokenPort;
 import com.aquilaoffice.application.port.out.RotateRefreshTokenPort;
 import com.aquilaoffice.application.port.out.SaveRefreshTokenPort;
 import org.springframework.stereotype.Repository;
@@ -9,7 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
  * refresh token 저장/회전 outbound port를 JPA로 구현하는 persistence adapter다.
  */
 @Repository
-public class RefreshTokenPersistenceAdapter implements SaveRefreshTokenPort, RotateRefreshTokenPort {
+public class RefreshTokenPersistenceAdapter implements SaveRefreshTokenPort, RotateRefreshTokenPort, DeleteRefreshTokenPort {
 
     private final RefreshTokenJpaRepository refreshTokenJpaRepository;
 
@@ -33,5 +34,11 @@ public class RefreshTokenPersistenceAdapter implements SaveRefreshTokenPort, Rot
     @Transactional
     public boolean rotateIfMatch(Long memberId, String currentRefreshToken, String newRefreshToken) {
         return refreshTokenJpaRepository.rotateIfMatch(memberId, currentRefreshToken, newRefreshToken) == 1;
+    }
+
+    @Override
+    @Transactional
+    public boolean deleteIfMatch(Long memberId, String refreshToken) {
+        return refreshTokenJpaRepository.deleteIfMatch(memberId, refreshToken) == 1;
     }
 }

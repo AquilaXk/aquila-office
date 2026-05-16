@@ -42,6 +42,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/google/login").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/token/refresh").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/auth/logout").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/health").permitAll()
                         .requestMatchers(HttpMethod.GET, "/actuator/health", "/actuator/health/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/v3/api-docs", "/v3/api-docs/**").permitAll()
