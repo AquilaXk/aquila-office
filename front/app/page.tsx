@@ -11,9 +11,15 @@ import {
   Wifi,
   WifiOff,
 } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { API_BASE_URL, ApiError, apiFetch } from "@/lib/api-client";
+import {
+  BRAND_MASCOT_PATH,
+  REPRESENTATIVE_IMAGE_PATHS,
+  SERVICE_NAME,
+} from "@/lib/branding";
 import { fetchWorkspaces, type WorkspaceSummary } from "@/lib/workspaces";
 
 const TEMP_MEMBER_GOOGLE_SUB =
@@ -34,6 +40,23 @@ type WorkspaceState =
   | { status: "idle" | "loading"; data: null; error: null }
   | { status: "ready"; data: WorkspaceSummary[]; error: null }
   | { status: "offline"; data: null; error: string };
+
+const assetHighlights = [
+  {
+    src: REPRESENTATIVE_IMAGE_PATHS[0],
+    name: "office-bank-preview.png",
+    title: "Treasury desk",
+    caption: "고밀도 업무 패널",
+  },
+  {
+    src: REPRESENTATIVE_IMAGE_PATHS[1],
+    name: "office-blog-preview.png",
+    title: "Archive desk",
+    caption: "운영 피드 대시보드",
+  },
+] as const;
+
+const brandMascotAsset = "brand-mascot.png";
 
 export default function Home() {
   const [health, setHealth] = useState<HealthState>({
@@ -90,8 +113,23 @@ export default function Home() {
 
   return (
     <main className="app-shell">
-      <aside className="sidebar" aria-label="Aquila Office">
-        <div className="brand-mark">AO</div>
+      <aside className="sidebar" aria-label={SERVICE_NAME}>
+        <div className="brand-block">
+          <div className="brand-crest">
+            <Image
+              src={BRAND_MASCOT_PATH}
+              alt={`${SERVICE_NAME} crest`}
+              width={72}
+              height={72}
+              priority
+              data-asset={brandMascotAsset}
+            />
+          </div>
+          <div className="brand-copy">
+            <span>{SERVICE_NAME}</span>
+            <strong>Command office</strong>
+          </div>
+        </div>
         <nav className="nav-list">
           <span className="nav-item">System</span>
           <span className="nav-item nav-item-active">Workspace</span>
@@ -102,8 +140,11 @@ export default function Home() {
       <section className="workspace">
         <header className="topbar">
           <div>
-            <p className="eyebrow">Aquila Office</p>
-            <h1>운영 콘솔</h1>
+            <p className="eyebrow">{SERVICE_NAME}</p>
+            <h1>워크스페이스 작전 현황</h1>
+            <p className="topbar-summary">
+              API 상태와 워크스페이스 접근 흐름을 한 화면에서 점검합니다.
+            </p>
           </div>
           <button
             className="icon-button"
@@ -119,6 +160,31 @@ export default function Home() {
             />
           </button>
         </header>
+
+        <section className="command-band" aria-label="대표 운영 화면">
+          <div className="command-band-copy">
+            <span>Operational archive</span>
+            <strong>gothic command surface</strong>
+            <p>브랜드 자산과 운영 패널을 어두운 금속 톤의 업무 화면으로 묶었습니다.</p>
+          </div>
+          <div className="asset-strip">
+            {assetHighlights.map((asset) => (
+              <figure className="asset-card" data-asset={asset.name} key={asset.name}>
+                <Image
+                  src={asset.src}
+                  alt={asset.title}
+                  width={360}
+                  height={220}
+                  sizes="(max-width: 860px) 100vw, 360px"
+                />
+                <figcaption>
+                  <span>{asset.title}</span>
+                  <strong>{asset.caption}</strong>
+                </figcaption>
+              </figure>
+            ))}
+          </div>
+        </section>
 
         <section className="status-grid" aria-label="시스템 상태">
           <article className="status-panel status-panel-primary">
