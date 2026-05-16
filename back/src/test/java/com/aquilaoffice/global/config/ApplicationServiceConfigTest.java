@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.aquilaoffice.adapter.in.web.slack.SlackSignatureVerifier;
 import com.aquilaoffice.application.port.in.AcceptWorkspaceInviteUseCase;
 import com.aquilaoffice.application.port.in.ChangeWorkspaceMemberRoleUseCase;
+import com.aquilaoffice.application.port.in.CompleteSlackOAuthCallbackUseCase;
 import com.aquilaoffice.application.port.in.CreateGithubCredentialUseCase;
 import com.aquilaoffice.application.port.in.CreateSlackChannelMappingUseCase;
 import com.aquilaoffice.application.port.in.CreateTaskUseCase;
@@ -44,6 +45,7 @@ import com.aquilaoffice.application.port.out.ChangeWorkspaceMemberRolePort;
 import com.aquilaoffice.application.port.out.DeleteWorkspacePort;
 import com.aquilaoffice.application.port.out.DeleteWorkspaceAgentPort;
 import com.aquilaoffice.application.port.out.DeleteGithubCredentialPort;
+import com.aquilaoffice.application.port.out.ExchangeSlackOAuthCodePort;
 import com.aquilaoffice.application.port.out.ExistsGithubCredentialPort;
 import com.aquilaoffice.application.port.out.GenerateWorkspaceInviteTokenPort;
 import com.aquilaoffice.application.port.out.LoadGithubCredentialPort;
@@ -83,6 +85,7 @@ import com.aquilaoffice.application.port.out.UpdateTaskStatusPort;
 import com.aquilaoffice.application.port.out.UpdateWorkspacePort;
 import com.aquilaoffice.application.service.AcceptWorkspaceInviteService;
 import com.aquilaoffice.application.service.ChangeWorkspaceMemberRoleService;
+import com.aquilaoffice.application.service.CompleteSlackOAuthCallbackService;
 import com.aquilaoffice.application.service.CreateGithubCredentialService;
 import com.aquilaoffice.application.service.CreateSlackChannelMappingService;
 import com.aquilaoffice.application.service.CreateTaskService;
@@ -203,6 +206,9 @@ class ApplicationServiceConfigTest {
 
     @MockitoBean
     private SendSlackReplyPort sendSlackReplyPort;
+
+    @MockitoBean
+    private ExchangeSlackOAuthCodePort exchangeSlackOAuthCodePort;
 
     @MockitoBean
     private SaveWorkspaceAgentPort saveWorkspaceAgentPort;
@@ -362,6 +368,9 @@ class ApplicationServiceConfigTest {
 
     @Autowired
     private DeleteSlackIntegrationUseCase deleteSlackIntegrationUseCase;
+
+    @Autowired
+    private CompleteSlackOAuthCallbackUseCase completeSlackOAuthCallbackUseCase;
 
     @Autowired
     private SlackSignatureVerifier slackSignatureVerifier;
@@ -552,6 +561,11 @@ class ApplicationServiceConfigTest {
     @Test
     void registersDeleteSlackIntegrationUseCase() {
         assertThat(deleteSlackIntegrationUseCase).isInstanceOf(DeleteSlackIntegrationService.class);
+    }
+
+    @Test
+    void registersCompleteSlackOAuthCallbackUseCase() {
+        assertThat(completeSlackOAuthCallbackUseCase).isInstanceOf(CompleteSlackOAuthCallbackService.class);
     }
 
     @Test

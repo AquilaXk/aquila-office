@@ -16,7 +16,7 @@ import org.springframework.stereotype.Component;
 public class SlackInstallUrlBuilder {
 
     private static final URI DEFAULT_AUTHORIZE_URI = URI.create("https://slack.com/oauth/v2/authorize");
-    private static final String DEFAULT_SCOPE = "app_mentions:read,channels:read,chat:write";
+    private static final String DEFAULT_SCOPE = "app_mentions:read,channels:read,chat:write,incoming-webhook";
 
     private final String clientId;
     private final String redirectUri;
