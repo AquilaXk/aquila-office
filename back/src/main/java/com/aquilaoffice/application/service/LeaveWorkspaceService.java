@@ -1,6 +1,5 @@
 package com.aquilaoffice.application.service;
 
-import com.aquilaoffice.application.port.in.GetWorkspaceDetailResult;
 import com.aquilaoffice.application.port.in.LeaveWorkspaceCommand;
 import com.aquilaoffice.application.port.in.LeaveWorkspaceUseCase;
 import com.aquilaoffice.application.port.in.ListWorkspaceMembersResult;
@@ -54,8 +53,7 @@ public class LeaveWorkspaceService implements LeaveWorkspaceUseCase {
         Member requester = loadMemberPort
                 .findByGoogleSub(requesterGoogleSub)
                 .orElseThrow(() -> new IllegalArgumentException("member not found"));
-        GetWorkspaceDetailResult ignored = loadWorkspacePort
-                .findJoinedWorkspaceByIdAndMemberGoogleSub(workspaceId, requester.getGoogleSub())
+        loadWorkspacePort.findJoinedWorkspaceByIdAndMemberGoogleSub(workspaceId, requester.getGoogleSub())
                 .orElseThrow(() -> new IllegalArgumentException("workspace not found"));
         return requester.getGoogleSub();
     }

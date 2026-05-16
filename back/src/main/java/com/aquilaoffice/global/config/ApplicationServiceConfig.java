@@ -23,6 +23,7 @@ import com.aquilaoffice.application.port.in.GetWorkspaceDetailUseCase;
 import com.aquilaoffice.application.port.in.GetWorkspaceDashboardSummaryUseCase;
 import com.aquilaoffice.application.port.in.GetWorkspaceInviteUseCase;
 import com.aquilaoffice.application.port.in.GetTaskDetailUseCase;
+import com.aquilaoffice.application.port.in.LeaveWorkspaceUseCase;
 import com.aquilaoffice.application.port.in.ListTaskReportsUseCase;
 import com.aquilaoffice.application.port.in.ListGithubCredentialsUseCase;
 import com.aquilaoffice.application.port.in.ListChatSessionMessagesUseCase;
@@ -110,6 +111,7 @@ import com.aquilaoffice.application.service.GetWorkspaceDetailService;
 import com.aquilaoffice.application.service.GetWorkspaceDashboardSummaryService;
 import com.aquilaoffice.application.service.GetWorkspaceInviteService;
 import com.aquilaoffice.application.service.GetTaskDetailService;
+import com.aquilaoffice.application.service.LeaveWorkspaceService;
 import com.aquilaoffice.application.service.ListTaskReportsService;
 import com.aquilaoffice.application.service.ListGithubCredentialsService;
 import com.aquilaoffice.application.service.ListChatSessionMessagesService;
@@ -273,6 +275,16 @@ public class ApplicationServiceConfig {
             LoadWorkspaceMemberPort loadWorkspaceMemberPort,
             RemoveWorkspaceMemberPort removeWorkspaceMemberPort) {
         return new RemoveWorkspaceMemberService(
+                loadMemberPort, loadWorkspacePort, loadWorkspaceMemberPort, removeWorkspaceMemberPort);
+    }
+
+    @Bean
+    public LeaveWorkspaceUseCase leaveWorkspaceUseCase(
+            LoadMemberPort loadMemberPort,
+            LoadWorkspacePort loadWorkspacePort,
+            LoadWorkspaceMemberPort loadWorkspaceMemberPort,
+            RemoveWorkspaceMemberPort removeWorkspaceMemberPort) {
+        return new LeaveWorkspaceService(
                 loadMemberPort, loadWorkspacePort, loadWorkspaceMemberPort, removeWorkspaceMemberPort);
     }
 
