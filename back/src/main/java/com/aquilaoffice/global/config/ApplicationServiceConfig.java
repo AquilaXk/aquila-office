@@ -3,15 +3,19 @@ package com.aquilaoffice.global.config;
 import com.aquilaoffice.application.port.in.AcceptWorkspaceInviteUseCase;
 import com.aquilaoffice.application.port.in.ChangeWorkspaceMemberRoleUseCase;
 import com.aquilaoffice.application.port.in.CreateGithubCredentialUseCase;
+import com.aquilaoffice.application.port.in.CreateWorkspaceAgentUseCase;
 import com.aquilaoffice.application.port.in.CreateWorkspaceGatewayBindingUseCase;
 import com.aquilaoffice.application.port.in.CreateWorkspaceUseCase;
 import com.aquilaoffice.application.port.in.CreateWorkspaceInviteUseCase;
 import com.aquilaoffice.application.port.in.DeleteGithubCredentialUseCase;
+import com.aquilaoffice.application.port.in.DeleteWorkspaceAgentUseCase;
 import com.aquilaoffice.application.port.in.DeleteWorkspaceUseCase;
+import com.aquilaoffice.application.port.in.GetWorkspaceAgentUseCase;
 import com.aquilaoffice.application.port.in.GetWorkspaceGatewayStatusUseCase;
 import com.aquilaoffice.application.port.in.GetWorkspaceDetailUseCase;
 import com.aquilaoffice.application.port.in.GetWorkspaceInviteUseCase;
 import com.aquilaoffice.application.port.in.ListGithubCredentialsUseCase;
+import com.aquilaoffice.application.port.in.ListWorkspaceAgentsUseCase;
 import com.aquilaoffice.application.port.in.ListWorkspaceMembersUseCase;
 import com.aquilaoffice.application.port.in.ListWorkspaceInvitesUseCase;
 import com.aquilaoffice.application.port.in.ListWorkspacesUseCase;
@@ -23,12 +27,14 @@ import com.aquilaoffice.application.port.in.UpdateWorkspaceUseCase;
 import com.aquilaoffice.application.port.out.AcceptWorkspaceInvitePort;
 import com.aquilaoffice.application.port.out.ChangeWorkspaceMemberRolePort;
 import com.aquilaoffice.application.port.out.DeleteGithubCredentialPort;
+import com.aquilaoffice.application.port.out.DeleteWorkspaceAgentPort;
 import com.aquilaoffice.application.port.out.DeleteWorkspacePort;
 import com.aquilaoffice.application.port.out.ExistsGithubCredentialPort;
 import com.aquilaoffice.application.port.out.GenerateWorkspaceInviteTokenPort;
 import com.aquilaoffice.application.port.out.LoadGithubCredentialPort;
 import com.aquilaoffice.application.port.out.LoadGithubCredentialsPort;
 import com.aquilaoffice.application.port.out.LoadMemberPort;
+import com.aquilaoffice.application.port.out.LoadWorkspaceAgentPort;
 import com.aquilaoffice.application.port.out.LoadWorkspaceGatewayBindingPort;
 import com.aquilaoffice.application.port.out.LoadWorkspacePort;
 import com.aquilaoffice.application.port.out.LoadWorkspaceInvitePort;
@@ -37,6 +43,7 @@ import com.aquilaoffice.application.port.out.LoadWorkspaceMemberPort;
 import com.aquilaoffice.application.port.out.RemoveWorkspaceMemberPort;
 import com.aquilaoffice.application.port.out.RevokeWorkspaceInvitePort;
 import com.aquilaoffice.application.port.out.SaveGithubCredentialPort;
+import com.aquilaoffice.application.port.out.SaveWorkspaceAgentPort;
 import com.aquilaoffice.application.port.out.SaveWorkspaceGatewayBindingPort;
 import com.aquilaoffice.application.port.out.SaveWorkspaceInvitePort;
 import com.aquilaoffice.application.port.out.SaveWorkspacePort;
@@ -45,15 +52,19 @@ import com.aquilaoffice.application.port.out.UpdateWorkspacePort;
 import com.aquilaoffice.application.service.AcceptWorkspaceInviteService;
 import com.aquilaoffice.application.service.ChangeWorkspaceMemberRoleService;
 import com.aquilaoffice.application.service.CreateGithubCredentialService;
+import com.aquilaoffice.application.service.CreateWorkspaceAgentService;
 import com.aquilaoffice.application.service.CreateWorkspaceGatewayBindingService;
 import com.aquilaoffice.application.service.CreateWorkspaceService;
 import com.aquilaoffice.application.service.CreateWorkspaceInviteService;
 import com.aquilaoffice.application.service.DeleteGithubCredentialService;
+import com.aquilaoffice.application.service.DeleteWorkspaceAgentService;
 import com.aquilaoffice.application.service.DeleteWorkspaceService;
+import com.aquilaoffice.application.service.GetWorkspaceAgentService;
 import com.aquilaoffice.application.service.GetWorkspaceGatewayStatusService;
 import com.aquilaoffice.application.service.GetWorkspaceDetailService;
 import com.aquilaoffice.application.service.GetWorkspaceInviteService;
 import com.aquilaoffice.application.service.ListGithubCredentialsService;
+import com.aquilaoffice.application.service.ListWorkspaceAgentsService;
 import com.aquilaoffice.application.service.ListWorkspaceMembersService;
 import com.aquilaoffice.application.service.ListWorkspaceInvitesService;
 import com.aquilaoffice.application.service.ListWorkspacesService;
@@ -254,5 +265,37 @@ public class ApplicationServiceConfig {
             SaveWorkspaceGatewayBindingPort saveWorkspaceGatewayBindingPort) {
         return new CreateWorkspaceGatewayBindingService(
                 loadMemberPort, loadWorkspacePort, saveWorkspaceGatewayBindingPort);
+    }
+
+    @Bean
+    public CreateWorkspaceAgentUseCase createWorkspaceAgentUseCase(
+            LoadMemberPort loadMemberPort,
+            LoadWorkspacePort loadWorkspacePort,
+            SaveWorkspaceAgentPort saveWorkspaceAgentPort) {
+        return new CreateWorkspaceAgentService(loadMemberPort, loadWorkspacePort, saveWorkspaceAgentPort);
+    }
+
+    @Bean
+    public ListWorkspaceAgentsUseCase listWorkspaceAgentsUseCase(
+            LoadMemberPort loadMemberPort,
+            LoadWorkspacePort loadWorkspacePort,
+            LoadWorkspaceAgentPort loadWorkspaceAgentPort) {
+        return new ListWorkspaceAgentsService(loadMemberPort, loadWorkspacePort, loadWorkspaceAgentPort);
+    }
+
+    @Bean
+    public GetWorkspaceAgentUseCase getWorkspaceAgentUseCase(
+            LoadMemberPort loadMemberPort,
+            LoadWorkspacePort loadWorkspacePort,
+            LoadWorkspaceAgentPort loadWorkspaceAgentPort) {
+        return new GetWorkspaceAgentService(loadMemberPort, loadWorkspacePort, loadWorkspaceAgentPort);
+    }
+
+    @Bean
+    public DeleteWorkspaceAgentUseCase deleteWorkspaceAgentUseCase(
+            LoadMemberPort loadMemberPort,
+            LoadWorkspacePort loadWorkspacePort,
+            DeleteWorkspaceAgentPort deleteWorkspaceAgentPort) {
+        return new DeleteWorkspaceAgentService(loadMemberPort, loadWorkspacePort, deleteWorkspaceAgentPort);
     }
 }
