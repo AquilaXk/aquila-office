@@ -42,6 +42,7 @@ import com.aquilaoffice.application.port.in.SendChatMessageUseCase;
 import com.aquilaoffice.application.port.in.TestWorkspaceGatewayConnectionUseCase;
 import com.aquilaoffice.application.port.in.UpdateGithubCredentialUseCase;
 import com.aquilaoffice.application.port.in.UpdateMemberProfileUseCase;
+import com.aquilaoffice.application.port.in.UpdateWorkspacePresencePositionUseCase;
 import com.aquilaoffice.application.port.in.UpdateSlackIntegrationUseCase;
 import com.aquilaoffice.application.port.in.UpdateTaskStatusUseCase;
 import com.aquilaoffice.application.port.in.UpdateWorkspaceUseCase;
@@ -134,7 +135,9 @@ import com.aquilaoffice.application.service.TestWorkspaceGatewayConnectionServic
 import com.aquilaoffice.application.service.UpdateGithubCredentialService;
 import com.aquilaoffice.application.service.UpdateSlackIntegrationService;
 import com.aquilaoffice.application.service.UpdateTaskStatusService;
+import com.aquilaoffice.application.service.UpdateWorkspacePresencePositionService;
 import com.aquilaoffice.application.service.UpdateWorkspaceService;
+import com.aquilaoffice.application.service.WorkspacePresenceRegistry;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -304,6 +307,12 @@ class ApplicationServiceConfigTest {
     private UpdateMemberProfileUseCase updateMemberProfileUseCase;
 
     @Autowired
+    private UpdateWorkspacePresencePositionUseCase updateWorkspacePresencePositionUseCase;
+
+    @Autowired
+    private WorkspacePresenceRegistry workspacePresenceRegistry;
+
+    @Autowired
     private ListWorkspaceInvitesUseCase listWorkspaceInvitesUseCase;
 
     @Autowired
@@ -443,6 +452,19 @@ class ApplicationServiceConfigTest {
     @Test
     void registersUpdateMemberProfileUseCase() {
         assertThat(updateMemberProfileUseCase).isInstanceOf(MemberProfileService.class);
+    }
+
+    @Test
+    void registersWorkspacePresenceRegistry() {
+        assertThat(workspacePresenceRegistry).isNotNull();
+    }
+
+    @Test
+    void registersUpdateWorkspacePresencePositionUseCase() {
+        assertThat(updateWorkspacePresencePositionUseCase)
+                .isInstanceOf(UpdateWorkspacePresencePositionService.class);
+        assertThat(ReflectionTestUtils.getField(updateWorkspacePresencePositionUseCase, "workspacePresenceRegistry"))
+                .isSameAs(workspacePresenceRegistry);
     }
 
     @Test
