@@ -9,5 +9,6 @@ public record ListSlackChannelMappingsResult(
         String teamId,
         String channelId,
         String channelName,
+        String maskedBotToken,
         String createdByGoogleSub,
         boolean active) {}

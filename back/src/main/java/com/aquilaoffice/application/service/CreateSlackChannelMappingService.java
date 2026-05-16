@@ -85,6 +85,7 @@ public class CreateSlackChannelMappingService implements CreateSlackChannelMappi
                 mapping.getTeamId(),
                 mapping.getChannelId(),
                 mapping.getChannelName(),
+                mapping.maskedBotToken(),
                 mapping.getCreatedByGoogleSub(),
                 mapping.isActive());
     }

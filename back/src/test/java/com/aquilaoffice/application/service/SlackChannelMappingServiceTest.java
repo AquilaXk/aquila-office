@@ -49,6 +49,7 @@ class SlackChannelMappingServiceTest {
         assertThat(saveMappingPort.savedMapping.getBotToken()).isEqualTo("xoxb-token-secret");
         assertThat(result.mappingId()).isEqualTo(501L);
         assertThat(result.channelName()).isEqualTo("dev-alerts");
+        assertThat(result.maskedBotToken()).isEqualTo("xoxb****cret");
     }
 
     @Test
@@ -100,6 +101,7 @@ class SlackChannelMappingServiceTest {
             assertThat(result.mappingId()).isEqualTo(501L);
             assertThat(result.teamId()).isEqualTo("T123");
             assertThat(result.channelId()).isEqualTo("C456");
+            assertThat(result.maskedBotToken()).isEqualTo("xoxb****cret");
             assertThat(result.active()).isTrue();
         });
     }

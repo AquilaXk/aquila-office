@@ -5,6 +5,11 @@ package com.aquilaoffice.domain.slack;
  */
 public class SlackChannelMapping {
 
+    private static final int MIN_TOKEN_LENGTH_FOR_MASKING = 8;
+    private static final int VISIBLE_PREFIX_LENGTH = 4;
+    private static final int VISIBLE_SUFFIX_LENGTH = 4;
+    private static final String MASK_STRING = "****";
+
     private final Long id;
     private final Long workspaceId;
     private final String teamId;
@@ -102,6 +107,15 @@ public class SlackChannelMapping {
 
     public String getBotToken() {
         return botToken;
+    }
+
+    public String maskedBotToken() {
+        if (botToken.length() <= MIN_TOKEN_LENGTH_FOR_MASKING) {
+            return MASK_STRING;
+        }
+        return botToken.substring(0, VISIBLE_PREFIX_LENGTH)
+                + MASK_STRING
+                + botToken.substring(botToken.length() - VISIBLE_SUFFIX_LENGTH);
     }
 
     public String getCreatedByGoogleSub() {
