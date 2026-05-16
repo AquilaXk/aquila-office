@@ -5,10 +5,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.aquilaoffice.application.port.in.AcceptWorkspaceInviteUseCase;
 import com.aquilaoffice.application.port.in.ChangeWorkspaceMemberRoleUseCase;
 import com.aquilaoffice.application.port.in.CreateGithubCredentialUseCase;
+import com.aquilaoffice.application.port.in.CreateWorkspaceAgentUseCase;
 import com.aquilaoffice.application.port.in.CreateWorkspaceGatewayBindingUseCase;
+import com.aquilaoffice.application.port.in.DeleteWorkspaceAgentUseCase;
 import com.aquilaoffice.application.port.in.DeleteWorkspaceUseCase;
 import com.aquilaoffice.application.port.in.DeleteGithubCredentialUseCase;
+import com.aquilaoffice.application.port.in.GetWorkspaceAgentUseCase;
 import com.aquilaoffice.application.port.in.GetWorkspaceGatewayStatusUseCase;
+import com.aquilaoffice.application.port.in.ListWorkspaceAgentsUseCase;
 import com.aquilaoffice.application.port.in.ListGithubCredentialsUseCase;
 import com.aquilaoffice.application.port.in.ListWorkspaceInvitesUseCase;
 import com.aquilaoffice.application.port.in.ListWorkspaceMembersUseCase;
@@ -20,12 +24,14 @@ import com.aquilaoffice.application.port.in.RevokeWorkspaceInviteUseCase;
 import com.aquilaoffice.application.port.out.AcceptWorkspaceInvitePort;
 import com.aquilaoffice.application.port.out.ChangeWorkspaceMemberRolePort;
 import com.aquilaoffice.application.port.out.DeleteWorkspacePort;
+import com.aquilaoffice.application.port.out.DeleteWorkspaceAgentPort;
 import com.aquilaoffice.application.port.out.DeleteGithubCredentialPort;
 import com.aquilaoffice.application.port.out.ExistsGithubCredentialPort;
 import com.aquilaoffice.application.port.out.GenerateWorkspaceInviteTokenPort;
 import com.aquilaoffice.application.port.out.LoadGithubCredentialPort;
 import com.aquilaoffice.application.port.out.LoadGithubCredentialsPort;
 import com.aquilaoffice.application.port.out.LoadMemberPort;
+import com.aquilaoffice.application.port.out.LoadWorkspaceAgentPort;
 import com.aquilaoffice.application.port.out.LoadWorkspaceGatewayBindingPort;
 import com.aquilaoffice.application.port.out.LoadWorkspaceInvitePort;
 import com.aquilaoffice.application.port.out.LoadWorkspaceInvitesPort;
@@ -34,6 +40,7 @@ import com.aquilaoffice.application.port.out.LoadWorkspacePort;
 import com.aquilaoffice.application.port.out.RemoveWorkspaceMemberPort;
 import com.aquilaoffice.application.port.out.RevokeWorkspaceInvitePort;
 import com.aquilaoffice.application.port.out.SaveGithubCredentialPort;
+import com.aquilaoffice.application.port.out.SaveWorkspaceAgentPort;
 import com.aquilaoffice.application.port.out.SaveWorkspaceGatewayBindingPort;
 import com.aquilaoffice.application.port.out.SaveWorkspaceInvitePort;
 import com.aquilaoffice.application.port.out.SaveWorkspacePort;
@@ -42,10 +49,14 @@ import com.aquilaoffice.application.port.out.UpdateWorkspacePort;
 import com.aquilaoffice.application.service.AcceptWorkspaceInviteService;
 import com.aquilaoffice.application.service.ChangeWorkspaceMemberRoleService;
 import com.aquilaoffice.application.service.CreateGithubCredentialService;
+import com.aquilaoffice.application.service.CreateWorkspaceAgentService;
 import com.aquilaoffice.application.service.CreateWorkspaceGatewayBindingService;
+import com.aquilaoffice.application.service.DeleteWorkspaceAgentService;
 import com.aquilaoffice.application.service.DeleteWorkspaceService;
 import com.aquilaoffice.application.service.DeleteGithubCredentialService;
+import com.aquilaoffice.application.service.GetWorkspaceAgentService;
 import com.aquilaoffice.application.service.GetWorkspaceGatewayStatusService;
+import com.aquilaoffice.application.service.ListWorkspaceAgentsService;
 import com.aquilaoffice.application.service.ListGithubCredentialsService;
 import com.aquilaoffice.application.service.ListWorkspaceInvitesService;
 import com.aquilaoffice.application.service.ListWorkspaceMembersService;
@@ -131,6 +142,15 @@ class ApplicationServiceConfigTest {
     @MockitoBean
     private SaveWorkspaceGatewayBindingPort saveWorkspaceGatewayBindingPort;
 
+    @MockitoBean
+    private SaveWorkspaceAgentPort saveWorkspaceAgentPort;
+
+    @MockitoBean
+    private LoadWorkspaceAgentPort loadWorkspaceAgentPort;
+
+    @MockitoBean
+    private DeleteWorkspaceAgentPort deleteWorkspaceAgentPort;
+
     @Autowired
     private AcceptWorkspaceInviteUseCase acceptWorkspaceInviteUseCase;
 
@@ -175,6 +195,18 @@ class ApplicationServiceConfigTest {
 
     @Autowired
     private CreateWorkspaceGatewayBindingUseCase createWorkspaceGatewayBindingUseCase;
+
+    @Autowired
+    private CreateWorkspaceAgentUseCase createWorkspaceAgentUseCase;
+
+    @Autowired
+    private ListWorkspaceAgentsUseCase listWorkspaceAgentsUseCase;
+
+    @Autowired
+    private GetWorkspaceAgentUseCase getWorkspaceAgentUseCase;
+
+    @Autowired
+    private DeleteWorkspaceAgentUseCase deleteWorkspaceAgentUseCase;
 
     @Test
     void registersAcceptWorkspaceInviteUseCase() {
@@ -249,5 +281,25 @@ class ApplicationServiceConfigTest {
     @Test
     void registersCreateWorkspaceGatewayBindingUseCase() {
         assertThat(createWorkspaceGatewayBindingUseCase).isInstanceOf(CreateWorkspaceGatewayBindingService.class);
+    }
+
+    @Test
+    void registersCreateWorkspaceAgentUseCase() {
+        assertThat(createWorkspaceAgentUseCase).isInstanceOf(CreateWorkspaceAgentService.class);
+    }
+
+    @Test
+    void registersListWorkspaceAgentsUseCase() {
+        assertThat(listWorkspaceAgentsUseCase).isInstanceOf(ListWorkspaceAgentsService.class);
+    }
+
+    @Test
+    void registersGetWorkspaceAgentUseCase() {
+        assertThat(getWorkspaceAgentUseCase).isInstanceOf(GetWorkspaceAgentService.class);
+    }
+
+    @Test
+    void registersDeleteWorkspaceAgentUseCase() {
+        assertThat(deleteWorkspaceAgentUseCase).isInstanceOf(DeleteWorkspaceAgentService.class);
     }
 }
