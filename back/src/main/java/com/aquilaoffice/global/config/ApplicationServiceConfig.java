@@ -28,6 +28,7 @@ import com.aquilaoffice.application.port.in.ListWorkspaceAgentsUseCase;
 import com.aquilaoffice.application.port.in.ListWorkspaceMembersUseCase;
 import com.aquilaoffice.application.port.in.ListWorkspaceInvitesUseCase;
 import com.aquilaoffice.application.port.in.ListWorkspacesUseCase;
+import com.aquilaoffice.application.port.in.ReceiveSlackEventUseCase;
 import com.aquilaoffice.application.port.in.RemoveWorkspaceMemberUseCase;
 import com.aquilaoffice.application.port.in.RevokeWorkspaceInviteUseCase;
 import com.aquilaoffice.application.port.in.RunTaskUseCase;
@@ -103,10 +104,12 @@ import com.aquilaoffice.application.service.ListWorkspaceAgentsService;
 import com.aquilaoffice.application.service.ListWorkspaceMembersService;
 import com.aquilaoffice.application.service.ListWorkspaceInvitesService;
 import com.aquilaoffice.application.service.ListWorkspacesService;
+import com.aquilaoffice.application.service.ReceiveSlackEventService;
 import com.aquilaoffice.application.service.RemoveWorkspaceMemberService;
 import com.aquilaoffice.application.service.RevokeWorkspaceInviteService;
 import com.aquilaoffice.application.service.RunTaskService;
 import com.aquilaoffice.application.service.SendChatMessageService;
+import com.aquilaoffice.application.service.SlackAgentCommandParser;
 import com.aquilaoffice.application.service.TestWorkspaceGatewayConnectionService;
 import com.aquilaoffice.application.service.UpdateGithubCredentialService;
 import com.aquilaoffice.application.service.UpdateTaskStatusService;
@@ -472,5 +475,17 @@ public class ApplicationServiceConfig {
                 loadWorkspacePort,
                 loadChatMessagesPort,
                 loadChatSessionPort);
+    }
+
+    @Bean
+    public SlackAgentCommandParser slackAgentCommandParser() {
+        return new SlackAgentCommandParser();
+    }
+
+    @Bean
+    public ReceiveSlackEventUseCase receiveSlackEventUseCase(
+            SlackAgentCommandParser slackAgentCommandParser,
+            SendChatMessageUseCase sendChatMessageUseCase) {
+        return new ReceiveSlackEventService(slackAgentCommandParser, sendChatMessageUseCase);
     }
 }
