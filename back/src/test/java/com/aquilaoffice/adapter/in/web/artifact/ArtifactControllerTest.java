@@ -17,6 +17,11 @@ import com.aquilaoffice.application.port.in.GetArtifactFileQuery;
 import com.aquilaoffice.application.port.in.GetArtifactFileUseCase;
 import com.aquilaoffice.application.port.in.GetArtifactTreeQuery;
 import com.aquilaoffice.application.port.in.GetArtifactTreeUseCase;
+import com.aquilaoffice.application.port.in.GetOrchestrationPlanArtifactQuery;
+import com.aquilaoffice.application.port.in.GetOrchestrationPlanArtifactUseCase;
+import com.aquilaoffice.application.port.in.OrchestrationPlanArtifactResult;
+import com.aquilaoffice.application.port.in.OrchestrationPlanFileResult;
+import com.aquilaoffice.application.port.in.OrchestrationPlanStepResult;
 import com.aquilaoffice.global.handler.GlobalExceptionHandler;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -41,6 +46,9 @@ class ArtifactControllerTest {
 
     @MockitoBean
     private GetArtifactFileUseCase getArtifactFileUseCase;
+
+    @MockitoBean
+    private GetOrchestrationPlanArtifactUseCase getOrchestrationPlanArtifactUseCase;
 
     @Test
     void getArtifactTreeReturnsOkEnvelope() throws Exception {
@@ -82,6 +90,31 @@ class ArtifactControllerTest {
         verify(getArtifactFileUseCase).getArtifactFile(queryCaptor.capture());
         assertThat(queryCaptor.getValue().workspaceId()).isEqualTo(101L);
         assertThat(queryCaptor.getValue().path()).isEqualTo("reports/result.md");
+        assertThat(queryCaptor.getValue().requesterGoogleSub()).isEqualTo("google-1");
+    }
+
+    @Test
+    void getOrchestrationPlanArtifactReturnsOkEnvelope() throws Exception {
+        given(getOrchestrationPlanArtifactUseCase.getOrchestrationPlanArtifact(
+                        any(GetOrchestrationPlanArtifactQuery.class)))
+                .willReturn(orchestrationPlanResult());
+
+        mockMvc.perform(get("/api/v1/workspaces/101/artifacts/orchestration-plans/701")
+                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, " google-1 "))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.workspaceId").value(101))
+                .andExpect(jsonPath("$.data.planId").value(701))
+                .andExpect(jsonPath("$.data.steps[0].stepKey").value("requirements"))
+                .andExpect(jsonPath("$.data.steps[0].files[0].path")
+                        .value("plans/701/reports/requirements.md"))
+                .andExpect(jsonPath("$.data.steps[0].files[0].exists").value(true));
+
+        ArgumentCaptor<GetOrchestrationPlanArtifactQuery> queryCaptor =
+                ArgumentCaptor.forClass(GetOrchestrationPlanArtifactQuery.class);
+        verify(getOrchestrationPlanArtifactUseCase).getOrchestrationPlanArtifact(queryCaptor.capture());
+        assertThat(queryCaptor.getValue().workspaceId()).isEqualTo(101L);
+        assertThat(queryCaptor.getValue().planId()).isEqualTo(701L);
         assertThat(queryCaptor.getValue().requesterGoogleSub()).isEqualTo("google-1");
     }
 
@@ -136,5 +169,22 @@ class ArtifactControllerTest {
                 "text/markdown",
                 8L,
                 "# 완료");
+    }
+
+    private static OrchestrationPlanArtifactResult orchestrationPlanResult() {
+        return new OrchestrationPlanArtifactResult(
+                101L,
+                701L,
+                List.of(new OrchestrationPlanStepResult(
+                        11L,
+                        "requirements",
+                        1,
+                        "요구사항 확인",
+                        List.of(new OrchestrationPlanFileResult(
+                                "plans/701/reports/requirements.md",
+                                "requirements.md",
+                                "text/markdown",
+                                128L,
+                                true)))));
     }
 }
