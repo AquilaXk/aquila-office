@@ -4,16 +4,24 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.aquilaoffice.application.port.in.AcceptWorkspaceInviteUseCase;
 import com.aquilaoffice.application.port.in.ChangeWorkspaceMemberRoleUseCase;
+import com.aquilaoffice.application.port.in.CreateGithubCredentialUseCase;
 import com.aquilaoffice.application.port.in.DeleteWorkspaceUseCase;
+import com.aquilaoffice.application.port.in.DeleteGithubCredentialUseCase;
+import com.aquilaoffice.application.port.in.ListGithubCredentialsUseCase;
 import com.aquilaoffice.application.port.in.ListWorkspaceInvitesUseCase;
 import com.aquilaoffice.application.port.in.ListWorkspaceMembersUseCase;
 import com.aquilaoffice.application.port.in.RemoveWorkspaceMemberUseCase;
+import com.aquilaoffice.application.port.in.UpdateGithubCredentialUseCase;
 import com.aquilaoffice.application.port.in.UpdateWorkspaceUseCase;
 import com.aquilaoffice.application.port.in.RevokeWorkspaceInviteUseCase;
 import com.aquilaoffice.application.port.out.AcceptWorkspaceInvitePort;
 import com.aquilaoffice.application.port.out.ChangeWorkspaceMemberRolePort;
 import com.aquilaoffice.application.port.out.DeleteWorkspacePort;
+import com.aquilaoffice.application.port.out.DeleteGithubCredentialPort;
+import com.aquilaoffice.application.port.out.ExistsGithubCredentialPort;
 import com.aquilaoffice.application.port.out.GenerateWorkspaceInviteTokenPort;
+import com.aquilaoffice.application.port.out.LoadGithubCredentialPort;
+import com.aquilaoffice.application.port.out.LoadGithubCredentialsPort;
 import com.aquilaoffice.application.port.out.LoadMemberPort;
 import com.aquilaoffice.application.port.out.LoadWorkspaceInvitePort;
 import com.aquilaoffice.application.port.out.LoadWorkspaceInvitesPort;
@@ -21,16 +29,22 @@ import com.aquilaoffice.application.port.out.LoadWorkspaceMemberPort;
 import com.aquilaoffice.application.port.out.LoadWorkspacePort;
 import com.aquilaoffice.application.port.out.RemoveWorkspaceMemberPort;
 import com.aquilaoffice.application.port.out.RevokeWorkspaceInvitePort;
+import com.aquilaoffice.application.port.out.SaveGithubCredentialPort;
 import com.aquilaoffice.application.port.out.SaveWorkspaceInvitePort;
 import com.aquilaoffice.application.port.out.SaveWorkspacePort;
+import com.aquilaoffice.application.port.out.UpdateGithubCredentialPort;
 import com.aquilaoffice.application.port.out.UpdateWorkspacePort;
 import com.aquilaoffice.application.service.AcceptWorkspaceInviteService;
 import com.aquilaoffice.application.service.ChangeWorkspaceMemberRoleService;
+import com.aquilaoffice.application.service.CreateGithubCredentialService;
 import com.aquilaoffice.application.service.DeleteWorkspaceService;
+import com.aquilaoffice.application.service.DeleteGithubCredentialService;
+import com.aquilaoffice.application.service.ListGithubCredentialsService;
 import com.aquilaoffice.application.service.ListWorkspaceInvitesService;
 import com.aquilaoffice.application.service.ListWorkspaceMembersService;
 import com.aquilaoffice.application.service.RemoveWorkspaceMemberService;
 import com.aquilaoffice.application.service.RevokeWorkspaceInviteService;
+import com.aquilaoffice.application.service.UpdateGithubCredentialService;
 import com.aquilaoffice.application.service.UpdateWorkspaceService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -85,6 +99,24 @@ class ApplicationServiceConfigTest {
     @MockitoBean
     private GenerateWorkspaceInviteTokenPort generateWorkspaceInviteTokenPort;
 
+    @MockitoBean
+    private ExistsGithubCredentialPort existsGithubCredentialPort;
+
+    @MockitoBean
+    private SaveGithubCredentialPort saveGithubCredentialPort;
+
+    @MockitoBean
+    private LoadGithubCredentialsPort loadGithubCredentialsPort;
+
+    @MockitoBean
+    private LoadGithubCredentialPort loadGithubCredentialPort;
+
+    @MockitoBean
+    private UpdateGithubCredentialPort updateGithubCredentialPort;
+
+    @MockitoBean
+    private DeleteGithubCredentialPort deleteGithubCredentialPort;
+
     @Autowired
     private AcceptWorkspaceInviteUseCase acceptWorkspaceInviteUseCase;
 
@@ -108,6 +140,18 @@ class ApplicationServiceConfigTest {
 
     @Autowired
     private RemoveWorkspaceMemberUseCase removeWorkspaceMemberUseCase;
+
+    @Autowired
+    private CreateGithubCredentialUseCase createGithubCredentialUseCase;
+
+    @Autowired
+    private ListGithubCredentialsUseCase listGithubCredentialsUseCase;
+
+    @Autowired
+    private UpdateGithubCredentialUseCase updateGithubCredentialUseCase;
+
+    @Autowired
+    private DeleteGithubCredentialUseCase deleteGithubCredentialUseCase;
 
     @Test
     void registersAcceptWorkspaceInviteUseCase() {
@@ -147,5 +191,25 @@ class ApplicationServiceConfigTest {
     @Test
     void registersRemoveWorkspaceMemberUseCase() {
         assertThat(removeWorkspaceMemberUseCase).isInstanceOf(RemoveWorkspaceMemberService.class);
+    }
+
+    @Test
+    void registersCreateGithubCredentialUseCase() {
+        assertThat(createGithubCredentialUseCase).isInstanceOf(CreateGithubCredentialService.class);
+    }
+
+    @Test
+    void registersListGithubCredentialsUseCase() {
+        assertThat(listGithubCredentialsUseCase).isInstanceOf(ListGithubCredentialsService.class);
+    }
+
+    @Test
+    void registersUpdateGithubCredentialUseCase() {
+        assertThat(updateGithubCredentialUseCase).isInstanceOf(UpdateGithubCredentialService.class);
+    }
+
+    @Test
+    void registersDeleteGithubCredentialUseCase() {
+        assertThat(deleteGithubCredentialUseCase).isInstanceOf(DeleteGithubCredentialService.class);
     }
 }
