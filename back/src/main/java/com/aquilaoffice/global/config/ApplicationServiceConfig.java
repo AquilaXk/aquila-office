@@ -47,6 +47,7 @@ import com.aquilaoffice.application.port.in.UpdateGithubCredentialUseCase;
 import com.aquilaoffice.application.port.in.UpdateMemberProfileUseCase;
 import com.aquilaoffice.application.port.in.UpdateSlackIntegrationUseCase;
 import com.aquilaoffice.application.port.in.UpdateTaskStatusUseCase;
+import com.aquilaoffice.application.port.in.UpdateWorkspacePresencePositionUseCase;
 import com.aquilaoffice.application.port.in.UpdateWorkspaceUseCase;
 import com.aquilaoffice.application.port.out.AcceptWorkspaceInvitePort;
 import com.aquilaoffice.application.port.out.ChangeWorkspaceMemberRolePort;
@@ -140,9 +141,11 @@ import com.aquilaoffice.application.service.SendChatMessageService;
 import com.aquilaoffice.application.service.SlackAgentCommandParser;
 import com.aquilaoffice.application.service.TestWorkspaceGatewayConnectionService;
 import com.aquilaoffice.application.service.UpdateGithubCredentialService;
+import com.aquilaoffice.application.service.UpdateWorkspacePresencePositionService;
 import com.aquilaoffice.application.service.UpdateSlackIntegrationService;
 import com.aquilaoffice.application.service.UpdateTaskStatusService;
 import com.aquilaoffice.application.service.UpdateWorkspaceService;
+import com.aquilaoffice.application.service.WorkspacePresenceRegistry;
 import com.aquilaoffice.adapter.in.web.slack.SlackSignatureVerifier;
 import java.time.Clock;
 import java.time.Duration;
@@ -249,6 +252,24 @@ public class ApplicationServiceConfig {
     @Bean
     public UpdateMemberProfileUseCase updateMemberProfileUseCase(MemberProfileService memberProfileService) {
         return memberProfileService;
+    }
+
+    @Bean
+    public WorkspacePresenceRegistry workspacePresenceRegistry() {
+        return new WorkspacePresenceRegistry();
+    }
+
+    @Bean
+    public UpdateWorkspacePresencePositionUseCase updateWorkspacePresencePositionUseCase(
+            LoadMemberPort loadMemberPort,
+            LoadWorkspacePort loadWorkspacePort,
+            LoadWorkspaceMemberPort loadWorkspaceMemberPort,
+            WorkspacePresenceRegistry workspacePresenceRegistry) {
+        return new UpdateWorkspacePresencePositionService(
+                loadMemberPort,
+                loadWorkspacePort,
+                loadWorkspaceMemberPort,
+                workspacePresenceRegistry);
     }
 
     @Bean
