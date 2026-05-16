@@ -54,10 +54,12 @@ class SlackChannelMappingPersistenceAdapterTest {
 
         assertThat(savedMapping.getId()).isNotNull();
         assertThat(savedMapping.getWorkspaceId()).isEqualTo(workspaceEntity.getId());
+        assertThat(savedMapping.getBotToken()).isEqualTo("xoxb-token-secret");
         assertThat(loadSlackChannelMappingPort.findActiveByTeamIdAndChannelId("T123", "C456"))
                 .hasValueSatisfying(found -> {
                     assertThat(found.getId()).isEqualTo(savedMapping.getId());
                     assertThat(found.getChannelName()).isEqualTo("dev-alerts");
+                    assertThat(found.getBotToken()).isEqualTo("xoxb-token-secret");
                     assertThat(found.isActive()).isTrue();
                 });
     }
