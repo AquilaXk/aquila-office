@@ -4,12 +4,14 @@ import com.aquilaoffice.adapter.out.persistence.member.MemberJpaEntity;
 import com.aquilaoffice.adapter.out.persistence.member.MemberJpaRepository;
 import com.aquilaoffice.application.port.out.AcceptWorkspaceInvitePort;
 import com.aquilaoffice.application.port.out.AcceptedWorkspaceInvite;
+import com.aquilaoffice.application.port.out.ExtendWorkspaceInvitePort;
 import com.aquilaoffice.application.port.out.LoadWorkspaceInvitePort;
 import com.aquilaoffice.application.port.out.LoadWorkspaceInvitesPort;
 import com.aquilaoffice.application.port.out.RevokeWorkspaceInvitePort;
 import com.aquilaoffice.application.port.out.SaveWorkspaceInvitePort;
 import com.aquilaoffice.application.port.out.SavedWorkspaceInvite;
 import com.aquilaoffice.application.port.out.WorkspaceInviteAcceptance;
+import com.aquilaoffice.application.port.out.WorkspaceInviteExtension;
 import com.aquilaoffice.application.port.out.WorkspaceInviteLookup;
 import com.aquilaoffice.application.port.out.WorkspaceInviteManagement;
 import com.aquilaoffice.application.port.out.WorkspaceInviteRevocation;
@@ -30,7 +32,8 @@ public class WorkspaceInvitePersistenceAdapter
                 LoadWorkspaceInvitePort,
                 AcceptWorkspaceInvitePort,
                 LoadWorkspaceInvitesPort,
-                RevokeWorkspaceInvitePort {
+                RevokeWorkspaceInvitePort,
+                ExtendWorkspaceInvitePort {
 
     private final MemberJpaRepository memberJpaRepository;
     private final WorkspaceJpaRepository workspaceJpaRepository;
@@ -127,6 +130,18 @@ public class WorkspaceInvitePersistenceAdapter
                 .orElseThrow(() -> new IllegalArgumentException("workspace invite entity not found"));
 
         inviteEntity.revoke(revocation.revokedAt());
+    }
+
+    @Override
+    @Transactional
+    public WorkspaceInviteManagement extend(WorkspaceInviteExtension extension) {
+        Objects.requireNonNull(extension, "extension must not be null");
+        WorkspaceInviteJpaEntity inviteEntity = workspaceInviteJpaRepository
+                .findByIdAndWorkspaceId(extension.inviteId(), extension.workspaceId())
+                .orElseThrow(() -> new IllegalArgumentException("workspace invite entity not found"));
+
+        inviteEntity.extendExpiresAt(extension.additionalDays(), extension.extendedAt());
+        return toManagement(inviteEntity);
     }
 
     private WorkspaceInviteLookup toLookup(WorkspaceInviteJpaEntity inviteEntity) {

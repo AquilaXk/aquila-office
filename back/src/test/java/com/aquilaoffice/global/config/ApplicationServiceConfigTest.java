@@ -15,6 +15,7 @@ import com.aquilaoffice.application.port.in.DeleteWorkspaceAgentUseCase;
 import com.aquilaoffice.application.port.in.DeleteWorkspaceUseCase;
 import com.aquilaoffice.application.port.in.DeleteGithubCredentialUseCase;
 import com.aquilaoffice.application.port.in.DeleteSlackIntegrationUseCase;
+import com.aquilaoffice.application.port.in.ExtendWorkspaceInviteUseCase;
 import com.aquilaoffice.application.port.in.GetArtifactFileUseCase;
 import com.aquilaoffice.application.port.in.GetArtifactTreeUseCase;
 import com.aquilaoffice.application.port.in.GetMemberProfileUseCase;
@@ -51,6 +52,7 @@ import com.aquilaoffice.application.port.out.DeleteWorkspacePort;
 import com.aquilaoffice.application.port.out.DeleteWorkspaceAgentPort;
 import com.aquilaoffice.application.port.out.DeleteGithubCredentialPort;
 import com.aquilaoffice.application.port.out.ExchangeSlackOAuthCodePort;
+import com.aquilaoffice.application.port.out.ExtendWorkspaceInvitePort;
 import com.aquilaoffice.application.port.out.ExistsGithubCredentialPort;
 import com.aquilaoffice.application.port.out.GenerateWorkspaceInviteTokenPort;
 import com.aquilaoffice.application.port.out.LoadGithubCredentialPort;
@@ -103,6 +105,7 @@ import com.aquilaoffice.application.service.DeleteWorkspaceAgentService;
 import com.aquilaoffice.application.service.DeleteWorkspaceService;
 import com.aquilaoffice.application.service.DeleteGithubCredentialService;
 import com.aquilaoffice.application.service.DeleteSlackIntegrationService;
+import com.aquilaoffice.application.service.ExtendWorkspaceInviteService;
 import com.aquilaoffice.application.service.GetArtifactFileService;
 import com.aquilaoffice.application.service.GetArtifactTreeService;
 import com.aquilaoffice.application.service.GetOrchestrationPlanArtifactService;
@@ -176,6 +179,9 @@ class ApplicationServiceConfigTest {
 
     @MockitoBean
     private RevokeWorkspaceInvitePort revokeWorkspaceInvitePort;
+
+    @MockitoBean
+    private ExtendWorkspaceInvitePort extendWorkspaceInvitePort;
 
     @MockitoBean
     private UpdateWorkspacePort updateWorkspacePort;
@@ -302,6 +308,9 @@ class ApplicationServiceConfigTest {
 
     @Autowired
     private RevokeWorkspaceInviteUseCase revokeWorkspaceInviteUseCase;
+
+    @Autowired
+    private ExtendWorkspaceInviteUseCase extendWorkspaceInviteUseCase;
 
     @Autowired
     private UpdateWorkspaceUseCase updateWorkspaceUseCase;
@@ -444,6 +453,11 @@ class ApplicationServiceConfigTest {
     @Test
     void registersRevokeWorkspaceInviteUseCase() {
         assertThat(revokeWorkspaceInviteUseCase).isInstanceOf(RevokeWorkspaceInviteService.class);
+    }
+
+    @Test
+    void registersExtendWorkspaceInviteUseCase() {
+        assertThat(extendWorkspaceInviteUseCase).isInstanceOf(ExtendWorkspaceInviteService.class);
     }
 
     @Test
