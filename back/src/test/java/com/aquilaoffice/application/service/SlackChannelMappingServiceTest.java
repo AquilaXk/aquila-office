@@ -38,13 +38,15 @@ class SlackChannelMappingServiceTest {
                 saveMappingPort);
 
         CreateSlackChannelMappingResult result = service.createSlackChannelMapping(
-                new CreateSlackChannelMappingCommand(101L, " google-1 ", " T123 ", " C456 ", " dev-alerts "));
+                new CreateSlackChannelMappingCommand(
+                        101L, " google-1 ", " T123 ", " C456 ", " dev-alerts ", " xoxb-token-secret "));
 
         assertThat(loadMappingPort.lookupTeamId).isEqualTo("T123");
         assertThat(loadMappingPort.lookupChannelId).isEqualTo("C456");
         assertThat(saveMappingPort.savedMapping.getWorkspaceId()).isEqualTo(101L);
         assertThat(saveMappingPort.savedMapping.getTeamId()).isEqualTo("T123");
         assertThat(saveMappingPort.savedMapping.getChannelId()).isEqualTo("C456");
+        assertThat(saveMappingPort.savedMapping.getBotToken()).isEqualTo("xoxb-token-secret");
         assertThat(result.mappingId()).isEqualTo(501L);
         assertThat(result.channelName()).isEqualTo("dev-alerts");
     }
