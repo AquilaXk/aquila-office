@@ -3,6 +3,7 @@ package com.aquilaoffice.global.config;
 import com.aquilaoffice.application.port.in.AcceptWorkspaceInviteUseCase;
 import com.aquilaoffice.application.port.in.ChangeWorkspaceMemberRoleUseCase;
 import com.aquilaoffice.application.port.in.CreateGithubCredentialUseCase;
+import com.aquilaoffice.application.port.in.CreateSlackChannelMappingUseCase;
 import com.aquilaoffice.application.port.in.CreateTaskUseCase;
 import com.aquilaoffice.application.port.in.CreateWorkspaceAgentUseCase;
 import com.aquilaoffice.application.port.in.CreateWorkspaceGatewayBindingUseCase;
@@ -23,6 +24,7 @@ import com.aquilaoffice.application.port.in.ListTaskReportsUseCase;
 import com.aquilaoffice.application.port.in.ListGithubCredentialsUseCase;
 import com.aquilaoffice.application.port.in.ListChatSessionMessagesUseCase;
 import com.aquilaoffice.application.port.in.ListChatTaskMessagesUseCase;
+import com.aquilaoffice.application.port.in.ListSlackChannelMappingsUseCase;
 import com.aquilaoffice.application.port.in.ListTasksUseCase;
 import com.aquilaoffice.application.port.in.ListWorkspaceAgentsUseCase;
 import com.aquilaoffice.application.port.in.ListWorkspaceMembersUseCase;
@@ -50,6 +52,7 @@ import com.aquilaoffice.application.port.out.LoadChatMessagesPort;
 import com.aquilaoffice.application.port.out.LoadChatSessionPort;
 import com.aquilaoffice.application.port.out.LoadMemberPort;
 import com.aquilaoffice.application.port.out.LoadOrchestrationPlanArtifactPort;
+import com.aquilaoffice.application.port.out.LoadSlackChannelMappingPort;
 import com.aquilaoffice.application.port.out.LoadTaskExecutionReportsPort;
 import com.aquilaoffice.application.port.out.LoadTaskPort;
 import com.aquilaoffice.application.port.out.LoadTasksPort;
@@ -66,6 +69,7 @@ import com.aquilaoffice.application.port.out.RunWorkspaceAgentPort;
 import com.aquilaoffice.application.port.out.SaveGithubCredentialPort;
 import com.aquilaoffice.application.port.out.SaveChatMessagePort;
 import com.aquilaoffice.application.port.out.SaveChatSessionPort;
+import com.aquilaoffice.application.port.out.SaveSlackChannelMappingPort;
 import com.aquilaoffice.application.port.out.SaveTaskPort;
 import com.aquilaoffice.application.port.out.SaveTaskExecutionPort;
 import com.aquilaoffice.application.port.out.SaveWorkspaceAgentPort;
@@ -79,6 +83,7 @@ import com.aquilaoffice.application.port.out.UpdateWorkspacePort;
 import com.aquilaoffice.application.service.AcceptWorkspaceInviteService;
 import com.aquilaoffice.application.service.ChangeWorkspaceMemberRoleService;
 import com.aquilaoffice.application.service.CreateGithubCredentialService;
+import com.aquilaoffice.application.service.CreateSlackChannelMappingService;
 import com.aquilaoffice.application.service.CreateTaskService;
 import com.aquilaoffice.application.service.CreateWorkspaceAgentService;
 import com.aquilaoffice.application.service.CreateWorkspaceGatewayBindingService;
@@ -99,6 +104,7 @@ import com.aquilaoffice.application.service.ListTaskReportsService;
 import com.aquilaoffice.application.service.ListGithubCredentialsService;
 import com.aquilaoffice.application.service.ListChatSessionMessagesService;
 import com.aquilaoffice.application.service.ListChatTaskMessagesService;
+import com.aquilaoffice.application.service.ListSlackChannelMappingsService;
 import com.aquilaoffice.application.service.ListTasksService;
 import com.aquilaoffice.application.service.ListWorkspaceAgentsService;
 import com.aquilaoffice.application.service.ListWorkspaceMembersService;
@@ -490,6 +496,30 @@ public class ApplicationServiceConfig {
             SlackAgentCommandParser slackAgentCommandParser,
             SendChatMessageUseCase sendChatMessageUseCase) {
         return new ReceiveSlackEventService(slackAgentCommandParser, sendChatMessageUseCase);
+    }
+
+    @Bean
+    public CreateSlackChannelMappingUseCase createSlackChannelMappingUseCase(
+            LoadMemberPort loadMemberPort,
+            LoadWorkspacePort loadWorkspacePort,
+            LoadSlackChannelMappingPort loadSlackChannelMappingPort,
+            SaveSlackChannelMappingPort saveSlackChannelMappingPort) {
+        return new CreateSlackChannelMappingService(
+                loadMemberPort,
+                loadWorkspacePort,
+                loadSlackChannelMappingPort,
+                saveSlackChannelMappingPort);
+    }
+
+    @Bean
+    public ListSlackChannelMappingsUseCase listSlackChannelMappingsUseCase(
+            LoadMemberPort loadMemberPort,
+            LoadWorkspacePort loadWorkspacePort,
+            LoadSlackChannelMappingPort loadSlackChannelMappingPort) {
+        return new ListSlackChannelMappingsService(
+                loadMemberPort,
+                loadWorkspacePort,
+                loadSlackChannelMappingPort);
     }
 
     @Bean
