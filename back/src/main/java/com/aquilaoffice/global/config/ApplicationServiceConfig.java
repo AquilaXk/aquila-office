@@ -13,6 +13,7 @@ import com.aquilaoffice.application.port.in.DeleteWorkspaceAgentUseCase;
 import com.aquilaoffice.application.port.in.DeleteWorkspaceUseCase;
 import com.aquilaoffice.application.port.in.GetArtifactFileUseCase;
 import com.aquilaoffice.application.port.in.GetArtifactTreeUseCase;
+import com.aquilaoffice.application.port.in.GetOrchestrationPlanArtifactUseCase;
 import com.aquilaoffice.application.port.in.GetWorkspaceAgentUseCase;
 import com.aquilaoffice.application.port.in.GetWorkspaceGatewayStatusUseCase;
 import com.aquilaoffice.application.port.in.GetWorkspaceDetailUseCase;
@@ -47,6 +48,7 @@ import com.aquilaoffice.application.port.out.LoadGithubCredentialsPort;
 import com.aquilaoffice.application.port.out.LoadChatMessagesPort;
 import com.aquilaoffice.application.port.out.LoadChatSessionPort;
 import com.aquilaoffice.application.port.out.LoadMemberPort;
+import com.aquilaoffice.application.port.out.LoadOrchestrationPlanArtifactPort;
 import com.aquilaoffice.application.port.out.LoadTaskExecutionReportsPort;
 import com.aquilaoffice.application.port.out.LoadTaskPort;
 import com.aquilaoffice.application.port.out.LoadTasksPort;
@@ -86,6 +88,7 @@ import com.aquilaoffice.application.service.DeleteWorkspaceAgentService;
 import com.aquilaoffice.application.service.DeleteWorkspaceService;
 import com.aquilaoffice.application.service.GetArtifactFileService;
 import com.aquilaoffice.application.service.GetArtifactTreeService;
+import com.aquilaoffice.application.service.GetOrchestrationPlanArtifactService;
 import com.aquilaoffice.application.service.GetWorkspaceAgentService;
 import com.aquilaoffice.application.service.GetWorkspaceGatewayStatusService;
 import com.aquilaoffice.application.service.GetWorkspaceDetailService;
@@ -416,6 +419,17 @@ public class ApplicationServiceConfig {
             LoadWorkspacePort loadWorkspacePort,
             LoadWorkspaceArtifactsPort loadWorkspaceArtifactsPort) {
         return new GetArtifactFileService(loadMemberPort, loadWorkspacePort, loadWorkspaceArtifactsPort);
+    }
+
+    @Bean
+    public GetOrchestrationPlanArtifactUseCase getOrchestrationPlanArtifactUseCase(
+            LoadMemberPort loadMemberPort,
+            LoadWorkspacePort loadWorkspacePort,
+            LoadOrchestrationPlanArtifactPort loadOrchestrationPlanArtifactPort) {
+        return new GetOrchestrationPlanArtifactService(
+                loadMemberPort,
+                loadWorkspacePort,
+                loadOrchestrationPlanArtifactPort);
     }
 
     @Bean
