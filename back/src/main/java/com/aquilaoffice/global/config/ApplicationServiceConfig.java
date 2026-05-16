@@ -38,6 +38,7 @@ import com.aquilaoffice.application.port.in.ListWorkspaceMemberTaskStatsUseCase;
 import com.aquilaoffice.application.port.in.ListWorkspaceMembersUseCase;
 import com.aquilaoffice.application.port.in.ListWorkspaceInvitesUseCase;
 import com.aquilaoffice.application.port.in.ListWorkspacesUseCase;
+import com.aquilaoffice.application.port.in.LogoutAuthUseCase;
 import com.aquilaoffice.application.port.in.CloseWorkspacePresenceStreamUseCase;
 import com.aquilaoffice.application.port.in.OpenWorkspacePresenceStreamUseCase;
 import com.aquilaoffice.application.port.in.ReceiveSlackEventUseCase;
@@ -55,6 +56,7 @@ import com.aquilaoffice.application.port.in.UpdateWorkspacePresencePositionUseCa
 import com.aquilaoffice.application.port.in.UpdateWorkspaceUseCase;
 import com.aquilaoffice.application.port.out.AcceptWorkspaceInvitePort;
 import com.aquilaoffice.application.port.out.ChangeWorkspaceMemberRolePort;
+import com.aquilaoffice.application.port.out.DeleteRefreshTokenPort;
 import com.aquilaoffice.application.port.out.DeleteGithubCredentialPort;
 import com.aquilaoffice.application.port.out.DeleteWorkspaceAgentPort;
 import com.aquilaoffice.application.port.out.DeleteWorkspacePort;
@@ -145,6 +147,7 @@ import com.aquilaoffice.application.service.ListWorkspaceMemberTaskStatsService;
 import com.aquilaoffice.application.service.ListWorkspaceMembersService;
 import com.aquilaoffice.application.service.ListWorkspaceInvitesService;
 import com.aquilaoffice.application.service.ListWorkspacesService;
+import com.aquilaoffice.application.service.LogoutAuthService;
 import com.aquilaoffice.application.service.ReceiveSlackEventService;
 import com.aquilaoffice.application.service.RefreshAuthTokenService;
 import com.aquilaoffice.application.service.RemoveWorkspaceMemberService;
@@ -291,6 +294,13 @@ public class ApplicationServiceConfig {
                 resolveRefreshTokenPort,
                 issueAuthTokenPort,
                 rotateRefreshTokenPort);
+    }
+
+    @Bean
+    public LogoutAuthUseCase logoutAuthUseCase(
+            ResolveRefreshTokenPort resolveRefreshTokenPort,
+            DeleteRefreshTokenPort deleteRefreshTokenPort) {
+        return new LogoutAuthService(resolveRefreshTokenPort, deleteRefreshTokenPort);
     }
 
     @Bean
