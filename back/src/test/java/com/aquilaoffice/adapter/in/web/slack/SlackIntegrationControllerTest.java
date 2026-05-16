@@ -5,7 +5,9 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -15,9 +17,15 @@ import com.aquilaoffice.adapter.in.web.workspace.WorkspaceController;
 import com.aquilaoffice.application.port.in.CreateSlackChannelMappingCommand;
 import com.aquilaoffice.application.port.in.CreateSlackChannelMappingResult;
 import com.aquilaoffice.application.port.in.CreateSlackChannelMappingUseCase;
+import com.aquilaoffice.application.port.in.DeleteSlackIntegrationCommand;
+import com.aquilaoffice.application.port.in.DeleteSlackIntegrationResult;
+import com.aquilaoffice.application.port.in.DeleteSlackIntegrationUseCase;
 import com.aquilaoffice.application.port.in.ListSlackChannelMappingsQuery;
 import com.aquilaoffice.application.port.in.ListSlackChannelMappingsResult;
 import com.aquilaoffice.application.port.in.ListSlackChannelMappingsUseCase;
+import com.aquilaoffice.application.port.in.UpdateSlackIntegrationCommand;
+import com.aquilaoffice.application.port.in.UpdateSlackIntegrationResult;
+import com.aquilaoffice.application.port.in.UpdateSlackIntegrationUseCase;
 import com.aquilaoffice.global.handler.GlobalExceptionHandler;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -47,6 +55,12 @@ class SlackIntegrationControllerTest {
 
     @MockitoBean
     private ListSlackChannelMappingsUseCase listSlackChannelMappingsUseCase;
+
+    @MockitoBean
+    private UpdateSlackIntegrationUseCase updateSlackIntegrationUseCase;
+
+    @MockitoBean
+    private DeleteSlackIntegrationUseCase deleteSlackIntegrationUseCase;
 
     @Test
     void createSlackIntegrationReturnsCreatedEnvelope() throws Exception {
@@ -114,13 +128,78 @@ class SlackIntegrationControllerTest {
     }
 
     @Test
+    void updateSlackIntegrationReturnsOkEnvelope() throws Exception {
+        given(updateSlackIntegrationUseCase.updateSlackIntegration(any(UpdateSlackIntegrationCommand.class)))
+                .willReturn(updateResult());
+
+        mockMvc.perform(patch("/api/v1/workspaces/101/slack/integrations/501")
+                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, " google-1 ")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "slackTeamId": " T999 ",
+                                  "channelName": " prod-alerts ",
+                                  "botToken": " xoxb-new-secret "
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.id").value(501))
+                .andExpect(jsonPath("$.data.workspaceId").value(101))
+                .andExpect(jsonPath("$.data.slackTeamId").value("T999"))
+                .andExpect(jsonPath("$.data.slackChannelId").value("C456"))
+                .andExpect(jsonPath("$.data.channelName").value("prod-alerts"))
+                .andExpect(jsonPath("$.data.maskedBotToken").value("xoxb****cret"))
+                .andExpect(jsonPath("$.data.botToken").doesNotExist())
+                .andExpect(jsonPath("$.data.active").value(true));
+
+        ArgumentCaptor<UpdateSlackIntegrationCommand> commandCaptor =
+                ArgumentCaptor.forClass(UpdateSlackIntegrationCommand.class);
+        verify(updateSlackIntegrationUseCase).updateSlackIntegration(commandCaptor.capture());
+        UpdateSlackIntegrationCommand command = commandCaptor.getValue();
+        assertThat(command.workspaceId()).isEqualTo(101L);
+        assertThat(command.requesterGoogleSub()).isEqualTo("google-1");
+        assertThat(command.integrationId()).isEqualTo(501L);
+        assertThat(command.slackTeamId()).isEqualTo("T999");
+        assertThat(command.slackChannelId()).isNull();
+        assertThat(command.channelName()).isEqualTo("prod-alerts");
+        assertThat(command.botToken()).isEqualTo("xoxb-new-secret");
+    }
+
+    @Test
+    void deleteSlackIntegrationReturnsOkEnvelope() throws Exception {
+        given(deleteSlackIntegrationUseCase.deleteSlackIntegration(any(DeleteSlackIntegrationCommand.class)))
+                .willReturn(deleteResult());
+
+        mockMvc.perform(delete("/api/v1/workspaces/101/slack/integrations/501")
+                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, " google-1 "))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.id").value(501))
+                .andExpect(jsonPath("$.data.workspaceId").value(101))
+                .andExpect(jsonPath("$.data.active").value(false));
+
+        ArgumentCaptor<DeleteSlackIntegrationCommand> commandCaptor =
+                ArgumentCaptor.forClass(DeleteSlackIntegrationCommand.class);
+        verify(deleteSlackIntegrationUseCase).deleteSlackIntegration(commandCaptor.capture());
+        DeleteSlackIntegrationCommand command = commandCaptor.getValue();
+        assertThat(command.workspaceId()).isEqualTo(101L);
+        assertThat(command.requesterGoogleSub()).isEqualTo("google-1");
+        assertThat(command.integrationId()).isEqualTo(501L);
+    }
+
+    @Test
     void missingHeaderReturnsBadRequestAndDoesNotCallUseCases() throws Exception {
         mockMvc.perform(get("/api/v1/workspaces/101/slack/integrations"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.code").value("400"));
 
-        verifyNoInteractions(createSlackChannelMappingUseCase, listSlackChannelMappingsUseCase);
+        verifyNoInteractions(
+                createSlackChannelMappingUseCase,
+                listSlackChannelMappingsUseCase,
+                updateSlackIntegrationUseCase,
+                deleteSlackIntegrationUseCase);
     }
 
     @Test
@@ -158,5 +237,24 @@ class SlackIntegrationControllerTest {
                 "xoxb****cret",
                 "google-1",
                 true);
+    }
+
+    private static UpdateSlackIntegrationResult updateResult() {
+        return new UpdateSlackIntegrationResult(
+                501L,
+                101L,
+                "T999",
+                "C456",
+                "prod-alerts",
+                "xoxb****cret",
+                "google-1",
+                true);
+    }
+
+    private static DeleteSlackIntegrationResult deleteResult() {
+        return new DeleteSlackIntegrationResult(
+                501L,
+                101L,
+                false);
     }
 }
