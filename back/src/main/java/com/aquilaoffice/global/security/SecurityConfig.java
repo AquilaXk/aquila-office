@@ -1,5 +1,6 @@
 package com.aquilaoffice.global.security;
 
+import com.aquilaoffice.application.port.out.ResolveAccessTokenPort;
 import com.aquilaoffice.global.config.properties.CorsProperties;
 import jakarta.servlet.http.HttpServletResponse;
 import java.util.List;
@@ -10,6 +11,7 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -27,7 +29,9 @@ public class SecurityConfig {
     }
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain securityFilterChain(
+            HttpSecurity http,
+            AccessTokenAuthenticationFilter accessTokenAuthenticationFilter) throws Exception {
         // 인증 구현 전에도 API 서버는 세션과 form login을 사용하지 않는 stateless 구조를 유지한다.
         return http
                 .csrf(AbstractHttpConfigurer::disable)
@@ -37,6 +41,7 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .exceptionHandling(exception -> exception.authenticationEntryPoint(
                         (request, response, authException) -> response.sendError(HttpServletResponse.SC_UNAUTHORIZED)))
+                .addFilterBefore(accessTokenAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
                 .authorizeHttpRequests(auth -> auth
                         // 브라우저 CORS preflight와 운영/문서 엔드포인트는 인증 없이 접근 가능해야 한다.
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
@@ -64,5 +69,17 @@ public class SecurityConfig {
         // 모든 API 경로에 같은 CORS 정책을 적용해 프론트 개발 서버와 배포 환경을 한 설정으로 다룬다.
         source.registerCorsConfiguration("/**", configuration);
         return source;
+    }
+
+    @Bean
+    public BearerTokenResolver bearerTokenResolver() {
+        return new BearerTokenResolver();
+    }
+
+    @Bean
+    public AccessTokenAuthenticationFilter accessTokenAuthenticationFilter(
+            BearerTokenResolver bearerTokenResolver,
+            ResolveAccessTokenPort resolveAccessTokenPort) {
+        return new AccessTokenAuthenticationFilter(bearerTokenResolver, resolveAccessTokenPort);
     }
 }
