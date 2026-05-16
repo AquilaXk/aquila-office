@@ -6,7 +6,7 @@ import {
   Building2,
   CalendarDays,
   CheckCircle2,
-  Github,
+  GitBranch,
   Hash,
   KeyRound,
   Loader2,
@@ -1223,7 +1223,7 @@ export default function WorkspaceSettingsPage({
                         key={credential.credentialId}
                       >
                         <div className="workspace-member-avatar">
-                          <Github aria-hidden="true" />
+                          <GitBranch aria-hidden="true" />
                         </div>
 
                         {isEditing ? (
@@ -1289,7 +1289,7 @@ export default function WorkspaceSettingsPage({
                           <>
                             <div className="workspace-member-main">
                               <strong>{credential.displayName}</strong>
-                              <p>{credential.maskedToken}</p>
+                              <p className="workspace-github-token">{credential.maskedToken}</p>
                               <span>{`Credential #${credential.credentialId}`}</span>
                             </div>
                             <div className="workspace-settings-member-actions">

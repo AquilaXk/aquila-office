@@ -1653,6 +1653,57 @@ h2 {
   min-height: 36px;
 }
 
+.workspace-github-help {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.workspace-github-token {
+  display: inline-flex;
+  width: fit-content;
+  min-height: 26px;
+  align-items: center;
+  border: 1px solid #d7dce8;
+  border-radius: 8px;
+  background: #f5f7fb;
+  color: #2f3a4e;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 13px;
+  font-weight: 800;
+  padding: 0 8px;
+}
+
+.workspace-github-edit-form {
+  grid-column: 2 / -1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 10px;
+}
+
+.workspace-github-edit-field {
+  min-width: 0;
+}
+
+.workspace-github-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.workspace-github-row-button {
+  min-height: 36px;
+  margin-top: 0;
+}
+
+.workspace-github-row-button svg {
+  width: 16px;
+  height: 16px;
+}
+
 .workspace-settings-side {
   display: grid;
   gap: 12px;
@@ -1840,12 +1891,22 @@ h2 {
 
   .workspace-role-control,
   .workspace-member-remove,
-  .workspace-invite-revoke {
+  .workspace-invite-revoke,
+  .workspace-github-row-button {
     width: 100%;
   }
 
   .workspace-role-option {
     flex: 1;
+  }
+
+  .workspace-github-edit-form {
+    grid-column: 2;
+    grid-template-columns: 1fr;
+  }
+
+  .workspace-github-row-actions {
+    justify-content: stretch;
   }
 
   .workspace-invite-management-toolbar {
