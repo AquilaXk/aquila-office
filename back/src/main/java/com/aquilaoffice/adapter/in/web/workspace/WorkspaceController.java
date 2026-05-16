@@ -7,6 +7,8 @@ import com.aquilaoffice.application.port.in.CreateWorkspaceUseCase;
 import com.aquilaoffice.application.port.in.ChangeWorkspaceMemberRoleUseCase;
 import com.aquilaoffice.application.port.in.DeleteWorkspaceCommand;
 import com.aquilaoffice.application.port.in.DeleteWorkspaceUseCase;
+import com.aquilaoffice.application.port.in.ExtendWorkspaceInviteResult;
+import com.aquilaoffice.application.port.in.ExtendWorkspaceInviteUseCase;
 import com.aquilaoffice.application.port.in.GetWorkspaceDetailQuery;
 import com.aquilaoffice.application.port.in.GetWorkspaceDetailResult;
 import com.aquilaoffice.application.port.in.GetWorkspaceDetailUseCase;
@@ -72,6 +74,7 @@ public class WorkspaceController {
     private final ListWorkspaceMemberTaskStatsUseCase listWorkspaceMemberTaskStatsUseCase;
     private final ListWorkspaceInvitesUseCase listWorkspaceInvitesUseCase;
     private final RevokeWorkspaceInviteUseCase revokeWorkspaceInviteUseCase;
+    private final ExtendWorkspaceInviteUseCase extendWorkspaceInviteUseCase;
     private final UpdateWorkspaceUseCase updateWorkspaceUseCase;
     private final DeleteWorkspaceUseCase deleteWorkspaceUseCase;
     private final ChangeWorkspaceMemberRoleUseCase changeWorkspaceMemberRoleUseCase;
@@ -88,6 +91,7 @@ public class WorkspaceController {
             ListWorkspaceMemberTaskStatsUseCase listWorkspaceMemberTaskStatsUseCase,
             ListWorkspaceInvitesUseCase listWorkspaceInvitesUseCase,
             RevokeWorkspaceInviteUseCase revokeWorkspaceInviteUseCase,
+            ExtendWorkspaceInviteUseCase extendWorkspaceInviteUseCase,
             UpdateWorkspaceUseCase updateWorkspaceUseCase,
             DeleteWorkspaceUseCase deleteWorkspaceUseCase,
             ChangeWorkspaceMemberRoleUseCase changeWorkspaceMemberRoleUseCase,
@@ -102,6 +106,7 @@ public class WorkspaceController {
         this.listWorkspaceMemberTaskStatsUseCase = listWorkspaceMemberTaskStatsUseCase;
         this.listWorkspaceInvitesUseCase = listWorkspaceInvitesUseCase;
         this.revokeWorkspaceInviteUseCase = revokeWorkspaceInviteUseCase;
+        this.extendWorkspaceInviteUseCase = extendWorkspaceInviteUseCase;
         this.updateWorkspaceUseCase = updateWorkspaceUseCase;
         this.deleteWorkspaceUseCase = deleteWorkspaceUseCase;
         this.changeWorkspaceMemberRoleUseCase = changeWorkspaceMemberRoleUseCase;
@@ -352,6 +357,28 @@ public class WorkspaceController {
             return ResponseEntity.ok(RsData.ok(null));
         } catch (IllegalArgumentException exception) {
             // 취소 대상 초대가 없는 경우에도 워크스페이스/초대 존재 여부를 구분하지 않는다.
+            throw new ServiceException(CommonErrorCode.NOT_FOUND);
+        }
+    }
+
+    @PatchMapping("/{workspaceId}/invites/{inviteId}/extend")
+    public ResponseEntity<RsData<WorkspaceInviteManagementResponse>> extendWorkspaceInvite(
+            @PathVariable Long workspaceId,
+            @PathVariable Long inviteId,
+            @RequestHeader(name = CREATOR_GOOGLE_SUB_HEADER, required = false) String creatorGoogleSub,
+            @Valid @RequestBody(required = false) ExtendWorkspaceInviteRequest request) {
+        String normalizedCreatorGoogleSub = requireCreatorGoogleSub(creatorGoogleSub);
+        ExtendWorkspaceInviteRequest normalizedRequest =
+                request == null ? new ExtendWorkspaceInviteRequest(null) : request;
+
+        try {
+            ExtendWorkspaceInviteResult result = extendWorkspaceInviteUseCase.extendWorkspaceInvite(
+                    normalizedRequest.toCommand(workspaceId, inviteId, normalizedCreatorGoogleSub));
+            return ResponseEntity.ok(RsData.ok(WorkspaceInviteManagementResponse.from(result)));
+        } catch (IllegalStateException exception) {
+            throw new ServiceException(CommonErrorCode.BAD_REQUEST);
+        } catch (IllegalArgumentException exception) {
+            // 초대/워크스페이스가 없거나 관리자 권한이 없는 경우 같은 404로 응답한다.
             throw new ServiceException(CommonErrorCode.NOT_FOUND);
         }
     }

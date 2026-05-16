@@ -8,6 +8,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -23,6 +24,9 @@ import com.aquilaoffice.application.port.in.ChangeWorkspaceMemberRoleCommand;
 import com.aquilaoffice.application.port.in.ChangeWorkspaceMemberRoleUseCase;
 import com.aquilaoffice.application.port.in.DeleteWorkspaceCommand;
 import com.aquilaoffice.application.port.in.DeleteWorkspaceUseCase;
+import com.aquilaoffice.application.port.in.ExtendWorkspaceInviteCommand;
+import com.aquilaoffice.application.port.in.ExtendWorkspaceInviteResult;
+import com.aquilaoffice.application.port.in.ExtendWorkspaceInviteUseCase;
 import com.aquilaoffice.application.port.in.GetWorkspaceDetailQuery;
 import com.aquilaoffice.application.port.in.GetWorkspaceDetailResult;
 import com.aquilaoffice.application.port.in.GetWorkspaceDetailUseCase;
@@ -108,6 +112,9 @@ class WorkspaceControllerTest {
 
     @MockitoBean
     private RevokeWorkspaceInviteUseCase revokeWorkspaceInviteUseCase;
+
+    @MockitoBean
+    private ExtendWorkspaceInviteUseCase extendWorkspaceInviteUseCase;
 
     @MockitoBean
     private UpdateWorkspaceUseCase updateWorkspaceUseCase;
@@ -792,6 +799,111 @@ class WorkspaceControllerTest {
 
         mockMvc.perform(delete("/api/v1/workspaces/101/invites/404")
                         .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, "google-1"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code").value("404"));
+    }
+
+    @Test
+    void extendWorkspaceInviteReturnsOkEnvelope() throws Exception {
+        given(extendWorkspaceInviteUseCase.extendWorkspaceInvite(any(ExtendWorkspaceInviteCommand.class)))
+                .willReturn(new ExtendWorkspaceInviteResult(
+                        501L,
+                        101L,
+                        "invitee@example.com",
+                        "invite-token",
+                        WorkspaceInviteStatus.PENDING,
+                        LocalDateTime.of(2026, 5, 15, 10, 0),
+                        LocalDateTime.of(2026, 5, 25, 10, 0),
+                        null,
+                        null));
+
+        mockMvc.perform(patch("/api/v1/workspaces/101/invites/501/extend")
+                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, " google-1 ")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"additionalDays\":3}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.code").value("200"))
+                .andExpect(jsonPath("$.data.inviteId").value(501))
+                .andExpect(jsonPath("$.data.workspaceId").value(101))
+                .andExpect(jsonPath("$.data.email").value("invitee@example.com"))
+                .andExpect(jsonPath("$.data.token").value("invite-token"))
+                .andExpect(jsonPath("$.data.status").value("PENDING"))
+                .andExpect(jsonPath("$.data.expiresAt", notNullValue()));
+
+        ArgumentCaptor<ExtendWorkspaceInviteCommand> commandCaptor =
+                ArgumentCaptor.forClass(ExtendWorkspaceInviteCommand.class);
+        verify(extendWorkspaceInviteUseCase).extendWorkspaceInvite(commandCaptor.capture());
+        assertThat(commandCaptor.getValue().workspaceId()).isEqualTo(101L);
+        assertThat(commandCaptor.getValue().inviteId()).isEqualTo(501L);
+        assertThat(commandCaptor.getValue().requesterGoogleSub()).isEqualTo("google-1");
+        assertThat(commandCaptor.getValue().additionalDays()).isEqualTo(3);
+    }
+
+    @Test
+    void extendWorkspaceInviteAcceptsEmptyBodyAsDefaultDays() throws Exception {
+        given(extendWorkspaceInviteUseCase.extendWorkspaceInvite(any(ExtendWorkspaceInviteCommand.class)))
+                .willReturn(new ExtendWorkspaceInviteResult(
+                        501L,
+                        101L,
+                        "invitee@example.com",
+                        "invite-token",
+                        WorkspaceInviteStatus.PENDING,
+                        LocalDateTime.of(2026, 5, 15, 10, 0),
+                        LocalDateTime.of(2026, 5, 29, 10, 0),
+                        null,
+                        null));
+
+        mockMvc.perform(patch("/api/v1/workspaces/101/invites/501/extend")
+                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, "google-1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+
+        ArgumentCaptor<ExtendWorkspaceInviteCommand> commandCaptor =
+                ArgumentCaptor.forClass(ExtendWorkspaceInviteCommand.class);
+        verify(extendWorkspaceInviteUseCase).extendWorkspaceInvite(commandCaptor.capture());
+        assertThat(commandCaptor.getValue().additionalDays()).isNull();
+    }
+
+    @Test
+    void extendWorkspaceInviteRejectsInvalidAdditionalDays() throws Exception {
+        mockMvc.perform(patch("/api/v1/workspaces/101/invites/501/extend")
+                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, "google-1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"additionalDays\":31}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code").value("400"));
+
+        verifyNoInteractions(extendWorkspaceInviteUseCase);
+    }
+
+    @Test
+    void extendWorkspaceInviteReturnsBadRequestWhenInviteCannotBeExtended() throws Exception {
+        given(extendWorkspaceInviteUseCase.extendWorkspaceInvite(any(ExtendWorkspaceInviteCommand.class)))
+                .willThrow(new IllegalStateException("invite is not extendable"));
+
+        mockMvc.perform(patch("/api/v1/workspaces/101/invites/501/extend")
+                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, "google-1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"additionalDays\":3}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code").value("400"));
+    }
+
+    @Test
+    void extendWorkspaceInviteReturnsNotFoundEnvelope() throws Exception {
+        given(extendWorkspaceInviteUseCase.extendWorkspaceInvite(any(ExtendWorkspaceInviteCommand.class)))
+                .willThrow(new IllegalArgumentException("workspace invite entity not found"));
+
+        mockMvc.perform(patch("/api/v1/workspaces/101/invites/404/extend")
+                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, "google-1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"additionalDays\":3}"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.code").value("404"));

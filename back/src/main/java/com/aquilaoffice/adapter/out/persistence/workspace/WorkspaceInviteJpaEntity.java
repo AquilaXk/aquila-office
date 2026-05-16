@@ -100,6 +100,19 @@ public class WorkspaceInviteJpaEntity extends BaseEntity {
         this.revokedAt = revokedAt;
     }
 
+    public void extendExpiresAt(int additionalDays, LocalDateTime extendedAt) {
+        if (additionalDays < 1 || additionalDays > 30) {
+            throw new IllegalArgumentException("additionalDays must be between 1 and 30");
+        }
+        if (extendedAt == null) {
+            throw new IllegalArgumentException("extendedAt must not be null");
+        }
+        if (status != WorkspaceInviteStatus.PENDING || !extendedAt.isBefore(expiresAt)) {
+            throw new IllegalStateException("invite is not extendable");
+        }
+        this.expiresAt = expiresAt.plusDays(additionalDays);
+    }
+
     public WorkspaceJpaEntity getWorkspace() {
         return workspace;
     }
