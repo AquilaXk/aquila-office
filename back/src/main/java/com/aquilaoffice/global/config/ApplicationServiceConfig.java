@@ -25,6 +25,7 @@ import com.aquilaoffice.application.port.in.GetWorkspaceDashboardSummaryUseCase;
 import com.aquilaoffice.application.port.in.GetWorkspaceInviteUseCase;
 import com.aquilaoffice.application.port.in.GetTaskDetailUseCase;
 import com.aquilaoffice.application.port.in.GetMemberProfileUseCase;
+import com.aquilaoffice.application.port.in.GoogleLoginUseCase;
 import com.aquilaoffice.application.port.in.LeaveWorkspaceUseCase;
 import com.aquilaoffice.application.port.in.ListTaskReportsUseCase;
 import com.aquilaoffice.application.port.in.ListGithubCredentialsUseCase;
@@ -60,6 +61,7 @@ import com.aquilaoffice.application.port.out.ExchangeSlackOAuthCodePort;
 import com.aquilaoffice.application.port.out.ExtendWorkspaceInvitePort;
 import com.aquilaoffice.application.port.out.ExistsGithubCredentialPort;
 import com.aquilaoffice.application.port.out.GenerateWorkspaceInviteTokenPort;
+import com.aquilaoffice.application.port.out.IssueAuthTokenPort;
 import com.aquilaoffice.application.port.out.LoadGithubCredentialPort;
 import com.aquilaoffice.application.port.out.LoadGithubCredentialsPort;
 import com.aquilaoffice.application.port.out.LoadChatMessagesPort;
@@ -85,6 +87,7 @@ import com.aquilaoffice.application.port.out.RunWorkspaceAgentPort;
 import com.aquilaoffice.application.port.out.SaveGithubCredentialPort;
 import com.aquilaoffice.application.port.out.SaveChatMessagePort;
 import com.aquilaoffice.application.port.out.SaveChatSessionPort;
+import com.aquilaoffice.application.port.out.SaveGoogleLoginMemberPort;
 import com.aquilaoffice.application.port.out.SaveSlackChannelMappingPort;
 import com.aquilaoffice.application.port.out.SaveTaskPort;
 import com.aquilaoffice.application.port.out.SaveTaskExecutionPort;
@@ -98,6 +101,7 @@ import com.aquilaoffice.application.port.out.UpdateMemberProfilePort;
 import com.aquilaoffice.application.port.out.UpdateTaskExecutionPort;
 import com.aquilaoffice.application.port.out.UpdateTaskStatusPort;
 import com.aquilaoffice.application.port.out.UpdateWorkspacePort;
+import com.aquilaoffice.application.port.out.VerifyGoogleIdTokenPort;
 import com.aquilaoffice.application.service.AcceptWorkspaceInviteService;
 import com.aquilaoffice.application.service.ChangeWorkspaceMemberRoleService;
 import com.aquilaoffice.application.service.CompleteSlackOAuthCallbackService;
@@ -122,6 +126,7 @@ import com.aquilaoffice.application.service.GetWorkspaceDetailService;
 import com.aquilaoffice.application.service.GetWorkspaceDashboardSummaryService;
 import com.aquilaoffice.application.service.GetWorkspaceInviteService;
 import com.aquilaoffice.application.service.GetTaskDetailService;
+import com.aquilaoffice.application.service.GoogleLoginService;
 import com.aquilaoffice.application.service.LeaveWorkspaceService;
 import com.aquilaoffice.application.service.MemberProfileService;
 import com.aquilaoffice.application.service.OpenWorkspacePresenceStreamService;
@@ -255,6 +260,19 @@ public class ApplicationServiceConfig {
     @Bean
     public UpdateMemberProfileUseCase updateMemberProfileUseCase(MemberProfileService memberProfileService) {
         return memberProfileService;
+    }
+
+    @Bean
+    public GoogleLoginUseCase googleLoginUseCase(
+            VerifyGoogleIdTokenPort verifyGoogleIdTokenPort,
+            SaveGoogleLoginMemberPort saveGoogleLoginMemberPort,
+            IssueAuthTokenPort issueAuthTokenPort,
+            @Value("${ADMIN_ALLOWLIST_EMAILS:}") String adminAllowlistEmails) {
+        return new GoogleLoginService(
+                verifyGoogleIdTokenPort,
+                saveGoogleLoginMemberPort,
+                issueAuthTokenPort,
+                adminAllowlistEmails);
     }
 
     @Bean

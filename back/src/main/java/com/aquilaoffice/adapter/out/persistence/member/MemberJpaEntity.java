@@ -42,6 +42,14 @@ public class MemberJpaEntity extends BaseEntity {
         return new MemberJpaEntity(googleSub, email, name, role);
     }
 
+    public void updateGoogleLoginProfile(String email, String name, MemberRole requestedRole) {
+        this.email = requireNotBlank(email, "email");
+        this.name = requireNotBlank(name, "name");
+        if (requestedRole == MemberRole.ADMIN) {
+            this.role = MemberRole.ADMIN;
+        }
+    }
+
     public Member toDomain() {
         // 현재 도메인 생성자는 역할별 factory만 공개하므로 role 값에 따라 도메인 객체를 복원한다.
         if (role == MemberRole.ADMIN) {
@@ -64,5 +72,12 @@ public class MemberJpaEntity extends BaseEntity {
 
     public MemberRole getRole() {
         return role;
+    }
+
+    private static String requireNotBlank(String value, String fieldName) {
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException(fieldName + " must not be blank");
+        }
+        return value.trim();
     }
 }
