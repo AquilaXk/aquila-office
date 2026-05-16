@@ -4,6 +4,7 @@ import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.Objects;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -20,6 +21,7 @@ public class SlackInstallUrlBuilder {
     private final String redirectUri;
     private final URI authorizeUri;
 
+    @Autowired
     public SlackInstallUrlBuilder(
             @Value("${aquila.slack.client-id:}") String clientId,
             @Value("${aquila.slack.redirect-uri:http://localhost:8080/api/v1/slack/oauth/callback}")
