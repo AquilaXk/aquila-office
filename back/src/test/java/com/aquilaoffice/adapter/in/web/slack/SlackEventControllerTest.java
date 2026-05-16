@@ -123,6 +123,52 @@ class SlackEventControllerTest {
     }
 
     @Test
+    void receiveGlobalSlackEventAllowsMappedWorkspaceResolutionWithoutRequesterHeader() throws Exception {
+        given(receiveSlackEventUseCase.receiveSlackEvent(any(ReceiveSlackEventCommand.class)))
+                .willReturn(new ReceiveSlackEventResult(
+                        null,
+                        true,
+                        null,
+                        301L,
+                        901L,
+                        "T123:C456:1715841000.000100"));
+
+        mockMvc.perform(post("/api/v1/slack/events")
+                        .header("X-Slack-Request-Timestamp", "1715841000")
+                        .header("X-Slack-Signature", "v0=test-signature")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "type": "event_callback",
+                                  "team_id": "T123",
+                                  "event_id": "E123",
+                                  "event": {
+                                    "type": "app_mention",
+                                    "channel": "C456",
+                                    "user": "U789",
+                                    "text": "<@U123ABC> /agent 501 결제 오류 수정",
+                                    "ts": "1715841000.000100"
+                                  }
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.processed").value(true));
+
+        ArgumentCaptor<ReceiveSlackEventCommand> commandCaptor =
+                ArgumentCaptor.forClass(ReceiveSlackEventCommand.class);
+        verify(receiveSlackEventUseCase).receiveSlackEvent(commandCaptor.capture());
+        assertThat(commandCaptor.getValue().workspaceId()).isNull();
+        assertThat(commandCaptor.getValue().requesterGoogleSub()).isNull();
+        assertThat(commandCaptor.getValue().teamId()).isEqualTo("T123");
+        assertThat(commandCaptor.getValue().event().channel()).isEqualTo("C456");
+        verify(slackSignatureVerifier).verifyOrThrow(
+                eq("1715841000"),
+                eq("v0=test-signature"),
+                any(String.class));
+    }
+
+    @Test
     void invalidSignatureReturnsBadRequestAndDoesNotCallUseCase() throws Exception {
         willThrow(new IllegalArgumentException("slack request signature mismatch"))
                 .given(slackSignatureVerifier)

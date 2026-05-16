@@ -494,8 +494,12 @@ public class ApplicationServiceConfig {
     @Bean
     public ReceiveSlackEventUseCase receiveSlackEventUseCase(
             SlackAgentCommandParser slackAgentCommandParser,
-            SendChatMessageUseCase sendChatMessageUseCase) {
-        return new ReceiveSlackEventService(slackAgentCommandParser, sendChatMessageUseCase);
+            SendChatMessageUseCase sendChatMessageUseCase,
+            LoadSlackChannelMappingPort loadSlackChannelMappingPort) {
+        return new ReceiveSlackEventService(
+                slackAgentCommandParser,
+                sendChatMessageUseCase,
+                loadSlackChannelMappingPort);
     }
 
     @Bean

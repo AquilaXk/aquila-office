@@ -8,12 +8,15 @@ import com.aquilaoffice.application.port.in.ReceiveSlackEventUseCase;
 import com.aquilaoffice.application.port.in.SendChatMessageCommand;
 import com.aquilaoffice.application.port.in.SendChatMessageResult;
 import com.aquilaoffice.application.port.in.SendChatMessageUseCase;
+import com.aquilaoffice.application.port.out.LoadSlackChannelMappingPort;
+import com.aquilaoffice.domain.slack.SlackChannelMapping;
 import com.aquilaoffice.domain.execution.TaskExecutionStatus;
 import com.aquilaoffice.domain.task.TaskPriority;
 import com.aquilaoffice.domain.task.TaskStatus;
 import com.aquilaoffice.domain.task.TaskType;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
 class ReceiveSlackEventServiceTest {
@@ -73,6 +76,68 @@ class ReceiveSlackEventServiceTest {
     }
 
     @Test
+    void receiveSlackEventResolvesWorkspaceAndRequesterFromActiveChannelMapping() {
+        FakeSendChatMessageUseCase sendChatMessageUseCase = new FakeSendChatMessageUseCase();
+        ReceiveSlackEventUseCase service = newService(
+                sendChatMessageUseCase,
+                new FakeLoadSlackChannelMappingPort(Optional.of(SlackChannelMapping.restore(
+                        801L,
+                        202L,
+                        "T123",
+                        "C456",
+                        "dev-alerts",
+                        "google-mapped",
+                        true))));
+
+        ReceiveSlackEventResult result = service.receiveSlackEvent(new ReceiveSlackEventCommand(
+                null,
+                null,
+                "event_callback",
+                null,
+                "T123",
+                "E123",
+                new ReceiveSlackEventCommand.SlackEventPayload(
+                        "app_mention",
+                        "C456",
+                        "U789",
+                        "<@U123ABC> /agent 501 장애를 확인해주세요",
+                        "1715841000.000100",
+                        null)));
+
+        assertThat(result.processed()).isTrue();
+        assertThat(sendChatMessageUseCase.called).isTrue();
+        assertThat(sendChatMessageUseCase.command.workspaceId()).isEqualTo(202L);
+        assertThat(sendChatMessageUseCase.command.requesterGoogleSub()).isEqualTo("google-mapped");
+    }
+
+    @Test
+    void receiveSlackEventIgnoresMappedEventWhenChannelMappingIsMissing() {
+        FakeSendChatMessageUseCase sendChatMessageUseCase = new FakeSendChatMessageUseCase();
+        ReceiveSlackEventUseCase service = newService(
+                sendChatMessageUseCase,
+                new FakeLoadSlackChannelMappingPort(Optional.empty()));
+
+        ReceiveSlackEventResult result = service.receiveSlackEvent(new ReceiveSlackEventCommand(
+                null,
+                null,
+                "event_callback",
+                null,
+                "T123",
+                "E123",
+                new ReceiveSlackEventCommand.SlackEventPayload(
+                        "app_mention",
+                        "C456",
+                        "U789",
+                        "<@U123ABC> /agent 501 장애를 확인해주세요",
+                        "1715841000.000100",
+                        null)));
+
+        assertThat(result.processed()).isFalse();
+        assertThat(result.ignoredReason()).isEqualTo("slack channel mapping not found");
+        assertThat(sendChatMessageUseCase.called).isFalse();
+    }
+
+    @Test
     void receiveSlackEventIgnoresUnsupportedEventWithoutDispatch() {
         FakeSendChatMessageUseCase sendChatMessageUseCase = new FakeSendChatMessageUseCase();
         ReceiveSlackEventUseCase service = newService(sendChatMessageUseCase);
@@ -98,9 +163,34 @@ class ReceiveSlackEventServiceTest {
     }
 
     private static ReceiveSlackEventUseCase newService(SendChatMessageUseCase sendChatMessageUseCase) {
+        return newService(sendChatMessageUseCase, new FakeLoadSlackChannelMappingPort(Optional.empty()));
+    }
+
+    private static ReceiveSlackEventUseCase newService(
+            SendChatMessageUseCase sendChatMessageUseCase,
+            LoadSlackChannelMappingPort loadSlackChannelMappingPort) {
         return new ReceiveSlackEventService(
                 new SlackAgentCommandParser(),
-                sendChatMessageUseCase);
+                sendChatMessageUseCase,
+                loadSlackChannelMappingPort);
+    }
+
+    private static class FakeLoadSlackChannelMappingPort implements LoadSlackChannelMappingPort {
+        private final Optional<SlackChannelMapping> mapping;
+
+        private FakeLoadSlackChannelMappingPort(Optional<SlackChannelMapping> mapping) {
+            this.mapping = mapping;
+        }
+
+        @Override
+        public Optional<SlackChannelMapping> findActiveByTeamIdAndChannelId(String teamId, String channelId) {
+            return mapping;
+        }
+
+        @Override
+        public List<SlackChannelMapping> findActiveByWorkspaceId(Long workspaceId) {
+            throw new UnsupportedOperationException("not used in receive slack event service test");
+        }
     }
 
     private static class FakeSendChatMessageUseCase implements SendChatMessageUseCase {
