@@ -12,6 +12,7 @@ public record SlackChannelMappingResponse(
         String teamId,
         String channelId,
         String channelName,
+        String maskedBotToken,
         String createdByGoogleSub,
         boolean active) {
 
@@ -22,6 +23,7 @@ public record SlackChannelMappingResponse(
                 result.teamId(),
                 result.channelId(),
                 result.channelName(),
+                result.maskedBotToken(),
                 result.createdByGoogleSub(),
                 result.active());
     }
@@ -33,6 +35,7 @@ public record SlackChannelMappingResponse(
                 result.teamId(),
                 result.channelId(),
                 result.channelName(),
+                result.maskedBotToken(),
                 result.createdByGoogleSub(),
                 result.active());
     }

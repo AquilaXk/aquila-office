@@ -49,6 +49,7 @@ public class CreateSlackChannelMappingService implements CreateSlackChannelMappi
                 command.teamId(),
                 command.channelId(),
                 command.channelName(),
+                command.botToken(),
                 requester.getGoogleSub());
         return toResult(saveSlackChannelMappingPort.save(mapping));
     }
@@ -84,6 +85,7 @@ public class CreateSlackChannelMappingService implements CreateSlackChannelMappi
                 mapping.getTeamId(),
                 mapping.getChannelId(),
                 mapping.getChannelName(),
+                mapping.maskedBotToken(),
                 mapping.getCreatedByGoogleSub(),
                 mapping.isActive());
     }

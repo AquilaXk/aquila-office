@@ -5,11 +5,17 @@ package com.aquilaoffice.domain.slack;
  */
 public class SlackChannelMapping {
 
+    private static final int MIN_TOKEN_LENGTH_FOR_MASKING = 8;
+    private static final int VISIBLE_PREFIX_LENGTH = 4;
+    private static final int VISIBLE_SUFFIX_LENGTH = 4;
+    private static final String MASK_STRING = "****";
+
     private final Long id;
     private final Long workspaceId;
     private final String teamId;
     private final String channelId;
     private final String channelName;
+    private final String botToken;
     private final String createdByGoogleSub;
     private boolean active;
 
@@ -19,6 +25,7 @@ public class SlackChannelMapping {
             String teamId,
             String channelId,
             String channelName,
+            String botToken,
             String createdByGoogleSub,
             boolean active) {
         this.id = id;
@@ -26,6 +33,7 @@ public class SlackChannelMapping {
         this.teamId = requireNotBlank(teamId, "teamId");
         this.channelId = requireNotBlank(channelId, "channelId");
         this.channelName = normalizeOptional(channelName);
+        this.botToken = requireNotBlank(botToken, "botToken");
         this.createdByGoogleSub = requireNotBlank(createdByGoogleSub, "createdByGoogleSub");
         this.active = active;
     }
@@ -35,6 +43,7 @@ public class SlackChannelMapping {
             String teamId,
             String channelId,
             String channelName,
+            String botToken,
             String createdByGoogleSub) {
         return new SlackChannelMapping(
                 null,
@@ -42,6 +51,7 @@ public class SlackChannelMapping {
                 teamId,
                 channelId,
                 channelName,
+                botToken,
                 createdByGoogleSub,
                 true);
     }
@@ -52,6 +62,7 @@ public class SlackChannelMapping {
             String teamId,
             String channelId,
             String channelName,
+            String botToken,
             String createdByGoogleSub,
             boolean active) {
         return new SlackChannelMapping(
@@ -60,6 +71,7 @@ public class SlackChannelMapping {
                 teamId,
                 channelId,
                 channelName,
+                botToken,
                 createdByGoogleSub,
                 active);
     }
@@ -91,6 +103,19 @@ public class SlackChannelMapping {
 
     public String getChannelName() {
         return channelName;
+    }
+
+    public String getBotToken() {
+        return botToken;
+    }
+
+    public String maskedBotToken() {
+        if (botToken.length() <= MIN_TOKEN_LENGTH_FOR_MASKING) {
+            return MASK_STRING;
+        }
+        return botToken.substring(0, VISIBLE_PREFIX_LENGTH)
+                + MASK_STRING
+                + botToken.substring(botToken.length() - VISIBLE_SUFFIX_LENGTH);
     }
 
     public String getCreatedByGoogleSub() {

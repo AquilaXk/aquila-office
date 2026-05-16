@@ -37,6 +37,9 @@ public class SlackChannelMappingJpaEntity extends BaseEntity {
     @Column(name = "channel_name", length = 120)
     private String channelName;
 
+    @Column(name = "bot_token", nullable = false, columnDefinition = "TEXT")
+    private String botToken;
+
     @Column(name = "created_by_google_sub", nullable = false, length = 120)
     private String createdByGoogleSub;
 
@@ -50,12 +53,14 @@ public class SlackChannelMappingJpaEntity extends BaseEntity {
             String teamId,
             String channelId,
             String channelName,
+            String botToken,
             String createdByGoogleSub,
             boolean active) {
         this.workspace = requireWorkspaceEntity(workspace);
         this.teamId = teamId;
         this.channelId = channelId;
         this.channelName = channelName;
+        this.botToken = botToken;
         this.createdByGoogleSub = createdByGoogleSub;
         this.active = active;
     }
@@ -68,6 +73,7 @@ public class SlackChannelMappingJpaEntity extends BaseEntity {
                 mapping.getTeamId(),
                 mapping.getChannelId(),
                 mapping.getChannelName(),
+                mapping.getBotToken(),
                 mapping.getCreatedByGoogleSub(),
                 mapping.isActive());
     }
@@ -86,6 +92,10 @@ public class SlackChannelMappingJpaEntity extends BaseEntity {
 
     public String getChannelName() {
         return channelName;
+    }
+
+    public String getBotToken() {
+        return botToken;
     }
 
     public String getCreatedByGoogleSub() {

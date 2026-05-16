@@ -38,15 +38,18 @@ class SlackChannelMappingServiceTest {
                 saveMappingPort);
 
         CreateSlackChannelMappingResult result = service.createSlackChannelMapping(
-                new CreateSlackChannelMappingCommand(101L, " google-1 ", " T123 ", " C456 ", " dev-alerts "));
+                new CreateSlackChannelMappingCommand(
+                        101L, " google-1 ", " T123 ", " C456 ", " dev-alerts ", " xoxb-token-secret "));
 
         assertThat(loadMappingPort.lookupTeamId).isEqualTo("T123");
         assertThat(loadMappingPort.lookupChannelId).isEqualTo("C456");
         assertThat(saveMappingPort.savedMapping.getWorkspaceId()).isEqualTo(101L);
         assertThat(saveMappingPort.savedMapping.getTeamId()).isEqualTo("T123");
         assertThat(saveMappingPort.savedMapping.getChannelId()).isEqualTo("C456");
+        assertThat(saveMappingPort.savedMapping.getBotToken()).isEqualTo("xoxb-token-secret");
         assertThat(result.mappingId()).isEqualTo(501L);
         assertThat(result.channelName()).isEqualTo("dev-alerts");
+        assertThat(result.maskedBotToken()).isEqualTo("xoxb****cret");
     }
 
     @Test
@@ -57,6 +60,7 @@ class SlackChannelMappingServiceTest {
                 "T123",
                 "C456",
                 "dev-alerts",
+                "xoxb-token-secret",
                 "google-1",
                 true);
         FakeSaveSlackChannelMappingPort saveMappingPort = new FakeSaveSlackChannelMappingPort();
@@ -67,7 +71,8 @@ class SlackChannelMappingServiceTest {
                 saveMappingPort);
 
         assertThatThrownBy(() -> service.createSlackChannelMapping(
-                        new CreateSlackChannelMappingCommand(101L, "google-1", "T123", "C456", null)))
+                        new CreateSlackChannelMappingCommand(
+                                101L, "google-1", "T123", "C456", null, "xoxb-token-secret")))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("slack channel mapping already exists");
         assertThat(saveMappingPort.called).isFalse();
@@ -81,6 +86,7 @@ class SlackChannelMappingServiceTest {
                 "T123",
                 "C456",
                 "dev-alerts",
+                "xoxb-token-secret",
                 "google-1",
                 true);
         ListSlackChannelMappingsService service = new ListSlackChannelMappingsService(
@@ -95,6 +101,7 @@ class SlackChannelMappingServiceTest {
             assertThat(result.mappingId()).isEqualTo(501L);
             assertThat(result.teamId()).isEqualTo("T123");
             assertThat(result.channelId()).isEqualTo("C456");
+            assertThat(result.maskedBotToken()).isEqualTo("xoxb****cret");
             assertThat(result.active()).isTrue();
         });
     }
@@ -109,7 +116,8 @@ class SlackChannelMappingServiceTest {
                 saveMappingPort);
 
         assertThatThrownBy(() -> service.createSlackChannelMapping(
-                        new CreateSlackChannelMappingCommand(101L, "google-2", "T123", "C456", null)))
+                        new CreateSlackChannelMappingCommand(
+                                101L, "google-2", "T123", "C456", null, "xoxb-token-secret")))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("workspace admin membership required");
         assertThat(saveMappingPort.called).isFalse();
@@ -198,6 +206,7 @@ class SlackChannelMappingServiceTest {
                     mapping.getTeamId(),
                     mapping.getChannelId(),
                     mapping.getChannelName(),
+                    mapping.getBotToken(),
                     mapping.getCreatedByGoogleSub(),
                     mapping.isActive());
         }

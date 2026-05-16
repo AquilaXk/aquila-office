@@ -61,6 +61,7 @@ public class ListSlackChannelMappingsService implements ListSlackChannelMappings
                 mapping.getTeamId(),
                 mapping.getChannelId(),
                 mapping.getChannelName(),
+                mapping.maskedBotToken(),
                 mapping.getCreatedByGoogleSub(),
                 mapping.isActive());
     }

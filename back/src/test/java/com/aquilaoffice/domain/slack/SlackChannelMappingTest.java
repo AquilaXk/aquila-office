@@ -17,12 +17,14 @@ class SlackChannelMappingTest {
                 " T123 ",
                 " C456 ",
                 " dev-alerts ",
+                " xoxb-token-secret ",
                 " google-1 ");
 
         assertThat(mapping.getWorkspaceId()).isEqualTo(101L);
         assertThat(mapping.getTeamId()).isEqualTo("T123");
         assertThat(mapping.getChannelId()).isEqualTo("C456");
         assertThat(mapping.getChannelName()).isEqualTo("dev-alerts");
+        assertThat(mapping.getBotToken()).isEqualTo("xoxb-token-secret");
         assertThat(mapping.getCreatedByGoogleSub()).isEqualTo("google-1");
         assertThat(mapping.isActive()).isTrue();
         assertThat(mapping.hasSameChannel("T123", "C456")).isTrue();
@@ -36,6 +38,7 @@ class SlackChannelMappingTest {
                 "T123",
                 "C456",
                 "dev-alerts",
+                "xoxb-token-secret",
                 "google-1",
                 false);
 
@@ -50,6 +53,7 @@ class SlackChannelMappingTest {
                 "T123",
                 "C456",
                 null,
+                "xoxb-token-secret",
                 "google-1");
 
         mapping.deactivate();
@@ -64,6 +68,7 @@ class SlackChannelMappingTest {
                 " T123 ",
                 " C456 ",
                 null,
+                "xoxb-token-secret",
                 "google-1");
 
         assertThat(mapping.hasSameChannel(" T123 ", " C456 ")).isTrue();
@@ -72,16 +77,19 @@ class SlackChannelMappingTest {
 
     @Test
     void createRejectsInvalidRequiredValues() {
-        assertThatThrownBy(() -> SlackChannelMapping.create(0L, "T123", "C456", null, "google-1"))
+        assertThatThrownBy(() -> SlackChannelMapping.create(0L, "T123", "C456", null, "xoxb-token-secret", "google-1"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("workspaceId must be positive");
-        assertThatThrownBy(() -> SlackChannelMapping.create(101L, " ", "C456", null, "google-1"))
+        assertThatThrownBy(() -> SlackChannelMapping.create(101L, " ", "C456", null, "xoxb-token-secret", "google-1"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("teamId must not be blank");
-        assertThatThrownBy(() -> SlackChannelMapping.create(101L, "T123", " ", null, "google-1"))
+        assertThatThrownBy(() -> SlackChannelMapping.create(101L, "T123", " ", null, "xoxb-token-secret", "google-1"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("channelId must not be blank");
-        assertThatThrownBy(() -> SlackChannelMapping.create(101L, "T123", "C456", null, " "))
+        assertThatThrownBy(() -> SlackChannelMapping.create(101L, "T123", "C456", null, " ", "google-1"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("botToken must not be blank");
+        assertThatThrownBy(() -> SlackChannelMapping.create(101L, "T123", "C456", null, "xoxb-token-secret", " "))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("createdByGoogleSub must not be blank");
     }

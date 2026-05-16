@@ -49,14 +49,17 @@ class SlackChannelMappingPersistenceAdapterTest {
                 " T123 ",
                 " C456 ",
                 " dev-alerts ",
+                " xoxb-token-secret ",
                 " creator-google "));
 
         assertThat(savedMapping.getId()).isNotNull();
         assertThat(savedMapping.getWorkspaceId()).isEqualTo(workspaceEntity.getId());
+        assertThat(savedMapping.getBotToken()).isEqualTo("xoxb-token-secret");
         assertThat(loadSlackChannelMappingPort.findActiveByTeamIdAndChannelId("T123", "C456"))
                 .hasValueSatisfying(found -> {
                     assertThat(found.getId()).isEqualTo(savedMapping.getId());
                     assertThat(found.getChannelName()).isEqualTo("dev-alerts");
+                    assertThat(found.getBotToken()).isEqualTo("xoxb-token-secret");
                     assertThat(found.isActive()).isTrue();
                 });
     }
@@ -69,6 +72,7 @@ class SlackChannelMappingPersistenceAdapterTest {
                 "T123",
                 "C456",
                 null,
+                "xoxb-token-secret",
                 "creator-google");
         inactiveMapping.deactivate();
         saveSlackChannelMappingPort.save(inactiveMapping);
@@ -85,12 +89,14 @@ class SlackChannelMappingPersistenceAdapterTest {
                 "T123",
                 "C456",
                 "dev-alerts",
+                "xoxb-token-secret",
                 "creator-google"));
         SlackChannelMapping inactiveMapping = SlackChannelMapping.create(
                 workspaceEntity.getId(),
                 "T123",
                 "C789",
                 "old-alerts",
+                "xoxb-token-secret",
                 "creator-google");
         inactiveMapping.deactivate();
         saveSlackChannelMappingPort.save(inactiveMapping);
@@ -99,6 +105,7 @@ class SlackChannelMappingPersistenceAdapterTest {
                 "T999",
                 "C999",
                 "other-alerts",
+                "xoxb-token-secret",
                 "other-google"));
 
         List<SlackChannelMapping> mappings =

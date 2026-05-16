@@ -66,6 +66,7 @@ public class SlackChannelMappingPersistenceAdapter
                 entity.getTeamId(),
                 entity.getChannelId(),
                 entity.getChannelName(),
+                entity.getBotToken(),
                 entity.getCreatedByGoogleSub(),
                 entity.isActive());
     }

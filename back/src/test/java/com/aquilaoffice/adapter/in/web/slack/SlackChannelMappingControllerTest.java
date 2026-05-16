@@ -60,7 +60,8 @@ class SlackChannelMappingControllerTest {
                                 {
                                   "teamId": " T123 ",
                                   "channelId": " C456 ",
-                                  "channelName": " dev-alerts "
+                                  "channelName": " dev-alerts ",
+                                  "botToken": " xoxb-token-secret "
                                 }
                                 """))
                 .andExpect(status().isCreated())
@@ -73,6 +74,8 @@ class SlackChannelMappingControllerTest {
                 .andExpect(jsonPath("$.data.teamId").value("T123"))
                 .andExpect(jsonPath("$.data.channelId").value("C456"))
                 .andExpect(jsonPath("$.data.channelName").value("dev-alerts"))
+                .andExpect(jsonPath("$.data.maskedBotToken").value("xoxb****cret"))
+                .andExpect(jsonPath("$.data.botToken").doesNotExist())
                 .andExpect(jsonPath("$.data.active").value(true));
 
         ArgumentCaptor<CreateSlackChannelMappingCommand> commandCaptor =
@@ -84,6 +87,7 @@ class SlackChannelMappingControllerTest {
         assertThat(command.teamId()).isEqualTo("T123");
         assertThat(command.channelId()).isEqualTo("C456");
         assertThat(command.channelName()).isEqualTo("dev-alerts");
+        assertThat(command.botToken()).isEqualTo("xoxb-token-secret");
     }
 
     @Test
@@ -98,6 +102,8 @@ class SlackChannelMappingControllerTest {
                 .andExpect(jsonPath("$.data[0].mappingId").value(501))
                 .andExpect(jsonPath("$.data[0].teamId").value("T123"))
                 .andExpect(jsonPath("$.data[0].channelId").value("C456"))
+                .andExpect(jsonPath("$.data[0].maskedBotToken").value("xoxb****cret"))
+                .andExpect(jsonPath("$.data[0].botToken").doesNotExist())
                 .andExpect(jsonPath("$.data[0].active").value(true));
 
         ArgumentCaptor<ListSlackChannelMappingsQuery> queryCaptor =
@@ -149,6 +155,7 @@ class SlackChannelMappingControllerTest {
                 "T123",
                 "C456",
                 "dev-alerts",
+                "xoxb****cret",
                 "google-1",
                 true);
     }
@@ -160,6 +167,7 @@ class SlackChannelMappingControllerTest {
                 "T123",
                 "C456",
                 "dev-alerts",
+                "xoxb****cret",
                 "google-1",
                 true);
     }
