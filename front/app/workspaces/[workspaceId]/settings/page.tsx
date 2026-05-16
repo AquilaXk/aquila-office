@@ -32,6 +32,18 @@ import {
 } from "react";
 import { ApiError } from "@/lib/api-client";
 import {
+  createWorkspaceGatewayBinding,
+  fetchWorkspaceGatewayStatus,
+  testWorkspaceGatewayConnection,
+  type WorkspaceGatewayConnectionTest,
+  type WorkspaceGatewayStatus,
+} from "@/lib/gateway";
+import {
+  gatewayConnectionStatusLabel,
+  gatewayStatusLabel,
+  normalizeGatewayForm,
+} from "@/lib/gateway-utils";
+import {
   createGithubCredential,
   deleteGithubCredential,
   fetchGithubCredentials,
@@ -87,6 +99,18 @@ type GithubCredentialState =
   | { status: "loading"; credentials: []; error: null }
   | { status: "ready"; credentials: GithubCredential[]; error: null }
   | { status: "error"; credentials: []; error: string };
+
+type GatewayStatusState =
+  | { status: "idle"; gateway: null; error: null }
+  | { status: "loading"; gateway: null; error: null }
+  | { status: "ready"; gateway: WorkspaceGatewayStatus; error: null }
+  | { status: "error"; gateway: null; error: string };
+
+type GatewayConnectionTestState =
+  | { status: "idle"; result: null; message: null }
+  | { status: "submitting"; result: null; message: null }
+  | { status: "success"; result: WorkspaceGatewayConnectionTest; message: string }
+  | { status: "error"; result: null; message: string };
 
 type InviteStatusFilter = WorkspaceInviteManagementStatus | "ALL";
 
@@ -162,6 +186,23 @@ export default function WorkspaceSettingsPage({
     status: "idle",
     message: null,
   });
+  const [gatewayStatusState, setGatewayStatusState] = useState<GatewayStatusState>({
+    status: "idle",
+    gateway: null,
+    error: null,
+  });
+  const [gatewayUrlInput, setGatewayUrlInput] = useState("");
+  const [gatewayTokenInput, setGatewayTokenInput] = useState("");
+  const [gatewayConnectionTestState, setGatewayConnectionTestState] =
+    useState<GatewayConnectionTestState>({
+      status: "idle",
+      result: null,
+      message: null,
+    });
+  const [gatewayBindingState, setGatewayBindingState] = useState<MutationState>({
+    status: "idle",
+    message: null,
+  });
 
   const fetchSettings = useCallback(async () => {
     if (!isValidWorkspaceId(numericWorkspaceId)) {
@@ -217,6 +258,22 @@ export default function WorkspaceSettingsPage({
         credentials: [],
         error: messageFromError(error, "GitHub 자격 증명 목록을 확인하지 못했습니다."),
       } satisfies GithubCredentialState;
+    }
+  }, [numericWorkspaceId]);
+
+  const fetchGatewayStatus = useCallback(async () => {
+    try {
+      const gateway = await fetchWorkspaceGatewayStatus(
+        TEMP_MEMBER_GOOGLE_SUB,
+        numericWorkspaceId,
+      );
+      return { status: "ready", gateway, error: null } satisfies GatewayStatusState;
+    } catch (error) {
+      return {
+        status: "error",
+        gateway: null,
+        error: messageFromError(error, "gateway 상태를 확인하지 못했습니다."),
+      } satisfies GatewayStatusState;
     }
   }, [numericWorkspaceId]);
 
@@ -306,6 +363,36 @@ export default function WorkspaceSettingsPage({
     };
   }, [fetchGithubCredentialList, state]);
 
+  useEffect(() => {
+    let ignore = false;
+
+    async function loadGatewayStatus() {
+      if (state.status !== "ready" || state.workspace.myRole !== "ADMIN") {
+        setGatewayStatusState({ status: "idle", gateway: null, error: null });
+        return;
+      }
+
+      await Promise.resolve();
+      if (!ignore) {
+        setGatewayStatusState({ status: "loading", gateway: null, error: null });
+      }
+
+      const nextState = await fetchGatewayStatus();
+      if (!ignore) {
+        setGatewayStatusState(nextState);
+        if (nextState.status === "ready" && nextState.gateway.gatewayUrl) {
+          setGatewayUrlInput((previous) => previous || nextState.gateway.gatewayUrl || "");
+        }
+      }
+    }
+
+    void loadGatewayStatus();
+
+    return () => {
+      ignore = true;
+    };
+  }, [fetchGatewayStatus, state]);
+
   const workspace = state.workspace;
   const members = state.status === "ready" ? state.members : [];
   const isAdmin = workspace?.myRole === "ADMIN";
@@ -325,6 +412,20 @@ export default function WorkspaceSettingsPage({
   const isInviteLogLoading = inviteLogState.status === "loading";
   const hasInviteAction = inviteActionId !== null;
   const isGithubCredentialLoading = githubCredentialState.status === "loading";
+  const isGatewayStatusLoading = gatewayStatusState.status === "loading";
+  const normalizedGatewayForm = useMemo(
+    () =>
+      normalizeGatewayForm({
+        gatewayUrl: gatewayUrlInput,
+        token: gatewayTokenInput,
+        validateConnection: true,
+      }),
+    [gatewayTokenInput, gatewayUrlInput],
+  );
+  const isTestingGateway = gatewayConnectionTestState.status === "submitting";
+  const isBindingGateway = gatewayBindingState.status === "submitting";
+  const canSubmitGateway =
+    isAdmin && normalizedGatewayForm.isValid && !isTestingGateway && !isBindingGateway;
   const trimmedGithubDisplayName = githubDisplayNameInput.trim();
   const trimmedGithubToken = githubTokenInput.trim();
   const isCreatingGithubCredential = githubCreateState.status === "submitting";
@@ -344,6 +445,101 @@ export default function WorkspaceSettingsPage({
     setInviteLogState({ status: "loading", invites: [], error: null });
     setInviteActionState({ status: "idle", message: null });
     setInviteLogState(await fetchInviteLog(toInviteStatusParam(inviteFilter)));
+  };
+
+  const reloadGatewayStatus = async () => {
+    if (!isAdmin) {
+      return;
+    }
+
+    setGatewayStatusState({ status: "loading", gateway: null, error: null });
+    const nextState = await fetchGatewayStatus();
+    setGatewayStatusState(nextState);
+    if (nextState.status === "ready" && nextState.gateway.gatewayUrl) {
+      setGatewayUrlInput((previous) => previous || nextState.gateway.gatewayUrl || "");
+    }
+  };
+
+  const handleTestGatewayConnection = async () => {
+    if (!isAdmin) {
+      return;
+    }
+
+    if (!normalizedGatewayForm.isValid) {
+      setGatewayConnectionTestState({
+        status: "error",
+        result: null,
+        message:
+          normalizedGatewayForm.urlError ??
+          normalizedGatewayForm.tokenError ??
+          "gateway 연결 정보를 확인해 주세요.",
+      });
+      return;
+    }
+
+    setGatewayConnectionTestState({ status: "submitting", result: null, message: null });
+    try {
+      const result = await testWorkspaceGatewayConnection(
+        TEMP_MEMBER_GOOGLE_SUB,
+        numericWorkspaceId,
+        {
+          gatewayUrl: normalizedGatewayForm.gatewayUrl,
+          token: normalizedGatewayForm.token,
+        },
+      );
+      setGatewayConnectionTestState({
+        status: "success",
+        result,
+        message: result.message || gatewayConnectionStatusLabel(result.status),
+      });
+    } catch (error) {
+      setGatewayConnectionTestState({
+        status: "error",
+        result: null,
+        message: messageFromError(error, "gateway 연결 테스트를 처리하지 못했습니다."),
+      });
+    }
+  };
+
+  const handleCreateGatewayBinding = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (!isAdmin) {
+      return;
+    }
+
+    if (!normalizedGatewayForm.isValid) {
+      setGatewayBindingState({
+        status: "error",
+        message:
+          normalizedGatewayForm.urlError ??
+          normalizedGatewayForm.tokenError ??
+          "gateway 연결 정보를 확인해 주세요.",
+      });
+      return;
+    }
+
+    setGatewayBindingState({ status: "submitting", message: null });
+    try {
+      await createWorkspaceGatewayBinding(TEMP_MEMBER_GOOGLE_SUB, numericWorkspaceId, {
+        gatewayUrl: normalizedGatewayForm.gatewayUrl,
+        token: normalizedGatewayForm.token,
+        validateConnection: normalizedGatewayForm.validateConnection,
+      });
+      const nextGatewayStatus = await fetchGatewayStatus();
+      setGatewayStatusState(nextGatewayStatus);
+      setGatewayUrlInput(normalizedGatewayForm.gatewayUrl);
+      setGatewayTokenInput("");
+      setGatewayBindingState({
+        status: "success",
+        message: "gateway binding이 등록되었습니다.",
+      });
+    } catch (error) {
+      setGatewayBindingState({
+        status: "error",
+        message: messageFromError(error, "gateway binding을 등록하지 못했습니다."),
+      });
+    }
   };
 
   const handleRevokeInvite = async (invite: WorkspaceInviteManagement) => {
@@ -1090,6 +1286,198 @@ export default function WorkspaceSettingsPage({
                   <Mail aria-hidden="true" />
                   <strong>표시할 초대가 없습니다</strong>
                   <p>조건에 맞는 워크스페이스 초대가 생기면 이곳에 표시됩니다.</p>
+                </div>
+              ) : null}
+            </section>
+
+            <section className="workspace-settings-section" aria-label="Gateway 설정">
+              <div className="workspace-section-title">
+                <div>
+                  <span className="workspace-detail-label">Gateway</span>
+                  <h2>연결 상태</h2>
+                </div>
+                <span className={isAdmin ? "workspace-count-badge" : "workspace-lock-badge"}>
+                  {isAdmin ? "ADMIN" : "읽기 전용"}
+                </span>
+              </div>
+
+              {!isAdmin ? (
+                <p className="workspace-github-help">
+                  관리자 역할만 gateway 연결 상태를 확인하고 등록할 수 있습니다.
+                </p>
+              ) : null}
+
+              {isAdmin ? (
+                <form
+                  className="workspace-settings-form workspace-gateway-form"
+                  onSubmit={handleCreateGatewayBinding}
+                >
+                  <div className="workspace-gateway-form-grid">
+                    <label className="form-field">
+                      <span>
+                        <strong>Gateway URL</strong>
+                        <small>http:// 또는 https://</small>
+                      </span>
+                      <input
+                        value={gatewayUrlInput}
+                        onChange={(event) => {
+                          setGatewayUrlInput(event.target.value);
+                          setGatewayConnectionTestState({
+                            status: "idle",
+                            result: null,
+                            message: null,
+                          });
+                          setGatewayBindingState({ status: "idle", message: null });
+                        }}
+                        placeholder="https://gateway.example.com"
+                        disabled={!isAdmin || isTestingGateway || isBindingGateway}
+                      />
+                    </label>
+
+                    <label className="form-field">
+                      <span>
+                        <strong>Token</strong>
+                        <small>저장 후 masked token만 표시됩니다</small>
+                      </span>
+                      <input
+                        value={gatewayTokenInput}
+                        onChange={(event) => {
+                          setGatewayTokenInput(event.target.value);
+                          setGatewayConnectionTestState({
+                            status: "idle",
+                            result: null,
+                            message: null,
+                          });
+                          setGatewayBindingState({ status: "idle", message: null });
+                        }}
+                        type="password"
+                        autoComplete="off"
+                        disabled={!isAdmin || isTestingGateway || isBindingGateway}
+                      />
+                    </label>
+                  </div>
+
+                  {normalizedGatewayForm.urlError && gatewayUrlInput.trim().length > 0 ? (
+                    <SettingsNotice tone="danger" icon={<AlertCircle aria-hidden="true" />}>
+                      {normalizedGatewayForm.urlError}
+                    </SettingsNotice>
+                  ) : null}
+
+                  {gatewayConnectionTestState.status === "error" ? (
+                    <SettingsNotice tone="danger" icon={<AlertCircle aria-hidden="true" />}>
+                      {gatewayConnectionTestState.message}
+                    </SettingsNotice>
+                  ) : null}
+
+                  {gatewayConnectionTestState.status === "success" ? (
+                    <SettingsNotice tone="success" icon={<CheckCircle2 aria-hidden="true" />}>
+                      {`${gatewayConnectionStatusLabel(gatewayConnectionTestState.result.status)} · ${
+                        gatewayConnectionTestState.message
+                      } · agent ${gatewayConnectionTestState.result.agentCount}`}
+                    </SettingsNotice>
+                  ) : null}
+
+                  {gatewayBindingState.status === "error" ? (
+                    <SettingsNotice tone="danger" icon={<AlertCircle aria-hidden="true" />}>
+                      {gatewayBindingState.message}
+                    </SettingsNotice>
+                  ) : null}
+
+                  {gatewayBindingState.status === "success" ? (
+                    <SettingsNotice tone="success" icon={<CheckCircle2 aria-hidden="true" />}>
+                      {gatewayBindingState.message}
+                    </SettingsNotice>
+                  ) : null}
+
+                  <div className="workspace-settings-actions workspace-gateway-actions">
+                    <button
+                      className="secondary-action"
+                      type="button"
+                      onClick={() => void handleTestGatewayConnection()}
+                      disabled={!canSubmitGateway}
+                    >
+                      {isTestingGateway ? (
+                        <Loader2 className="spin" aria-hidden="true" />
+                      ) : (
+                        <RefreshCw aria-hidden="true" />
+                      )}
+                      <span>{isTestingGateway ? "테스트 중" : "연결 테스트"}</span>
+                    </button>
+                    <button
+                      className="primary-action primary-action-active"
+                      type="submit"
+                      disabled={!canSubmitGateway}
+                    >
+                      {isBindingGateway ? (
+                        <Loader2 className="spin" aria-hidden="true" />
+                      ) : (
+                        <KeyRound aria-hidden="true" />
+                      )}
+                      <span>{isBindingGateway ? "등록 중" : "Binding 등록"}</span>
+                    </button>
+                  </div>
+                </form>
+              ) : null}
+
+              {isAdmin ? (
+                <div className="workspace-invite-management-toolbar">
+                  <button
+                    className="secondary-action workspace-invite-refresh"
+                    type="button"
+                    onClick={() => void reloadGatewayStatus()}
+                    disabled={isGatewayStatusLoading}
+                  >
+                    <RefreshCw
+                      className={isGatewayStatusLoading ? "spin" : undefined}
+                      aria-hidden="true"
+                    />
+                    <span>상태 새로고침</span>
+                  </button>
+                </div>
+              ) : null}
+
+              {isAdmin && gatewayStatusState.status === "loading" ? (
+                <div className="workspace-member-empty">
+                  <Loader2 className="spin" aria-hidden="true" />
+                  <strong>gateway 상태 확인 중</strong>
+                  <p>워크스페이스 gateway binding 상태를 불러오고 있습니다.</p>
+                </div>
+              ) : null}
+
+              {isAdmin && gatewayStatusState.status === "error" ? (
+                <SettingsNotice tone="danger" icon={<AlertCircle aria-hidden="true" />}>
+                  {gatewayStatusState.error}
+                </SettingsNotice>
+              ) : null}
+
+              {isAdmin && gatewayStatusState.status === "ready" ? (
+                <div className="workspace-settings-member-list">
+                  <article className="workspace-settings-member-row">
+                    <div className="workspace-member-avatar">
+                      <KeyRound aria-hidden="true" />
+                    </div>
+                    <div className="workspace-member-main">
+                      <strong>{gatewayStatusLabel(gatewayStatusState.gateway.status)}</strong>
+                      <p>{gatewayStatusState.gateway.gatewayUrl ?? "등록된 gateway URL이 없습니다"}</p>
+                      <span>
+                        {gatewayStatusState.gateway.maskedToken
+                          ? `Token ${gatewayStatusState.gateway.maskedToken}`
+                          : "Token 미등록"}
+                      </span>
+                    </div>
+                    <div className="workspace-settings-member-actions">
+                      <div className="workspace-member-meta">
+                        <span className="role-badge">
+                          {gatewayStatusState.gateway.mode ?? "UNBOUND"}
+                        </span>
+                        <span>
+                          {gatewayStatusState.gateway.updatedAt
+                            ? `수정 ${formatDateTime(gatewayStatusState.gateway.updatedAt)}`
+                            : "수정 이력 없음"}
+                        </span>
+                      </div>
+                    </div>
+                  </article>
                 </div>
               ) : null}
             </section>
