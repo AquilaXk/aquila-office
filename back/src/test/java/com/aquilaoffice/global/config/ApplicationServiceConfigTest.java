@@ -115,6 +115,7 @@ import com.aquilaoffice.application.service.UpdateWorkspaceService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 /**
@@ -509,6 +510,12 @@ class ApplicationServiceConfigTest {
     @Test
     void registersReceiveSlackEventUseCase() {
         assertThat(receiveSlackEventUseCase).isInstanceOf(ReceiveSlackEventService.class);
+    }
+
+    @Test
+    void wiresReceiveSlackEventUseCaseWithChannelMappingPort() {
+        assertThat(ReflectionTestUtils.getField(receiveSlackEventUseCase, "loadSlackChannelMappingPort"))
+                .isSameAs(loadSlackChannelMappingPort);
     }
 
     @Test
