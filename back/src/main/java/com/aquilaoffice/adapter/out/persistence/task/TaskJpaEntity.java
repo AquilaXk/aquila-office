@@ -47,6 +47,9 @@ public class TaskJpaEntity extends BaseEntity {
     @Column(name = "assigned_agent_id")
     private Long assignedAgentId;
 
+    @Column(name = "source_ref", length = 240)
+    private String sourceRef;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 30)
     private TaskStatus status;
@@ -67,6 +70,7 @@ public class TaskJpaEntity extends BaseEntity {
             TaskType type,
             TaskPriority priority,
             Long assignedAgentId,
+            String sourceRef,
             TaskStatus status,
             LocalDateTime createdAt,
             LocalDateTime updatedAt) {
@@ -77,6 +81,7 @@ public class TaskJpaEntity extends BaseEntity {
         this.type = type;
         this.priority = priority;
         this.assignedAgentId = assignedAgentId;
+        this.sourceRef = sourceRef;
         this.status = status;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
@@ -92,6 +97,7 @@ public class TaskJpaEntity extends BaseEntity {
                 task.getType(),
                 task.getPriority(),
                 task.getAssignedAgentId(),
+                task.getSourceRef(),
                 task.getStatus(),
                 now,
                 now);
@@ -131,6 +137,10 @@ public class TaskJpaEntity extends BaseEntity {
 
     public Long getAssignedAgentId() {
         return assignedAgentId;
+    }
+
+    public String getSourceRef() {
+        return sourceRef;
     }
 
     public TaskStatus getStatus() {

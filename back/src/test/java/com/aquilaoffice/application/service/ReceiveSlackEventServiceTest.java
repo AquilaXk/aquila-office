@@ -69,6 +69,7 @@ class ReceiveSlackEventServiceTest {
         assertThat(sendChatMessageUseCase.command.taskType()).isEqualTo(TaskType.OTHER);
         assertThat(sendChatMessageUseCase.command.priority()).isEqualTo(TaskPriority.MEDIUM);
         assertThat(sendChatMessageUseCase.command.createPr()).isTrue();
+        assertThat(sendChatMessageUseCase.command.sourceRef()).isEqualTo("T123:C456:1715841000.000100");
         assertThat(result.processed()).isTrue();
         assertThat(result.taskId()).isEqualTo(301L);
         assertThat(result.chatSessionId()).isEqualTo(901L);

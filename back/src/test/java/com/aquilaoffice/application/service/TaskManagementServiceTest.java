@@ -179,6 +179,7 @@ class TaskManagementServiceTest {
                 TaskType.TEST_CREATION,
                 TaskPriority.HIGH,
                 assignedAgentId,
+                null,
                 status,
                 LocalDateTime.of(2026, 5, 16, 10, 0),
                 LocalDateTime.of(2026, 5, 16, 10, 0));
@@ -208,6 +209,7 @@ class TaskManagementServiceTest {
                 TaskType.TEST_CREATION,
                 TaskPriority.HIGH,
                 assignedAgentId,
+                null,
                 status,
                 LocalDateTime.of(2026, 5, 16, 10, 0),
                 LocalDateTime.of(2026, 5, 16, 10, 0));

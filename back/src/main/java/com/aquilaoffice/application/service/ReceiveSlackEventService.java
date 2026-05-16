@@ -67,6 +67,7 @@ public class ReceiveSlackEventService implements ReceiveSlackEventUseCase {
         if (resolvedWorkspace == null) {
             return ignored(null, "slack channel mapping not found");
         }
+        String eventSourceRef = sourceRef(command.teamId(), event.channel(), event.ts(), event.threadTs());
         SendChatMessageResult sendResult = sendChatMessageUseCase.sendChatMessage(new SendChatMessageCommand(
                 resolvedWorkspace.workspaceId(),
                 resolvedWorkspace.requesterGoogleSub(),
@@ -77,7 +78,8 @@ public class ReceiveSlackEventService implements ReceiveSlackEventUseCase {
                 TaskPriority.MEDIUM,
                 resolveTitle(parsedCommand.message()),
                 true,
-                null));
+                null,
+                eventSourceRef));
 
         return new ReceiveSlackEventResult(
                 null,
@@ -85,7 +87,7 @@ public class ReceiveSlackEventService implements ReceiveSlackEventUseCase {
                 null,
                 sendResult.taskId(),
                 sendResult.chatSessionId(),
-                sourceRef(command.teamId(), event.channel(), event.ts(), event.threadTs()));
+                eventSourceRef);
     }
 
     private ResolvedSlackWorkspace resolveWorkspace(

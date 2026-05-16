@@ -14,6 +14,7 @@ public record SavedTask(
         TaskType type,
         TaskPriority priority,
         Long assignedAgentId,
+        String sourceRef,
         TaskStatus status,
         LocalDateTime createdAt,
         LocalDateTime updatedAt) {}

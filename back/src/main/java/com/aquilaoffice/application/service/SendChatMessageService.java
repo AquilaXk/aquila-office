@@ -85,7 +85,8 @@ public class SendChatMessageService implements SendChatMessageUseCase {
                 message,
                 command.taskType(),
                 command.priority(),
-                agentId));
+                agentId,
+                command.sourceRef()));
         List<SavedChatMessage> savedMessages = new ArrayList<>();
         savedMessages.add(saveChatMessagePort.save(ChatMessage.create(
                 command.workspaceId(),
