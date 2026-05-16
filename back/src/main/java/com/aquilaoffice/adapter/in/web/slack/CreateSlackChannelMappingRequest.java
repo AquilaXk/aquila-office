@@ -9,7 +9,8 @@ import jakarta.validation.constraints.NotBlank;
 public record CreateSlackChannelMappingRequest(
         @NotBlank String teamId,
         @NotBlank String channelId,
-        String channelName) {
+        String channelName,
+        @NotBlank String botToken) {
 
     public CreateSlackChannelMappingCommand toCommand(Long workspaceId, String requesterGoogleSub) {
         return new CreateSlackChannelMappingCommand(
@@ -17,6 +18,7 @@ public record CreateSlackChannelMappingRequest(
                 requesterGoogleSub,
                 teamId,
                 channelId,
-                channelName);
+                channelName,
+                botToken);
     }
 }

@@ -87,6 +87,7 @@ class ReceiveSlackEventServiceTest {
                         "T123",
                         "C456",
                         "dev-alerts",
+                        "xoxb-token-secret",
                         "google-mapped",
                         true))));
 

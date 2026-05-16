@@ -10,6 +10,7 @@ public class SlackChannelMapping {
     private final String teamId;
     private final String channelId;
     private final String channelName;
+    private final String botToken;
     private final String createdByGoogleSub;
     private boolean active;
 
@@ -19,6 +20,7 @@ public class SlackChannelMapping {
             String teamId,
             String channelId,
             String channelName,
+            String botToken,
             String createdByGoogleSub,
             boolean active) {
         this.id = id;
@@ -26,6 +28,7 @@ public class SlackChannelMapping {
         this.teamId = requireNotBlank(teamId, "teamId");
         this.channelId = requireNotBlank(channelId, "channelId");
         this.channelName = normalizeOptional(channelName);
+        this.botToken = requireNotBlank(botToken, "botToken");
         this.createdByGoogleSub = requireNotBlank(createdByGoogleSub, "createdByGoogleSub");
         this.active = active;
     }
@@ -35,6 +38,7 @@ public class SlackChannelMapping {
             String teamId,
             String channelId,
             String channelName,
+            String botToken,
             String createdByGoogleSub) {
         return new SlackChannelMapping(
                 null,
@@ -42,6 +46,7 @@ public class SlackChannelMapping {
                 teamId,
                 channelId,
                 channelName,
+                botToken,
                 createdByGoogleSub,
                 true);
     }
@@ -52,6 +57,7 @@ public class SlackChannelMapping {
             String teamId,
             String channelId,
             String channelName,
+            String botToken,
             String createdByGoogleSub,
             boolean active) {
         return new SlackChannelMapping(
@@ -60,6 +66,7 @@ public class SlackChannelMapping {
                 teamId,
                 channelId,
                 channelName,
+                botToken,
                 createdByGoogleSub,
                 active);
     }
@@ -91,6 +98,10 @@ public class SlackChannelMapping {
 
     public String getChannelName() {
         return channelName;
+    }
+
+    public String getBotToken() {
+        return botToken;
     }
 
     public String getCreatedByGoogleSub() {

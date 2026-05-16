@@ -8,13 +8,15 @@ public record CreateSlackChannelMappingCommand(
         String requesterGoogleSub,
         String teamId,
         String channelId,
-        String channelName) {
+        String channelName,
+        String botToken) {
 
     public CreateSlackChannelMappingCommand {
         requesterGoogleSub = normalizeRequired(requesterGoogleSub, "requesterGoogleSub");
         teamId = normalizeRequired(teamId, "teamId");
         channelId = normalizeRequired(channelId, "channelId");
         channelName = normalizeOptional(channelName);
+        botToken = normalizeRequired(botToken, "botToken");
     }
 
     private static String normalizeRequired(String value, String fieldName) {

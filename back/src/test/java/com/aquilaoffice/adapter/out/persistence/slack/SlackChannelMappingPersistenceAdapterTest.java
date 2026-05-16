@@ -49,6 +49,7 @@ class SlackChannelMappingPersistenceAdapterTest {
                 " T123 ",
                 " C456 ",
                 " dev-alerts ",
+                " xoxb-token-secret ",
                 " creator-google "));
 
         assertThat(savedMapping.getId()).isNotNull();
@@ -69,6 +70,7 @@ class SlackChannelMappingPersistenceAdapterTest {
                 "T123",
                 "C456",
                 null,
+                "xoxb-token-secret",
                 "creator-google");
         inactiveMapping.deactivate();
         saveSlackChannelMappingPort.save(inactiveMapping);
@@ -85,12 +87,14 @@ class SlackChannelMappingPersistenceAdapterTest {
                 "T123",
                 "C456",
                 "dev-alerts",
+                "xoxb-token-secret",
                 "creator-google"));
         SlackChannelMapping inactiveMapping = SlackChannelMapping.create(
                 workspaceEntity.getId(),
                 "T123",
                 "C789",
                 "old-alerts",
+                "xoxb-token-secret",
                 "creator-google");
         inactiveMapping.deactivate();
         saveSlackChannelMappingPort.save(inactiveMapping);
@@ -99,6 +103,7 @@ class SlackChannelMappingPersistenceAdapterTest {
                 "T999",
                 "C999",
                 "other-alerts",
+                "xoxb-token-secret",
                 "other-google"));
 
         List<SlackChannelMapping> mappings =
