@@ -2,6 +2,8 @@ package com.aquilaoffice.adapter.out.auth;
 
 import com.aquilaoffice.application.port.out.IssueAuthTokenPort;
 import com.aquilaoffice.application.port.out.IssuedAuthTokens;
+import com.aquilaoffice.application.port.out.ResolveAccessTokenPort;
+import com.aquilaoffice.application.port.out.ResolvedAccessToken;
 import com.aquilaoffice.application.port.out.ResolveRefreshTokenPort;
 import com.aquilaoffice.application.port.out.ResolvedRefreshToken;
 import com.aquilaoffice.domain.member.MemberRole;
@@ -14,7 +16,7 @@ import org.springframework.stereotype.Component;
  * 개발 환경에서 사용할 수 있는 self-contained auth token 문자열을 발급하고 해석하는 adapter다.
  */
 @Component
-public class DeterministicAuthTokenIssuer implements IssueAuthTokenPort, ResolveRefreshTokenPort {
+public class DeterministicAuthTokenIssuer implements IssueAuthTokenPort, ResolveRefreshTokenPort, ResolveAccessTokenPort {
 
     private static final String ACCESS_PREFIX = "aquila-access.";
     private static final String REFRESH_PREFIX = "aquila-refresh.";
@@ -52,10 +54,8 @@ public class DeterministicAuthTokenIssuer implements IssueAuthTokenPort, Resolve
             throw new IllegalArgumentException("refreshToken is invalid");
         }
 
-        String[] payload = decode(normalizedToken.substring(REFRESH_PREFIX.length()));
-        if (payload.length != TOKEN_PAYLOAD_LENGTH || !REFRESH_TOKEN_TYPE.equals(payload[TOKEN_TYPE_INDEX])) {
-            throw new IllegalArgumentException("refreshToken is invalid");
-        }
+        String[] payload = decode(normalizedToken.substring(REFRESH_PREFIX.length()), "refreshToken");
+        validatePayload(payload, REFRESH_TOKEN_TYPE, "refreshToken");
 
         try {
             return new ResolvedRefreshToken(
@@ -63,7 +63,29 @@ public class DeterministicAuthTokenIssuer implements IssueAuthTokenPort, Resolve
                     payload[EMAIL_INDEX],
                     MemberRole.valueOf(payload[ROLE_INDEX]));
         } catch (IllegalArgumentException exception) {
-            throw new IllegalArgumentException("refreshToken is invalid", exception);
+            throw new IllegalArgumentException("refreshToken is invalid");
+        }
+    }
+
+    @Override
+    public ResolvedAccessToken resolveAccessToken(String accessToken) {
+        if (accessToken == null || accessToken.isBlank()) {
+            throw new IllegalArgumentException("accessToken must not be blank");
+        }
+        String normalizedToken = accessToken.trim();
+        if (!normalizedToken.startsWith(ACCESS_PREFIX)) {
+            throw new IllegalArgumentException("accessToken is invalid");
+        }
+
+        String[] payload = decode(normalizedToken.substring(ACCESS_PREFIX.length()), "accessToken");
+        validatePayload(payload, ACCESS_TOKEN_TYPE, "accessToken");
+        try {
+            return new ResolvedAccessToken(
+                    Long.parseLong(payload[MEMBER_ID_INDEX]),
+                    payload[EMAIL_INDEX],
+                    MemberRole.valueOf(payload[ROLE_INDEX]));
+        } catch (IllegalArgumentException exception) {
+            throw new IllegalArgumentException("accessToken is invalid", exception);
         }
     }
 
@@ -72,13 +94,19 @@ public class DeterministicAuthTokenIssuer implements IssueAuthTokenPort, Resolve
         return Base64.getUrlEncoder().withoutPadding().encodeToString(payload.getBytes(StandardCharsets.UTF_8));
     }
 
-    private String[] decode(String encodedPayload) {
+    private String[] decode(String encodedPayload, String tokenName) {
         try {
             byte[] decoded = Base64.getUrlDecoder().decode(encodedPayload);
             String payload = new String(decoded, StandardCharsets.UTF_8);
             return payload.split(":", -1);
         } catch (IllegalArgumentException exception) {
-            throw new IllegalArgumentException("refreshToken is invalid", exception);
+            throw new IllegalArgumentException(tokenName + " is invalid", exception);
+        }
+    }
+
+    private void validatePayload(String[] payload, String expectedTokenType, String tokenName) {
+        if (payload.length != TOKEN_PAYLOAD_LENGTH || !expectedTokenType.equals(payload[TOKEN_TYPE_INDEX])) {
+            throw new IllegalArgumentException(tokenName + " is invalid");
         }
     }
 }
