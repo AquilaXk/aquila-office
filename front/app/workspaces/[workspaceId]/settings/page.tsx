@@ -6,7 +6,9 @@ import {
   Building2,
   CalendarDays,
   CheckCircle2,
+  Github,
   Hash,
+  KeyRound,
   Loader2,
   Mail,
   RefreshCw,
@@ -29,6 +31,10 @@ import {
   type ReactNode,
 } from "react";
 import { ApiError } from "@/lib/api-client";
+import {
+  fetchGithubCredentials,
+  type GithubCredential,
+} from "@/lib/github";
 import {
   fetchWorkspaceInvites,
   revokeWorkspaceInvite,
@@ -72,6 +78,12 @@ type InviteLogState =
   | { status: "loading"; invites: []; error: null }
   | { status: "ready"; invites: WorkspaceInviteManagement[]; error: null }
   | { status: "error"; invites: []; error: string };
+
+type GithubCredentialState =
+  | { status: "idle"; credentials: []; error: null }
+  | { status: "loading"; credentials: []; error: null }
+  | { status: "ready"; credentials: GithubCredential[]; error: null }
+  | { status: "error"; credentials: []; error: string };
 
 type InviteStatusFilter = WorkspaceInviteManagementStatus | "ALL";
 
@@ -124,6 +136,11 @@ export default function WorkspaceSettingsPage({
     status: "idle",
     message: null,
   });
+  const [githubCredentialState, setGithubCredentialState] = useState<GithubCredentialState>({
+    status: "idle",
+    credentials: [],
+    error: null,
+  });
 
   const fetchSettings = useCallback(async () => {
     if (!isValidWorkspaceId(numericWorkspaceId)) {
@@ -165,6 +182,22 @@ export default function WorkspaceSettingsPage({
     },
     [numericWorkspaceId],
   );
+
+  const fetchGithubCredentialList = useCallback(async () => {
+    try {
+      const credentials = await fetchGithubCredentials(
+        TEMP_MEMBER_GOOGLE_SUB,
+        numericWorkspaceId,
+      );
+      return { status: "ready", credentials, error: null } satisfies GithubCredentialState;
+    } catch (error) {
+      return {
+        status: "error",
+        credentials: [],
+        error: messageFromError(error, "GitHub 자격 증명 목록을 확인하지 못했습니다."),
+      } satisfies GithubCredentialState;
+    }
+  }, [numericWorkspaceId]);
 
   const reloadSettings = useCallback(async () => {
     setState({ status: "loading", workspace: null, members: [], error: null });
@@ -225,6 +258,33 @@ export default function WorkspaceSettingsPage({
     };
   }, [fetchInviteLog, inviteFilter, state]);
 
+  useEffect(() => {
+    let ignore = false;
+
+    async function loadInitialGithubCredentials() {
+      if (state.status !== "ready" || state.workspace.myRole !== "ADMIN") {
+        setGithubCredentialState({ status: "idle", credentials: [], error: null });
+        return;
+      }
+
+      await Promise.resolve();
+      if (!ignore) {
+        setGithubCredentialState({ status: "loading", credentials: [], error: null });
+      }
+
+      const nextState = await fetchGithubCredentialList();
+      if (!ignore) {
+        setGithubCredentialState(nextState);
+      }
+    }
+
+    void loadInitialGithubCredentials();
+
+    return () => {
+      ignore = true;
+    };
+  }, [fetchGithubCredentialList, state]);
+
   const workspace = state.workspace;
   const members = state.status === "ready" ? state.members : [];
   const isAdmin = workspace?.myRole === "ADMIN";
@@ -243,6 +303,7 @@ export default function WorkspaceSettingsPage({
   const canManageMembers = state.status === "ready" && isAdmin;
   const isInviteLogLoading = inviteLogState.status === "loading";
   const hasInviteAction = inviteActionId !== null;
+  const isGithubCredentialLoading = githubCredentialState.status === "loading";
 
   const reloadInviteLog = async () => {
     if (!isAdmin) {
@@ -826,6 +887,74 @@ export default function WorkspaceSettingsPage({
                   <Mail aria-hidden="true" />
                   <strong>표시할 초대가 없습니다</strong>
                   <p>조건에 맞는 워크스페이스 초대가 생기면 이곳에 표시됩니다.</p>
+                </div>
+              ) : null}
+            </section>
+
+            <section className="workspace-settings-section" aria-label="GitHub 자격 증명 관리">
+              <div className="workspace-section-title">
+                <div>
+                  <span className="workspace-detail-label">GitHub</span>
+                  <h2>자격 증명 관리</h2>
+                </div>
+                <span className={isAdmin ? "workspace-count-badge" : "workspace-lock-badge"}>
+                  {isAdmin ? "ADMIN" : "읽기 전용"}
+                </span>
+              </div>
+
+              {!isAdmin ? (
+                <p className="workspace-github-help">
+                  관리자 역할만 GitHub 자격 증명을 관리할 수 있습니다.
+                </p>
+              ) : null}
+
+              {isAdmin && isGithubCredentialLoading ? (
+                <div className="workspace-member-empty">
+                  <Loader2 className="spin" aria-hidden="true" />
+                  <strong>자격 증명 확인 중</strong>
+                  <p>워크스페이스에 등록된 GitHub 자격 증명을 불러오고 있습니다.</p>
+                </div>
+              ) : null}
+
+              {isAdmin && githubCredentialState.status === "error" ? (
+                <SettingsNotice tone="danger" icon={<AlertCircle aria-hidden="true" />}>
+                  {githubCredentialState.error}
+                </SettingsNotice>
+              ) : null}
+
+              {isAdmin &&
+              githubCredentialState.status === "ready" &&
+              githubCredentialState.credentials.length > 0 ? (
+                <div className="workspace-settings-member-list">
+                  {githubCredentialState.credentials.map((credential) => (
+                    <article
+                      className="workspace-settings-member-row"
+                      key={credential.credentialId}
+                    >
+                      <div className="workspace-member-avatar">
+                        <Github aria-hidden="true" />
+                      </div>
+                      <div className="workspace-member-main">
+                        <strong>{credential.displayName}</strong>
+                        <p>{credential.maskedToken}</p>
+                        <span>{`Credential #${credential.credentialId}`}</span>
+                      </div>
+                      <div className="workspace-member-meta">
+                        <span className="role-badge">등록됨</span>
+                        <span>{`Workspace #${credential.workspaceId}`}</span>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              ) : null}
+
+              {isAdmin &&
+              githubCredentialState.status === "ready" &&
+              githubCredentialState.credentials.length === 0 ? (
+                <div className="workspace-member-empty">
+                  <KeyRound aria-hidden="true" />
+                  <strong>등록된 자격 증명이 없습니다</strong>
+                  <p>GitHub token을 등록하면 이곳에 masked token으로 표시됩니다.</p>
                 </div>
               ) : null}
             </section>
