@@ -31,6 +31,9 @@ import com.aquilaoffice.application.port.in.GetWorkspaceDashboardSummaryResult;
 import com.aquilaoffice.application.port.in.GetWorkspaceDashboardSummaryUseCase;
 import com.aquilaoffice.application.port.in.LeaveWorkspaceCommand;
 import com.aquilaoffice.application.port.in.LeaveWorkspaceUseCase;
+import com.aquilaoffice.application.port.in.ListWorkspaceMemberTaskStatsQuery;
+import com.aquilaoffice.application.port.in.ListWorkspaceMemberTaskStatsResult;
+import com.aquilaoffice.application.port.in.ListWorkspaceMemberTaskStatsUseCase;
 import com.aquilaoffice.application.port.in.ListWorkspaceMembersQuery;
 import com.aquilaoffice.application.port.in.ListWorkspaceMembersResult;
 import com.aquilaoffice.application.port.in.ListWorkspaceMembersUseCase;
@@ -96,6 +99,9 @@ class WorkspaceControllerTest {
 
     @MockitoBean
     private ListWorkspaceMembersUseCase listWorkspaceMembersUseCase;
+
+    @MockitoBean
+    private ListWorkspaceMemberTaskStatsUseCase listWorkspaceMemberTaskStatsUseCase;
 
     @MockitoBean
     private ListWorkspaceInvitesUseCase listWorkspaceInvitesUseCase;
@@ -524,6 +530,73 @@ class WorkspaceControllerTest {
 
         mockMvc.perform(get("/api/v1/workspaces/999/members")
                         .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, "google-1"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code").value("404"));
+    }
+
+    @Test
+    void listWorkspaceMemberTaskStatsReturnsOkEnvelope() throws Exception {
+        given(listWorkspaceMemberTaskStatsUseCase.listMemberTaskStats(
+                        any(ListWorkspaceMemberTaskStatsQuery.class)))
+                .willReturn(List.of(new ListWorkspaceMemberTaskStatsResult(
+                        2L,
+                        "Member",
+                        1,
+                        4,
+                        2,
+                        1,
+                        0,
+                        1,
+                        87,
+                        36,
+                        50,
+                        60)));
+
+        mockMvc.perform(get("/api/v1/workspaces/101/members/task-stats")
+                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, " google-2 "))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.code").value("200"))
+                .andExpect(jsonPath("$.data[0].memberId").value(2))
+                .andExpect(jsonPath("$.data[0].memberName").value("Member"))
+                .andExpect(jsonPath("$.data[0].rank").value(1))
+                .andExpect(jsonPath("$.data[0].taskCount").value(4))
+                .andExpect(jsonPath("$.data[0].completedTaskCount").value(2))
+                .andExpect(jsonPath("$.data[0].runningTaskCount").value(1))
+                .andExpect(jsonPath("$.data[0].failedTaskCount").value(0))
+                .andExpect(jsonPath("$.data[0].waitingUserTaskCount").value(1))
+                .andExpect(jsonPath("$.data[0].healthScore").value(87))
+                .andExpect(jsonPath("$.data[0].flowScore").value(36))
+                .andExpect(jsonPath("$.data[0].impactScore").value(50))
+                .andExpect(jsonPath("$.data[0].totalScore").value(60));
+
+        ArgumentCaptor<ListWorkspaceMemberTaskStatsQuery> queryCaptor =
+                ArgumentCaptor.forClass(ListWorkspaceMemberTaskStatsQuery.class);
+        verify(listWorkspaceMemberTaskStatsUseCase).listMemberTaskStats(queryCaptor.capture());
+        assertThat(queryCaptor.getValue().workspaceId()).isEqualTo(101L);
+        assertThat(queryCaptor.getValue().requesterGoogleSub()).isEqualTo("google-2");
+    }
+
+    @Test
+    void listWorkspaceMemberTaskStatsRejectsBlankCreatorHeader() throws Exception {
+        mockMvc.perform(get("/api/v1/workspaces/101/members/task-stats")
+                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, " "))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code").value("400"));
+
+        verifyNoInteractions(listWorkspaceMemberTaskStatsUseCase);
+    }
+
+    @Test
+    void listWorkspaceMemberTaskStatsReturnsNotFoundEnvelope() throws Exception {
+        given(listWorkspaceMemberTaskStatsUseCase.listMemberTaskStats(
+                        any(ListWorkspaceMemberTaskStatsQuery.class)))
+                .willThrow(new IllegalArgumentException("workspace not found"));
+
+        mockMvc.perform(get("/api/v1/workspaces/999/members/task-stats")
+                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, "google-2"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.code").value("404"));
