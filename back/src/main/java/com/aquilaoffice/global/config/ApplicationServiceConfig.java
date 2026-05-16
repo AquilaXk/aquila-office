@@ -31,6 +31,7 @@ import com.aquilaoffice.application.port.in.ListChatTaskMessagesUseCase;
 import com.aquilaoffice.application.port.in.ListSlackChannelMappingsUseCase;
 import com.aquilaoffice.application.port.in.ListTasksUseCase;
 import com.aquilaoffice.application.port.in.ListWorkspaceAgentsUseCase;
+import com.aquilaoffice.application.port.in.ListWorkspaceMemberTaskStatsUseCase;
 import com.aquilaoffice.application.port.in.ListWorkspaceMembersUseCase;
 import com.aquilaoffice.application.port.in.ListWorkspaceInvitesUseCase;
 import com.aquilaoffice.application.port.in.ListWorkspacesUseCase;
@@ -119,6 +120,7 @@ import com.aquilaoffice.application.service.ListChatTaskMessagesService;
 import com.aquilaoffice.application.service.ListSlackChannelMappingsService;
 import com.aquilaoffice.application.service.ListTasksService;
 import com.aquilaoffice.application.service.ListWorkspaceAgentsService;
+import com.aquilaoffice.application.service.ListWorkspaceMemberTaskStatsService;
 import com.aquilaoffice.application.service.ListWorkspaceMembersService;
 import com.aquilaoffice.application.service.ListWorkspaceInvitesService;
 import com.aquilaoffice.application.service.ListWorkspacesService;
@@ -206,6 +208,21 @@ public class ApplicationServiceConfig {
             LoadWorkspacePort loadWorkspacePort,
             LoadWorkspaceMemberPort loadWorkspaceMemberPort) {
         return new ListWorkspaceMembersService(loadMemberPort, loadWorkspacePort, loadWorkspaceMemberPort);
+    }
+
+    @Bean
+    public ListWorkspaceMemberTaskStatsUseCase listWorkspaceMemberTaskStatsUseCase(
+            LoadMemberPort loadMemberPort,
+            LoadWorkspacePort loadWorkspacePort,
+            LoadWorkspaceMemberPort loadWorkspaceMemberPort,
+            LoadWorkspaceAgentPort loadWorkspaceAgentPort,
+            LoadTasksPort loadTasksPort) {
+        return new ListWorkspaceMemberTaskStatsService(
+                loadMemberPort,
+                loadWorkspacePort,
+                loadWorkspaceMemberPort,
+                loadWorkspaceAgentPort,
+                loadTasksPort);
     }
 
     @Bean
