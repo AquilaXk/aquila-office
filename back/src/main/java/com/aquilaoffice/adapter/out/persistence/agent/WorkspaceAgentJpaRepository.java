@@ -1,5 +1,7 @@
 package com.aquilaoffice.adapter.out.persistence.agent;
 
+import com.aquilaoffice.domain.agent.WorkspaceAgentStatus;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -34,4 +36,40 @@ public interface WorkspaceAgentJpaRepository extends JpaRepository<WorkspaceAgen
     Optional<WorkspaceAgentJpaEntity> findActiveByWorkspaceIdAndId(
             @Param("workspaceId") Long workspaceId,
             @Param("agentId") Long agentId);
+
+    @Query("""
+            select count(a)
+            from WorkspaceAgentJpaEntity a
+            join a.workspace w
+            where w.id = :workspaceId
+              and w.deletedAt is null
+              and a.status <> :status
+            """)
+    long countByWorkspaceIdAndStatusNot(
+            @Param("workspaceId") Long workspaceId,
+            @Param("status") WorkspaceAgentStatus status);
+
+    @Query("""
+            select count(a)
+            from WorkspaceAgentJpaEntity a
+            join a.workspace w
+            where w.id = :workspaceId
+              and w.deletedAt is null
+              and a.status = :status
+            """)
+    long countByWorkspaceIdAndStatus(
+            @Param("workspaceId") Long workspaceId,
+            @Param("status") WorkspaceAgentStatus status);
+
+    @Query("""
+            select count(a)
+            from WorkspaceAgentJpaEntity a
+            join a.workspace w
+            where w.id = :workspaceId
+              and w.deletedAt is null
+              and a.status in :statuses
+            """)
+    long countByWorkspaceIdAndStatusIn(
+            @Param("workspaceId") Long workspaceId,
+            @Param("statuses") Collection<WorkspaceAgentStatus> statuses);
 }

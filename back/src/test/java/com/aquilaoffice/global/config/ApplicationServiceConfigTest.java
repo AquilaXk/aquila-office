@@ -20,6 +20,7 @@ import com.aquilaoffice.application.port.in.GetArtifactTreeUseCase;
 import com.aquilaoffice.application.port.in.GetOrchestrationPlanArtifactUseCase;
 import com.aquilaoffice.application.port.in.GetWorkspaceAgentUseCase;
 import com.aquilaoffice.application.port.in.GetWorkspaceGatewayStatusUseCase;
+import com.aquilaoffice.application.port.in.GetWorkspaceDashboardSummaryUseCase;
 import com.aquilaoffice.application.port.in.GetTaskDetailUseCase;
 import com.aquilaoffice.application.port.in.ListTaskReportsUseCase;
 import com.aquilaoffice.application.port.in.ListWorkspaceAgentsUseCase;
@@ -60,6 +61,7 @@ import com.aquilaoffice.application.port.out.LoadTaskPort;
 import com.aquilaoffice.application.port.out.LoadTasksPort;
 import com.aquilaoffice.application.port.out.LoadWorkspaceArtifactsPort;
 import com.aquilaoffice.application.port.out.LoadWorkspaceAgentPort;
+import com.aquilaoffice.application.port.out.LoadWorkspaceDashboardSummaryPort;
 import com.aquilaoffice.application.port.out.LoadWorkspaceGatewayBindingPort;
 import com.aquilaoffice.application.port.out.LoadWorkspaceInvitePort;
 import com.aquilaoffice.application.port.out.LoadWorkspaceInvitesPort;
@@ -100,6 +102,7 @@ import com.aquilaoffice.application.service.GetArtifactTreeService;
 import com.aquilaoffice.application.service.GetOrchestrationPlanArtifactService;
 import com.aquilaoffice.application.service.GetWorkspaceAgentService;
 import com.aquilaoffice.application.service.GetWorkspaceGatewayStatusService;
+import com.aquilaoffice.application.service.GetWorkspaceDashboardSummaryService;
 import com.aquilaoffice.application.service.GetTaskDetailService;
 import com.aquilaoffice.application.service.ListTaskReportsService;
 import com.aquilaoffice.application.service.ListWorkspaceAgentsService;
@@ -194,6 +197,9 @@ class ApplicationServiceConfigTest {
 
     @MockitoBean
     private LoadWorkspaceGatewayBindingPort loadWorkspaceGatewayBindingPort;
+
+    @MockitoBean
+    private LoadWorkspaceDashboardSummaryPort loadWorkspaceDashboardSummaryPort;
 
     @MockitoBean
     private SaveWorkspaceGatewayBindingPort saveWorkspaceGatewayBindingPort;
@@ -299,6 +305,9 @@ class ApplicationServiceConfigTest {
 
     @Autowired
     private GetWorkspaceGatewayStatusUseCase getWorkspaceGatewayStatusUseCase;
+
+    @Autowired
+    private GetWorkspaceDashboardSummaryUseCase getWorkspaceDashboardSummaryUseCase;
 
     @Autowired
     private TestWorkspaceGatewayConnectionUseCase testWorkspaceGatewayConnectionUseCase;
@@ -438,6 +447,11 @@ class ApplicationServiceConfigTest {
     @Test
     void registersGetWorkspaceGatewayStatusUseCase() {
         assertThat(getWorkspaceGatewayStatusUseCase).isInstanceOf(GetWorkspaceGatewayStatusService.class);
+    }
+
+    @Test
+    void registersGetWorkspaceDashboardSummaryUseCase() {
+        assertThat(getWorkspaceDashboardSummaryUseCase).isInstanceOf(GetWorkspaceDashboardSummaryService.class);
     }
 
     @Test

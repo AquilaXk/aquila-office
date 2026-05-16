@@ -26,6 +26,9 @@ import com.aquilaoffice.application.port.in.DeleteWorkspaceUseCase;
 import com.aquilaoffice.application.port.in.GetWorkspaceDetailQuery;
 import com.aquilaoffice.application.port.in.GetWorkspaceDetailResult;
 import com.aquilaoffice.application.port.in.GetWorkspaceDetailUseCase;
+import com.aquilaoffice.application.port.in.GetWorkspaceDashboardSummaryQuery;
+import com.aquilaoffice.application.port.in.GetWorkspaceDashboardSummaryResult;
+import com.aquilaoffice.application.port.in.GetWorkspaceDashboardSummaryUseCase;
 import com.aquilaoffice.application.port.in.ListWorkspaceMembersQuery;
 import com.aquilaoffice.application.port.in.ListWorkspaceMembersResult;
 import com.aquilaoffice.application.port.in.ListWorkspaceMembersUseCase;
@@ -42,6 +45,9 @@ import com.aquilaoffice.application.port.in.RevokeWorkspaceInviteUseCase;
 import com.aquilaoffice.application.port.in.UpdateWorkspaceCommand;
 import com.aquilaoffice.application.port.in.UpdateWorkspaceResult;
 import com.aquilaoffice.application.port.in.UpdateWorkspaceUseCase;
+import com.aquilaoffice.application.port.in.WorkspaceDashboardRecentLogResult;
+import com.aquilaoffice.application.port.in.WorkspaceDashboardRecentReportResult;
+import com.aquilaoffice.domain.execution.TaskExecutionStatus;
 import com.aquilaoffice.domain.workspace.WorkspaceInviteStatus;
 import com.aquilaoffice.domain.workspace.WorkspaceMemberRole;
 import com.aquilaoffice.global.exception.CommonErrorCode;
@@ -82,6 +88,9 @@ class WorkspaceControllerTest {
 
     @MockitoBean
     private GetWorkspaceDetailUseCase getWorkspaceDetailUseCase;
+
+    @MockitoBean
+    private GetWorkspaceDashboardSummaryUseCase getWorkspaceDashboardSummaryUseCase;
 
     @MockitoBean
     private ListWorkspaceMembersUseCase listWorkspaceMembersUseCase;
@@ -337,6 +346,57 @@ class WorkspaceControllerTest {
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.code").value("404"));
+    }
+
+    @Test
+    void getWorkspaceDashboardSummaryReturnsOkEnvelope() throws Exception {
+        given(getWorkspaceDashboardSummaryUseCase.getSummary(any(GetWorkspaceDashboardSummaryQuery.class)))
+                .willReturn(new GetWorkspaceDashboardSummaryResult(
+                        4L,
+                        1L,
+                        2L,
+                        1L,
+                        10L,
+                        3L,
+                        6L,
+                        1L,
+                        List.of(new WorkspaceDashboardRecentReportResult(
+                                900L,
+                                301L,
+                                501L,
+                                TaskExecutionStatus.SUCCEEDED,
+                                "작업 완료",
+                                null,
+                                LocalDateTime.of(2026, 5, 16, 12, 0))),
+                        List.<WorkspaceDashboardRecentLogResult>of()));
+
+        mockMvc.perform(get("/api/v1/workspaces/101/dashboard/summary")
+                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, " google-1 "))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.code").value("200"))
+                .andExpect(jsonPath("$.message").value("OK"))
+                .andExpect(jsonPath("$.data.agentCount").value(4))
+                .andExpect(jsonPath("$.data.runningAgentCount").value(1))
+                .andExpect(jsonPath("$.data.idleAgentCount").value(2))
+                .andExpect(jsonPath("$.data.errorAgentCount").value(1))
+                .andExpect(jsonPath("$.data.taskCount").value(10))
+                .andExpect(jsonPath("$.data.runningTaskCount").value(3))
+                .andExpect(jsonPath("$.data.completedTaskCount").value(6))
+                .andExpect(jsonPath("$.data.failedTaskCount").value(1))
+                .andExpect(jsonPath("$.data.recentReports[0].executionId").value(900))
+                .andExpect(jsonPath("$.data.recentReports[0].taskId").value(301))
+                .andExpect(jsonPath("$.data.recentReports[0].agentId").value(501))
+                .andExpect(jsonPath("$.data.recentReports[0].status").value("SUCCEEDED"))
+                .andExpect(jsonPath("$.data.recentReports[0].summary").value("작업 완료"))
+                .andExpect(jsonPath("$.data.recentReports[0].createdAt", notNullValue()))
+                .andExpect(jsonPath("$.data.recentLogs.length()").value(0));
+
+        ArgumentCaptor<GetWorkspaceDashboardSummaryQuery> queryCaptor =
+                ArgumentCaptor.forClass(GetWorkspaceDashboardSummaryQuery.class);
+        verify(getWorkspaceDashboardSummaryUseCase).getSummary(queryCaptor.capture());
+        assertThat(queryCaptor.getValue().workspaceId()).isEqualTo(101L);
+        assertThat(queryCaptor.getValue().memberGoogleSub()).isEqualTo("google-1");
     }
 
     @Test
