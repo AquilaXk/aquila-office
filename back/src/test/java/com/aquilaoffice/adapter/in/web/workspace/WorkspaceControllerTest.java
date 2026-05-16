@@ -29,6 +29,8 @@ import com.aquilaoffice.application.port.in.GetWorkspaceDetailUseCase;
 import com.aquilaoffice.application.port.in.GetWorkspaceDashboardSummaryQuery;
 import com.aquilaoffice.application.port.in.GetWorkspaceDashboardSummaryResult;
 import com.aquilaoffice.application.port.in.GetWorkspaceDashboardSummaryUseCase;
+import com.aquilaoffice.application.port.in.LeaveWorkspaceCommand;
+import com.aquilaoffice.application.port.in.LeaveWorkspaceUseCase;
 import com.aquilaoffice.application.port.in.ListWorkspaceMembersQuery;
 import com.aquilaoffice.application.port.in.ListWorkspaceMembersResult;
 import com.aquilaoffice.application.port.in.ListWorkspaceMembersUseCase;
@@ -112,6 +114,9 @@ class WorkspaceControllerTest {
 
     @MockitoBean
     private RemoveWorkspaceMemberUseCase removeWorkspaceMemberUseCase;
+
+    @MockitoBean
+    private LeaveWorkspaceUseCase leaveWorkspaceUseCase;
 
     @Test
     void createWorkspaceReturnsCreatedEnvelope() throws Exception {
@@ -574,6 +579,58 @@ class WorkspaceControllerTest {
         assertThat(commandCaptor.getValue().workspaceId()).isEqualTo(101L);
         assertThat(commandCaptor.getValue().memberId()).isEqualTo(2L);
         assertThat(commandCaptor.getValue().requesterGoogleSub()).isEqualTo("google-1");
+    }
+
+    @Test
+    void leaveWorkspaceReturnsOkEnvelope() throws Exception {
+        mockMvc.perform(delete("/api/v1/workspaces/101/members/me")
+                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, " google-2 "))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.code").value("200"));
+
+        ArgumentCaptor<LeaveWorkspaceCommand> commandCaptor =
+                ArgumentCaptor.forClass(LeaveWorkspaceCommand.class);
+        verify(leaveWorkspaceUseCase).leaveWorkspace(commandCaptor.capture());
+        assertThat(commandCaptor.getValue().workspaceId()).isEqualTo(101L);
+        assertThat(commandCaptor.getValue().requesterGoogleSub()).isEqualTo("google-2");
+    }
+
+    @Test
+    void leaveWorkspaceRejectsBlankCreatorHeader() throws Exception {
+        mockMvc.perform(delete("/api/v1/workspaces/101/members/me")
+                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, " "))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code").value("400"));
+
+        verifyNoInteractions(leaveWorkspaceUseCase);
+    }
+
+    @Test
+    void leaveWorkspaceReturnsBadRequestForLastAdminRule() throws Exception {
+        org.mockito.BDDMockito.willThrow(new IllegalStateException("last admin cannot leave workspace"))
+                .given(leaveWorkspaceUseCase)
+                .leaveWorkspace(any(LeaveWorkspaceCommand.class));
+
+        mockMvc.perform(delete("/api/v1/workspaces/101/members/me")
+                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, "google-1"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code").value("400"));
+    }
+
+    @Test
+    void leaveWorkspaceReturnsNotFoundEnvelope() throws Exception {
+        org.mockito.BDDMockito.willThrow(new IllegalArgumentException("workspace member not found"))
+                .given(leaveWorkspaceUseCase)
+                .leaveWorkspace(any(LeaveWorkspaceCommand.class));
+
+        mockMvc.perform(delete("/api/v1/workspaces/999/members/me")
+                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, "google-2"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code").value("404"));
     }
 
     @Test

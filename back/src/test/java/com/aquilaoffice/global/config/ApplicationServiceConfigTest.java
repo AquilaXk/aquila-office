@@ -22,6 +22,7 @@ import com.aquilaoffice.application.port.in.GetWorkspaceAgentUseCase;
 import com.aquilaoffice.application.port.in.GetWorkspaceGatewayStatusUseCase;
 import com.aquilaoffice.application.port.in.GetWorkspaceDashboardSummaryUseCase;
 import com.aquilaoffice.application.port.in.GetTaskDetailUseCase;
+import com.aquilaoffice.application.port.in.LeaveWorkspaceUseCase;
 import com.aquilaoffice.application.port.in.ListTaskReportsUseCase;
 import com.aquilaoffice.application.port.in.ListWorkspaceAgentsUseCase;
 import com.aquilaoffice.application.port.in.ListGithubCredentialsUseCase;
@@ -104,6 +105,7 @@ import com.aquilaoffice.application.service.GetWorkspaceAgentService;
 import com.aquilaoffice.application.service.GetWorkspaceGatewayStatusService;
 import com.aquilaoffice.application.service.GetWorkspaceDashboardSummaryService;
 import com.aquilaoffice.application.service.GetTaskDetailService;
+import com.aquilaoffice.application.service.LeaveWorkspaceService;
 import com.aquilaoffice.application.service.ListTaskReportsService;
 import com.aquilaoffice.application.service.ListWorkspaceAgentsService;
 import com.aquilaoffice.application.service.ListGithubCredentialsService;
@@ -292,6 +294,9 @@ class ApplicationServiceConfigTest {
     private RemoveWorkspaceMemberUseCase removeWorkspaceMemberUseCase;
 
     @Autowired
+    private LeaveWorkspaceUseCase leaveWorkspaceUseCase;
+
+    @Autowired
     private CreateGithubCredentialUseCase createGithubCredentialUseCase;
 
     @Autowired
@@ -422,6 +427,11 @@ class ApplicationServiceConfigTest {
     @Test
     void registersRemoveWorkspaceMemberUseCase() {
         assertThat(removeWorkspaceMemberUseCase).isInstanceOf(RemoveWorkspaceMemberService.class);
+    }
+
+    @Test
+    void registersLeaveWorkspaceUseCase() {
+        assertThat(leaveWorkspaceUseCase).isInstanceOf(LeaveWorkspaceService.class);
     }
 
     @Test

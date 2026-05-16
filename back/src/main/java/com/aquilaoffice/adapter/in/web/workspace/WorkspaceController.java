@@ -13,6 +13,8 @@ import com.aquilaoffice.application.port.in.GetWorkspaceDetailUseCase;
 import com.aquilaoffice.application.port.in.GetWorkspaceDashboardSummaryQuery;
 import com.aquilaoffice.application.port.in.GetWorkspaceDashboardSummaryResult;
 import com.aquilaoffice.application.port.in.GetWorkspaceDashboardSummaryUseCase;
+import com.aquilaoffice.application.port.in.LeaveWorkspaceCommand;
+import com.aquilaoffice.application.port.in.LeaveWorkspaceUseCase;
 import com.aquilaoffice.application.port.in.ListWorkspaceMembersQuery;
 import com.aquilaoffice.application.port.in.ListWorkspaceMembersResult;
 import com.aquilaoffice.application.port.in.ListWorkspaceMembersUseCase;
@@ -70,6 +72,7 @@ public class WorkspaceController {
     private final DeleteWorkspaceUseCase deleteWorkspaceUseCase;
     private final ChangeWorkspaceMemberRoleUseCase changeWorkspaceMemberRoleUseCase;
     private final RemoveWorkspaceMemberUseCase removeWorkspaceMemberUseCase;
+    private final LeaveWorkspaceUseCase leaveWorkspaceUseCase;
 
     public WorkspaceController(
             CreateWorkspaceUseCase createWorkspaceUseCase,
@@ -83,7 +86,8 @@ public class WorkspaceController {
             UpdateWorkspaceUseCase updateWorkspaceUseCase,
             DeleteWorkspaceUseCase deleteWorkspaceUseCase,
             ChangeWorkspaceMemberRoleUseCase changeWorkspaceMemberRoleUseCase,
-            RemoveWorkspaceMemberUseCase removeWorkspaceMemberUseCase) {
+            RemoveWorkspaceMemberUseCase removeWorkspaceMemberUseCase,
+            LeaveWorkspaceUseCase leaveWorkspaceUseCase) {
         this.createWorkspaceUseCase = createWorkspaceUseCase;
         this.createWorkspaceInviteUseCase = createWorkspaceInviteUseCase;
         this.listWorkspacesUseCase = listWorkspacesUseCase;
@@ -96,6 +100,7 @@ public class WorkspaceController {
         this.deleteWorkspaceUseCase = deleteWorkspaceUseCase;
         this.changeWorkspaceMemberRoleUseCase = changeWorkspaceMemberRoleUseCase;
         this.removeWorkspaceMemberUseCase = removeWorkspaceMemberUseCase;
+        this.leaveWorkspaceUseCase = leaveWorkspaceUseCase;
     }
 
     @GetMapping
@@ -248,6 +253,23 @@ public class WorkspaceController {
             throw new ServiceException(CommonErrorCode.BAD_REQUEST);
         } catch (IllegalArgumentException exception) {
             // 멤버 관리 권한이 없거나 대상 멤버를 찾을 수 없는 경우 같은 404로 응답한다.
+            throw new ServiceException(CommonErrorCode.NOT_FOUND);
+        }
+    }
+
+    @DeleteMapping("/{workspaceId}/members/me")
+    public ResponseEntity<RsData<Void>> leaveWorkspace(
+            @PathVariable Long workspaceId,
+            @RequestHeader(name = CREATOR_GOOGLE_SUB_HEADER, required = false) String creatorGoogleSub) {
+        String normalizedCreatorGoogleSub = requireCreatorGoogleSub(creatorGoogleSub);
+
+        try {
+            leaveWorkspaceUseCase.leaveWorkspace(new LeaveWorkspaceCommand(workspaceId, normalizedCreatorGoogleSub));
+            return ResponseEntity.ok(RsData.ok(null));
+        } catch (IllegalStateException exception) {
+            throw new ServiceException(CommonErrorCode.BAD_REQUEST);
+        } catch (IllegalArgumentException exception) {
+            // 워크스페이스에 속하지 않은 요청자와 없는 워크스페이스는 동일한 404로 숨긴다.
             throw new ServiceException(CommonErrorCode.NOT_FOUND);
         }
     }
