@@ -30,6 +30,7 @@ public record ChatMessageSendRequest(
                 priority,
                 title,
                 Boolean.TRUE.equals(createPr),
-                chatSessionId);
+                chatSessionId,
+                null);
     }
 }

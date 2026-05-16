@@ -13,6 +13,7 @@ public class Task {
     private final TaskType type;
     private final TaskPriority priority;
     private final Long assignedAgentId;
+    private final String sourceRef;
     private TaskStatus status;
 
     private Task(
@@ -24,6 +25,7 @@ public class Task {
             TaskType type,
             TaskPriority priority,
             Long assignedAgentId,
+            String sourceRef,
             TaskStatus status) {
         this.id = id;
         this.workspaceId = requirePositive(workspaceId, "workspaceId");
@@ -33,6 +35,7 @@ public class Task {
         this.type = type == null ? TaskType.OTHER : type;
         this.priority = priority == null ? TaskPriority.MEDIUM : priority;
         this.assignedAgentId = normalizeAssignedAgentId(assignedAgentId);
+        this.sourceRef = normalizeNullable(sourceRef);
         this.status = status == null ? defaultStatus(this.assignedAgentId) : status;
     }
 
@@ -44,7 +47,29 @@ public class Task {
             TaskType type,
             TaskPriority priority,
             Long assignedAgentId) {
-        return new Task(null, workspaceId, createdByGoogleSub, title, description, type, priority, assignedAgentId, null);
+        return create(workspaceId, createdByGoogleSub, title, description, type, priority, assignedAgentId, null);
+    }
+
+    public static Task create(
+            Long workspaceId,
+            String createdByGoogleSub,
+            String title,
+            String description,
+            TaskType type,
+            TaskPriority priority,
+            Long assignedAgentId,
+            String sourceRef) {
+        return new Task(
+                null,
+                workspaceId,
+                createdByGoogleSub,
+                title,
+                description,
+                type,
+                priority,
+                assignedAgentId,
+                sourceRef,
+                null);
     }
 
     public static Task restore(
@@ -57,7 +82,32 @@ public class Task {
             TaskPriority priority,
             Long assignedAgentId,
             TaskStatus status) {
-        return new Task(id, workspaceId, createdByGoogleSub, title, description, type, priority, assignedAgentId, status);
+        return restore(
+                id, workspaceId, createdByGoogleSub, title, description, type, priority, assignedAgentId, status, null);
+    }
+
+    public static Task restore(
+            Long id,
+            Long workspaceId,
+            String createdByGoogleSub,
+            String title,
+            String description,
+            TaskType type,
+            TaskPriority priority,
+            Long assignedAgentId,
+            TaskStatus status,
+            String sourceRef) {
+        return new Task(
+                id,
+                workspaceId,
+                createdByGoogleSub,
+                title,
+                description,
+                type,
+                priority,
+                assignedAgentId,
+                sourceRef,
+                status);
     }
 
     public void changeStatus(TaskStatus nextStatus) {
@@ -103,6 +153,10 @@ public class Task {
 
     public Long getAssignedAgentId() {
         return assignedAgentId;
+    }
+
+    public String getSourceRef() {
+        return sourceRef;
     }
 
     public TaskStatus getStatus() {

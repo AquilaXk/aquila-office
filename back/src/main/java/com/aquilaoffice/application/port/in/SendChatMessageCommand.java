@@ -13,4 +13,31 @@ public record SendChatMessageCommand(
         TaskPriority priority,
         String title,
         boolean createPr,
-        Long chatSessionId) {}
+        Long chatSessionId,
+        String sourceRef) {
+
+    public SendChatMessageCommand(
+            Long workspaceId,
+            String requesterGoogleSub,
+            String message,
+            Long agentId,
+            Long repositoryId,
+            TaskType taskType,
+            TaskPriority priority,
+            String title,
+            boolean createPr,
+            Long chatSessionId) {
+        this(
+                workspaceId,
+                requesterGoogleSub,
+                message,
+                agentId,
+                repositoryId,
+                taskType,
+                priority,
+                title,
+                createPr,
+                chatSessionId,
+                null);
+    }
+}
