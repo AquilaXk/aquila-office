@@ -7,6 +7,7 @@ import com.aquilaoffice.application.port.in.GetTaskDetailQuery;
 import com.aquilaoffice.application.port.in.GetTaskDetailUseCase;
 import com.aquilaoffice.application.port.in.ListTasksQuery;
 import com.aquilaoffice.application.port.in.ListTasksUseCase;
+import com.aquilaoffice.application.port.in.RunTaskUseCase;
 import com.aquilaoffice.application.port.in.UpdateTaskStatusUseCase;
 import com.aquilaoffice.global.exception.CommonErrorCode;
 import com.aquilaoffice.global.exception.ServiceException;
@@ -35,16 +36,19 @@ public class TaskController {
     private final ListTasksUseCase listTasksUseCase;
     private final GetTaskDetailUseCase getTaskDetailUseCase;
     private final UpdateTaskStatusUseCase updateTaskStatusUseCase;
+    private final RunTaskUseCase runTaskUseCase;
 
     public TaskController(
             CreateTaskUseCase createTaskUseCase,
             ListTasksUseCase listTasksUseCase,
             GetTaskDetailUseCase getTaskDetailUseCase,
-            UpdateTaskStatusUseCase updateTaskStatusUseCase) {
+            UpdateTaskStatusUseCase updateTaskStatusUseCase,
+            RunTaskUseCase runTaskUseCase) {
         this.createTaskUseCase = createTaskUseCase;
         this.listTasksUseCase = listTasksUseCase;
         this.getTaskDetailUseCase = getTaskDetailUseCase;
         this.updateTaskStatusUseCase = updateTaskStatusUseCase;
+        this.runTaskUseCase = runTaskUseCase;
     }
 
     @PostMapping
@@ -117,6 +121,24 @@ public class TaskController {
                     request.toCommand(workspaceId, taskId, normalizedRequesterGoogleSub)))));
         } catch (IllegalArgumentException | IllegalStateException exception) {
             // 상태 변경 권한이나 전이 실패도 내부 정책 노출을 피한다.
+            throw new ServiceException(CommonErrorCode.NOT_FOUND);
+        }
+    }
+
+    @PostMapping("/{taskId}/run")
+    public ResponseEntity<RsData<RunTaskResponse>> runTask(
+            @PathVariable Long workspaceId,
+            @PathVariable Long taskId,
+            @RequestHeader(name = WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, required = false)
+                    String requesterGoogleSub,
+            @RequestBody RunTaskRequest request) {
+        String normalizedRequesterGoogleSub = requireRequesterGoogleSub(requesterGoogleSub);
+
+        try {
+            return ResponseEntity.ok(RsData.ok(RunTaskResponse.from(runTaskUseCase.runTask(
+                    request.toCommand(workspaceId, taskId, normalizedRequesterGoogleSub)))));
+        } catch (IllegalArgumentException | IllegalStateException exception) {
+            // 실행 가능 여부와 권한 실패는 Task 상태 정책 노출을 피하기 위해 같은 404로 응답한다.
             throw new ServiceException(CommonErrorCode.NOT_FOUND);
         }
     }

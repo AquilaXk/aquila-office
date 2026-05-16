@@ -20,6 +20,7 @@ import com.aquilaoffice.application.port.in.ListTasksUseCase;
 import com.aquilaoffice.application.port.in.ListWorkspaceInvitesUseCase;
 import com.aquilaoffice.application.port.in.ListWorkspaceMembersUseCase;
 import com.aquilaoffice.application.port.in.RemoveWorkspaceMemberUseCase;
+import com.aquilaoffice.application.port.in.RunTaskUseCase;
 import com.aquilaoffice.application.port.in.TestWorkspaceGatewayConnectionUseCase;
 import com.aquilaoffice.application.port.in.UpdateTaskStatusUseCase;
 import com.aquilaoffice.application.port.in.UpdateGithubCredentialUseCase;
@@ -45,12 +46,15 @@ import com.aquilaoffice.application.port.out.LoadWorkspaceMemberPort;
 import com.aquilaoffice.application.port.out.LoadWorkspacePort;
 import com.aquilaoffice.application.port.out.RemoveWorkspaceMemberPort;
 import com.aquilaoffice.application.port.out.RevokeWorkspaceInvitePort;
+import com.aquilaoffice.application.port.out.RunWorkspaceAgentPort;
 import com.aquilaoffice.application.port.out.SaveGithubCredentialPort;
 import com.aquilaoffice.application.port.out.SaveTaskPort;
+import com.aquilaoffice.application.port.out.SaveTaskExecutionPort;
 import com.aquilaoffice.application.port.out.SaveWorkspaceAgentPort;
 import com.aquilaoffice.application.port.out.SaveWorkspaceGatewayBindingPort;
 import com.aquilaoffice.application.port.out.SaveWorkspaceInvitePort;
 import com.aquilaoffice.application.port.out.SaveWorkspacePort;
+import com.aquilaoffice.application.port.out.UpdateTaskExecutionPort;
 import com.aquilaoffice.application.port.out.UpdateGithubCredentialPort;
 import com.aquilaoffice.application.port.out.UpdateTaskStatusPort;
 import com.aquilaoffice.application.port.out.UpdateWorkspacePort;
@@ -73,6 +77,7 @@ import com.aquilaoffice.application.service.ListWorkspaceInvitesService;
 import com.aquilaoffice.application.service.ListWorkspaceMembersService;
 import com.aquilaoffice.application.service.RemoveWorkspaceMemberService;
 import com.aquilaoffice.application.service.RevokeWorkspaceInviteService;
+import com.aquilaoffice.application.service.RunTaskService;
 import com.aquilaoffice.application.service.TestWorkspaceGatewayConnectionService;
 import com.aquilaoffice.application.service.UpdateGithubCredentialService;
 import com.aquilaoffice.application.service.UpdateTaskStatusService;
@@ -175,6 +180,15 @@ class ApplicationServiceConfigTest {
     @MockitoBean
     private UpdateTaskStatusPort updateTaskStatusPort;
 
+    @MockitoBean
+    private SaveTaskExecutionPort saveTaskExecutionPort;
+
+    @MockitoBean
+    private UpdateTaskExecutionPort updateTaskExecutionPort;
+
+    @MockitoBean
+    private RunWorkspaceAgentPort runWorkspaceAgentPort;
+
     @Autowired
     private AcceptWorkspaceInviteUseCase acceptWorkspaceInviteUseCase;
 
@@ -243,6 +257,9 @@ class ApplicationServiceConfigTest {
 
     @Autowired
     private UpdateTaskStatusUseCase updateTaskStatusUseCase;
+
+    @Autowired
+    private RunTaskUseCase runTaskUseCase;
 
     @Test
     void registersAcceptWorkspaceInviteUseCase() {
@@ -357,5 +374,10 @@ class ApplicationServiceConfigTest {
     @Test
     void registersUpdateTaskStatusUseCase() {
         assertThat(updateTaskStatusUseCase).isInstanceOf(UpdateTaskStatusService.class);
+    }
+
+    @Test
+    void registersRunTaskUseCase() {
+        assertThat(runTaskUseCase).isInstanceOf(RunTaskService.class);
     }
 }
