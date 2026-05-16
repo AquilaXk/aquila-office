@@ -53,6 +53,14 @@ class SecurityConfigTest {
     }
 
     @Test
+    void logoutEndpointDoesNotRequireAuthentication() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/logout")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"refreshToken\":\" \"}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     void corsPreflightAllowsLocalFrontendOrigin() throws Exception {
         mockMvc.perform(options("/api/health")
                         .header(HttpHeaders.ORIGIN, "http://localhost:3000")

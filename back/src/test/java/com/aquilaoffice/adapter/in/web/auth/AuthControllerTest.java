@@ -13,6 +13,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.aquilaoffice.application.port.in.GoogleLoginCommand;
 import com.aquilaoffice.application.port.in.GoogleLoginResult;
 import com.aquilaoffice.application.port.in.GoogleLoginUseCase;
+import com.aquilaoffice.application.port.in.LogoutAuthCommand;
+import com.aquilaoffice.application.port.in.LogoutAuthUseCase;
 import com.aquilaoffice.application.port.in.RefreshAuthTokenCommand;
 import com.aquilaoffice.application.port.in.RefreshAuthTokenResult;
 import com.aquilaoffice.application.port.in.RefreshAuthTokenUseCase;
@@ -43,6 +45,9 @@ class AuthControllerTest {
 
     @MockitoBean
     private RefreshAuthTokenUseCase refreshAuthTokenUseCase;
+
+    @MockitoBean
+    private LogoutAuthUseCase logoutAuthUseCase;
 
     @Test
     void loginWithGoogleReturnsTokenEnvelope() throws Exception {
@@ -140,6 +145,47 @@ class AuthControllerTest {
                 .refresh(any(RefreshAuthTokenCommand.class));
 
         mockMvc.perform(post("/api/v1/auth/token/refresh")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"refreshToken\":\"bad-refresh-token\"}"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code").value("401"));
+    }
+
+    @Test
+    void logoutDeletesRefreshTokenAndReturnsEnvelope() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/logout")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"refreshToken\":\" old-refresh-token \"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.code").value("200"))
+                .andExpect(jsonPath("$.message").value("OK"));
+
+        ArgumentCaptor<LogoutAuthCommand> commandCaptor = ArgumentCaptor.forClass(LogoutAuthCommand.class);
+        verify(logoutAuthUseCase).logout(commandCaptor.capture());
+        assertThat(commandCaptor.getValue().refreshToken()).isEqualTo("old-refresh-token");
+    }
+
+    @Test
+    void logoutRejectsBlankRefreshToken() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/logout")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"refreshToken\":\" \"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code").value("400"));
+
+        verifyNoInteractions(logoutAuthUseCase);
+    }
+
+    @Test
+    void logoutReturnsUnauthorizedWhenRefreshTokenIsInvalid() throws Exception {
+        willThrow(new IllegalArgumentException("refreshToken is invalid"))
+                .given(logoutAuthUseCase)
+                .logout(any(LogoutAuthCommand.class));
+
+        mockMvc.perform(post("/api/v1/auth/logout")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"refreshToken\":\"bad-refresh-token\"}"))
                 .andExpect(status().isUnauthorized())

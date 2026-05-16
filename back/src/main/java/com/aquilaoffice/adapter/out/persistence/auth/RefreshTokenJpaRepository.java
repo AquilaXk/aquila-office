@@ -24,4 +24,14 @@ public interface RefreshTokenJpaRepository extends JpaRepository<RefreshTokenJpa
             @Param("memberId") Long memberId,
             @Param("currentToken") String currentToken,
             @Param("newToken") String newToken);
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+            delete from RefreshTokenJpaEntity rt
+            where rt.memberId = :memberId
+              and rt.token = :currentToken
+            """)
+    int deleteIfMatch(
+            @Param("memberId") Long memberId,
+            @Param("currentToken") String currentToken);
 }
