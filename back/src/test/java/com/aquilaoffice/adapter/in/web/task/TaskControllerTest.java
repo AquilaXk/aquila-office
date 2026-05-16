@@ -22,9 +22,13 @@ import com.aquilaoffice.application.port.in.GetTaskDetailUseCase;
 import com.aquilaoffice.application.port.in.ListTasksQuery;
 import com.aquilaoffice.application.port.in.ListTasksResult;
 import com.aquilaoffice.application.port.in.ListTasksUseCase;
+import com.aquilaoffice.application.port.in.RunTaskCommand;
+import com.aquilaoffice.application.port.in.RunTaskResult;
+import com.aquilaoffice.application.port.in.RunTaskUseCase;
 import com.aquilaoffice.application.port.in.UpdateTaskStatusCommand;
 import com.aquilaoffice.application.port.in.UpdateTaskStatusResult;
 import com.aquilaoffice.application.port.in.UpdateTaskStatusUseCase;
+import com.aquilaoffice.domain.execution.TaskExecutionStatus;
 import com.aquilaoffice.domain.task.TaskPriority;
 import com.aquilaoffice.domain.task.TaskStatus;
 import com.aquilaoffice.domain.task.TaskType;
@@ -64,6 +68,9 @@ class TaskControllerTest {
 
     @MockitoBean
     private UpdateTaskStatusUseCase updateTaskStatusUseCase;
+
+    @MockitoBean
+    private RunTaskUseCase runTaskUseCase;
 
     @Test
     void createTaskReturnsCreatedEnvelope() throws Exception {
@@ -162,13 +169,44 @@ class TaskControllerTest {
     }
 
     @Test
+    void runTaskReturnsOkEnvelope() throws Exception {
+        given(runTaskUseCase.runTask(any(RunTaskCommand.class))).willReturn(runResult());
+
+        mockMvc.perform(post("/api/v1/workspaces/101/tasks/301/run")
+                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, " google-1 ")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"createPr\":true}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.workspaceId").value(101))
+                .andExpect(jsonPath("$.data.taskId").value(301))
+                .andExpect(jsonPath("$.data.executionId").value(701))
+                .andExpect(jsonPath("$.data.agentId").value(501))
+                .andExpect(jsonPath("$.data.taskStatus").value("COMPLETED"))
+                .andExpect(jsonPath("$.data.executionStatus").value("SUCCEEDED"))
+                .andExpect(jsonPath("$.data.finalText").value("완료 요약"));
+
+        ArgumentCaptor<RunTaskCommand> commandCaptor = ArgumentCaptor.forClass(RunTaskCommand.class);
+        verify(runTaskUseCase).runTask(commandCaptor.capture());
+        assertThat(commandCaptor.getValue().workspaceId()).isEqualTo(101L);
+        assertThat(commandCaptor.getValue().taskId()).isEqualTo(301L);
+        assertThat(commandCaptor.getValue().requesterGoogleSub()).isEqualTo("google-1");
+        assertThat(commandCaptor.getValue().createPr()).isTrue();
+    }
+
+    @Test
     void missingHeaderReturnsBadRequestAndDoesNotCallUseCases() throws Exception {
         mockMvc.perform(get("/api/v1/workspaces/101/tasks"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.code").value("400"));
 
-        verifyNoInteractions(createTaskUseCase, listTasksUseCase, getTaskDetailUseCase, updateTaskStatusUseCase);
+        verifyNoInteractions(
+                createTaskUseCase,
+                listTasksUseCase,
+                getTaskDetailUseCase,
+                updateTaskStatusUseCase,
+                runTaskUseCase);
     }
 
     @Test
@@ -253,5 +291,17 @@ class TaskControllerTest {
                 TaskStatus.IN_PROGRESS,
                 LocalDateTime.of(2026, 5, 16, 10, 0),
                 LocalDateTime.of(2026, 5, 16, 10, 1));
+    }
+
+    private static RunTaskResult runResult() {
+        return new RunTaskResult(
+                101L,
+                301L,
+                701L,
+                501L,
+                TaskStatus.COMPLETED,
+                TaskExecutionStatus.SUCCEEDED,
+                "완료 요약",
+                null);
     }
 }
