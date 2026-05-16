@@ -1,5 +1,6 @@
 package com.aquilaoffice.adapter.in.web.workspace;
 
+import com.aquilaoffice.application.port.in.ExtendWorkspaceInviteResult;
 import com.aquilaoffice.application.port.in.ListWorkspaceInvitesResult;
 import com.aquilaoffice.domain.workspace.WorkspaceInviteStatus;
 import java.time.LocalDateTime;
@@ -19,6 +20,19 @@ public record WorkspaceInviteManagementResponse(
         LocalDateTime revokedAt) {
 
     static WorkspaceInviteManagementResponse from(ListWorkspaceInvitesResult result) {
+        return new WorkspaceInviteManagementResponse(
+                result.inviteId(),
+                result.workspaceId(),
+                result.email(),
+                result.token(),
+                result.status(),
+                result.createdAt(),
+                result.expiresAt(),
+                result.acceptedAt(),
+                result.revokedAt());
+    }
+
+    static WorkspaceInviteManagementResponse from(ExtendWorkspaceInviteResult result) {
         return new WorkspaceInviteManagementResponse(
                 result.inviteId(),
                 result.workspaceId(),
