@@ -16,11 +16,14 @@ import com.aquilaoffice.application.port.in.GetWorkspaceGatewayStatusUseCase;
 import com.aquilaoffice.application.port.in.GetTaskDetailUseCase;
 import com.aquilaoffice.application.port.in.ListWorkspaceAgentsUseCase;
 import com.aquilaoffice.application.port.in.ListGithubCredentialsUseCase;
+import com.aquilaoffice.application.port.in.ListChatSessionMessagesUseCase;
+import com.aquilaoffice.application.port.in.ListChatTaskMessagesUseCase;
 import com.aquilaoffice.application.port.in.ListTasksUseCase;
 import com.aquilaoffice.application.port.in.ListWorkspaceInvitesUseCase;
 import com.aquilaoffice.application.port.in.ListWorkspaceMembersUseCase;
 import com.aquilaoffice.application.port.in.RemoveWorkspaceMemberUseCase;
 import com.aquilaoffice.application.port.in.RunTaskUseCase;
+import com.aquilaoffice.application.port.in.SendChatMessageUseCase;
 import com.aquilaoffice.application.port.in.TestWorkspaceGatewayConnectionUseCase;
 import com.aquilaoffice.application.port.in.UpdateTaskStatusUseCase;
 import com.aquilaoffice.application.port.in.UpdateGithubCredentialUseCase;
@@ -35,6 +38,8 @@ import com.aquilaoffice.application.port.out.ExistsGithubCredentialPort;
 import com.aquilaoffice.application.port.out.GenerateWorkspaceInviteTokenPort;
 import com.aquilaoffice.application.port.out.LoadGithubCredentialPort;
 import com.aquilaoffice.application.port.out.LoadGithubCredentialsPort;
+import com.aquilaoffice.application.port.out.LoadChatMessagesPort;
+import com.aquilaoffice.application.port.out.LoadChatSessionPort;
 import com.aquilaoffice.application.port.out.LoadMemberPort;
 import com.aquilaoffice.application.port.out.LoadTaskPort;
 import com.aquilaoffice.application.port.out.LoadTasksPort;
@@ -48,6 +53,8 @@ import com.aquilaoffice.application.port.out.RemoveWorkspaceMemberPort;
 import com.aquilaoffice.application.port.out.RevokeWorkspaceInvitePort;
 import com.aquilaoffice.application.port.out.RunWorkspaceAgentPort;
 import com.aquilaoffice.application.port.out.SaveGithubCredentialPort;
+import com.aquilaoffice.application.port.out.SaveChatMessagePort;
+import com.aquilaoffice.application.port.out.SaveChatSessionPort;
 import com.aquilaoffice.application.port.out.SaveTaskPort;
 import com.aquilaoffice.application.port.out.SaveTaskExecutionPort;
 import com.aquilaoffice.application.port.out.SaveWorkspaceAgentPort;
@@ -72,12 +79,15 @@ import com.aquilaoffice.application.service.GetWorkspaceGatewayStatusService;
 import com.aquilaoffice.application.service.GetTaskDetailService;
 import com.aquilaoffice.application.service.ListWorkspaceAgentsService;
 import com.aquilaoffice.application.service.ListGithubCredentialsService;
+import com.aquilaoffice.application.service.ListChatSessionMessagesService;
+import com.aquilaoffice.application.service.ListChatTaskMessagesService;
 import com.aquilaoffice.application.service.ListTasksService;
 import com.aquilaoffice.application.service.ListWorkspaceInvitesService;
 import com.aquilaoffice.application.service.ListWorkspaceMembersService;
 import com.aquilaoffice.application.service.RemoveWorkspaceMemberService;
 import com.aquilaoffice.application.service.RevokeWorkspaceInviteService;
 import com.aquilaoffice.application.service.RunTaskService;
+import com.aquilaoffice.application.service.SendChatMessageService;
 import com.aquilaoffice.application.service.TestWorkspaceGatewayConnectionService;
 import com.aquilaoffice.application.service.UpdateGithubCredentialService;
 import com.aquilaoffice.application.service.UpdateTaskStatusService;
@@ -189,6 +199,18 @@ class ApplicationServiceConfigTest {
     @MockitoBean
     private RunWorkspaceAgentPort runWorkspaceAgentPort;
 
+    @MockitoBean
+    private SaveChatSessionPort saveChatSessionPort;
+
+    @MockitoBean
+    private LoadChatSessionPort loadChatSessionPort;
+
+    @MockitoBean
+    private SaveChatMessagePort saveChatMessagePort;
+
+    @MockitoBean
+    private LoadChatMessagesPort loadChatMessagesPort;
+
     @Autowired
     private AcceptWorkspaceInviteUseCase acceptWorkspaceInviteUseCase;
 
@@ -260,6 +282,15 @@ class ApplicationServiceConfigTest {
 
     @Autowired
     private RunTaskUseCase runTaskUseCase;
+
+    @Autowired
+    private SendChatMessageUseCase sendChatMessageUseCase;
+
+    @Autowired
+    private ListChatTaskMessagesUseCase listChatTaskMessagesUseCase;
+
+    @Autowired
+    private ListChatSessionMessagesUseCase listChatSessionMessagesUseCase;
 
     @Test
     void registersAcceptWorkspaceInviteUseCase() {
@@ -379,5 +410,20 @@ class ApplicationServiceConfigTest {
     @Test
     void registersRunTaskUseCase() {
         assertThat(runTaskUseCase).isInstanceOf(RunTaskService.class);
+    }
+
+    @Test
+    void registersSendChatMessageUseCase() {
+        assertThat(sendChatMessageUseCase).isInstanceOf(SendChatMessageService.class);
+    }
+
+    @Test
+    void registersListChatTaskMessagesUseCase() {
+        assertThat(listChatTaskMessagesUseCase).isInstanceOf(ListChatTaskMessagesService.class);
+    }
+
+    @Test
+    void registersListChatSessionMessagesUseCase() {
+        assertThat(listChatSessionMessagesUseCase).isInstanceOf(ListChatSessionMessagesService.class);
     }
 }
