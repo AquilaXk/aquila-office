@@ -235,6 +235,7 @@ class SendChatMessageServiceTest {
                 TaskType.FEATURE_IMPLEMENTATION,
                 TaskPriority.HIGH,
                 501L,
+                null,
                 TaskStatus.ASSIGNED,
                 LocalDateTime.of(2026, 5, 16, 10, 1),
                 LocalDateTime.of(2026, 5, 16, 10, 1));

@@ -83,6 +83,7 @@ public class TaskPersistenceAdapter
                 task.getType(),
                 task.getPriority(),
                 task.getAssignedAgentId(),
+                task.getSourceRef(),
                 task.getStatus(),
                 task.getCreatedAt(),
                 task.getUpdatedAt());
@@ -112,6 +113,7 @@ public class TaskPersistenceAdapter
                 task.getType(),
                 task.getPriority(),
                 task.getAssignedAgentId(),
+                task.getSourceRef(),
                 task.getStatus(),
                 task.getCreatedAt(),
                 task.getUpdatedAt());

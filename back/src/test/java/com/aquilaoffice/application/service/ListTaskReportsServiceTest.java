@@ -115,6 +115,7 @@ class ListTaskReportsServiceTest {
                 TaskType.TEST_CREATION,
                 TaskPriority.HIGH,
                 501L,
+                null,
                 TaskStatus.IN_PROGRESS,
                 LocalDateTime.of(2026, 5, 16, 10, 0),
                 LocalDateTime.of(2026, 5, 16, 11, 0));
