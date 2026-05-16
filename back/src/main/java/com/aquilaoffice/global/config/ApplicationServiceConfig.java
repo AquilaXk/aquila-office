@@ -2,6 +2,7 @@ package com.aquilaoffice.global.config;
 
 import com.aquilaoffice.application.port.in.AcceptWorkspaceInviteUseCase;
 import com.aquilaoffice.application.port.in.ChangeWorkspaceMemberRoleUseCase;
+import com.aquilaoffice.application.port.in.CompleteSlackOAuthCallbackUseCase;
 import com.aquilaoffice.application.port.in.CreateGithubCredentialUseCase;
 import com.aquilaoffice.application.port.in.CreateSlackChannelMappingUseCase;
 import com.aquilaoffice.application.port.in.CreateTaskUseCase;
@@ -46,6 +47,7 @@ import com.aquilaoffice.application.port.out.ChangeWorkspaceMemberRolePort;
 import com.aquilaoffice.application.port.out.DeleteGithubCredentialPort;
 import com.aquilaoffice.application.port.out.DeleteWorkspaceAgentPort;
 import com.aquilaoffice.application.port.out.DeleteWorkspacePort;
+import com.aquilaoffice.application.port.out.ExchangeSlackOAuthCodePort;
 import com.aquilaoffice.application.port.out.ExistsGithubCredentialPort;
 import com.aquilaoffice.application.port.out.GenerateWorkspaceInviteTokenPort;
 import com.aquilaoffice.application.port.out.LoadGithubCredentialPort;
@@ -85,6 +87,7 @@ import com.aquilaoffice.application.port.out.UpdateTaskStatusPort;
 import com.aquilaoffice.application.port.out.UpdateWorkspacePort;
 import com.aquilaoffice.application.service.AcceptWorkspaceInviteService;
 import com.aquilaoffice.application.service.ChangeWorkspaceMemberRoleService;
+import com.aquilaoffice.application.service.CompleteSlackOAuthCallbackService;
 import com.aquilaoffice.application.service.CreateGithubCredentialService;
 import com.aquilaoffice.application.service.CreateSlackChannelMappingService;
 import com.aquilaoffice.application.service.CreateTaskService;
@@ -557,6 +560,21 @@ public class ApplicationServiceConfig {
                 loadWorkspacePort,
                 loadSlackChannelMappingPort,
                 saveSlackChannelMappingPort);
+    }
+
+    @Bean
+    public CompleteSlackOAuthCallbackUseCase completeSlackOAuthCallbackUseCase(
+            LoadMemberPort loadMemberPort,
+            LoadWorkspacePort loadWorkspacePort,
+            LoadSlackChannelMappingPort loadSlackChannelMappingPort,
+            SaveSlackChannelMappingPort saveSlackChannelMappingPort,
+            ExchangeSlackOAuthCodePort exchangeSlackOAuthCodePort) {
+        return new CompleteSlackOAuthCallbackService(
+                loadMemberPort,
+                loadWorkspacePort,
+                loadSlackChannelMappingPort,
+                saveSlackChannelMappingPort,
+                exchangeSlackOAuthCodePort);
     }
 
     @Bean

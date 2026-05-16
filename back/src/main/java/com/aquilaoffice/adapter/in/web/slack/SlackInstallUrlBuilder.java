@@ -1,5 +1,6 @@
 package com.aquilaoffice.adapter.in.web.slack;
 
+import com.aquilaoffice.domain.slack.SlackOAuthState;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -15,7 +16,7 @@ import org.springframework.stereotype.Component;
 public class SlackInstallUrlBuilder {
 
     private static final URI DEFAULT_AUTHORIZE_URI = URI.create("https://slack.com/oauth/v2/authorize");
-    private static final String DEFAULT_SCOPE = "app_mentions:read,channels:read,chat:write";
+    private static final String DEFAULT_SCOPE = "app_mentions:read,channels:read,chat:write,incoming-webhook";
 
     private final String clientId;
     private final String redirectUri;
@@ -39,9 +40,9 @@ public class SlackInstallUrlBuilder {
         if (clientId == null) {
             throw new IllegalStateException("slack client id is not configured");
         }
-        Long normalizedWorkspaceId = requirePositive(workspaceId, "workspaceId");
-        String normalizedRequesterGoogleSub = requireNotBlank(requesterGoogleSub, "requesterGoogleSub");
-        String state = "workspaceId:" + normalizedWorkspaceId + ":requester:" + normalizedRequesterGoogleSub;
+        String state = SlackOAuthState.serialize(
+                requirePositive(workspaceId, "workspaceId"),
+                requireNotBlank(requesterGoogleSub, "requesterGoogleSub"));
 
         return authorizeUri + "?"
                 + queryParameter("client_id", clientId)

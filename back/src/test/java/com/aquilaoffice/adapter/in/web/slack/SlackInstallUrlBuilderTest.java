@@ -20,7 +20,8 @@ class SlackInstallUrlBuilderTest {
         assertThat(url).startsWith("https://slack.com/oauth/v2/authorize?");
         assertThat(url).contains("client_id=client-123");
         assertThat(url).contains("redirect_uri=http%3A%2F%2Flocalhost%3A8080%2Fapi%2Fv1%2Fslack%2Foauth%2Fcallback");
-        assertThat(url).contains("scope=app_mentions%3Aread%2Cchannels%3Aread%2Cchat%3Awrite");
+        assertThat(url).contains(
+                "scope=app_mentions%3Aread%2Cchannels%3Aread%2Cchat%3Awrite%2Cincoming-webhook");
         assertThat(url).contains("state=workspaceId%3A101%3Arequester%3Agoogle-1");
     }
 
