@@ -6,9 +6,13 @@ import com.aquilaoffice.application.port.in.ReceiveSlackEventUseCase;
 import com.aquilaoffice.application.port.in.SendChatMessageCommand;
 import com.aquilaoffice.application.port.in.SendChatMessageResult;
 import com.aquilaoffice.application.port.in.SendChatMessageUseCase;
+import com.aquilaoffice.application.port.out.LoadSlackChannelMappingPort;
+import com.aquilaoffice.domain.slack.SlackChannelMapping;
 import com.aquilaoffice.domain.task.TaskPriority;
 import com.aquilaoffice.domain.task.TaskType;
+import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 /**
  * Slack event payload를 기존 chat/task 실행 흐름으로 변환한다.
@@ -21,14 +25,24 @@ public class ReceiveSlackEventService implements ReceiveSlackEventUseCase {
 
     private final SlackAgentCommandParser slackAgentCommandParser;
     private final SendChatMessageUseCase sendChatMessageUseCase;
+    private final LoadSlackChannelMappingPort loadSlackChannelMappingPort;
 
     public ReceiveSlackEventService(
             SlackAgentCommandParser slackAgentCommandParser,
             SendChatMessageUseCase sendChatMessageUseCase) {
+        this(slackAgentCommandParser, sendChatMessageUseCase, new EmptySlackChannelMappingPort());
+    }
+
+    public ReceiveSlackEventService(
+            SlackAgentCommandParser slackAgentCommandParser,
+            SendChatMessageUseCase sendChatMessageUseCase,
+            LoadSlackChannelMappingPort loadSlackChannelMappingPort) {
         this.slackAgentCommandParser =
                 Objects.requireNonNull(slackAgentCommandParser, "slackAgentCommandParser must not be null");
         this.sendChatMessageUseCase =
                 Objects.requireNonNull(sendChatMessageUseCase, "sendChatMessageUseCase must not be null");
+        this.loadSlackChannelMappingPort =
+                Objects.requireNonNull(loadSlackChannelMappingPort, "loadSlackChannelMappingPort must not be null");
     }
 
     @Override
@@ -49,10 +63,13 @@ public class ReceiveSlackEventService implements ReceiveSlackEventUseCase {
             return ignored(null, "agent command not found");
         }
 
-        String requesterGoogleSub = normalizeRequester(command.requesterGoogleSub());
+        ResolvedSlackWorkspace resolvedWorkspace = resolveWorkspace(command, event);
+        if (resolvedWorkspace == null) {
+            return ignored(null, "slack channel mapping not found");
+        }
         SendChatMessageResult sendResult = sendChatMessageUseCase.sendChatMessage(new SendChatMessageCommand(
-                command.workspaceId(),
-                requesterGoogleSub,
+                resolvedWorkspace.workspaceId(),
+                resolvedWorkspace.requesterGoogleSub(),
                 parsedCommand.message(),
                 parsedCommand.agentId(),
                 null,
@@ -71,16 +88,29 @@ public class ReceiveSlackEventService implements ReceiveSlackEventUseCase {
                 sourceRef(command.teamId(), event.channel(), event.ts(), event.threadTs()));
     }
 
-    private ReceiveSlackEventResult ignored(String challenge, String reason) {
-        return new ReceiveSlackEventResult(challenge, false, reason, null, null, null);
+    private ResolvedSlackWorkspace resolveWorkspace(
+            ReceiveSlackEventCommand command,
+            ReceiveSlackEventCommand.SlackEventPayload event) {
+        String requesterGoogleSub = normalize(command.requesterGoogleSub());
+        if (command.workspaceId() != null && !requesterGoogleSub.isBlank()) {
+            return new ResolvedSlackWorkspace(command.workspaceId(), requesterGoogleSub);
+        }
+
+        String teamId = normalize(command.teamId());
+        String channelId = normalize(event.channel());
+        if (teamId.isBlank() || channelId.isBlank()) {
+            return null;
+        }
+
+        return loadSlackChannelMappingPort.findActiveByTeamIdAndChannelId(teamId, channelId)
+                .map(mapping -> new ResolvedSlackWorkspace(
+                        mapping.getWorkspaceId(),
+                        mapping.getCreatedByGoogleSub()))
+                .orElse(null);
     }
 
-    private String normalizeRequester(String requesterGoogleSub) {
-        String normalizedRequesterGoogleSub = normalize(requesterGoogleSub);
-        if (normalizedRequesterGoogleSub.isBlank()) {
-            throw new IllegalArgumentException("requesterGoogleSub must not be blank");
-        }
-        return normalizedRequesterGoogleSub;
+    private ReceiveSlackEventResult ignored(String challenge, String reason) {
+        return new ReceiveSlackEventResult(challenge, false, reason, null, null, null);
     }
 
     private String resolveTitle(String message) {
@@ -98,5 +128,20 @@ public class ReceiveSlackEventService implements ReceiveSlackEventUseCase {
 
     private String normalize(String value) {
         return value == null ? "" : value.trim();
+    }
+
+    private record ResolvedSlackWorkspace(Long workspaceId, String requesterGoogleSub) {}
+
+    private static class EmptySlackChannelMappingPort implements LoadSlackChannelMappingPort {
+
+        @Override
+        public Optional<SlackChannelMapping> findActiveByTeamIdAndChannelId(String teamId, String channelId) {
+            return Optional.empty();
+        }
+
+        @Override
+        public List<SlackChannelMapping> findActiveByWorkspaceId(Long workspaceId) {
+            return List.of();
+        }
     }
 }
