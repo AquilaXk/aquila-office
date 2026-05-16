@@ -72,12 +72,14 @@ class SendChatMessageServiceTest {
                 TaskPriority.HIGH,
                 " 채팅 요청 ",
                 true,
-                null));
+                null,
+                "T123:C456:1715841000.000100"));
 
         assertThat(saveChatSessionPort.savedSession.getWorkspaceId()).isEqualTo(101L);
         assertThat(saveTaskPort.savedTask.getTitle()).isEqualTo("채팅 요청");
         assertThat(saveTaskPort.savedTask.getDescription()).isEqualTo("기능을 구현해 주세요.");
         assertThat(saveTaskPort.savedTask.getAssignedAgentId()).isEqualTo(501L);
+        assertThat(saveTaskPort.savedTask.getSourceRef()).isEqualTo("T123:C456:1715841000.000100");
         assertThat(runTaskUseCase.command.taskId()).isEqualTo(301L);
         assertThat(runTaskUseCase.command.createPr()).isTrue();
         assertThat(saveChatMessagePort.savedMessages).hasSize(2);
