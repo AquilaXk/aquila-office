@@ -1,7 +1,9 @@
 package com.aquilaoffice.global.security;
 
+import com.aquilaoffice.application.port.out.LoadMemberPort;
 import com.aquilaoffice.application.port.out.ResolveAccessTokenPort;
 import com.aquilaoffice.application.port.out.ResolvedAccessToken;
+import com.aquilaoffice.domain.member.Member;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -22,12 +24,15 @@ public class AccessTokenAuthenticationFilter extends OncePerRequestFilter {
 
     private final BearerTokenResolver bearerTokenResolver;
     private final ResolveAccessTokenPort resolveAccessTokenPort;
+    private final LoadMemberPort loadMemberPort;
 
     public AccessTokenAuthenticationFilter(
             BearerTokenResolver bearerTokenResolver,
-            ResolveAccessTokenPort resolveAccessTokenPort) {
+            ResolveAccessTokenPort resolveAccessTokenPort,
+            LoadMemberPort loadMemberPort) {
         this.bearerTokenResolver = bearerTokenResolver;
         this.resolveAccessTokenPort = resolveAccessTokenPort;
+        this.loadMemberPort = loadMemberPort;
     }
 
     @Override
@@ -59,10 +64,13 @@ public class AccessTokenAuthenticationFilter extends OncePerRequestFilter {
         try {
             String accessToken = bearerTokenResolver.resolve(authorizationHeader);
             ResolvedAccessToken resolvedAccessToken = resolveAccessTokenPort.resolveAccessToken(accessToken);
+            Member member = loadMemberPort.findByEmail(resolvedAccessToken.email())
+                    .orElseThrow(() -> new IllegalArgumentException("authenticated member is not found"));
             AuthenticatedMember authenticatedMember = new AuthenticatedMember(
                     resolvedAccessToken.memberId(),
-                    resolvedAccessToken.email(),
-                    resolvedAccessToken.role());
+                    member.getGoogleSub(),
+                    member.getEmail(),
+                    member.getRole());
             UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
                     authenticatedMember,
                     null,
