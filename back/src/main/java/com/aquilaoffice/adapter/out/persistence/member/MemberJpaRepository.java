@@ -9,4 +9,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface MemberJpaRepository extends JpaRepository<MemberJpaEntity, Long> {
 
     Optional<MemberJpaEntity> findByGoogleSub(String googleSub);
+
+    Optional<MemberJpaEntity> findByEmail(String email);
 }

@@ -2,6 +2,7 @@ package com.aquilaoffice.global.security;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -10,6 +11,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
 /**
@@ -32,6 +34,14 @@ class SecurityConfigTest {
     void unknownApiRequiresAuthentication() throws Exception {
         mockMvc.perform(get("/api/private"))
                 .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void googleLoginEndpointDoesNotRequireAuthentication() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/google/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"idToken\":\" \"}"))
+                .andExpect(status().isBadRequest());
     }
 
     @Test

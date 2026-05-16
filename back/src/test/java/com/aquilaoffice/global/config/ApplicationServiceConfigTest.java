@@ -25,6 +25,7 @@ import com.aquilaoffice.application.port.in.GetWorkspaceAgentUseCase;
 import com.aquilaoffice.application.port.in.GetWorkspaceGatewayStatusUseCase;
 import com.aquilaoffice.application.port.in.GetWorkspaceDashboardSummaryUseCase;
 import com.aquilaoffice.application.port.in.GetTaskDetailUseCase;
+import com.aquilaoffice.application.port.in.GoogleLoginUseCase;
 import com.aquilaoffice.application.port.in.LeaveWorkspaceUseCase;
 import com.aquilaoffice.application.port.in.ListTaskReportsUseCase;
 import com.aquilaoffice.application.port.in.ListWorkspaceAgentsUseCase;
@@ -58,6 +59,7 @@ import com.aquilaoffice.application.port.out.ExchangeSlackOAuthCodePort;
 import com.aquilaoffice.application.port.out.ExtendWorkspaceInvitePort;
 import com.aquilaoffice.application.port.out.ExistsGithubCredentialPort;
 import com.aquilaoffice.application.port.out.GenerateWorkspaceInviteTokenPort;
+import com.aquilaoffice.application.port.out.IssueAuthTokenPort;
 import com.aquilaoffice.application.port.out.LoadGithubCredentialPort;
 import com.aquilaoffice.application.port.out.LoadGithubCredentialsPort;
 import com.aquilaoffice.application.port.out.LoadChatMessagesPort;
@@ -83,6 +85,7 @@ import com.aquilaoffice.application.port.out.RunWorkspaceAgentPort;
 import com.aquilaoffice.application.port.out.SaveGithubCredentialPort;
 import com.aquilaoffice.application.port.out.SaveChatMessagePort;
 import com.aquilaoffice.application.port.out.SaveChatSessionPort;
+import com.aquilaoffice.application.port.out.SaveGoogleLoginMemberPort;
 import com.aquilaoffice.application.port.out.SaveSlackChannelMappingPort;
 import com.aquilaoffice.application.port.out.SaveTaskPort;
 import com.aquilaoffice.application.port.out.SaveTaskExecutionPort;
@@ -96,6 +99,7 @@ import com.aquilaoffice.application.port.out.UpdateGithubCredentialPort;
 import com.aquilaoffice.application.port.out.UpdateMemberProfilePort;
 import com.aquilaoffice.application.port.out.UpdateTaskStatusPort;
 import com.aquilaoffice.application.port.out.UpdateWorkspacePort;
+import com.aquilaoffice.application.port.out.VerifyGoogleIdTokenPort;
 import com.aquilaoffice.application.service.AcceptWorkspaceInviteService;
 import com.aquilaoffice.application.service.ChangeWorkspaceMemberRoleService;
 import com.aquilaoffice.application.service.CompleteSlackOAuthCallbackService;
@@ -116,6 +120,7 @@ import com.aquilaoffice.application.service.GetWorkspaceAgentService;
 import com.aquilaoffice.application.service.GetWorkspaceGatewayStatusService;
 import com.aquilaoffice.application.service.GetWorkspaceDashboardSummaryService;
 import com.aquilaoffice.application.service.GetTaskDetailService;
+import com.aquilaoffice.application.service.GoogleLoginService;
 import com.aquilaoffice.application.service.LeaveWorkspaceService;
 import com.aquilaoffice.application.service.MemberProfileService;
 import com.aquilaoffice.application.service.OpenWorkspacePresenceStreamService;
@@ -294,6 +299,15 @@ class ApplicationServiceConfigTest {
     @MockitoBean
     private LoadChatMessagesPort loadChatMessagesPort;
 
+    @MockitoBean
+    private VerifyGoogleIdTokenPort verifyGoogleIdTokenPort;
+
+    @MockitoBean
+    private SaveGoogleLoginMemberPort saveGoogleLoginMemberPort;
+
+    @MockitoBean
+    private IssueAuthTokenPort issueAuthTokenPort;
+
     @Autowired
     private AcceptWorkspaceInviteUseCase acceptWorkspaceInviteUseCase;
 
@@ -308,6 +322,9 @@ class ApplicationServiceConfigTest {
 
     @Autowired
     private UpdateMemberProfileUseCase updateMemberProfileUseCase;
+
+    @Autowired
+    private GoogleLoginUseCase googleLoginUseCase;
 
     @Autowired
     private UpdateWorkspacePresencePositionUseCase updateWorkspacePresencePositionUseCase;
@@ -461,6 +478,17 @@ class ApplicationServiceConfigTest {
     @Test
     void registersUpdateMemberProfileUseCase() {
         assertThat(updateMemberProfileUseCase).isInstanceOf(MemberProfileService.class);
+    }
+
+    @Test
+    void registersGoogleLoginUseCase() {
+        assertThat(googleLoginUseCase).isInstanceOf(GoogleLoginService.class);
+        assertThat(ReflectionTestUtils.getField(googleLoginUseCase, "verifyGoogleIdTokenPort"))
+                .isSameAs(verifyGoogleIdTokenPort);
+        assertThat(ReflectionTestUtils.getField(googleLoginUseCase, "saveGoogleLoginMemberPort"))
+                .isSameAs(saveGoogleLoginMemberPort);
+        assertThat(ReflectionTestUtils.getField(googleLoginUseCase, "issueAuthTokenPort"))
+                .isSameAs(issueAuthTokenPort);
     }
 
     @Test
