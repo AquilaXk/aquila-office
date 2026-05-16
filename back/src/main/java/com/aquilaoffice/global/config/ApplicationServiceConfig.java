@@ -37,6 +37,7 @@ import com.aquilaoffice.application.port.in.RunTaskUseCase;
 import com.aquilaoffice.application.port.in.SendChatMessageUseCase;
 import com.aquilaoffice.application.port.in.TestWorkspaceGatewayConnectionUseCase;
 import com.aquilaoffice.application.port.in.UpdateGithubCredentialUseCase;
+import com.aquilaoffice.application.port.in.UpdateSlackIntegrationUseCase;
 import com.aquilaoffice.application.port.in.UpdateTaskStatusUseCase;
 import com.aquilaoffice.application.port.in.UpdateWorkspaceUseCase;
 import com.aquilaoffice.application.port.out.AcceptWorkspaceInvitePort;
@@ -119,6 +120,7 @@ import com.aquilaoffice.application.service.SendChatMessageService;
 import com.aquilaoffice.application.service.SlackAgentCommandParser;
 import com.aquilaoffice.application.service.TestWorkspaceGatewayConnectionService;
 import com.aquilaoffice.application.service.UpdateGithubCredentialService;
+import com.aquilaoffice.application.service.UpdateSlackIntegrationService;
 import com.aquilaoffice.application.service.UpdateTaskStatusService;
 import com.aquilaoffice.application.service.UpdateWorkspaceService;
 import com.aquilaoffice.adapter.in.web.slack.SlackSignatureVerifier;
@@ -527,6 +529,19 @@ public class ApplicationServiceConfig {
                 loadMemberPort,
                 loadWorkspacePort,
                 loadSlackChannelMappingPort);
+    }
+
+    @Bean
+    public UpdateSlackIntegrationUseCase updateSlackIntegrationUseCase(
+            LoadMemberPort loadMemberPort,
+            LoadWorkspacePort loadWorkspacePort,
+            LoadSlackChannelMappingPort loadSlackChannelMappingPort,
+            SaveSlackChannelMappingPort saveSlackChannelMappingPort) {
+        return new UpdateSlackIntegrationService(
+                loadMemberPort,
+                loadWorkspacePort,
+                loadSlackChannelMappingPort,
+                saveSlackChannelMappingPort);
     }
 
     @Bean

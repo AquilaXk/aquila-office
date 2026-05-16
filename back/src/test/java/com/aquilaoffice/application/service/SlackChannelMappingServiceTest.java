@@ -180,6 +180,11 @@ class SlackChannelMappingServiceTest {
         }
 
         @Override
+        public Optional<SlackChannelMapping> findActiveByIdAndWorkspaceId(Long mappingId, Long workspaceId) {
+            throw new UnsupportedOperationException("not used in slack mapping service test");
+        }
+
+        @Override
         public Optional<SlackChannelMapping> findActiveByTeamIdAndChannelId(String teamId, String channelId) {
             this.lookupTeamId = teamId;
             this.lookupChannelId = channelId;

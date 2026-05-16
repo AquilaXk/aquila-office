@@ -33,8 +33,9 @@ import com.aquilaoffice.application.port.in.RemoveWorkspaceMemberUseCase;
 import com.aquilaoffice.application.port.in.RunTaskUseCase;
 import com.aquilaoffice.application.port.in.SendChatMessageUseCase;
 import com.aquilaoffice.application.port.in.TestWorkspaceGatewayConnectionUseCase;
-import com.aquilaoffice.application.port.in.UpdateTaskStatusUseCase;
 import com.aquilaoffice.application.port.in.UpdateGithubCredentialUseCase;
+import com.aquilaoffice.application.port.in.UpdateSlackIntegrationUseCase;
+import com.aquilaoffice.application.port.in.UpdateTaskStatusUseCase;
 import com.aquilaoffice.application.port.in.UpdateWorkspaceUseCase;
 import com.aquilaoffice.application.port.in.RevokeWorkspaceInviteUseCase;
 import com.aquilaoffice.application.port.out.AcceptWorkspaceInvitePort;
@@ -111,6 +112,7 @@ import com.aquilaoffice.application.service.RunTaskService;
 import com.aquilaoffice.application.service.SendChatMessageService;
 import com.aquilaoffice.application.service.TestWorkspaceGatewayConnectionService;
 import com.aquilaoffice.application.service.UpdateGithubCredentialService;
+import com.aquilaoffice.application.service.UpdateSlackIntegrationService;
 import com.aquilaoffice.application.service.UpdateTaskStatusService;
 import com.aquilaoffice.application.service.UpdateWorkspaceService;
 import org.junit.jupiter.api.Test;
@@ -354,6 +356,9 @@ class ApplicationServiceConfigTest {
     private ListSlackChannelMappingsUseCase listSlackChannelMappingsUseCase;
 
     @Autowired
+    private UpdateSlackIntegrationUseCase updateSlackIntegrationUseCase;
+
+    @Autowired
     private SlackSignatureVerifier slackSignatureVerifier;
 
     @Test
@@ -532,6 +537,11 @@ class ApplicationServiceConfigTest {
     @Test
     void registersListSlackChannelMappingsUseCase() {
         assertThat(listSlackChannelMappingsUseCase).isInstanceOf(ListSlackChannelMappingsService.class);
+    }
+
+    @Test
+    void registersUpdateSlackIntegrationUseCase() {
+        assertThat(updateSlackIntegrationUseCase).isInstanceOf(UpdateSlackIntegrationService.class);
     }
 
     @Test

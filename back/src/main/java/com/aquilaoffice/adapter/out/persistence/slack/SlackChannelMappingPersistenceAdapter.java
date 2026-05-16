@@ -36,9 +36,18 @@ public class SlackChannelMappingPersistenceAdapter
                 .findActiveWorkspaceById(mapping.getWorkspaceId())
                 .orElseThrow(() -> new IllegalArgumentException("workspace entity not found"));
 
-        SlackChannelMappingJpaEntity savedEntity = slackChannelMappingJpaRepository.save(
-                SlackChannelMappingJpaEntity.from(mapping, workspaceEntity));
+        SlackChannelMappingJpaEntity entity = resolveEntity(mapping, workspaceEntity);
+        SlackChannelMappingJpaEntity savedEntity = slackChannelMappingJpaRepository.save(entity);
         return toDomain(savedEntity);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<SlackChannelMapping> findActiveByIdAndWorkspaceId(Long mappingId, Long workspaceId) {
+        Objects.requireNonNull(mappingId, "mappingId must not be null");
+        Objects.requireNonNull(workspaceId, "workspaceId must not be null");
+        return slackChannelMappingJpaRepository.findActiveByIdAndWorkspaceId(mappingId, workspaceId)
+                .map(this::toDomain);
     }
 
     @Override
@@ -69,6 +78,20 @@ public class SlackChannelMappingPersistenceAdapter
                 entity.getBotToken(),
                 entity.getCreatedByGoogleSub(),
                 entity.isActive());
+    }
+
+    private SlackChannelMappingJpaEntity resolveEntity(
+            SlackChannelMapping mapping,
+            WorkspaceJpaEntity workspaceEntity) {
+        if (mapping.getId() == null) {
+            return SlackChannelMappingJpaEntity.from(mapping, workspaceEntity);
+        }
+
+        SlackChannelMappingJpaEntity entity = slackChannelMappingJpaRepository
+                .findById(mapping.getId())
+                .orElseThrow(() -> new IllegalArgumentException("slack channel mapping entity not found"));
+        entity.apply(mapping, workspaceEntity);
+        return entity;
     }
 
     private String normalizeRequired(String value, String fieldName) {

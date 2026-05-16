@@ -116,6 +116,71 @@ class SlackChannelMappingPersistenceAdapterTest {
                 .containsExactly("C456");
     }
 
+    @Test
+    void saveUpdatesExistingMappingWithoutCreatingAnotherRow() {
+        WorkspaceJpaEntity workspaceEntity = saveWorkspaceEntity("creator-google");
+        SlackChannelMapping savedMapping = saveSlackChannelMappingPort.save(SlackChannelMapping.create(
+                workspaceEntity.getId(),
+                "T123",
+                "C456",
+                "dev-alerts",
+                "xoxb-old-secret",
+                "creator-google"));
+
+        SlackChannelMapping updatedMapping = saveSlackChannelMappingPort.save(savedMapping.update(
+                "T999",
+                null,
+                "prod-alerts",
+                "xoxb-new-secret"));
+
+        assertThat(updatedMapping.getId()).isEqualTo(savedMapping.getId());
+        assertThat(slackChannelMappingJpaRepository.count()).isEqualTo(1L);
+        assertThat(loadSlackChannelMappingPort.findActiveByIdAndWorkspaceId(
+                        savedMapping.getId(),
+                        workspaceEntity.getId()))
+                .hasValueSatisfying(found -> {
+                    assertThat(found.getTeamId()).isEqualTo("T999");
+                    assertThat(found.getChannelId()).isEqualTo("C456");
+                    assertThat(found.getChannelName()).isEqualTo("prod-alerts");
+                    assertThat(found.getBotToken()).isEqualTo("xoxb-new-secret");
+                });
+    }
+
+    @Test
+    void findActiveByIdAndWorkspaceIdRequiresMatchingActiveMapping() {
+        WorkspaceJpaEntity workspaceEntity = saveWorkspaceEntity("creator-google");
+        WorkspaceJpaEntity otherWorkspaceEntity = saveWorkspaceEntity("other-google");
+        SlackChannelMapping activeMapping = saveSlackChannelMappingPort.save(SlackChannelMapping.create(
+                workspaceEntity.getId(),
+                "T123",
+                "C456",
+                "dev-alerts",
+                "xoxb-token-secret",
+                "creator-google"));
+        SlackChannelMapping inactiveMapping = SlackChannelMapping.create(
+                workspaceEntity.getId(),
+                "T789",
+                "C789",
+                "old-alerts",
+                "xoxb-token-secret",
+                "creator-google");
+        inactiveMapping.deactivate();
+        SlackChannelMapping savedInactiveMapping = saveSlackChannelMappingPort.save(inactiveMapping);
+
+        assertThat(loadSlackChannelMappingPort.findActiveByIdAndWorkspaceId(
+                        activeMapping.getId(),
+                        workspaceEntity.getId()))
+                .isPresent();
+        assertThat(loadSlackChannelMappingPort.findActiveByIdAndWorkspaceId(
+                        activeMapping.getId(),
+                        otherWorkspaceEntity.getId()))
+                .isEmpty();
+        assertThat(loadSlackChannelMappingPort.findActiveByIdAndWorkspaceId(
+                        savedInactiveMapping.getId(),
+                        workspaceEntity.getId()))
+                .isEmpty();
+    }
+
     private WorkspaceJpaEntity saveWorkspaceEntity(String googleSub) {
         MemberJpaEntity creatorEntity = memberJpaRepository.save(MemberJpaEntity.create(
                 googleSub, googleSub + "@example.com", "Creator", MemberRole.USER));

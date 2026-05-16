@@ -15,6 +15,18 @@ public interface SlackChannelMappingJpaRepository extends JpaRepository<SlackCha
             select sm
             from SlackChannelMappingJpaEntity sm
             join fetch sm.workspace w
+            where sm.id = :mappingId
+              and w.id = :workspaceId
+              and sm.active = true
+            """)
+    Optional<SlackChannelMappingJpaEntity> findActiveByIdAndWorkspaceId(
+            @Param("mappingId") Long mappingId,
+            @Param("workspaceId") Long workspaceId);
+
+    @Query("""
+            select sm
+            from SlackChannelMappingJpaEntity sm
+            join fetch sm.workspace w
             where sm.teamId = :teamId
               and sm.channelId = :channelId
               and sm.active = true

@@ -243,6 +243,11 @@ class ReceiveSlackEventServiceTest {
         }
 
         @Override
+        public Optional<SlackChannelMapping> findActiveByIdAndWorkspaceId(Long mappingId, Long workspaceId) {
+            throw new UnsupportedOperationException("not used in receive slack event service test");
+        }
+
+        @Override
         public Optional<SlackChannelMapping> findActiveByTeamIdAndChannelId(String teamId, String channelId) {
             return mapping;
         }

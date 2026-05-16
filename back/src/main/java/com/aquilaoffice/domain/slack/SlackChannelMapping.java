@@ -80,6 +80,18 @@ public class SlackChannelMapping {
         this.active = false;
     }
 
+    public SlackChannelMapping update(String teamId, String channelId, String channelName, String botToken) {
+        return new SlackChannelMapping(
+                id,
+                workspaceId,
+                normalizedOrCurrent(teamId, this.teamId),
+                normalizedOrCurrent(channelId, this.channelId),
+                normalizedOrCurrent(channelName, this.channelName),
+                normalizedOrCurrent(botToken, this.botToken),
+                createdByGoogleSub,
+                active);
+    }
+
     public boolean hasSameChannel(String teamId, String channelId) {
         return this.teamId.equals(requireNotBlank(teamId, "teamId"))
                 && this.channelId.equals(requireNotBlank(channelId, "channelId"));
@@ -145,5 +157,13 @@ public class SlackChannelMapping {
             return null;
         }
         return value.trim();
+    }
+
+    private static String normalizedOrCurrent(String value, String currentValue) {
+        String normalizedValue = normalizeOptional(value);
+        if (normalizedValue == null) {
+            return currentValue;
+        }
+        return normalizedValue;
     }
 }

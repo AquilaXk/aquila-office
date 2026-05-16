@@ -67,7 +67,7 @@ class UpdateSlackIntegrationServiceTest {
         assertThat(result.id()).isEqualTo(501L);
         assertThat(result.slackTeamId()).isEqualTo("T999");
         assertThat(result.slackChannelId()).isEqualTo("C456");
-        assertThat(result.maskedBotToken()).isEqualTo("xox****cret");
+        assertThat(result.maskedBotToken()).isEqualTo("xoxb****cret");
     }
 
     @Test
