@@ -1,6 +1,7 @@
 package com.aquilaoffice.adapter.in.web.artifact;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
@@ -9,7 +10,6 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.aquilaoffice.adapter.in.web.workspace.WorkspaceController;
 import com.aquilaoffice.application.port.in.ArtifactFileResult;
 import com.aquilaoffice.application.port.in.ArtifactNodeResult;
 import com.aquilaoffice.application.port.in.ArtifactTreeResult;
@@ -22,7 +22,9 @@ import com.aquilaoffice.application.port.in.GetOrchestrationPlanArtifactUseCase;
 import com.aquilaoffice.application.port.in.OrchestrationPlanArtifactResult;
 import com.aquilaoffice.application.port.in.OrchestrationPlanFileResult;
 import com.aquilaoffice.application.port.in.OrchestrationPlanStepResult;
+import com.aquilaoffice.domain.member.MemberRole;
 import com.aquilaoffice.global.handler.GlobalExceptionHandler;
+import com.aquilaoffice.global.security.AuthenticatedMember;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -30,6 +32,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -56,7 +59,7 @@ class ArtifactControllerTest {
                 .willReturn(treeResult());
 
         mockMvc.perform(get("/api/v1/workspaces/101/artifacts/tree")
-                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, " google-1 "))
+                        .principal(authenticatedPrincipal("google-1")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.workspaceId").value(101))
@@ -78,7 +81,7 @@ class ArtifactControllerTest {
 
         mockMvc.perform(get("/api/v1/workspaces/101/artifacts/files")
                         .queryParam("path", "reports/result.md")
-                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, " google-1 "))
+                        .principal(authenticatedPrincipal("google-1")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.workspaceId").value(101))
@@ -100,7 +103,7 @@ class ArtifactControllerTest {
                 .willReturn(orchestrationPlanResult());
 
         mockMvc.perform(get("/api/v1/workspaces/101/artifacts/orchestration-plans/701")
-                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, " google-1 "))
+                        .principal(authenticatedPrincipal("google-1")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.workspaceId").value(101))
@@ -121,7 +124,7 @@ class ArtifactControllerTest {
     @Test
     void missingFilePathReturnsBadRequestAndDoesNotCallUseCase() throws Exception {
         mockMvc.perform(get("/api/v1/workspaces/101/artifacts/files")
-                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, "google-1"))
+                        .principal(authenticatedPrincipal("google-1")))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.code").value("400"));
@@ -136,10 +139,30 @@ class ArtifactControllerTest {
 
         mockMvc.perform(get("/api/v1/workspaces/101/artifacts/files")
                         .queryParam("path", "../secret.txt")
-                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, "google-1"))
+                        .principal(authenticatedPrincipal("google-1")))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.code").value("404"));
+    }
+
+    @Test
+    void missingPrincipalReturnsUnauthorizedAndDoesNotCallUseCases() throws Exception {
+        mockMvc.perform(get("/api/v1/workspaces/101/artifacts/tree"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code").value("401"));
+
+        verifyNoInteractions(
+                getArtifactTreeUseCase,
+                getArtifactFileUseCase,
+                getOrchestrationPlanArtifactUseCase);
+    }
+
+    @Test
+    void artifactControllerDoesNotExposeLegacyRequesterHeaderHelper() {
+        assertThatThrownBy(
+                        () -> ArtifactController.class.getDeclaredMethod("requireRequesterGoogleSub", String.class))
+                .isInstanceOf(NoSuchMethodException.class);
     }
 
     private static ArtifactTreeResult treeResult() {
@@ -186,5 +209,11 @@ class ArtifactControllerTest {
                                 "text/markdown",
                                 128L,
                                 true)))));
+    }
+
+    private static UsernamePasswordAuthenticationToken authenticatedPrincipal(String googleSub) {
+        AuthenticatedMember member =
+                new AuthenticatedMember(1L, googleSub, googleSub + "@example.com", MemberRole.USER);
+        return new UsernamePasswordAuthenticationToken(member, null, List.of());
     }
 }
