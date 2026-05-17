@@ -8,6 +8,7 @@ import {
   LogOut,
   Plus,
   RefreshCw,
+  Save,
   Server,
   UserRound,
   Wifi,
@@ -32,6 +33,11 @@ import {
   REPRESENTATIVE_IMAGE_PATHS,
   SERVICE_NAME,
 } from "@/lib/branding";
+import {
+  fetchMemberProfile,
+  updateMemberProfile,
+  type MemberProfile,
+} from "@/lib/members";
 import { fetchWorkspaces, type WorkspaceSummary } from "@/lib/workspaces";
 
 type HealthResponse = {
@@ -55,6 +61,17 @@ type AuthState =
   | { status: "submitting"; email: string | null; message: string | null; error: null }
   | { status: "ready"; email: string; message: string; error: null }
   | { status: "error"; email: string | null; message: null; error: string };
+
+type ProfileState =
+  | { status: "idle" | "loading"; profile: null; error: null }
+  | { status: "ready"; profile: MemberProfile; error: null }
+  | { status: "offline"; profile: null; error: string };
+
+type ProfileMutationState =
+  | { status: "idle"; message: null }
+  | { status: "submitting"; message: null }
+  | { status: "success"; message: string }
+  | { status: "error"; message: string };
 
 const assetHighlights = [
   {
@@ -89,27 +106,71 @@ export default function Home() {
     data: null,
     error: null,
   });
+  const [profile, setProfile] = useState<ProfileState>({
+    status: "idle",
+    profile: null,
+    error: null,
+  });
+  const [profileDisplayName, setProfileDisplayName] = useState("");
+  const [profileAvatarKind, setProfileAvatarKind] = useState("");
+  const [profileSkinColor, setProfileSkinColor] = useState("");
+  const [profileHairColor, setProfileHairColor] = useState("");
+  const [profileShirtColor, setProfileShirtColor] = useState("");
+  const [profileUpdateState, setProfileUpdateState] = useState<ProfileMutationState>({
+    status: "idle",
+    message: null,
+  });
+
+  const syncProfileInputs = useCallback((nextProfile: MemberProfile) => {
+    setProfileDisplayName(nextProfile.displayName);
+    setProfileAvatarKind(nextProfile.avatarKind);
+    setProfileSkinColor(nextProfile.avatarColors.skin);
+    setProfileHairColor(nextProfile.avatarColors.hair);
+    setProfileShirtColor(nextProfile.avatarColors.shirt);
+  }, []);
 
   const refreshDashboard = useCallback(async () => {
     setHealth({ status: "loading", data: null, error: null });
     setWorkspaces({ status: "loading", data: null, error: null });
+    setProfile(
+      accessToken
+        ? { status: "loading", profile: null, error: null }
+        : { status: "idle", profile: null, error: null },
+    );
 
-    const [healthResult, workspaceResult] = await Promise.all([
+    const [healthResult, workspaceResult, profileResult] = await Promise.all([
       fetchHealth(),
       fetchWorkspaceList(accessToken),
+      accessToken
+        ? fetchProfileState(accessToken)
+        : Promise.resolve({ status: "idle", profile: null, error: null } satisfies ProfileState),
     ]);
     setHealth(healthResult);
     setWorkspaces(workspaceResult);
-  }, [accessToken]);
+    setProfile(profileResult);
+    if (profileResult.status === "ready") {
+      syncProfileInputs(profileResult.profile);
+    }
+  }, [accessToken, syncProfileInputs]);
 
   useEffect(() => {
     let ignore = false;
 
-    Promise.all([fetchHealth(), fetchWorkspaceList(accessToken)]).then(
-      ([healthResult, workspaceResult]) => {
+    Promise.all([
+      fetchHealth(),
+      fetchWorkspaceList(accessToken),
+      accessToken
+        ? fetchProfileState(accessToken)
+        : Promise.resolve({ status: "idle", profile: null, error: null } satisfies ProfileState),
+    ]).then(
+      ([healthResult, workspaceResult, profileResult]) => {
         if (!ignore) {
           setHealth(healthResult);
           setWorkspaces(workspaceResult);
+          setProfile(profileResult);
+          if (profileResult.status === "ready") {
+            syncProfileInputs(profileResult.profile);
+          }
         }
       },
     );
@@ -117,7 +178,22 @@ export default function Home() {
     return () => {
       ignore = true;
     };
-  }, [accessToken]);
+  }, [accessToken, syncProfileInputs]);
+
+  const reloadProfile = async () => {
+    if (!accessToken) {
+      setProfile({ status: "idle", profile: null, error: null });
+      return;
+    }
+
+    setProfile({ status: "loading", profile: null, error: null });
+    setProfileUpdateState({ status: "idle", message: null });
+    const nextProfile = await fetchProfileState(accessToken);
+    setProfile(nextProfile);
+    if (nextProfile.status === "ready") {
+      syncProfileInputs(nextProfile.profile);
+    }
+  };
 
   const handleLogin = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -234,6 +310,55 @@ export default function Home() {
     }
   };
 
+  const handleUpdateProfile = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (!accessToken) {
+      setProfileUpdateState({
+        status: "error",
+        message: "저장된 access token이 없습니다.",
+      });
+      return;
+    }
+
+    const nextDisplayName = profileDisplayName.trim();
+    const nextAvatarKind = profileAvatarKind.trim();
+    const nextSkinColor = profileSkinColor.trim();
+    const nextHairColor = profileHairColor.trim();
+    const nextShirtColor = profileShirtColor.trim();
+    if (!nextDisplayName || !nextAvatarKind || !nextSkinColor || !nextHairColor || !nextShirtColor) {
+      setProfileUpdateState({
+        status: "error",
+        message: "표시 이름, avatar kind, skin/hair/shirt 색상을 모두 입력해 주세요.",
+      });
+      return;
+    }
+
+    setProfileUpdateState({ status: "submitting", message: null });
+    try {
+      const updatedProfile = await updateMemberProfile(accessToken, {
+        displayName: nextDisplayName,
+        avatarKind: nextAvatarKind,
+        avatarColors: {
+          skin: nextSkinColor,
+          hair: nextHairColor,
+          shirt: nextShirtColor,
+        },
+      });
+      setProfile({ status: "ready", profile: updatedProfile, error: null });
+      syncProfileInputs(updatedProfile);
+      setProfileUpdateState({
+        status: "success",
+        message: "회원 프로필이 저장되었습니다.",
+      });
+    } catch (error) {
+      setProfileUpdateState({
+        status: "error",
+        message: messageFromError(error, "회원 프로필을 저장하지 못했습니다."),
+      });
+    }
+  };
+
   const checkedAt = health.data?.checkedAt
     ? new Intl.DateTimeFormat("ko-KR", {
         dateStyle: "medium",
@@ -247,6 +372,16 @@ export default function Home() {
   const workspaceCount = workspaces.data?.length ?? 0;
   const isAuthSubmitting = authState.status === "submitting";
   const hasAccessToken = Boolean(accessToken);
+  const isProfileLoading = profile.status === "loading";
+  const isProfileUpdating = profileUpdateState.status === "submitting";
+  const canUpdateProfile =
+    hasAccessToken &&
+    profileDisplayName.trim().length > 0 &&
+    profileAvatarKind.trim().length > 0 &&
+    profileSkinColor.trim().length > 0 &&
+    profileHairColor.trim().length > 0 &&
+    profileShirtColor.trim().length > 0 &&
+    !isProfileUpdating;
 
   return (
     <main className="app-shell">
@@ -376,6 +511,161 @@ export default function Home() {
             <strong>{authState.email ?? "브라우저 세션"}</strong>
             <p>{authState.error ?? authState.message ?? "저장된 token으로 보호 API를 호출합니다."}</p>
           </div>
+
+          {hasAccessToken ? (
+            <section className="workspace-create-form" aria-label="회원 프로필 설정">
+              <div className="section-header">
+                <div>
+                  <p className="eyebrow">Profile</p>
+                  <h2>회원 프로필</h2>
+                </div>
+                <button
+                  className="secondary-action"
+                  type="button"
+                  onClick={() => void reloadProfile()}
+                  disabled={isProfileLoading || isProfileUpdating}
+                >
+                  <RefreshCw
+                    className={isProfileLoading ? "spin" : undefined}
+                    aria-hidden="true"
+                  />
+                  <span>프로필 새로고침</span>
+                </button>
+              </div>
+
+              {profile.status === "ready" ? (
+                <div className="state-panel">
+                  <UserRound aria-hidden="true" />
+                  <strong>{profile.profile.displayName}</strong>
+                  <p>{`${profile.profile.avatarKind} · skin ${profile.profile.avatarColors.skin} · hair ${profile.profile.avatarColors.hair} · shirt ${profile.profile.avatarColors.shirt}`}</p>
+                </div>
+              ) : null}
+
+              {profile.status === "loading" ? (
+                <div className="state-panel">
+                  <RefreshCw className="spin" aria-hidden="true" />
+                  <strong>프로필 확인 중</strong>
+                  <p>회원 프로필 정보를 불러오고 있습니다.</p>
+                </div>
+              ) : null}
+
+              {profile.status === "offline" ? (
+                <div className="state-panel state-panel-error">
+                  <AlertCircle aria-hidden="true" />
+                  <strong>프로필 확인 실패</strong>
+                  <p>{profile.error}</p>
+                </div>
+              ) : null}
+
+              <form className="workspace-create-form" onSubmit={(event) => void handleUpdateProfile(event)}>
+                <label className="form-field">
+                  <span>
+                    <strong>표시 이름</strong>
+                    <small>{profileDisplayName.length}/80</small>
+                  </span>
+                  <input
+                    value={profileDisplayName}
+                    onChange={(event) => {
+                      setProfileDisplayName(event.target.value);
+                      setProfileUpdateState({ status: "idle", message: null });
+                    }}
+                    maxLength={80}
+                    disabled={isProfileUpdating}
+                  />
+                </label>
+
+                <label className="form-field">
+                  <span>
+                    <strong>Avatar Kind</strong>
+                    <small>{profileAvatarKind.length}/40</small>
+                  </span>
+                  <input
+                    value={profileAvatarKind}
+                    onChange={(event) => {
+                      setProfileAvatarKind(event.target.value);
+                      setProfileUpdateState({ status: "idle", message: null });
+                    }}
+                    maxLength={40}
+                    disabled={isProfileUpdating}
+                  />
+                </label>
+
+                <label className="form-field">
+                  <span>
+                    <strong>Skin</strong>
+                    <small>avatarColors.skin</small>
+                  </span>
+                  <input
+                    value={profileSkinColor}
+                    onChange={(event) => {
+                      setProfileSkinColor(event.target.value);
+                      setProfileUpdateState({ status: "idle", message: null });
+                    }}
+                    disabled={isProfileUpdating}
+                  />
+                </label>
+
+                <label className="form-field">
+                  <span>
+                    <strong>Hair</strong>
+                    <small>avatarColors.hair</small>
+                  </span>
+                  <input
+                    value={profileHairColor}
+                    onChange={(event) => {
+                      setProfileHairColor(event.target.value);
+                      setProfileUpdateState({ status: "idle", message: null });
+                    }}
+                    disabled={isProfileUpdating}
+                  />
+                </label>
+
+                <label className="form-field">
+                  <span>
+                    <strong>Shirt</strong>
+                    <small>avatarColors.shirt</small>
+                  </span>
+                  <input
+                    value={profileShirtColor}
+                    onChange={(event) => {
+                      setProfileShirtColor(event.target.value);
+                      setProfileUpdateState({ status: "idle", message: null });
+                    }}
+                    disabled={isProfileUpdating}
+                  />
+                </label>
+
+                {profileUpdateState.status === "error" ? (
+                  <div className="form-notice form-notice-error" role="status">
+                    <AlertCircle aria-hidden="true" />
+                    <span>{profileUpdateState.message}</span>
+                  </div>
+                ) : null}
+
+                {profileUpdateState.status === "success" ? (
+                  <div className="form-notice form-notice-success" role="status">
+                    <UserRound aria-hidden="true" />
+                    <span>{profileUpdateState.message}</span>
+                  </div>
+                ) : null}
+
+                <div className="form-actions">
+                  <button
+                    className="primary-action primary-action-active"
+                    type="submit"
+                    disabled={!canUpdateProfile}
+                  >
+                    {isProfileUpdating ? (
+                      <RefreshCw className="spin" aria-hidden="true" />
+                    ) : (
+                      <Save aria-hidden="true" />
+                    )}
+                    <span>{isProfileUpdating ? "저장 중" : "프로필 저장"}</span>
+                  </button>
+                </div>
+              </form>
+            </section>
+          ) : null}
         </section>
 
         <section className="status-grid" aria-label="시스템 상태">
@@ -500,6 +790,17 @@ async function fetchWorkspaceList(accessToken: string): Promise<WorkspaceState> 
     const message =
       error instanceof ApiError ? error.message : "워크스페이스 목록을 확인하지 못했습니다.";
     return { status: "offline", data: null, error: message };
+  }
+}
+
+async function fetchProfileState(accessToken: string): Promise<ProfileState> {
+  try {
+    const profile = await fetchMemberProfile(accessToken);
+    return { status: "ready", profile, error: null };
+  } catch (error) {
+    const message =
+      error instanceof ApiError ? error.message : "회원 프로필을 확인하지 못했습니다.";
+    return { status: "offline", profile: null, error: message };
   }
 }
 
