@@ -1,5 +1,5 @@
 import { apiFetch } from "@/lib/api-client";
-import { WORKSPACE_MEMBER_HEADER, type WorkspaceMemberRole } from "@/lib/workspaces";
+import { type WorkspaceMemberRole } from "@/lib/workspaces";
 
 export type WorkspaceInviteStatus = "PENDING" | "ACCEPTED" | "EXPIRED";
 export type WorkspaceInviteManagementStatus = WorkspaceInviteStatus | "REVOKED";
@@ -44,28 +44,26 @@ export async function fetchWorkspaceInvite(token: string): Promise<WorkspaceInvi
 }
 
 export async function fetchWorkspaceInvites(
-  memberGoogleSub: string,
+  accessToken: string,
   workspaceId: number,
   status?: WorkspaceInviteManagementStatus,
 ): Promise<WorkspaceInviteManagement[]> {
   const query = status ? `?status=${encodeURIComponent(status)}` : "";
   return apiFetch<WorkspaceInviteManagement[]>(`/api/v1/workspaces/${workspaceId}/invites${query}`, {
-    headers: {
-      [WORKSPACE_MEMBER_HEADER]: memberGoogleSub,
-    },
+    accessToken,
   });
 }
 
 export async function createWorkspaceInvite(
-  memberGoogleSub: string,
+  accessToken: string,
   workspaceId: number,
   input: CreateWorkspaceInviteInput,
 ): Promise<WorkspaceInvite> {
   return apiFetch<WorkspaceInvite>(`/api/v1/workspaces/${workspaceId}/invites`, {
     method: "POST",
+    accessToken,
     headers: {
       "Content-Type": "application/json",
-      [WORKSPACE_MEMBER_HEADER]: memberGoogleSub,
     },
     body: JSON.stringify(input),
   });
@@ -73,28 +71,24 @@ export async function createWorkspaceInvite(
 
 export async function acceptWorkspaceInvite(
   token: string,
-  memberGoogleSub: string,
+  accessToken: string,
 ): Promise<AcceptedWorkspaceInvite> {
   return apiFetch<AcceptedWorkspaceInvite>(
     `/api/v1/workspace-invites/${encodeURIComponent(token)}/accept`,
     {
       method: "POST",
-      headers: {
-        [WORKSPACE_MEMBER_HEADER]: memberGoogleSub,
-      },
+      accessToken,
     },
   );
 }
 
 export async function revokeWorkspaceInvite(
-  memberGoogleSub: string,
+  accessToken: string,
   workspaceId: number,
   inviteId: number,
 ): Promise<void> {
   return apiFetch<void>(`/api/v1/workspaces/${workspaceId}/invites/${inviteId}`, {
     method: "DELETE",
-    headers: {
-      [WORKSPACE_MEMBER_HEADER]: memberGoogleSub,
-    },
+    accessToken,
   });
 }

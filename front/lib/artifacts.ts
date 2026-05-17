@@ -1,5 +1,4 @@
 import { apiFetch } from "@/lib/api-client";
-import { WORKSPACE_MEMBER_HEADER } from "@/lib/workspaces";
 import {
   normalizeArtifactTree,
   workspaceArtifactFilePath,
@@ -21,26 +20,22 @@ export {
 } from "@/lib/artifacts-utils";
 
 export async function fetchArtifactTree(
-  memberGoogleSub: string,
+  accessToken: string,
   workspaceId: number,
 ): Promise<ArtifactTree> {
   const payload = await apiFetch<unknown>(workspaceArtifactTreePath(workspaceId), {
-    headers: {
-      [WORKSPACE_MEMBER_HEADER]: memberGoogleSub,
-    },
+    accessToken,
   });
 
   return normalizeArtifactTree(payload, workspaceId);
 }
 
 export async function fetchArtifactFile(
-  memberGoogleSub: string,
+  accessToken: string,
   workspaceId: number,
   path: string,
 ): Promise<ArtifactFileContent> {
   return apiFetch<ArtifactFileContent>(workspaceArtifactFilePath(workspaceId, path), {
-    headers: {
-      [WORKSPACE_MEMBER_HEADER]: memberGoogleSub,
-    },
+    accessToken,
   });
 }

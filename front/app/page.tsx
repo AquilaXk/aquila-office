@@ -22,8 +22,8 @@ import {
 } from "@/lib/branding";
 import { fetchWorkspaces, type WorkspaceSummary } from "@/lib/workspaces";
 
-const TEMP_MEMBER_GOOGLE_SUB =
-  process.env.NEXT_PUBLIC_DEV_MEMBER_GOOGLE_SUB ?? "google-1";
+const DEV_ACCESS_TOKEN =
+  process.env.NEXT_PUBLIC_DEV_ACCESS_TOKEN ?? "";
 
 type HealthResponse = {
   status: string;
@@ -302,7 +302,7 @@ async function fetchHealth(): Promise<HealthState> {
 
 async function fetchWorkspaceList(): Promise<WorkspaceState> {
   try {
-    const data = await fetchWorkspaces(TEMP_MEMBER_GOOGLE_SUB);
+    const data = await fetchWorkspaces(DEV_ACCESS_TOKEN);
     return { status: "ready", data, error: null };
   } catch (error) {
     const message =

@@ -6,7 +6,6 @@ import {
   type GatewayBindingStatus,
   type GatewayConnectionStatus,
 } from "@/lib/gateway-utils";
-import { WORKSPACE_MEMBER_HEADER } from "@/lib/workspaces";
 
 export type GatewayMode = "MANAGED" | "EXTERNAL";
 
@@ -51,18 +50,16 @@ export type TestGatewayConnectionInput = Pick<
 >;
 
 export async function fetchWorkspaceGatewayStatus(
-  memberGoogleSub: string,
+  accessToken: string,
   workspaceId: number,
 ): Promise<WorkspaceGatewayStatus> {
   return apiFetch<WorkspaceGatewayStatus>(workspaceGatewayStatusPath(workspaceId), {
-    headers: {
-      [WORKSPACE_MEMBER_HEADER]: memberGoogleSub,
-    },
+    accessToken,
   });
 }
 
 export async function testWorkspaceGatewayConnection(
-  memberGoogleSub: string,
+  accessToken: string,
   workspaceId: number,
   input: TestGatewayConnectionInput,
 ): Promise<WorkspaceGatewayConnectionTest> {
@@ -70,9 +67,9 @@ export async function testWorkspaceGatewayConnection(
     workspaceGatewayConnectionTestPath(workspaceId),
     {
       method: "POST",
+      accessToken,
       headers: {
         "Content-Type": "application/json",
-        [WORKSPACE_MEMBER_HEADER]: memberGoogleSub,
       },
       body: JSON.stringify(input),
     },
@@ -80,15 +77,15 @@ export async function testWorkspaceGatewayConnection(
 }
 
 export async function createWorkspaceGatewayBinding(
-  memberGoogleSub: string,
+  accessToken: string,
   workspaceId: number,
   input: CreateGatewayBindingInput,
 ): Promise<WorkspaceGatewayBinding> {
   return apiFetch<WorkspaceGatewayBinding>(workspaceGatewayBindingPath(workspaceId), {
     method: "POST",
+    accessToken,
     headers: {
       "Content-Type": "application/json",
-      [WORKSPACE_MEMBER_HEADER]: memberGoogleSub,
     },
     body: JSON.stringify(input),
   });

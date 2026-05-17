@@ -14,8 +14,8 @@ import { useState, type FormEvent } from "react";
 import { ApiError } from "@/lib/api-client";
 import { createWorkspace, type WorkspaceSummary } from "@/lib/workspaces";
 
-const TEMP_MEMBER_GOOGLE_SUB =
-  process.env.NEXT_PUBLIC_DEV_MEMBER_GOOGLE_SUB ?? "google-1";
+const DEV_ACCESS_TOKEN =
+  process.env.NEXT_PUBLIC_DEV_ACCESS_TOKEN ?? "";
 const NAME_MAX_LENGTH = 100;
 const DESCRIPTION_MAX_LENGTH = 500;
 
@@ -58,7 +58,7 @@ export default function NewWorkspacePage() {
     setSubmitState({ status: "submitting", created: null, error: null });
 
     try {
-      const created = await createWorkspace(TEMP_MEMBER_GOOGLE_SUB, {
+      const created = await createWorkspace(DEV_ACCESS_TOKEN, {
         name: trimmedName,
         description: trimmedDescription || undefined,
       });
@@ -155,8 +155,8 @@ export default function NewWorkspacePage() {
       </section>
 
       <aside className="workspace-create-side" aria-label="생성 정보">
-        <strong>{TEMP_MEMBER_GOOGLE_SUB}</strong>
-        <span>현재 임시 생성자 식별자</span>
+        <strong>{DEV_ACCESS_TOKEN ? "설정됨" : "미설정"}</strong>
+        <span>개발 access token</span>
       </aside>
     </main>
   );

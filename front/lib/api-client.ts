@@ -8,27 +8,34 @@ type ApiEnvelope<T> = {
   data: T;
 };
 
+type ApiFetchOptions = RequestInit & {
+  accessToken?: string;
+};
+
 export class ApiError extends Error {
+  public readonly status: number;
+  public readonly details?: unknown;
+
   constructor(
-    public readonly status: number,
+    status: number,
     message: string,
-    public readonly details?: unknown,
+    details?: unknown,
   ) {
     super(message);
     this.name = "ApiError";
+    this.status = status;
+    this.details = details;
   }
 }
 
 export async function apiFetch<T>(
   path: string,
-  options: RequestInit = {},
+  options: ApiFetchOptions = {},
 ): Promise<T> {
+  const { accessToken, headers, ...requestOptions } = options;
   const response = await fetch(`${API_BASE_URL}${path}`, {
-    ...options,
-    headers: {
-      Accept: "application/json",
-      ...options.headers,
-    },
+    ...requestOptions,
+    headers: buildHeaders(headers, accessToken),
   });
   const body = await readJson(response);
 
@@ -45,6 +52,20 @@ export async function apiFetch<T>(
   }
 
   return body as T;
+}
+
+function buildHeaders(headers: HeadersInit | undefined, accessToken: string | undefined): Headers {
+  const requestHeaders = new Headers(headers);
+  if (!requestHeaders.has("Accept")) {
+    requestHeaders.set("Accept", "application/json");
+  }
+
+  const normalizedAccessToken = accessToken?.trim();
+  if (normalizedAccessToken) {
+    requestHeaders.set("Authorization", `Bearer ${normalizedAccessToken}`);
+  }
+
+  return requestHeaders;
 }
 
 async function readJson(response: Response): Promise<unknown> {
