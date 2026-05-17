@@ -1,5 +1,6 @@
 package com.aquilaoffice.adapter.in.web.slack;
 
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -7,14 +8,17 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.aquilaoffice.adapter.in.web.workspace.WorkspaceController;
+import com.aquilaoffice.domain.member.MemberRole;
 import com.aquilaoffice.global.handler.GlobalExceptionHandler;
+import com.aquilaoffice.global.security.AuthenticatedMember;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -38,7 +42,7 @@ class SlackInstallControllerTest {
                 .willReturn("https://slack.com/oauth/v2/authorize?client_id=client-123");
 
         mockMvc.perform(get("/api/v1/workspaces/101/slack/install")
-                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, " google-1 "))
+                        .principal(authenticatedPrincipal("google-1")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.url")
@@ -52,12 +56,25 @@ class SlackInstallControllerTest {
     }
 
     @Test
-    void missingHeaderReturnsBadRequestAndDoesNotCallBuilder() throws Exception {
+    void missingPrincipalReturnsUnauthorizedAndDoesNotCallBuilder() throws Exception {
         mockMvc.perform(get("/api/v1/workspaces/101/slack/install"))
-                .andExpect(status().isBadRequest())
+                .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.success").value(false))
-                .andExpect(jsonPath("$.code").value("400"));
+                .andExpect(jsonPath("$.code").value("401"));
 
         verifyNoInteractions(slackInstallUrlBuilder);
+    }
+
+    @Test
+    void slackInstallControllerDoesNotExposeLegacyRequesterHeaderHelper() {
+        assertThatThrownBy(
+                        () -> SlackInstallController.class.getDeclaredMethod("requireRequesterGoogleSub", String.class))
+                .isInstanceOf(NoSuchMethodException.class);
+    }
+
+    private static UsernamePasswordAuthenticationToken authenticatedPrincipal(String googleSub) {
+        AuthenticatedMember member =
+                new AuthenticatedMember(1L, googleSub, googleSub + "@example.com", MemberRole.USER);
+        return new UsernamePasswordAuthenticationToken(member, null, List.of());
     }
 }
