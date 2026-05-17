@@ -104,6 +104,15 @@ test("workspace detail exposes task mutation controls", () => {
   assert.match(source, /createPr/);
 });
 
+test("workspace detail exposes task chat surface", () => {
+  const source = readSource("app/workspaces/[workspaceId]/page.tsx");
+
+  assert.match(source, /fetchTaskChatMessages/);
+  assert.match(source, /sendWorkspaceChatMessage/);
+  assert.match(source, /aria-label="Task chat 메시지"/);
+  assert.match(source, /openTaskChat/);
+});
+
 test("workspace detail exposes agent list surface", () => {
   const source = readSource("app/workspaces/[workspaceId]/page.tsx");
 
