@@ -1,6 +1,5 @@
 package com.aquilaoffice.adapter.in.web.artifact;
 
-import com.aquilaoffice.adapter.in.web.workspace.WorkspaceController;
 import com.aquilaoffice.application.port.in.GetArtifactFileQuery;
 import com.aquilaoffice.application.port.in.GetArtifactFileUseCase;
 import com.aquilaoffice.application.port.in.GetArtifactTreeQuery;
@@ -15,7 +14,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -90,13 +88,6 @@ public class ArtifactController {
             // plan artifact도 워크스페이스 멤버에게만 노출하므로 실패 사유를 숨긴다.
             throw new ServiceException(CommonErrorCode.NOT_FOUND);
         }
-    }
-
-    private String requireRequesterGoogleSub(String requesterGoogleSub) {
-        if (requesterGoogleSub == null || requesterGoogleSub.isBlank()) {
-            throw new ServiceException(CommonErrorCode.BAD_REQUEST);
-        }
-        return requesterGoogleSub.trim();
     }
 
     private String requireAuthenticatedRequesterGoogleSub(Authentication authentication) {
