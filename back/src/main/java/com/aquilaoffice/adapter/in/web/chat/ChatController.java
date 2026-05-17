@@ -1,6 +1,5 @@
 package com.aquilaoffice.adapter.in.web.chat;
 
-import com.aquilaoffice.adapter.in.web.workspace.WorkspaceController;
 import com.aquilaoffice.application.port.in.ListChatSessionMessagesQuery;
 import com.aquilaoffice.application.port.in.ListChatSessionMessagesUseCase;
 import com.aquilaoffice.application.port.in.ListChatTaskMessagesQuery;
@@ -18,7 +17,6 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -100,13 +98,6 @@ public class ChatController {
         } catch (IllegalArgumentException | IllegalStateException exception) {
             throw new ServiceException(CommonErrorCode.NOT_FOUND);
         }
-    }
-
-    private String requireRequesterGoogleSub(String requesterGoogleSub) {
-        if (requesterGoogleSub == null || requesterGoogleSub.isBlank()) {
-            throw new ServiceException(CommonErrorCode.BAD_REQUEST);
-        }
-        return requesterGoogleSub.trim();
     }
 
     private String requireAuthenticatedRequesterGoogleSub(Authentication authentication) {
