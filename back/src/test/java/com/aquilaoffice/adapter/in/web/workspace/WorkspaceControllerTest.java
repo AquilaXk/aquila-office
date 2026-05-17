@@ -325,7 +325,7 @@ class WorkspaceControllerTest {
                         LocalDateTime.of(2026, 5, 15, 10, 0)));
 
         mockMvc.perform(get("/api/v1/workspaces/101")
-                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, " google-1 "))
+                        .principal(authenticatedPrincipal("google-1")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.code").value("200"))
@@ -345,12 +345,11 @@ class WorkspaceControllerTest {
     }
 
     @Test
-    void getWorkspaceDetailRejectsBlankCreatorHeader() throws Exception {
-        mockMvc.perform(get("/api/v1/workspaces/101")
-                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, " "))
-                .andExpect(status().isBadRequest())
+    void getWorkspaceDetailRejectsMissingPrincipal() throws Exception {
+        mockMvc.perform(get("/api/v1/workspaces/101"))
+                .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.success").value(false))
-                .andExpect(jsonPath("$.code").value("400"));
+                .andExpect(jsonPath("$.code").value("401"));
 
         verifyNoInteractions(getWorkspaceDetailUseCase);
     }
@@ -361,7 +360,7 @@ class WorkspaceControllerTest {
                 .willThrow(new ServiceException(CommonErrorCode.NOT_FOUND));
 
         mockMvc.perform(get("/api/v1/workspaces/999")
-                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, "google-1"))
+                        .principal(authenticatedPrincipal("google-1")))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.code").value("404"));
