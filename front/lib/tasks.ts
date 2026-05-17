@@ -1,5 +1,4 @@
 import { apiFetch } from "@/lib/api-client";
-import { WORKSPACE_MEMBER_HEADER } from "@/lib/workspaces";
 import {
   normalizeTaskReports,
   normalizeWorkspaceTasks,
@@ -26,39 +25,33 @@ export {
 } from "@/lib/tasks-utils";
 
 export async function fetchWorkspaceTasks(
-  memberGoogleSub: string,
+  accessToken: string,
   workspaceId: number,
 ): Promise<WorkspaceTask[]> {
   const payload = await apiFetch<unknown>(workspaceTasksPath(workspaceId), {
-    headers: {
-      [WORKSPACE_MEMBER_HEADER]: memberGoogleSub,
-    },
+    accessToken,
   });
 
   return normalizeWorkspaceTasks(payload);
 }
 
 export async function fetchWorkspaceTask(
-  memberGoogleSub: string,
+  accessToken: string,
   workspaceId: number,
   taskId: number,
 ): Promise<WorkspaceTask> {
   return apiFetch<WorkspaceTask>(workspaceTaskPath(workspaceId, taskId), {
-    headers: {
-      [WORKSPACE_MEMBER_HEADER]: memberGoogleSub,
-    },
+    accessToken,
   });
 }
 
 export async function fetchTaskReports(
-  memberGoogleSub: string,
+  accessToken: string,
   workspaceId: number,
   taskId: number,
 ): Promise<AgentReport[]> {
   const payload = await apiFetch<unknown>(workspaceTaskReportsPath(workspaceId, taskId), {
-    headers: {
-      [WORKSPACE_MEMBER_HEADER]: memberGoogleSub,
-    },
+    accessToken,
   });
 
   return normalizeTaskReports(payload);

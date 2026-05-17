@@ -1,5 +1,4 @@
 import { apiFetch } from "@/lib/api-client";
-import { WORKSPACE_MEMBER_HEADER } from "@/lib/workspaces";
 import {
   normalizeWorkspaceAgents,
   workspaceAgentPath,
@@ -27,54 +26,48 @@ export {
 };
 
 export async function fetchWorkspaceAgents(
-  memberGoogleSub: string,
+  accessToken: string,
   workspaceId: number,
 ): Promise<WorkspaceAgent[]> {
   const payload = await apiFetch<unknown>(workspaceAgentsPath(workspaceId), {
-    headers: {
-      [WORKSPACE_MEMBER_HEADER]: memberGoogleSub,
-    },
+    accessToken,
   });
 
   return normalizeWorkspaceAgents(payload);
 }
 
 export async function fetchWorkspaceAgent(
-  memberGoogleSub: string,
+  accessToken: string,
   workspaceId: number,
   agentId: number,
 ): Promise<WorkspaceAgent> {
   return apiFetch<WorkspaceAgent>(workspaceAgentPath(workspaceId, agentId), {
-    headers: {
-      [WORKSPACE_MEMBER_HEADER]: memberGoogleSub,
-    },
+    accessToken,
   });
 }
 
 export async function createWorkspaceAgent(
-  memberGoogleSub: string,
+  accessToken: string,
   workspaceId: number,
   input: CreateWorkspaceAgentInput,
 ): Promise<WorkspaceAgent> {
   return apiFetch<WorkspaceAgent>(workspaceAgentsPath(workspaceId), {
     method: "POST",
+    accessToken,
     headers: {
       "Content-Type": "application/json",
-      [WORKSPACE_MEMBER_HEADER]: memberGoogleSub,
     },
     body: JSON.stringify(input),
   });
 }
 
 export async function deleteWorkspaceAgent(
-  memberGoogleSub: string,
+  accessToken: string,
   workspaceId: number,
   agentId: number,
 ): Promise<void> {
   return apiFetch<void>(workspaceAgentPath(workspaceId, agentId), {
     method: "DELETE",
-    headers: {
-      [WORKSPACE_MEMBER_HEADER]: memberGoogleSub,
-    },
+    accessToken,
   });
 }

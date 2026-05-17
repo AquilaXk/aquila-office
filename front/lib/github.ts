@@ -1,5 +1,4 @@
 import { apiFetch } from "@/lib/api-client";
-import { WORKSPACE_MEMBER_HEADER } from "@/lib/workspaces";
 
 export type GithubCredential = {
   credentialId: number;
@@ -19,21 +18,19 @@ export type UpdateGithubCredentialInput = {
 };
 
 export async function fetchGithubCredentials(
-  memberGoogleSub: string,
+  accessToken: string,
   workspaceId: number,
 ): Promise<GithubCredential[]> {
   return apiFetch<GithubCredential[]>(
     `/api/v1/workspaces/${workspaceId}/github/credentials`,
     {
-      headers: {
-        [WORKSPACE_MEMBER_HEADER]: memberGoogleSub,
-      },
+      accessToken,
     },
   );
 }
 
 export async function createGithubCredential(
-  memberGoogleSub: string,
+  accessToken: string,
   workspaceId: number,
   input: CreateGithubCredentialInput,
 ): Promise<GithubCredential> {
@@ -41,9 +38,9 @@ export async function createGithubCredential(
     `/api/v1/workspaces/${workspaceId}/github/credentials`,
     {
       method: "POST",
+      accessToken,
       headers: {
         "Content-Type": "application/json",
-        [WORKSPACE_MEMBER_HEADER]: memberGoogleSub,
       },
       body: JSON.stringify(input),
     },
@@ -51,7 +48,7 @@ export async function createGithubCredential(
 }
 
 export async function updateGithubCredential(
-  memberGoogleSub: string,
+  accessToken: string,
   workspaceId: number,
   credentialId: number,
   input: UpdateGithubCredentialInput,
@@ -60,9 +57,9 @@ export async function updateGithubCredential(
     `/api/v1/workspaces/${workspaceId}/github/credentials/${credentialId}`,
     {
       method: "PATCH",
+      accessToken,
       headers: {
         "Content-Type": "application/json",
-        [WORKSPACE_MEMBER_HEADER]: memberGoogleSub,
       },
       body: JSON.stringify(input),
     },
@@ -70,7 +67,7 @@ export async function updateGithubCredential(
 }
 
 export async function deleteGithubCredential(
-  memberGoogleSub: string,
+  accessToken: string,
   workspaceId: number,
   credentialId: number,
 ): Promise<void> {
@@ -78,9 +75,7 @@ export async function deleteGithubCredential(
     `/api/v1/workspaces/${workspaceId}/github/credentials/${credentialId}`,
     {
       method: "DELETE",
-      headers: {
-        [WORKSPACE_MEMBER_HEADER]: memberGoogleSub,
-      },
+      accessToken,
     },
   );
 }

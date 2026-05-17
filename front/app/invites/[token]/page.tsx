@@ -20,8 +20,8 @@ import {
   type WorkspaceInvite,
 } from "@/lib/invites";
 
-const TEMP_MEMBER_GOOGLE_SUB =
-  process.env.NEXT_PUBLIC_DEV_MEMBER_GOOGLE_SUB ?? "google-1";
+const DEV_ACCESS_TOKEN =
+  process.env.NEXT_PUBLIC_DEV_ACCESS_TOKEN ?? "";
 
 type InviteState =
   | { status: "loading"; invite: null; accepted: null; error: null }
@@ -100,7 +100,7 @@ export default function WorkspaceInviteAcceptPage({
     setAcceptError(null);
 
     try {
-      const accepted = await acceptWorkspaceInvite(token, TEMP_MEMBER_GOOGLE_SUB);
+      const accepted = await acceptWorkspaceInvite(token, DEV_ACCESS_TOKEN);
       setState((current) =>
         current.invite
           ? { status: "accepted", invite: current.invite, accepted, error: null }
@@ -231,8 +231,8 @@ export default function WorkspaceInviteAcceptPage({
         </div>
         <div>
           <ShieldCheck aria-hidden="true" />
-          <strong>{TEMP_MEMBER_GOOGLE_SUB}</strong>
-          <span>현재 임시 회원 식별자</span>
+          <strong>{DEV_ACCESS_TOKEN ? "설정됨" : "미설정"}</strong>
+          <span>개발 access token</span>
         </div>
       </aside>
     </main>

@@ -68,8 +68,8 @@ import {
   type WorkspaceMemberRole,
 } from "@/lib/workspaces";
 
-const TEMP_MEMBER_GOOGLE_SUB =
-  process.env.NEXT_PUBLIC_DEV_MEMBER_GOOGLE_SUB ?? "google-1";
+const DEV_ACCESS_TOKEN =
+  process.env.NEXT_PUBLIC_DEV_ACCESS_TOKEN ?? "";
 const NAME_MAX_LENGTH = 100;
 const DESCRIPTION_MAX_LENGTH = 500;
 
@@ -216,8 +216,8 @@ export default function WorkspaceSettingsPage({
 
     try {
       const [workspace, members] = await Promise.all([
-        fetchWorkspaceDetail(TEMP_MEMBER_GOOGLE_SUB, numericWorkspaceId),
-        fetchWorkspaceMembers(TEMP_MEMBER_GOOGLE_SUB, numericWorkspaceId),
+        fetchWorkspaceDetail(DEV_ACCESS_TOKEN, numericWorkspaceId),
+        fetchWorkspaceMembers(DEV_ACCESS_TOKEN, numericWorkspaceId),
       ]);
       return { status: "ready", workspace, members, error: null } satisfies WorkspaceSettingsState;
     } catch (error) {
@@ -229,7 +229,7 @@ export default function WorkspaceSettingsPage({
     async (status: WorkspaceInviteManagementStatus | undefined = "PENDING") => {
       try {
         const invites = await fetchWorkspaceInvites(
-          TEMP_MEMBER_GOOGLE_SUB,
+          DEV_ACCESS_TOKEN,
           numericWorkspaceId,
           status,
         );
@@ -248,7 +248,7 @@ export default function WorkspaceSettingsPage({
   const fetchGithubCredentialList = useCallback(async () => {
     try {
       const credentials = await fetchGithubCredentials(
-        TEMP_MEMBER_GOOGLE_SUB,
+        DEV_ACCESS_TOKEN,
         numericWorkspaceId,
       );
       return { status: "ready", credentials, error: null } satisfies GithubCredentialState;
@@ -264,7 +264,7 @@ export default function WorkspaceSettingsPage({
   const fetchGatewayStatus = useCallback(async () => {
     try {
       const gateway = await fetchWorkspaceGatewayStatus(
-        TEMP_MEMBER_GOOGLE_SUB,
+        DEV_ACCESS_TOKEN,
         numericWorkspaceId,
       );
       return { status: "ready", gateway, error: null } satisfies GatewayStatusState;
@@ -480,7 +480,7 @@ export default function WorkspaceSettingsPage({
     setGatewayConnectionTestState({ status: "submitting", result: null, message: null });
     try {
       const result = await testWorkspaceGatewayConnection(
-        TEMP_MEMBER_GOOGLE_SUB,
+        DEV_ACCESS_TOKEN,
         numericWorkspaceId,
         {
           gatewayUrl: normalizedGatewayForm.gatewayUrl,
@@ -521,7 +521,7 @@ export default function WorkspaceSettingsPage({
 
     setGatewayBindingState({ status: "submitting", message: null });
     try {
-      await createWorkspaceGatewayBinding(TEMP_MEMBER_GOOGLE_SUB, numericWorkspaceId, {
+      await createWorkspaceGatewayBinding(DEV_ACCESS_TOKEN, numericWorkspaceId, {
         gatewayUrl: normalizedGatewayForm.gatewayUrl,
         token: normalizedGatewayForm.token,
         validateConnection: normalizedGatewayForm.validateConnection,
@@ -550,7 +550,7 @@ export default function WorkspaceSettingsPage({
     setInviteActionId(invite.inviteId);
     setInviteActionState({ status: "submitting", message: null });
     try {
-      await revokeWorkspaceInvite(TEMP_MEMBER_GOOGLE_SUB, numericWorkspaceId, invite.inviteId);
+      await revokeWorkspaceInvite(DEV_ACCESS_TOKEN, numericWorkspaceId, invite.inviteId);
       setInviteLogState((previous) =>
         previous.status === "ready"
           ? {
@@ -584,7 +584,7 @@ export default function WorkspaceSettingsPage({
 
     setUpdateState({ status: "submitting", message: null });
     try {
-      const updated = await updateWorkspace(TEMP_MEMBER_GOOGLE_SUB, numericWorkspaceId, {
+      const updated = await updateWorkspace(DEV_ACCESS_TOKEN, numericWorkspaceId, {
         name: trimmedName,
         description: trimmedDescription || undefined,
       });
@@ -613,7 +613,7 @@ export default function WorkspaceSettingsPage({
 
     setDeleteState({ status: "submitting", message: null });
     try {
-      await deleteWorkspace(TEMP_MEMBER_GOOGLE_SUB, numericWorkspaceId);
+      await deleteWorkspace(DEV_ACCESS_TOKEN, numericWorkspaceId);
       router.replace("/");
     } catch (error) {
       setDeleteState({
@@ -635,7 +635,7 @@ export default function WorkspaceSettingsPage({
     setMemberState({ status: "submitting", message: null });
     try {
       await changeWorkspaceMemberRole(
-        TEMP_MEMBER_GOOGLE_SUB,
+        DEV_ACCESS_TOKEN,
         numericWorkspaceId,
         member.memberId,
         nextRole,
@@ -671,7 +671,7 @@ export default function WorkspaceSettingsPage({
     setMemberAction({ type: "remove", memberId: member.memberId });
     setMemberState({ status: "submitting", message: null });
     try {
-      await removeWorkspaceMember(TEMP_MEMBER_GOOGLE_SUB, numericWorkspaceId, member.memberId);
+      await removeWorkspaceMember(DEV_ACCESS_TOKEN, numericWorkspaceId, member.memberId);
       setState((previous) =>
         previous.status === "ready"
           ? {
@@ -711,7 +711,7 @@ export default function WorkspaceSettingsPage({
     setGithubCreateState({ status: "submitting", message: null });
     try {
       const createdCredential = await createGithubCredential(
-        TEMP_MEMBER_GOOGLE_SUB,
+        DEV_ACCESS_TOKEN,
         numericWorkspaceId,
         {
           displayName: trimmedGithubDisplayName,
@@ -785,7 +785,7 @@ export default function WorkspaceSettingsPage({
     setGithubActionState({ status: "submitting", message: null });
     try {
       const updatedCredential = await updateGithubCredential(
-        TEMP_MEMBER_GOOGLE_SUB,
+        DEV_ACCESS_TOKEN,
         numericWorkspaceId,
         credential.credentialId,
         {
@@ -831,7 +831,7 @@ export default function WorkspaceSettingsPage({
     setGithubActionState({ status: "submitting", message: null });
     try {
       await deleteGithubCredential(
-        TEMP_MEMBER_GOOGLE_SUB,
+        DEV_ACCESS_TOKEN,
         numericWorkspaceId,
         credential.credentialId,
       );
@@ -1732,8 +1732,8 @@ export default function WorkspaceSettingsPage({
       <aside className="workspace-settings-side" aria-label="설정 조회 정보">
         <div>
           <UserRound aria-hidden="true" />
-          <strong>{TEMP_MEMBER_GOOGLE_SUB}</strong>
-          <span>현재 임시 회원 식별자</span>
+          <strong>{DEV_ACCESS_TOKEN ? "설정됨" : "미설정"}</strong>
+          <span>개발 access token</span>
         </div>
         <div>
           <Hash aria-hidden="true" />

@@ -50,8 +50,8 @@ import {
   type WorkspaceMemberRole,
 } from "@/lib/workspaces";
 
-const TEMP_MEMBER_GOOGLE_SUB =
-  process.env.NEXT_PUBLIC_DEV_MEMBER_GOOGLE_SUB ?? "google-1";
+const DEV_ACCESS_TOKEN =
+  process.env.NEXT_PUBLIC_DEV_ACCESS_TOKEN ?? "";
 
 type WorkspaceDetailState =
   | { status: "loading"; workspace: null; error: null }
@@ -147,7 +147,7 @@ export default function WorkspaceDetailPage({
     setTaskState({ status: "loading", error: null });
 
     try {
-      const nextTasks = await fetchWorkspaceTasks(TEMP_MEMBER_GOOGLE_SUB, numericWorkspaceId);
+      const nextTasks = await fetchWorkspaceTasks(DEV_ACCESS_TOKEN, numericWorkspaceId);
       setTasks(nextTasks);
       setTaskState({ status: "ready", error: null });
     } catch (error) {
@@ -166,7 +166,7 @@ export default function WorkspaceDetailPage({
       setReportState({ status: "loading", error: null });
 
       try {
-        const reports = await fetchTaskReports(TEMP_MEMBER_GOOGLE_SUB, numericWorkspaceId, task.taskId);
+        const reports = await fetchTaskReports(DEV_ACCESS_TOKEN, numericWorkspaceId, task.taskId);
         setTaskReports(reports);
         setReportState({ status: "ready", error: null });
       } catch (error) {
@@ -185,7 +185,7 @@ export default function WorkspaceDetailPage({
     setArtifactTreeState({ status: "loading", error: null });
 
     try {
-      const tree = await fetchArtifactTree(TEMP_MEMBER_GOOGLE_SUB, numericWorkspaceId);
+      const tree = await fetchArtifactTree(DEV_ACCESS_TOKEN, numericWorkspaceId);
       setArtifactTree(tree);
       setArtifactTreeState({ status: "ready", error: null });
     } catch (error) {
@@ -203,7 +203,7 @@ export default function WorkspaceDetailPage({
       setArtifactFileState({ status: "loading", error: null });
 
       try {
-        const file = await fetchArtifactFile(TEMP_MEMBER_GOOGLE_SUB, numericWorkspaceId, path);
+        const file = await fetchArtifactFile(DEV_ACCESS_TOKEN, numericWorkspaceId, path);
         setArtifactFile(file);
         setArtifactFileState({ status: "ready", error: null });
       } catch (error) {
@@ -230,8 +230,8 @@ export default function WorkspaceDetailPage({
 
     try {
       const [workspace, members] = await Promise.all([
-        fetchWorkspaceDetail(TEMP_MEMBER_GOOGLE_SUB, numericWorkspaceId),
-        fetchWorkspaceMembers(TEMP_MEMBER_GOOGLE_SUB, numericWorkspaceId),
+        fetchWorkspaceDetail(DEV_ACCESS_TOKEN, numericWorkspaceId),
+        fetchWorkspaceMembers(DEV_ACCESS_TOKEN, numericWorkspaceId),
       ]);
       setState({ status: "ready", workspace, members, error: null });
       void reloadTasks();
@@ -262,9 +262,9 @@ export default function WorkspaceDetailPage({
 
       try {
         const [workspace, members, initialTasksResult] = await Promise.all([
-          fetchWorkspaceDetail(TEMP_MEMBER_GOOGLE_SUB, numericWorkspaceId),
-          fetchWorkspaceMembers(TEMP_MEMBER_GOOGLE_SUB, numericWorkspaceId),
-          fetchWorkspaceTasks(TEMP_MEMBER_GOOGLE_SUB, numericWorkspaceId)
+          fetchWorkspaceDetail(DEV_ACCESS_TOKEN, numericWorkspaceId),
+          fetchWorkspaceMembers(DEV_ACCESS_TOKEN, numericWorkspaceId),
+          fetchWorkspaceTasks(DEV_ACCESS_TOKEN, numericWorkspaceId)
             .then((nextTasks) => ({ ok: true as const, nextTasks }))
             .catch((error) => ({ ok: false as const, error })),
         ]);
@@ -347,7 +347,7 @@ export default function WorkspaceDetailPage({
 
     try {
       const invite = await createWorkspaceInvite(
-        TEMP_MEMBER_GOOGLE_SUB,
+        DEV_ACCESS_TOKEN,
         numericWorkspaceId,
         { email },
       );
@@ -664,8 +664,8 @@ export default function WorkspaceDetailPage({
       <aside className="workspace-detail-side" aria-label="조회 정보">
         <div>
           <UserRound aria-hidden="true" />
-          <strong>{TEMP_MEMBER_GOOGLE_SUB}</strong>
-          <span>현재 임시 회원 식별자</span>
+          <strong>{DEV_ACCESS_TOKEN ? "설정됨" : "미설정"}</strong>
+          <span>개발 access token</span>
         </div>
         <div>
           <Hash aria-hidden="true" />
