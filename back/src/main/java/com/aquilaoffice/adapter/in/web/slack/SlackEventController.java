@@ -1,16 +1,17 @@
 package com.aquilaoffice.adapter.in.web.slack;
 
-import com.aquilaoffice.adapter.in.web.workspace.WorkspaceController;
 import com.aquilaoffice.application.port.in.ReceiveSlackEventCommand;
 import com.aquilaoffice.application.port.in.ReceiveSlackEventResult;
 import com.aquilaoffice.application.port.in.ReceiveSlackEventUseCase;
 import com.aquilaoffice.global.exception.CommonErrorCode;
 import com.aquilaoffice.global.exception.ServiceException;
 import com.aquilaoffice.global.response.RsData;
+import com.aquilaoffice.global.security.AuthenticatedMember;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.Map;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -37,12 +38,11 @@ public class SlackEventController {
     @PostMapping("/api/v1/workspaces/{workspaceId}/slack/events")
     public ResponseEntity<Object> receiveSlackEvent(
             @PathVariable Long workspaceId,
-            @RequestHeader(name = WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, required = false)
-                    String requesterGoogleSub,
+            Authentication authentication,
             @RequestHeader(name = "X-Slack-Request-Timestamp", required = false) String slackRequestTimestamp,
             @RequestHeader(name = "X-Slack-Signature", required = false) String slackSignature,
             @RequestBody String rawBody) {
-        String normalizedRequesterGoogleSub = requireRequesterGoogleSub(requesterGoogleSub);
+        String normalizedRequesterGoogleSub = requireAuthenticatedRequesterGoogleSub(authentication);
         SlackEventRequest request = parseVerifiedRequest(slackRequestTimestamp, slackSignature, rawBody);
         return handleSlackEvent(request.toCommand(workspaceId, normalizedRequesterGoogleSub));
     }
@@ -80,10 +80,11 @@ public class SlackEventController {
         }
     }
 
-    private String requireRequesterGoogleSub(String requesterGoogleSub) {
-        if (requesterGoogleSub == null || requesterGoogleSub.isBlank()) {
-            throw new ServiceException(CommonErrorCode.BAD_REQUEST);
+    private String requireAuthenticatedRequesterGoogleSub(Authentication authentication) {
+        if (authentication == null
+                || !(authentication.getPrincipal() instanceof AuthenticatedMember authenticatedMember)) {
+            throw new ServiceException(CommonErrorCode.UNAUTHORIZED);
         }
-        return requesterGoogleSub.trim();
+        return authenticatedMember.googleSub();
     }
 }
