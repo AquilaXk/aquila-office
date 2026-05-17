@@ -51,13 +51,12 @@ public class WorkspacePresenceController {
     @GetMapping(path = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter stream(
             @PathVariable Long workspaceId,
-            @RequestHeader(name = WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, required = false)
-                    String memberGoogleSub,
+            Authentication authentication,
             @RequestHeader(name = HttpHeaders.AUTHORIZATION, required = false) String authorizationHeader,
             @RequestParam(required = false) String token,
             @RequestParam(required = false) String accessToken) {
         String resolvedMemberGoogleSub =
-                resolveMemberGoogleSub(memberGoogleSub, authorizationHeader, token, accessToken);
+                resolveMemberGoogleSub(authentication, authorizationHeader, token, accessToken);
         SseEmitter emitter = new SseEmitter(SSE_TIMEOUT_MILLIS);
         SseWorkspacePresenceEventSink sink = new SseWorkspacePresenceEventSink(emitter);
 
@@ -116,12 +115,13 @@ public class WorkspacePresenceController {
     }
 
     private String resolveMemberGoogleSub(
-            String memberGoogleSub,
+            Authentication authentication,
             String authorizationHeader,
             String token,
             String accessToken) {
-        if (memberGoogleSub != null && !memberGoogleSub.isBlank()) {
-            return memberGoogleSub.trim();
+        if (authentication != null
+                && authentication.getPrincipal() instanceof AuthenticatedMember authenticatedMember) {
+            return authenticatedMember.googleSub();
         }
         String bearerToken = resolveBearerToken(authorizationHeader);
         if (bearerToken != null) {
