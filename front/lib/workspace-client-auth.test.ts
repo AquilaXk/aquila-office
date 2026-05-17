@@ -42,6 +42,17 @@ test("workspace pages resolve access token through auth session helper", () => {
   }
 });
 
+test("workspace client exposes dashboard summary and member task stats contracts", () => {
+  const source = readSource("lib/workspaces.ts");
+
+  assert.match(source, /type WorkspaceDashboardSummary/);
+  assert.match(source, /type WorkspaceMemberTaskStats/);
+  assert.match(source, /fetchWorkspaceDashboardSummary/);
+  assert.match(source, /fetchWorkspaceMemberTaskStats/);
+  assert.match(source, /\/dashboard\/summary/);
+  assert.match(source, /\/members\/task-stats/);
+});
+
 test("home dashboard exposes auth token session actions", () => {
   const source = readSource("app/page.tsx");
 
