@@ -292,8 +292,8 @@ public class WorkspaceController {
     @DeleteMapping("/{workspaceId}/members/me")
     public ResponseEntity<RsData<Void>> leaveWorkspace(
             @PathVariable Long workspaceId,
-            @RequestHeader(name = CREATOR_GOOGLE_SUB_HEADER, required = false) String creatorGoogleSub) {
-        String normalizedCreatorGoogleSub = requireCreatorGoogleSub(creatorGoogleSub);
+            Authentication authentication) {
+        String normalizedCreatorGoogleSub = requireAuthenticatedCreatorGoogleSub(authentication);
 
         try {
             leaveWorkspaceUseCase.leaveWorkspace(new LeaveWorkspaceCommand(workspaceId, normalizedCreatorGoogleSub));
