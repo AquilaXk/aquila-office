@@ -385,13 +385,6 @@ public class WorkspaceController {
         }
     }
 
-    private String requireCreatorGoogleSub(String creatorGoogleSub) {
-        if (creatorGoogleSub == null || creatorGoogleSub.isBlank()) {
-            throw new ServiceException(CommonErrorCode.BAD_REQUEST);
-        }
-        return creatorGoogleSub.trim();
-    }
-
     private String requireAuthenticatedCreatorGoogleSub(Authentication authentication) {
         if (authentication == null
                 || !(authentication.getPrincipal() instanceof AuthenticatedMember authenticatedMember)) {
