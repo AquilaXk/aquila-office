@@ -864,7 +864,7 @@ class WorkspaceControllerTest {
     @Test
     void revokeWorkspaceInviteReturnsOkEnvelope() throws Exception {
         mockMvc.perform(delete("/api/v1/workspaces/101/invites/501")
-                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, " google-1 "))
+                        .principal(authenticatedPrincipal("google-1")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.code").value("200"))
@@ -879,13 +879,23 @@ class WorkspaceControllerTest {
     }
 
     @Test
+    void revokeWorkspaceInviteRejectsMissingPrincipal() throws Exception {
+        mockMvc.perform(delete("/api/v1/workspaces/101/invites/501"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code").value("401"));
+
+        verifyNoInteractions(revokeWorkspaceInviteUseCase);
+    }
+
+    @Test
     void revokeWorkspaceInviteReturnsNotFoundEnvelope() throws Exception {
         org.mockito.BDDMockito.willThrow(new IllegalArgumentException("workspace invite entity not found"))
                 .given(revokeWorkspaceInviteUseCase)
                 .revokeWorkspaceInvite(any(RevokeWorkspaceInviteCommand.class));
 
         mockMvc.perform(delete("/api/v1/workspaces/101/invites/404")
-                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, "google-1"))
+                        .principal(authenticatedPrincipal("google-1")))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.code").value("404"));
