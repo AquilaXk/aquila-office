@@ -1,6 +1,7 @@
 package com.aquilaoffice.adapter.in.web.task;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
@@ -9,13 +10,14 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.aquilaoffice.adapter.in.web.workspace.WorkspaceController;
 import com.aquilaoffice.application.port.in.ListTaskReportsQuery;
 import com.aquilaoffice.application.port.in.ListTaskReportsUseCase;
 import com.aquilaoffice.application.port.in.TaskReportArtifactResult;
 import com.aquilaoffice.application.port.in.TaskReportResult;
+import com.aquilaoffice.domain.member.MemberRole;
 import com.aquilaoffice.domain.task.TaskStatus;
 import com.aquilaoffice.global.handler.GlobalExceptionHandler;
+import com.aquilaoffice.global.security.AuthenticatedMember;
 import java.time.LocalDateTime;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -24,6 +26,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -44,7 +47,7 @@ class TaskReportControllerTest {
                 .willReturn(List.of(reportResult()));
 
         mockMvc.perform(get("/api/v1/workspaces/101/tasks/301/reports")
-                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, " google-1 "))
+                        .principal(authenticatedPrincipal("google-1")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data[0].reportId").value(901))
@@ -62,11 +65,11 @@ class TaskReportControllerTest {
     }
 
     @Test
-    void missingHeaderReturnsBadRequestAndDoesNotCallUseCase() throws Exception {
+    void missingPrincipalReturnsUnauthorizedAndDoesNotCallUseCase() throws Exception {
         mockMvc.perform(get("/api/v1/workspaces/101/tasks/301/reports"))
-                .andExpect(status().isBadRequest())
+                .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.success").value(false))
-                .andExpect(jsonPath("$.code").value("400"));
+                .andExpect(jsonPath("$.code").value("401"));
 
         verifyNoInteractions(listTaskReportsUseCase);
     }
@@ -77,10 +80,17 @@ class TaskReportControllerTest {
                 .willThrow(new IllegalArgumentException("task not found"));
 
         mockMvc.perform(get("/api/v1/workspaces/101/tasks/999/reports")
-                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, "google-1"))
+                        .principal(authenticatedPrincipal("google-1")))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.code").value("404"));
+    }
+
+    @Test
+    void taskReportControllerDoesNotExposeLegacyRequesterHeaderHelper() {
+        assertThatThrownBy(
+                        () -> TaskReportController.class.getDeclaredMethod("requireRequesterGoogleSub", String.class))
+                .isInstanceOf(NoSuchMethodException.class);
     }
 
     private static TaskReportResult reportResult() {
@@ -97,5 +107,11 @@ class TaskReportControllerTest {
                         "result.md",
                         "/api/v1/workspaces/101/artifacts/files?path=result.md")),
                 LocalDateTime.of(2026, 5, 16, 12, 0));
+    }
+
+    private static UsernamePasswordAuthenticationToken authenticatedPrincipal(String googleSub) {
+        AuthenticatedMember member =
+                new AuthenticatedMember(1L, googleSub, googleSub + "@example.com", MemberRole.USER);
+        return new UsernamePasswordAuthenticationToken(member, null, List.of());
     }
 }
