@@ -19,7 +19,10 @@ import com.aquilaoffice.application.port.in.OpenWorkspacePresenceStreamUseCase;
 import com.aquilaoffice.application.port.in.UpdateWorkspacePresencePositionCommand;
 import com.aquilaoffice.application.port.in.UpdateWorkspacePresencePositionUseCase;
 import com.aquilaoffice.application.service.WorkspacePresenceEventSink;
+import com.aquilaoffice.domain.member.MemberRole;
 import com.aquilaoffice.global.handler.GlobalExceptionHandler;
+import com.aquilaoffice.global.security.AuthenticatedMember;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,6 +30,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.MockMvc;
@@ -121,7 +125,7 @@ class WorkspacePresenceControllerTest {
     @Test
     void updateMyPositionReturnsOkEnvelopeAndPassesCommand() throws Exception {
         mockMvc.perform(patch("/api/v1/workspaces/101/presence/me/position")
-                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, " google-2 ")
+                        .principal(authenticatedPrincipal("google-2"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -150,9 +154,8 @@ class WorkspacePresenceControllerTest {
     }
 
     @Test
-    void updateMyPositionRejectsBlankMemberHeader() throws Exception {
+    void updateMyPositionRejectsMissingPrincipal() throws Exception {
         mockMvc.perform(patch("/api/v1/workspaces/101/presence/me/position")
-                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, " ")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -162,9 +165,9 @@ class WorkspacePresenceControllerTest {
                                   }
                                 }
                                 """))
-                .andExpect(status().isBadRequest())
+                .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.success").value(false))
-                .andExpect(jsonPath("$.code").value("400"));
+                .andExpect(jsonPath("$.code").value("401"));
 
         verifyNoInteractions(updateWorkspacePresencePositionUseCase);
     }
@@ -172,7 +175,7 @@ class WorkspacePresenceControllerTest {
     @Test
     void updateMyPositionRejectsMissingPosition() throws Exception {
         mockMvc.perform(patch("/api/v1/workspaces/101/presence/me/position")
-                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, "google-2")
+                        .principal(authenticatedPrincipal("google-2"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"status\":\"online\"}"))
                 .andExpect(status().isBadRequest())
@@ -185,7 +188,7 @@ class WorkspacePresenceControllerTest {
     @Test
     void updateMyPositionRejectsBlankPositionText() throws Exception {
         mockMvc.perform(patch("/api/v1/workspaces/101/presence/me/position")
-                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, "google-2")
+                        .principal(authenticatedPrincipal("google-2"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -209,7 +212,7 @@ class WorkspacePresenceControllerTest {
                 .updatePosition(any(UpdateWorkspacePresencePositionCommand.class));
 
         mockMvc.perform(patch("/api/v1/workspaces/101/presence/me/position")
-                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, "google-2")
+                        .principal(authenticatedPrincipal("google-2"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -223,5 +226,11 @@ class WorkspacePresenceControllerTest {
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.code").value("404"));
+    }
+
+    private static UsernamePasswordAuthenticationToken authenticatedPrincipal(String googleSub) {
+        AuthenticatedMember member =
+                new AuthenticatedMember(1L, googleSub, googleSub + "@example.com", MemberRole.USER);
+        return new UsernamePasswordAuthenticationToken(member, null, List.of());
     }
 }
