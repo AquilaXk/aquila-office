@@ -24,6 +24,10 @@ import {
 import Link from "next/link";
 import { use, useCallback, useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
 import { ApiError } from "@/lib/api-client";
+import {
+  fetchWorkspaceAgents,
+  type WorkspaceAgent,
+} from "@/lib/agents";
 import { resolveAccessToken } from "@/lib/auth";
 import {
   fetchArtifactFile,
@@ -71,6 +75,11 @@ type InviteCreateState =
 
 type TaskLoadState =
   | { status: "loading"; error: null }
+  | { status: "ready"; error: null }
+  | { status: "error"; error: string };
+
+type AgentLoadState =
+  | { status: "idle" | "loading"; error: null }
   | { status: "ready"; error: null }
   | { status: "error"; error: string };
 
@@ -168,6 +177,11 @@ export default function WorkspaceDetailPage({
     status: "loading",
     error: null,
   });
+  const [workspaceAgents, setWorkspaceAgents] = useState<WorkspaceAgent[]>([]);
+  const [agentState, setAgentState] = useState<AgentLoadState>({
+    status: "idle",
+    error: null,
+  });
   const [taskCreateForm, setTaskCreateForm] = useState<TaskCreateFormState>({
     title: "",
     description: "",
@@ -235,6 +249,31 @@ export default function WorkspaceDetailPage({
     }
   }, [numericWorkspaceId]);
 
+  const reloadAgents = useCallback(async () => {
+    if (!isValidWorkspaceId(numericWorkspaceId)) {
+      setWorkspaceAgents([]);
+      setAgentState({
+        status: "error",
+        error: "올바르지 않은 워크스페이스입니다.",
+      });
+      return;
+    }
+
+    setAgentState({ status: "loading", error: null });
+
+    try {
+      const agents = await fetchWorkspaceAgents(resolveAccessToken(), numericWorkspaceId);
+      setWorkspaceAgents(agents);
+      setAgentState({ status: "ready", error: null });
+    } catch (error) {
+      setWorkspaceAgents([]);
+      setAgentState({
+        status: "error",
+        error: messageFromError(error, "Agent 목록을 불러오지 못했습니다."),
+      });
+    }
+  }, [numericWorkspaceId]);
+
   const reloadDashboardSummary = useCallback(async () => {
     if (!isValidWorkspaceId(numericWorkspaceId)) {
       setDashboardSummary({
@@ -245,6 +284,11 @@ export default function WorkspaceDetailPage({
       setMemberTaskStats({
         status: "error",
         stats: [],
+        error: "올바르지 않은 워크스페이스입니다.",
+      });
+      setWorkspaceAgents([]);
+      setAgentState({
+        status: "error",
         error: "올바르지 않은 워크스페이스입니다.",
       });
       return;
@@ -490,11 +534,12 @@ export default function WorkspaceDetailPage({
       ]);
       setState({ status: "ready", workspace, members, error: null });
       void reloadTasks();
+      void reloadAgents();
       void reloadDashboardSummary();
     } catch (error) {
       setState(toFailureState(error, "워크스페이스 정보를 확인하지 못했습니다."));
     }
-  }, [numericWorkspaceId, reloadDashboardSummary, reloadTasks]);
+  }, [numericWorkspaceId, reloadAgents, reloadDashboardSummary, reloadTasks]);
 
   useEffect(() => {
     let ignore = false;
@@ -522,16 +567,31 @@ export default function WorkspaceDetailPage({
             stats: [],
             error: "올바르지 않은 워크스페이스입니다.",
           });
+          setWorkspaceAgents([]);
+          setAgentState({
+            status: "error",
+            error: "올바르지 않은 워크스페이스입니다.",
+          });
         }
         return;
       }
 
       try {
-        const [workspace, members, initialTasksResult, initialSummaryResult, initialMemberTaskStatsResult] = await Promise.all([
+        const [
+          workspace,
+          members,
+          initialTasksResult,
+          initialAgentsResult,
+          initialSummaryResult,
+          initialMemberTaskStatsResult,
+        ] = await Promise.all([
           fetchWorkspaceDetail(resolveAccessToken(), numericWorkspaceId),
           fetchWorkspaceMembers(resolveAccessToken(), numericWorkspaceId),
           fetchWorkspaceTasks(resolveAccessToken(), numericWorkspaceId)
             .then((nextTasks) => ({ ok: true as const, nextTasks }))
+            .catch((error) => ({ ok: false as const, error })),
+          fetchWorkspaceAgents(resolveAccessToken(), numericWorkspaceId)
+            .then((agents) => ({ ok: true as const, agents }))
             .catch((error) => ({ ok: false as const, error })),
           fetchWorkspaceDashboardSummary(resolveAccessToken(), numericWorkspaceId)
             .then((summary) => ({ ok: true as const, summary }))
@@ -550,6 +610,16 @@ export default function WorkspaceDetailPage({
             setTaskState({
               status: "error",
               error: messageFromError(initialTasksResult.error, "Task 목록을 불러오지 못했습니다."),
+            });
+          }
+          if (initialAgentsResult.ok) {
+            setWorkspaceAgents(initialAgentsResult.agents);
+            setAgentState({ status: "ready", error: null });
+          } else {
+            setWorkspaceAgents([]);
+            setAgentState({
+              status: "error",
+              error: messageFromError(initialAgentsResult.error, "Agent 목록을 불러오지 못했습니다."),
             });
           }
           if (initialSummaryResult.ok) {
@@ -604,6 +674,7 @@ export default function WorkspaceDetailPage({
   const recentReports = summary?.recentReports ?? [];
   const recentLogs = summary?.recentLogs ?? [];
   const memberStats = memberTaskStats.status === "ready" ? memberTaskStats.stats : [];
+  const readyAgentCount = workspaceAgents.filter((agent) => agent.status === "READY").length;
   const isDashboardLoading = dashboardSummary.status === "loading" || memberTaskStats.status === "loading";
   const isTaskMutating = taskMutation.status === "submitting";
   const canCreateTask = taskCreateForm.title.trim().length > 0 && !isTaskMutating;
@@ -915,6 +986,73 @@ export default function WorkspaceDetailPage({
                   <Users aria-hidden="true" />
                   <strong>멤버 작업 통계가 없습니다</strong>
                   <p>멤버별 Task 기록이 집계되면 순위와 점수가 표시됩니다.</p>
+                </div>
+              )}
+            </section>
+
+            <section className="workspace-member-section" aria-label="워크스페이스 Agent">
+              <div className="workspace-section-title">
+                <div>
+                  <span className="workspace-detail-label">Agents</span>
+                  <h2>Agent 목록</h2>
+                </div>
+                <div className="workspace-task-actions">
+                  <span className="workspace-count-badge">{workspaceAgents.length}개</span>
+                  <button
+                    className="secondary-action workspace-task-refresh"
+                    type="button"
+                    onClick={() => void reloadAgents()}
+                    disabled={agentState.status === "loading"}
+                  >
+                    {agentState.status === "loading" ? (
+                      <Loader2 className="spin" aria-hidden="true" />
+                    ) : (
+                      <RefreshCw aria-hidden="true" />
+                    )}
+                    <span>새로고침</span>
+                  </button>
+                </div>
+              </div>
+
+              {agentState.status === "error" ? (
+                <div className="workspace-task-notice" role="alert">
+                  <AlertCircle aria-hidden="true" />
+                  <span>{agentState.error}</span>
+                </div>
+              ) : null}
+
+              {agentState.status === "loading" ? (
+                <div className="workspace-task-notice">
+                  <Loader2 className="spin" aria-hidden="true" />
+                  <span>Agent 목록을 불러오고 있습니다.</span>
+                </div>
+              ) : null}
+
+              {workspaceAgents.length > 0 ? (
+                <div className="workspace-member-list">
+                  {workspaceAgents.map((agent) => (
+                    <article className="workspace-member-row" key={agent.agentId}>
+                      <div className="workspace-member-avatar">
+                        <UserRound aria-hidden="true" />
+                      </div>
+                      <div className="workspace-member-main">
+                        <strong>{agent.name}</strong>
+                        <p>
+                          Agent #{agent.agentId} · {formatAgentCategory(agent.category)} · {agent.workspacePath}
+                        </p>
+                      </div>
+                      <div className="workspace-member-meta">
+                        <span className="role-badge">{formatAgentStatus(agent.status)}</span>
+                        <span>{agent.skillFiles.length} skill</span>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              ) : (
+                <div className="workspace-member-empty">
+                  <Users aria-hidden="true" />
+                  <strong>표시할 Agent가 없습니다</strong>
+                  <p>워크스페이스에 Agent가 등록되면 이곳에 표시됩니다.</p>
                 </div>
               )}
             </section>
@@ -1300,6 +1438,11 @@ export default function WorkspaceDetailPage({
           <ShieldCheck aria-hidden="true" />
           <strong>{members.length}명</strong>
           <span>멤버 {members.length}명 · 관리자 {adminCount}명</span>
+        </div>
+        <div>
+          <UserRound aria-hidden="true" />
+          <strong>{workspaceAgents.length}개</strong>
+          <span>READY {readyAgentCount}개 · 전체 Agent</span>
         </div>
         <div>
           <ListChecks aria-hidden="true" />
@@ -1742,6 +1885,36 @@ function parseOptionalPositiveInteger(value: string): number | null {
 
 function formatRole(role: WorkspaceMemberRole): string {
   return role === "ADMIN" ? "관리자" : "멤버";
+}
+
+function formatAgentCategory(category: WorkspaceAgent["category"]): string {
+  switch (category) {
+    case "ORCHESTRATOR":
+      return "오케스트레이터";
+    case "BACKEND":
+      return "백엔드";
+    case "FRONTEND":
+      return "프론트엔드";
+    case "QA":
+      return "QA";
+    case "CUSTOM":
+      return "커스텀";
+  }
+}
+
+function formatAgentStatus(status: WorkspaceAgent["status"]): string {
+  switch (status) {
+    case "CREATING":
+      return "생성 중";
+    case "READY":
+      return "준비됨";
+    case "SYNC_FAILED":
+      return "동기화 실패";
+    case "ERROR":
+      return "오류";
+    case "DISABLED":
+      return "비활성";
+  }
 }
 
 function formatTaskStatus(status: TaskStatus): string {
