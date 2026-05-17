@@ -22,6 +22,53 @@ export type WorkspaceMember = {
   joinedAt: string;
 };
 
+export type WorkspaceDashboardRecentReport = {
+  executionId: number;
+  taskId: number;
+  agentId: number;
+  status: string;
+  summary: string | null;
+  failureReason: string | null;
+  createdAt: string;
+};
+
+export type WorkspaceDashboardRecentLog = {
+  executionId: number;
+  taskId: number;
+  agentId: number;
+  level: string;
+  message: string;
+  createdAt: string;
+};
+
+export type WorkspaceDashboardSummary = {
+  agentCount: number;
+  runningAgentCount: number;
+  idleAgentCount: number;
+  errorAgentCount: number;
+  taskCount: number;
+  runningTaskCount: number;
+  completedTaskCount: number;
+  failedTaskCount: number;
+  recentReports: WorkspaceDashboardRecentReport[];
+  recentLogs: WorkspaceDashboardRecentLog[];
+};
+
+export type WorkspaceMemberTaskStats = {
+  memberId: number;
+  memberName: string;
+  rank: number;
+  taskCount: number;
+  completedTaskCount: number;
+  runningTaskCount: number;
+  failedTaskCount: number;
+  waitingUserTaskCount: number;
+  healthScore: number;
+  flowScore: number;
+  impactScore: number;
+  totalScore: number;
+};
+
 export type CreateWorkspaceInput = {
   name: string;
   description?: string;
@@ -51,6 +98,30 @@ export async function fetchWorkspaceMembers(
   return apiFetch<WorkspaceMember[]>(`/api/v1/workspaces/${workspaceId}/members`, {
     accessToken,
   });
+}
+
+export async function fetchWorkspaceDashboardSummary(
+  accessToken: string,
+  workspaceId: number,
+): Promise<WorkspaceDashboardSummary> {
+  return apiFetch<WorkspaceDashboardSummary>(
+    `/api/v1/workspaces/${workspaceId}/dashboard/summary`,
+    {
+      accessToken,
+    },
+  );
+}
+
+export async function fetchWorkspaceMemberTaskStats(
+  accessToken: string,
+  workspaceId: number,
+): Promise<WorkspaceMemberTaskStats[]> {
+  return apiFetch<WorkspaceMemberTaskStats[]>(
+    `/api/v1/workspaces/${workspaceId}/members/task-stats`,
+    {
+      accessToken,
+    },
+  );
 }
 
 export async function createWorkspace(
