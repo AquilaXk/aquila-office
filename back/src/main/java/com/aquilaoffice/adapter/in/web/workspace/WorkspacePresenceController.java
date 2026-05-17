@@ -107,13 +107,6 @@ public class WorkspacePresenceController {
         }
     }
 
-    private String requireMemberGoogleSub(String memberGoogleSub) {
-        if (memberGoogleSub == null || memberGoogleSub.isBlank()) {
-            throw new ServiceException(CommonErrorCode.BAD_REQUEST);
-        }
-        return memberGoogleSub.trim();
-    }
-
     private String requireAuthenticatedMemberGoogleSub(Authentication authentication) {
         if (authentication == null
                 || !(authentication.getPrincipal() instanceof AuthenticatedMember authenticatedMember)) {
