@@ -864,7 +864,7 @@ class WorkspaceControllerTest {
     @Test
     void revokeWorkspaceInviteReturnsOkEnvelope() throws Exception {
         mockMvc.perform(delete("/api/v1/workspaces/101/invites/501")
-                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, " google-1 "))
+                        .principal(authenticatedPrincipal("google-1")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.code").value("200"))
@@ -879,13 +879,23 @@ class WorkspaceControllerTest {
     }
 
     @Test
+    void revokeWorkspaceInviteRejectsMissingPrincipal() throws Exception {
+        mockMvc.perform(delete("/api/v1/workspaces/101/invites/501"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code").value("401"));
+
+        verifyNoInteractions(revokeWorkspaceInviteUseCase);
+    }
+
+    @Test
     void revokeWorkspaceInviteReturnsNotFoundEnvelope() throws Exception {
         org.mockito.BDDMockito.willThrow(new IllegalArgumentException("workspace invite entity not found"))
                 .given(revokeWorkspaceInviteUseCase)
                 .revokeWorkspaceInvite(any(RevokeWorkspaceInviteCommand.class));
 
         mockMvc.perform(delete("/api/v1/workspaces/101/invites/404")
-                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, "google-1"))
+                        .principal(authenticatedPrincipal("google-1")))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.code").value("404"));
@@ -906,7 +916,7 @@ class WorkspaceControllerTest {
                         null));
 
         mockMvc.perform(patch("/api/v1/workspaces/101/invites/501/extend")
-                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, " google-1 ")
+                        .principal(authenticatedPrincipal("google-1"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"additionalDays\":3}"))
                 .andExpect(status().isOk())
@@ -943,7 +953,7 @@ class WorkspaceControllerTest {
                         null));
 
         mockMvc.perform(patch("/api/v1/workspaces/101/invites/501/extend")
-                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, "google-1")
+                        .principal(authenticatedPrincipal("google-1"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
                 .andExpect(status().isOk())
@@ -958,7 +968,7 @@ class WorkspaceControllerTest {
     @Test
     void extendWorkspaceInviteRejectsInvalidAdditionalDays() throws Exception {
         mockMvc.perform(patch("/api/v1/workspaces/101/invites/501/extend")
-                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, "google-1")
+                        .principal(authenticatedPrincipal("google-1"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"additionalDays\":31}"))
                 .andExpect(status().isBadRequest())
@@ -974,7 +984,7 @@ class WorkspaceControllerTest {
                 .willThrow(new IllegalStateException("invite is not extendable"));
 
         mockMvc.perform(patch("/api/v1/workspaces/101/invites/501/extend")
-                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, "google-1")
+                        .principal(authenticatedPrincipal("google-1"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"additionalDays\":3}"))
                 .andExpect(status().isBadRequest())
@@ -983,12 +993,24 @@ class WorkspaceControllerTest {
     }
 
     @Test
+    void extendWorkspaceInviteRejectsMissingPrincipal() throws Exception {
+        mockMvc.perform(patch("/api/v1/workspaces/101/invites/501/extend")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"additionalDays\":3}"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code").value("401"));
+
+        verifyNoInteractions(extendWorkspaceInviteUseCase);
+    }
+
+    @Test
     void extendWorkspaceInviteReturnsNotFoundEnvelope() throws Exception {
         given(extendWorkspaceInviteUseCase.extendWorkspaceInvite(any(ExtendWorkspaceInviteCommand.class)))
                 .willThrow(new IllegalArgumentException("workspace invite entity not found"));
 
         mockMvc.perform(patch("/api/v1/workspaces/101/invites/404/extend")
-                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, "google-1")
+                        .principal(authenticatedPrincipal("google-1"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"additionalDays\":3}"))
                 .andExpect(status().isNotFound())
