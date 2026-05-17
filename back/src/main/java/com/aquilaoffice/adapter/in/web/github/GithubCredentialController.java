@@ -1,6 +1,5 @@
 package com.aquilaoffice.adapter.in.web.github;
 
-import com.aquilaoffice.adapter.in.web.workspace.WorkspaceController;
 import com.aquilaoffice.application.port.in.CreateGithubCredentialResult;
 import com.aquilaoffice.application.port.in.CreateGithubCredentialUseCase;
 import com.aquilaoffice.application.port.in.DeleteGithubCredentialCommand;
@@ -13,17 +12,18 @@ import com.aquilaoffice.application.port.in.UpdateGithubCredentialUseCase;
 import com.aquilaoffice.global.exception.CommonErrorCode;
 import com.aquilaoffice.global.exception.ServiceException;
 import com.aquilaoffice.global.response.RsData;
+import com.aquilaoffice.global.security.AuthenticatedMember;
 import jakarta.validation.Valid;
 import java.net.URI;
 import java.util.List;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -53,9 +53,8 @@ public class GithubCredentialController {
     @GetMapping
     public ResponseEntity<RsData<List<GithubCredentialResponse>>> listGithubCredentials(
             @PathVariable Long workspaceId,
-            @RequestHeader(name = WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, required = false)
-                    String requesterGoogleSub) {
-        String normalizedRequesterGoogleSub = requireRequesterGoogleSub(requesterGoogleSub);
+            Authentication authentication) {
+        String normalizedRequesterGoogleSub = requireAuthenticatedRequesterGoogleSub(authentication);
 
         try {
             List<ListGithubCredentialsResult> results = listGithubCredentialsUseCase.listGithubCredentials(
@@ -72,10 +71,9 @@ public class GithubCredentialController {
     @PostMapping
     public ResponseEntity<RsData<GithubCredentialResponse>> createGithubCredential(
             @PathVariable Long workspaceId,
-            @RequestHeader(name = WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, required = false)
-                    String requesterGoogleSub,
+            Authentication authentication,
             @Valid @RequestBody CreateGithubCredentialRequest request) {
-        String normalizedRequesterGoogleSub = requireRequesterGoogleSub(requesterGoogleSub);
+        String normalizedRequesterGoogleSub = requireAuthenticatedRequesterGoogleSub(authentication);
 
         try {
             CreateGithubCredentialResult result = createGithubCredentialUseCase.createGithubCredential(
@@ -98,10 +96,9 @@ public class GithubCredentialController {
     public ResponseEntity<RsData<GithubCredentialResponse>> updateGithubCredential(
             @PathVariable Long workspaceId,
             @PathVariable Long credentialId,
-            @RequestHeader(name = WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, required = false)
-                    String requesterGoogleSub,
+            Authentication authentication,
             @Valid @RequestBody UpdateGithubCredentialRequest request) {
-        String normalizedRequesterGoogleSub = requireRequesterGoogleSub(requesterGoogleSub);
+        String normalizedRequesterGoogleSub = requireAuthenticatedRequesterGoogleSub(authentication);
 
         try {
             UpdateGithubCredentialResult result = updateGithubCredentialUseCase.updateGithubCredential(
@@ -117,9 +114,8 @@ public class GithubCredentialController {
     public ResponseEntity<RsData<Void>> deleteGithubCredential(
             @PathVariable Long workspaceId,
             @PathVariable Long credentialId,
-            @RequestHeader(name = WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, required = false)
-                    String requesterGoogleSub) {
-        String normalizedRequesterGoogleSub = requireRequesterGoogleSub(requesterGoogleSub);
+            Authentication authentication) {
+        String normalizedRequesterGoogleSub = requireAuthenticatedRequesterGoogleSub(authentication);
 
         try {
             deleteGithubCredentialUseCase.deleteGithubCredential(
@@ -131,10 +127,11 @@ public class GithubCredentialController {
         }
     }
 
-    private String requireRequesterGoogleSub(String requesterGoogleSub) {
-        if (requesterGoogleSub == null || requesterGoogleSub.isBlank()) {
-            throw new ServiceException(CommonErrorCode.BAD_REQUEST);
+    private String requireAuthenticatedRequesterGoogleSub(Authentication authentication) {
+        if (authentication == null
+                || !(authentication.getPrincipal() instanceof AuthenticatedMember authenticatedMember)) {
+            throw new ServiceException(CommonErrorCode.UNAUTHORIZED);
         }
-        return requesterGoogleSub.trim();
+        return authenticatedMember.googleSub();
     }
 }

@@ -1,6 +1,7 @@
 package com.aquilaoffice.adapter.in.web.github;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
@@ -13,7 +14,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.aquilaoffice.adapter.in.web.workspace.WorkspaceController;
 import com.aquilaoffice.application.port.in.CreateGithubCredentialCommand;
 import com.aquilaoffice.application.port.in.CreateGithubCredentialResult;
 import com.aquilaoffice.application.port.in.CreateGithubCredentialUseCase;
@@ -25,7 +25,9 @@ import com.aquilaoffice.application.port.in.ListGithubCredentialsUseCase;
 import com.aquilaoffice.application.port.in.UpdateGithubCredentialCommand;
 import com.aquilaoffice.application.port.in.UpdateGithubCredentialResult;
 import com.aquilaoffice.application.port.in.UpdateGithubCredentialUseCase;
+import com.aquilaoffice.domain.member.MemberRole;
 import com.aquilaoffice.global.handler.GlobalExceptionHandler;
+import com.aquilaoffice.global.security.AuthenticatedMember;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -35,6 +37,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -68,7 +71,7 @@ class GithubCredentialControllerTest {
                         301L, 101L, "Main Token", "ghp_****cdef")));
 
         mockMvc.perform(get("/api/v1/workspaces/101/github/credentials")
-                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, " google-1 "))
+                        .principal(authenticatedPrincipal("google-1")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.code").value("200"))
@@ -93,7 +96,7 @@ class GithubCredentialControllerTest {
                         301L, 101L, "Main Token", "ghp_****cdef"));
 
         mockMvc.perform(post("/api/v1/workspaces/101/github/credentials")
-                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, " google-1 ")
+                        .principal(authenticatedPrincipal("google-1"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"displayName\":\" Main Token \",\"token\":\" ghp_1234567890abcdef \"}"))
                 .andExpect(status().isCreated())
@@ -124,7 +127,7 @@ class GithubCredentialControllerTest {
                         301L, 101L, "Backup Token", "ghp_****4321"));
 
         mockMvc.perform(patch("/api/v1/workspaces/101/github/credentials/301")
-                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, " google-1 ")
+                        .principal(authenticatedPrincipal("google-1"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"displayName\":\" Backup Token \",\"token\":\" ghp_fedcba0987654321 \"}"))
                 .andExpect(status().isOk())
@@ -149,7 +152,7 @@ class GithubCredentialControllerTest {
     @Test
     void deleteGithubCredentialReturnsOkEnvelope() throws Exception {
         mockMvc.perform(delete("/api/v1/workspaces/101/github/credentials/301")
-                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, " google-1 "))
+                        .principal(authenticatedPrincipal("google-1")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.code").value("200"));
@@ -164,11 +167,11 @@ class GithubCredentialControllerTest {
     }
 
     @Test
-    void missingHeaderReturnsBadRequestAndDoesNotCallUseCases() throws Exception {
+    void missingPrincipalReturnsUnauthorizedAndDoesNotCallUseCases() throws Exception {
         mockMvc.perform(get("/api/v1/workspaces/101/github/credentials"))
-                .andExpect(status().isBadRequest())
+                .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.success").value(false))
-                .andExpect(jsonPath("$.code").value("400"));
+                .andExpect(jsonPath("$.code").value("401"));
 
         verifyNoInteractions(
                 createGithubCredentialUseCase,
@@ -180,7 +183,7 @@ class GithubCredentialControllerTest {
     @Test
     void blankCreateRequestReturnsBadRequest() throws Exception {
         mockMvc.perform(post("/api/v1/workspaces/101/github/credentials")
-                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, "google-1")
+                        .principal(authenticatedPrincipal("google-1"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"displayName\":\" \",\"token\":\" \"}"))
                 .andExpect(status().isBadRequest())
@@ -196,9 +199,23 @@ class GithubCredentialControllerTest {
                 .willThrow(new IllegalArgumentException("workspace not found"));
 
         mockMvc.perform(get("/api/v1/workspaces/999/github/credentials")
-                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, "google-1"))
+                        .principal(authenticatedPrincipal("google-1")))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.code").value("404"));
+    }
+
+    @Test
+    void githubCredentialControllerDoesNotExposeLegacyRequesterHeaderHelper() {
+        assertThatThrownBy(
+                        () -> GithubCredentialController.class.getDeclaredMethod(
+                                "requireRequesterGoogleSub", String.class))
+                .isInstanceOf(NoSuchMethodException.class);
+    }
+
+    private static UsernamePasswordAuthenticationToken authenticatedPrincipal(String googleSub) {
+        AuthenticatedMember member =
+                new AuthenticatedMember(1L, googleSub, googleSub + "@example.com", MemberRole.USER);
+        return new UsernamePasswordAuthenticationToken(member, null, List.of());
     }
 }
