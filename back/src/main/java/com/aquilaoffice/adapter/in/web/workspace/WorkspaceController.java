@@ -202,8 +202,8 @@ public class WorkspaceController {
     public ResponseEntity<RsData<List<WorkspaceInviteManagementResponse>>> listWorkspaceInvites(
             @PathVariable Long workspaceId,
             @RequestParam(name = "status", required = false) String status,
-            @RequestHeader(name = CREATOR_GOOGLE_SUB_HEADER, required = false) String creatorGoogleSub) {
-        String normalizedCreatorGoogleSub = requireCreatorGoogleSub(creatorGoogleSub);
+            Authentication authentication) {
+        String normalizedCreatorGoogleSub = requireAuthenticatedCreatorGoogleSub(authentication);
         WorkspaceInviteStatus statusFilter = parseInviteStatus(status);
 
         try {
