@@ -146,7 +146,7 @@ class WorkspaceControllerTest {
                         LocalDateTime.of(2026, 5, 15, 10, 0)));
 
         mockMvc.perform(post("/api/v1/workspaces")
-                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, " google-1 ")
+                        .principal(authenticatedPrincipal("google-1"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"name\":\" Team \",\"description\":\" Description \"}"))
                 .andExpect(status().isCreated())
@@ -173,7 +173,7 @@ class WorkspaceControllerTest {
     @Test
     void createWorkspaceRejectsBlankName() throws Exception {
         mockMvc.perform(post("/api/v1/workspaces")
-                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, "google-1")
+                        .principal(authenticatedPrincipal("google-1"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"name\":\" \",\"description\":\"Description\"}"))
                 .andExpect(status().isBadRequest())
@@ -184,14 +184,13 @@ class WorkspaceControllerTest {
     }
 
     @Test
-    void createWorkspaceRejectsBlankCreatorHeader() throws Exception {
+    void createWorkspaceRejectsMissingPrincipal() throws Exception {
         mockMvc.perform(post("/api/v1/workspaces")
-                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, " ")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"name\":\"Team\"}"))
-                .andExpect(status().isBadRequest())
+                .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.success").value(false))
-                .andExpect(jsonPath("$.code").value("400"));
+                .andExpect(jsonPath("$.code").value("401"));
 
         verifyNoInteractions(createWorkspaceUseCase);
     }
@@ -202,7 +201,7 @@ class WorkspaceControllerTest {
                 .willThrow(new IllegalArgumentException("creator member not found"));
 
         mockMvc.perform(post("/api/v1/workspaces")
-                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, "missing-google")
+                        .principal(authenticatedPrincipal("missing-google"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"name\":\"Team\",\"description\":\"Description\"}"))
                 .andExpect(status().isNotFound())
