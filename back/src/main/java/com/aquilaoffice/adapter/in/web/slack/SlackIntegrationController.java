@@ -1,6 +1,5 @@
 package com.aquilaoffice.adapter.in.web.slack;
 
-import com.aquilaoffice.adapter.in.web.workspace.WorkspaceController;
 import com.aquilaoffice.application.port.in.CreateSlackChannelMappingResult;
 import com.aquilaoffice.application.port.in.CreateSlackChannelMappingUseCase;
 import com.aquilaoffice.application.port.in.DeleteSlackIntegrationCommand;
@@ -13,17 +12,18 @@ import com.aquilaoffice.application.port.in.UpdateSlackIntegrationUseCase;
 import com.aquilaoffice.global.exception.CommonErrorCode;
 import com.aquilaoffice.global.exception.ServiceException;
 import com.aquilaoffice.global.response.RsData;
+import com.aquilaoffice.global.security.AuthenticatedMember;
 import jakarta.validation.Valid;
 import java.net.URI;
 import java.util.List;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -53,10 +53,9 @@ public class SlackIntegrationController {
     @PostMapping
     public ResponseEntity<RsData<SlackIntegrationResponse>> createSlackIntegration(
             @PathVariable Long workspaceId,
-            @RequestHeader(name = WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, required = false)
-                    String requesterGoogleSub,
+            Authentication authentication,
             @Valid @RequestBody CreateSlackIntegrationRequest request) {
-        String normalizedRequesterGoogleSub = requireRequesterGoogleSub(requesterGoogleSub);
+        String normalizedRequesterGoogleSub = requireAuthenticatedRequesterGoogleSub(authentication);
 
         try {
             CreateSlackChannelMappingResult result = createSlackChannelMappingUseCase.createSlackChannelMapping(
@@ -76,9 +75,8 @@ public class SlackIntegrationController {
     @GetMapping
     public ResponseEntity<RsData<List<SlackIntegrationResponse>>> listSlackIntegrations(
             @PathVariable Long workspaceId,
-            @RequestHeader(name = WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, required = false)
-                    String requesterGoogleSub) {
-        String normalizedRequesterGoogleSub = requireRequesterGoogleSub(requesterGoogleSub);
+            Authentication authentication) {
+        String normalizedRequesterGoogleSub = requireAuthenticatedRequesterGoogleSub(authentication);
 
         try {
             return ResponseEntity.ok(RsData.ok(listSlackChannelMappingsUseCase
@@ -98,10 +96,9 @@ public class SlackIntegrationController {
     public ResponseEntity<RsData<SlackIntegrationResponse>> updateSlackIntegration(
             @PathVariable Long workspaceId,
             @PathVariable Long integrationId,
-            @RequestHeader(name = WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, required = false)
-                    String requesterGoogleSub,
+            Authentication authentication,
             @Valid @RequestBody UpdateSlackIntegrationRequest request) {
-        String normalizedRequesterGoogleSub = requireRequesterGoogleSub(requesterGoogleSub);
+        String normalizedRequesterGoogleSub = requireAuthenticatedRequesterGoogleSub(authentication);
 
         try {
             UpdateSlackIntegrationResult result = updateSlackIntegrationUseCase.updateSlackIntegration(
@@ -119,9 +116,8 @@ public class SlackIntegrationController {
     public ResponseEntity<RsData<DeleteSlackIntegrationResponse>> deleteSlackIntegration(
             @PathVariable Long workspaceId,
             @PathVariable Long integrationId,
-            @RequestHeader(name = WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, required = false)
-                    String requesterGoogleSub) {
-        String normalizedRequesterGoogleSub = requireRequesterGoogleSub(requesterGoogleSub);
+            Authentication authentication) {
+        String normalizedRequesterGoogleSub = requireAuthenticatedRequesterGoogleSub(authentication);
 
         try {
             DeleteSlackIntegrationResult result = deleteSlackIntegrationUseCase.deleteSlackIntegration(
@@ -136,10 +132,11 @@ public class SlackIntegrationController {
         }
     }
 
-    private String requireRequesterGoogleSub(String requesterGoogleSub) {
-        if (requesterGoogleSub == null || requesterGoogleSub.isBlank()) {
-            throw new ServiceException(CommonErrorCode.BAD_REQUEST);
+    private String requireAuthenticatedRequesterGoogleSub(Authentication authentication) {
+        if (authentication == null
+                || !(authentication.getPrincipal() instanceof AuthenticatedMember authenticatedMember)) {
+            throw new ServiceException(CommonErrorCode.UNAUTHORIZED);
         }
-        return requesterGoogleSub.trim();
+        return authenticatedMember.googleSub();
     }
 }
