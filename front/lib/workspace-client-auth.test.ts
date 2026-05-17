@@ -75,6 +75,16 @@ test("workspace settings exposes slack integration controls", () => {
   assert.match(source, /Slack/);
 });
 
+test("workspace detail exposes dashboard summary sections", () => {
+  const source = readSource("app/workspaces/[workspaceId]/page.tsx");
+
+  assert.match(source, /fetchWorkspaceDashboardSummary/);
+  assert.match(source, /fetchWorkspaceMemberTaskStats/);
+  assert.match(source, /aria-label="워크스페이스 대시보드 요약"/);
+  assert.match(source, /recentReports/);
+  assert.match(source, /memberTaskStats/);
+});
+
 test("home dashboard exposes member profile settings", () => {
   const source = readSource("app/page.tsx");
 
