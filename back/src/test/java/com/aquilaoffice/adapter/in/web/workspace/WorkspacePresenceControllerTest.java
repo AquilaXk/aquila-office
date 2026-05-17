@@ -57,14 +57,14 @@ class WorkspacePresenceControllerTest {
     private CloseWorkspacePresenceStreamUseCase closeWorkspacePresenceStreamUseCase;
 
     @Test
-    void openStreamReturnsSseEmitterAndPassesHeaderCommand() throws Exception {
+    void openStreamReturnsSseEmitterAndPassesPrincipalCommand() throws Exception {
         given(openWorkspacePresenceStreamUseCase.openStream(
                         any(OpenWorkspacePresenceStreamCommand.class),
                         any(WorkspacePresenceEventSink.class)))
                 .willReturn(new OpenWorkspacePresenceStreamResult(101L, 2L));
 
         MvcResult result = mockMvc.perform(get("/api/v1/workspaces/101/presence/stream")
-                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, " google-2 "))
+                        .principal(authenticatedPrincipal("google-2")))
                 .andExpect(request().asyncStarted())
                 .andReturn();
 
