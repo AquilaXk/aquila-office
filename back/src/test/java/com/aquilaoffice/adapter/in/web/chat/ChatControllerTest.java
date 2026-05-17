@@ -1,6 +1,7 @@
 package com.aquilaoffice.adapter.in.web.chat;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
@@ -10,7 +11,6 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.aquilaoffice.adapter.in.web.workspace.WorkspaceController;
 import com.aquilaoffice.application.port.in.ChatMessageResult;
 import com.aquilaoffice.application.port.in.ListChatSessionMessagesQuery;
 import com.aquilaoffice.application.port.in.ListChatSessionMessagesResult;
@@ -25,7 +25,9 @@ import com.aquilaoffice.domain.execution.TaskExecutionStatus;
 import com.aquilaoffice.domain.task.TaskPriority;
 import com.aquilaoffice.domain.task.TaskStatus;
 import com.aquilaoffice.domain.task.TaskType;
+import com.aquilaoffice.domain.member.MemberRole;
 import com.aquilaoffice.global.handler.GlobalExceptionHandler;
+import com.aquilaoffice.global.security.AuthenticatedMember;
 import java.time.LocalDateTime;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -35,6 +37,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -61,7 +64,7 @@ class ChatControllerTest {
                 .willReturn(sendResult());
 
         mockMvc.perform(post("/api/v1/workspaces/101/chat/messages")
-                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, " google-1 ")
+                        .principal(authenticatedPrincipal("google-1"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -106,7 +109,7 @@ class ChatControllerTest {
                 .willReturn(List.of(userMessage()));
 
         mockMvc.perform(get("/api/v1/workspaces/101/chat/tasks/301/messages")
-                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, " google-1 "))
+                        .principal(authenticatedPrincipal("google-1")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data[0].messageId").value(1001))
@@ -132,7 +135,7 @@ class ChatControllerTest {
         mockMvc.perform(get("/api/v1/workspaces/101/chat/sessions/901/messages")
                         .queryParam("afterMessageId", "1000")
                         .queryParam("limit", "2")
-                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, " google-1 "))
+                        .principal(authenticatedPrincipal("google-1")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.chatSessionId").value(901))
@@ -151,11 +154,11 @@ class ChatControllerTest {
     }
 
     @Test
-    void missingHeaderReturnsBadRequestAndDoesNotCallUseCases() throws Exception {
+    void missingPrincipalReturnsUnauthorizedAndDoesNotCallUseCases() throws Exception {
         mockMvc.perform(get("/api/v1/workspaces/101/chat/tasks/301/messages"))
-                .andExpect(status().isBadRequest())
+                .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.success").value(false))
-                .andExpect(jsonPath("$.code").value("400"));
+                .andExpect(jsonPath("$.code").value("401"));
 
         verifyNoInteractions(sendChatMessageUseCase, listChatTaskMessagesUseCase, listChatSessionMessagesUseCase);
     }
@@ -163,7 +166,7 @@ class ChatControllerTest {
     @Test
     void blankMessageReturnsBadRequest() throws Exception {
         mockMvc.perform(post("/api/v1/workspaces/101/chat/messages")
-                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, "google-1")
+                        .principal(authenticatedPrincipal("google-1"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"message\":\" \",\"agentId\":501}"))
                 .andExpect(status().isBadRequest())
@@ -171,6 +174,13 @@ class ChatControllerTest {
                 .andExpect(jsonPath("$.code").value("400"));
 
         verifyNoInteractions(sendChatMessageUseCase);
+    }
+
+    @Test
+    void chatControllerDoesNotExposeLegacyRequesterHeaderHelper() {
+        assertThatThrownBy(
+                        () -> ChatController.class.getDeclaredMethod("requireRequesterGoogleSub", String.class))
+                .isInstanceOf(NoSuchMethodException.class);
     }
 
     private static SendChatMessageResult sendResult() {
@@ -209,5 +219,11 @@ class ChatControllerTest {
                 ChatMessageRole.ASSISTANT,
                 "구현 완료",
                 LocalDateTime.of(2026, 5, 16, 10, 2));
+    }
+
+    private static UsernamePasswordAuthenticationToken authenticatedPrincipal(String googleSub) {
+        AuthenticatedMember member =
+                new AuthenticatedMember(1L, googleSub, googleSub + "@example.com", MemberRole.USER);
+        return new UsernamePasswordAuthenticationToken(member, null, List.of());
     }
 }
