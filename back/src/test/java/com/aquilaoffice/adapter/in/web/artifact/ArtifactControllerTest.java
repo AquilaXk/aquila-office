@@ -1,6 +1,7 @@
 package com.aquilaoffice.adapter.in.web.artifact;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
@@ -155,6 +156,13 @@ class ArtifactControllerTest {
                 getArtifactTreeUseCase,
                 getArtifactFileUseCase,
                 getOrchestrationPlanArtifactUseCase);
+    }
+
+    @Test
+    void artifactControllerDoesNotExposeLegacyRequesterHeaderHelper() {
+        assertThatThrownBy(
+                        () -> ArtifactController.class.getDeclaredMethod("requireRequesterGoogleSub", String.class))
+                .isInstanceOf(NoSuchMethodException.class);
     }
 
     private static ArtifactTreeResult treeResult() {
