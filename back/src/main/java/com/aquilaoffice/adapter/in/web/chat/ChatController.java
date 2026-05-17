@@ -9,9 +9,11 @@ import com.aquilaoffice.application.port.in.SendChatMessageUseCase;
 import com.aquilaoffice.global.exception.CommonErrorCode;
 import com.aquilaoffice.global.exception.ServiceException;
 import com.aquilaoffice.global.response.RsData;
+import com.aquilaoffice.global.security.AuthenticatedMember;
 import jakarta.validation.Valid;
 import java.util.List;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -44,10 +46,9 @@ public class ChatController {
     @PostMapping("/messages")
     public ResponseEntity<RsData<ChatMessageSendResponse>> sendChatMessage(
             @PathVariable Long workspaceId,
-            @RequestHeader(name = WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, required = false)
-                    String requesterGoogleSub,
+            Authentication authentication,
             @Valid @RequestBody ChatMessageSendRequest request) {
-        String normalizedRequesterGoogleSub = requireRequesterGoogleSub(requesterGoogleSub);
+        String normalizedRequesterGoogleSub = requireAuthenticatedRequesterGoogleSub(authentication);
 
         try {
             return ResponseEntity.ok(RsData.ok(ChatMessageSendResponse.from(sendChatMessageUseCase.sendChatMessage(
@@ -62,9 +63,8 @@ public class ChatController {
     public ResponseEntity<RsData<List<ChatMessageResponse>>> listTaskMessages(
             @PathVariable Long workspaceId,
             @PathVariable Long taskId,
-            @RequestHeader(name = WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, required = false)
-                    String requesterGoogleSub) {
-        String normalizedRequesterGoogleSub = requireRequesterGoogleSub(requesterGoogleSub);
+            Authentication authentication) {
+        String normalizedRequesterGoogleSub = requireAuthenticatedRequesterGoogleSub(authentication);
 
         try {
             return ResponseEntity.ok(RsData.ok(listChatTaskMessagesUseCase
@@ -86,9 +86,8 @@ public class ChatController {
             @PathVariable Long chatSessionId,
             @RequestParam(name = "afterMessageId", required = false) Long afterMessageId,
             @RequestParam(name = "limit", required = false) Integer limit,
-            @RequestHeader(name = WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, required = false)
-                    String requesterGoogleSub) {
-        String normalizedRequesterGoogleSub = requireRequesterGoogleSub(requesterGoogleSub);
+            Authentication authentication) {
+        String normalizedRequesterGoogleSub = requireAuthenticatedRequesterGoogleSub(authentication);
 
         try {
             return ResponseEntity.ok(RsData.ok(ChatSessionMessagesResponse.from(
@@ -108,5 +107,13 @@ public class ChatController {
             throw new ServiceException(CommonErrorCode.BAD_REQUEST);
         }
         return requesterGoogleSub.trim();
+    }
+
+    private String requireAuthenticatedRequesterGoogleSub(Authentication authentication) {
+        if (authentication == null
+                || !(authentication.getPrincipal() instanceof AuthenticatedMember authenticatedMember)) {
+            throw new ServiceException(CommonErrorCode.UNAUTHORIZED);
+        }
+        return authenticatedMember.googleSub();
     }
 }
