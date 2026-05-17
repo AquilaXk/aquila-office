@@ -85,6 +85,16 @@ test("workspace detail exposes dashboard summary sections", () => {
   assert.match(source, /memberTaskStats/);
 });
 
+test("workspace detail exposes task mutation controls", () => {
+  const source = readSource("app/workspaces/[workspaceId]/page.tsx");
+
+  assert.match(source, /createWorkspaceTask/);
+  assert.match(source, /updateWorkspaceTaskStatus/);
+  assert.match(source, /runWorkspaceTask/);
+  assert.match(source, /aria-label="Task 생성"/);
+  assert.match(source, /createPr/);
+});
+
 test("home dashboard exposes member profile settings", () => {
   const source = readSource("app/page.tsx");
 

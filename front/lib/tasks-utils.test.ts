@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import {
   normalizeTaskReports,
   normalizeWorkspaceTasks,
@@ -8,6 +9,10 @@ import {
   type AgentReport,
   type WorkspaceTask,
 } from "./tasks-utils.ts";
+
+function readSource(fileName: string): string {
+  return readFileSync(new URL(fileName, import.meta.url), "utf8");
+}
 
 const task: WorkspaceTask = {
   taskId: 301,
@@ -45,6 +50,21 @@ test("workspace task paths target a single workspace", () => {
     workspaceTaskReportsPath(101, 301),
     "/api/v1/workspaces/101/tasks/301/reports",
   );
+});
+
+test("task mutation clients expose write and run contracts", () => {
+  const utilsSource = readSource("tasks-utils.ts");
+  const clientSource = readSource("tasks.ts");
+
+  assert.match(utilsSource, /workspaceTaskStatusPath/);
+  assert.match(utilsSource, /workspaceTaskRunPath/);
+  assert.match(utilsSource, /\/status/);
+  assert.match(utilsSource, /\/run/);
+  assert.match(clientSource, /export type CreateWorkspaceTaskInput/);
+  assert.match(clientSource, /createWorkspaceTask/);
+  assert.match(clientSource, /updateWorkspaceTaskStatus/);
+  assert.match(clientSource, /runWorkspaceTask/);
+  assert.match(clientSource, /createPr/);
 });
 
 test("normalizeWorkspaceTasks accepts direct arrays and page content", () => {

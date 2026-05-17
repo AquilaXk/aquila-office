@@ -20,6 +20,8 @@ export type TaskType =
 
 export type TaskPriority = "LOW" | "MEDIUM" | "HIGH" | "URGENT";
 
+export type TaskExecutionStatus = "QUEUED" | "RUNNING" | "SUCCEEDED" | "FAILED" | "CANCELED";
+
 export type TaskArtifactType =
   | "PR_URL"
   | "COMMIT_HASH"
@@ -61,6 +63,17 @@ export type AgentReport = {
   createdAt?: string;
 };
 
+export type RunWorkspaceTaskResult = {
+  workspaceId: number;
+  taskId: number;
+  executionId: number;
+  agentId: number;
+  taskStatus: TaskStatus;
+  executionStatus: TaskExecutionStatus;
+  finalText?: string | null;
+  failureReason?: string | null;
+};
+
 export function workspaceTasksPath(workspaceId: number): string {
   return `/api/v1/workspaces/${workspaceId}/tasks`;
 }
@@ -71,6 +84,14 @@ export function workspaceTaskPath(workspaceId: number, taskId: number): string {
 
 export function workspaceTaskReportsPath(workspaceId: number, taskId: number): string {
   return `${workspaceTaskPath(workspaceId, taskId)}/reports`;
+}
+
+export function workspaceTaskStatusPath(workspaceId: number, taskId: number): string {
+  return `${workspaceTaskPath(workspaceId, taskId)}/status`;
+}
+
+export function workspaceTaskRunPath(workspaceId: number, taskId: number): string {
+  return `${workspaceTaskPath(workspaceId, taskId)}/run`;
 }
 
 export function normalizeWorkspaceTasks(payload: unknown): WorkspaceTask[] {
