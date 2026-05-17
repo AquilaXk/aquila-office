@@ -1,6 +1,7 @@
 package com.aquilaoffice.adapter.in.web.slack;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
@@ -11,14 +12,15 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.aquilaoffice.adapter.in.web.workspace.WorkspaceController;
 import com.aquilaoffice.application.port.in.CreateSlackChannelMappingCommand;
 import com.aquilaoffice.application.port.in.CreateSlackChannelMappingResult;
 import com.aquilaoffice.application.port.in.CreateSlackChannelMappingUseCase;
 import com.aquilaoffice.application.port.in.ListSlackChannelMappingsQuery;
 import com.aquilaoffice.application.port.in.ListSlackChannelMappingsResult;
 import com.aquilaoffice.application.port.in.ListSlackChannelMappingsUseCase;
+import com.aquilaoffice.domain.member.MemberRole;
 import com.aquilaoffice.global.handler.GlobalExceptionHandler;
+import com.aquilaoffice.global.security.AuthenticatedMember;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -28,6 +30,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -54,7 +57,7 @@ class SlackChannelMappingControllerTest {
                 .willReturn(result());
 
         mockMvc.perform(post("/api/v1/workspaces/101/slack/channel-mappings")
-                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, " google-1 ")
+                        .principal(authenticatedPrincipal("google-1"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -96,7 +99,7 @@ class SlackChannelMappingControllerTest {
                 .willReturn(List.of(listResult()));
 
         mockMvc.perform(get("/api/v1/workspaces/101/slack/channel-mappings")
-                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, " google-1 "))
+                        .principal(authenticatedPrincipal("google-1")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data[0].mappingId").value(501))
@@ -114,11 +117,11 @@ class SlackChannelMappingControllerTest {
     }
 
     @Test
-    void missingHeaderReturnsBadRequestAndDoesNotCallUseCases() throws Exception {
+    void missingPrincipalReturnsUnauthorizedAndDoesNotCallUseCases() throws Exception {
         mockMvc.perform(get("/api/v1/workspaces/101/slack/channel-mappings"))
-                .andExpect(status().isBadRequest())
+                .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.success").value(false))
-                .andExpect(jsonPath("$.code").value("400"));
+                .andExpect(jsonPath("$.code").value("401"));
 
         verifyNoInteractions(createSlackChannelMappingUseCase, listSlackChannelMappingsUseCase);
     }
@@ -126,7 +129,7 @@ class SlackChannelMappingControllerTest {
     @Test
     void blankCreateRequestReturnsBadRequest() throws Exception {
         mockMvc.perform(post("/api/v1/workspaces/101/slack/channel-mappings")
-                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, "google-1")
+                        .principal(authenticatedPrincipal("google-1"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"teamId\":\" \",\"channelId\":\" \"}"))
                 .andExpect(status().isBadRequest())
@@ -142,10 +145,18 @@ class SlackChannelMappingControllerTest {
                 .willThrow(new IllegalArgumentException("workspace not found"));
 
         mockMvc.perform(get("/api/v1/workspaces/999/slack/channel-mappings")
-                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, "google-1"))
+                        .principal(authenticatedPrincipal("google-1")))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.code").value("404"));
+    }
+
+    @Test
+    void slackChannelMappingControllerDoesNotExposeLegacyRequesterHeaderHelper() {
+        assertThatThrownBy(
+                        () -> SlackChannelMappingController.class
+                                .getDeclaredMethod("requireRequesterGoogleSub", String.class))
+                .isInstanceOf(NoSuchMethodException.class);
     }
 
     private static CreateSlackChannelMappingResult result() {
@@ -170,5 +181,11 @@ class SlackChannelMappingControllerTest {
                 "xoxb****cret",
                 "google-1",
                 true);
+    }
+
+    private static UsernamePasswordAuthenticationToken authenticatedPrincipal(String googleSub) {
+        AuthenticatedMember member =
+                new AuthenticatedMember(1L, googleSub, googleSub + "@example.com", MemberRole.USER);
+        return new UsernamePasswordAuthenticationToken(member, null, List.of());
     }
 }
