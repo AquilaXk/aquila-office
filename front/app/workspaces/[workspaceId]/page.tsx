@@ -34,8 +34,11 @@ import {
 } from "@/lib/artifacts";
 import { createWorkspaceInvite, type WorkspaceInvite } from "@/lib/invites";
 import {
+  createWorkspaceTask,
   fetchTaskReports,
   fetchWorkspaceTasks,
+  runWorkspaceTask,
+  updateWorkspaceTaskStatus,
   type AgentReport,
   type TaskArtifact,
   type TaskPriority,
@@ -71,6 +74,20 @@ type TaskLoadState =
   | { status: "ready"; error: null }
   | { status: "error"; error: string };
 
+type TaskCreateFormState = {
+  title: string;
+  description: string;
+  type: TaskType;
+  priority: TaskPriority;
+  assignedAgentId: string;
+};
+
+type TaskMutationState = {
+  status: "idle" | "submitting" | "success" | "error";
+  message: string | null;
+  taskId: number | null;
+};
+
 type DashboardSummaryState =
   | { status: "idle" | "loading"; summary: null; error: null }
   | { status: "ready"; summary: WorkspaceDashboardSummary; error: null }
@@ -101,6 +118,30 @@ const TASK_GROUPS: TaskGroup[] = [
   { key: "stopped", label: "중단", statuses: ["FAILED", "CANCELED"], tone: "red" },
 ];
 
+const TASK_TYPE_OPTIONS: TaskType[] = [
+  "FEATURE_IMPLEMENTATION",
+  "BUG_FIX",
+  "CODE_REVIEW",
+  "PR_REVIEW",
+  "REFACTORING",
+  "TEST_CREATION",
+  "DOCUMENTATION",
+  "PR_CREATION",
+  "OTHER",
+];
+
+const TASK_PRIORITY_OPTIONS: TaskPriority[] = ["LOW", "MEDIUM", "HIGH", "URGENT"];
+
+const TASK_STATUS_OPTIONS: TaskStatus[] = [
+  "REQUESTED",
+  "ASSIGNED",
+  "IN_PROGRESS",
+  "WAITING_USER",
+  "COMPLETED",
+  "FAILED",
+  "CANCELED",
+];
+
 export default function WorkspaceDetailPage({
   params,
 }: {
@@ -126,6 +167,19 @@ export default function WorkspaceDetailPage({
   const [taskState, setTaskState] = useState<TaskLoadState>({
     status: "loading",
     error: null,
+  });
+  const [taskCreateForm, setTaskCreateForm] = useState<TaskCreateFormState>({
+    title: "",
+    description: "",
+    type: "FEATURE_IMPLEMENTATION",
+    priority: "MEDIUM",
+    assignedAgentId: "",
+  });
+  const [createPr, setCreatePr] = useState(false);
+  const [taskMutation, setTaskMutation] = useState<TaskMutationState>({
+    status: "idle",
+    message: null,
+    taskId: null,
   });
   const [dashboardSummary, setDashboardSummary] = useState<DashboardSummaryState>({
     status: "idle",
@@ -228,6 +282,127 @@ export default function WorkspaceDetailPage({
       });
     }
   }, [numericWorkspaceId]);
+
+  const refreshTaskData = useCallback(async () => {
+    await Promise.all([reloadTasks(), reloadDashboardSummary()]);
+  }, [reloadDashboardSummary, reloadTasks]);
+
+  const handleCreateTask = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    const title = taskCreateForm.title.trim();
+    if (!title) {
+      setTaskMutation({
+        status: "error",
+        message: "Task 제목을 입력해 주세요.",
+        taskId: null,
+      });
+      return;
+    }
+
+    if (!isValidWorkspaceId(numericWorkspaceId)) {
+      setTaskMutation({
+        status: "error",
+        message: "올바르지 않은 워크스페이스입니다.",
+        taskId: null,
+      });
+      return;
+    }
+
+    const assignedAgentId = parseOptionalPositiveInteger(taskCreateForm.assignedAgentId);
+    if (taskCreateForm.assignedAgentId.trim() && assignedAgentId === null) {
+      setTaskMutation({
+        status: "error",
+        message: "Agent ID는 1 이상의 숫자로 입력해 주세요.",
+        taskId: null,
+      });
+      return;
+    }
+
+    setTaskMutation({ status: "submitting", message: "Task 생성 중", taskId: null });
+
+    try {
+      const created = await createWorkspaceTask(resolveAccessToken(), numericWorkspaceId, {
+        title,
+        description: taskCreateForm.description.trim() || null,
+        type: taskCreateForm.type,
+        priority: taskCreateForm.priority,
+        assignedAgentId,
+      });
+      setTaskCreateForm((current) => ({
+        ...current,
+        title: "",
+        description: "",
+        assignedAgentId: "",
+      }));
+      await refreshTaskData();
+      setTaskMutation({
+        status: "success",
+        message: `Task #${created.taskId} 생성 완료`,
+        taskId: created.taskId,
+      });
+    } catch (error) {
+      setTaskMutation({
+        status: "error",
+        message: messageFromError(error, "Task 생성을 처리하지 못했습니다."),
+        taskId: null,
+      });
+    }
+  };
+
+  const handleRunTask = useCallback(
+    async (task: WorkspaceTask) => {
+      setTaskMutation({ status: "submitting", message: "Task 실행 중", taskId: task.taskId });
+
+      try {
+        const result = await runWorkspaceTask(resolveAccessToken(), numericWorkspaceId, task.taskId, {
+          createPr,
+        });
+        await refreshTaskData();
+        setTaskMutation({
+          status: "success",
+          message: `실행 #${result.executionId} 요청 완료`,
+          taskId: task.taskId,
+        });
+      } catch (error) {
+        setTaskMutation({
+          status: "error",
+          message: messageFromError(error, "Task 실행을 처리하지 못했습니다."),
+          taskId: task.taskId,
+        });
+      }
+    },
+    [createPr, numericWorkspaceId, refreshTaskData],
+  );
+
+  const handleUpdateTaskStatus = useCallback(
+    async (task: WorkspaceTask, status: TaskStatus) => {
+      if (task.status === status) {
+        return;
+      }
+
+      setTaskMutation({ status: "submitting", message: "Task 상태 변경 중", taskId: task.taskId });
+
+      try {
+        const updated = await updateWorkspaceTaskStatus(resolveAccessToken(), numericWorkspaceId, task.taskId, {
+          status,
+        });
+        await refreshTaskData();
+        setTaskMutation({
+          status: "success",
+          message: `Task #${updated.taskId} 상태 변경 완료`,
+          taskId: updated.taskId,
+        });
+      } catch (error) {
+        setTaskMutation({
+          status: "error",
+          message: messageFromError(error, "Task 상태 변경을 처리하지 못했습니다."),
+          taskId: task.taskId,
+        });
+      }
+    },
+    [numericWorkspaceId, refreshTaskData],
+  );
 
   const openTaskReports = useCallback(
     async (task: WorkspaceTask) => {
@@ -430,6 +605,8 @@ export default function WorkspaceDetailPage({
   const recentLogs = summary?.recentLogs ?? [];
   const memberStats = memberTaskStats.status === "ready" ? memberTaskStats.stats : [];
   const isDashboardLoading = dashboardSummary.status === "loading" || memberTaskStats.status === "loading";
+  const isTaskMutating = taskMutation.status === "submitting";
+  const canCreateTask = taskCreateForm.title.trim().length > 0 && !isTaskMutating;
   const canCreateInvite = workspace?.myRole === "ADMIN";
   const isCreatingInvite = inviteState.status === "submitting";
   const canSubmitInvite = canCreateInvite && inviteEmail.trim().length > 0 && !isCreatingInvite;
@@ -742,6 +919,156 @@ export default function WorkspaceDetailPage({
               )}
             </section>
 
+            <section className="workspace-invite-section" aria-label="Task 생성">
+              <div className="workspace-section-title">
+                <div>
+                  <span className="workspace-detail-label">Task</span>
+                  <h2>Task 생성</h2>
+                </div>
+                <span className="workspace-count-badge">{tasks.length}개</span>
+              </div>
+
+              <form className="workspace-invite-form" onSubmit={handleCreateTask}>
+                <label className="form-field">
+                  <span>
+                    <strong>제목</strong>
+                    <small>필수</small>
+                  </span>
+                  <input
+                    type="text"
+                    value={taskCreateForm.title}
+                    onChange={(event) =>
+                      setTaskCreateForm((current) => ({ ...current, title: event.target.value }))
+                    }
+                    placeholder="작업 제목"
+                    disabled={isTaskMutating}
+                  />
+                </label>
+
+                <label className="form-field">
+                  <span>
+                    <strong>설명</strong>
+                    <small>선택</small>
+                  </span>
+                  <textarea
+                    value={taskCreateForm.description}
+                    onChange={(event) =>
+                      setTaskCreateForm((current) => ({ ...current, description: event.target.value }))
+                    }
+                    placeholder="Agent에게 전달할 작업 내용을 입력하세요."
+                    disabled={isTaskMutating}
+                    rows={3}
+                  />
+                </label>
+
+                <label className="form-field">
+                  <span>
+                    <strong>유형</strong>
+                    <small>{formatTaskType(taskCreateForm.type)}</small>
+                  </span>
+                  <select
+                    value={taskCreateForm.type}
+                    onChange={(event) =>
+                      setTaskCreateForm((current) => ({
+                        ...current,
+                        type: event.target.value as TaskType,
+                      }))
+                    }
+                    disabled={isTaskMutating}
+                  >
+                    {TASK_TYPE_OPTIONS.map((type) => (
+                      <option value={type} key={type}>
+                        {formatTaskType(type)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="form-field">
+                  <span>
+                    <strong>우선순위</strong>
+                    <small>{formatTaskPriority(taskCreateForm.priority)}</small>
+                  </span>
+                  <select
+                    value={taskCreateForm.priority}
+                    onChange={(event) =>
+                      setTaskCreateForm((current) => ({
+                        ...current,
+                        priority: event.target.value as TaskPriority,
+                      }))
+                    }
+                    disabled={isTaskMutating}
+                  >
+                    {TASK_PRIORITY_OPTIONS.map((priority) => (
+                      <option value={priority} key={priority}>
+                        {formatTaskPriority(priority)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="form-field">
+                  <span>
+                    <strong>Agent ID</strong>
+                    <small>선택</small>
+                  </span>
+                  <input
+                    type="number"
+                    min="1"
+                    value={taskCreateForm.assignedAgentId}
+                    onChange={(event) =>
+                      setTaskCreateForm((current) => ({ ...current, assignedAgentId: event.target.value }))
+                    }
+                    placeholder="자동 배정"
+                    disabled={isTaskMutating}
+                  />
+                </label>
+
+                <label className="form-field">
+                  <span>
+                    <strong>실행 옵션</strong>
+                    <small>Task 실행 버튼에 적용</small>
+                  </span>
+                  <span className="workspace-invite-help">
+                    <input
+                      type="checkbox"
+                      checked={createPr}
+                      onChange={(event) => setCreatePr(event.target.checked)}
+                      disabled={isTaskMutating}
+                    />
+                    실행 시 PR 생성을 요청합니다.
+                  </span>
+                </label>
+
+                {taskMutation.status === "error" ? (
+                  <div className="form-notice form-notice-error" role="alert">
+                    <AlertCircle aria-hidden="true" />
+                    <span>{taskMutation.message}</span>
+                  </div>
+                ) : null}
+
+                {taskMutation.status === "success" ? (
+                  <div className="form-notice form-notice-success" role="status">
+                    <ShieldCheck aria-hidden="true" />
+                    <span>{taskMutation.message}</span>
+                  </div>
+                ) : null}
+
+                <button
+                  className="primary-action primary-action-active workspace-invite-submit"
+                  type="submit"
+                  disabled={!canCreateTask}
+                >
+                  {isTaskMutating && taskMutation.taskId === null ? (
+                    <Loader2 className="spin" aria-hidden="true" />
+                  ) : (
+                    <Send aria-hidden="true" />
+                  )}
+                  <span>{isTaskMutating && taskMutation.taskId === null ? "생성 중" : "Task 생성"}</span>
+                </button>
+              </form>
+            </section>
+
             <section className="workspace-task-section" aria-label="워크스페이스 Task">
               <div className="workspace-section-title">
                 <div>
@@ -798,7 +1125,14 @@ export default function WorkspaceDetailPage({
                     {group.tasks.length > 0 ? (
                       <div className="workspace-task-list">
                         {group.tasks.map((task) => (
-                          <TaskCard task={task} key={task.taskId} onOpenReports={openTaskReports} />
+                          <TaskCard
+                            task={task}
+                            key={task.taskId}
+                            busy={isTaskMutating && taskMutation.taskId === task.taskId}
+                            onOpenReports={openTaskReports}
+                            onRunTask={handleRunTask}
+                            onUpdateStatus={handleUpdateTaskStatus}
+                          />
                         ))}
                       </div>
                     ) : (
@@ -1013,13 +1347,19 @@ export default function WorkspaceDetailPage({
 
 function TaskCard({
   task,
+  busy,
   onOpenReports,
+  onRunTask,
+  onUpdateStatus,
 }: {
   task: WorkspaceTask;
+  busy: boolean;
   onOpenReports: (task: WorkspaceTask) => void;
+  onRunTask: (task: WorkspaceTask) => void;
+  onUpdateStatus: (task: WorkspaceTask, status: TaskStatus) => void;
 }) {
   return (
-    <button className="workspace-task-card" type="button" onClick={() => onOpenReports(task)}>
+    <article className="workspace-task-card">
       <div className="workspace-task-card-title">
         <strong>{task.title}</strong>
         <span className={`task-status-badge task-status-${task.status.toLowerCase().replaceAll("_", "-")}`}>
@@ -1032,7 +1372,45 @@ function TaskCard({
         <span>{formatTaskPriority(task.priority)}</span>
         <span>{formatDateTime(task.updatedAt ?? task.createdAt ?? "")}</span>
       </div>
-    </button>
+      <div className="workspace-task-actions">
+        <button
+          className="secondary-action workspace-task-refresh"
+          type="button"
+          onClick={() => onOpenReports(task)}
+          disabled={busy}
+        >
+          <FileText aria-hidden="true" />
+          <span>Report</span>
+        </button>
+        <button
+          className="secondary-action workspace-task-refresh"
+          type="button"
+          onClick={() => onRunTask(task)}
+          disabled={busy || task.status === "COMPLETED" || task.status === "CANCELED"}
+        >
+          {busy ? <Loader2 className="spin" aria-hidden="true" /> : <Send aria-hidden="true" />}
+          <span>{busy ? "처리 중" : "실행"}</span>
+        </button>
+        <label className="form-field">
+          <span>
+            <strong>상태</strong>
+            <small>{formatTaskStatus(task.status)}</small>
+          </span>
+          <select
+            value={task.status}
+            onChange={(event) => onUpdateStatus(task, event.target.value as TaskStatus)}
+            disabled={busy}
+            aria-label="Task 상태 변경"
+          >
+            {TASK_STATUS_OPTIONS.map((status) => (
+              <option value={status} key={status}>
+                {formatTaskStatus(status)}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+    </article>
   );
 }
 
@@ -1350,6 +1728,16 @@ function messageFromError(error: unknown, fallback: string): string {
 
 function isValidWorkspaceId(workspaceId: number): boolean {
   return Number.isInteger(workspaceId) && workspaceId > 0;
+}
+
+function parseOptionalPositiveInteger(value: string): number | null {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  const parsed = Number(trimmed);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
 }
 
 function formatRole(role: WorkspaceMemberRole): string {
