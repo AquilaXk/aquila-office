@@ -582,7 +582,7 @@ class WorkspaceControllerTest {
                         60)));
 
         mockMvc.perform(get("/api/v1/workspaces/101/members/task-stats")
-                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, " google-2 "))
+                        .principal(authenticatedPrincipal("google-2")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.code").value("200"))
@@ -607,12 +607,11 @@ class WorkspaceControllerTest {
     }
 
     @Test
-    void listWorkspaceMemberTaskStatsRejectsBlankCreatorHeader() throws Exception {
-        mockMvc.perform(get("/api/v1/workspaces/101/members/task-stats")
-                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, " "))
-                .andExpect(status().isBadRequest())
+    void listWorkspaceMemberTaskStatsRejectsMissingPrincipal() throws Exception {
+        mockMvc.perform(get("/api/v1/workspaces/101/members/task-stats"))
+                .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.success").value(false))
-                .andExpect(jsonPath("$.code").value("400"));
+                .andExpect(jsonPath("$.code").value("401"));
 
         verifyNoInteractions(listWorkspaceMemberTaskStatsUseCase);
     }
@@ -624,7 +623,7 @@ class WorkspaceControllerTest {
                 .willThrow(new IllegalArgumentException("workspace not found"));
 
         mockMvc.perform(get("/api/v1/workspaces/999/members/task-stats")
-                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, "google-2"))
+                        .principal(authenticatedPrincipal("google-2")))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.code").value("404"));
