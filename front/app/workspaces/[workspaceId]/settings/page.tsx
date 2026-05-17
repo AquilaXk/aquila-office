@@ -58,6 +58,14 @@ import {
   type WorkspaceInviteManagementStatus,
 } from "@/lib/invites";
 import {
+  createSlackIntegration,
+  deleteSlackIntegration,
+  fetchSlackInstallUrl,
+  fetchSlackIntegrations,
+  updateSlackIntegration,
+  type SlackIntegration,
+} from "@/lib/slack";
+import {
   changeWorkspaceMemberRole,
   deleteWorkspace,
   fetchWorkspaceDetail,
@@ -99,6 +107,12 @@ type GithubCredentialState =
   | { status: "ready"; credentials: GithubCredential[]; error: null }
   | { status: "error"; credentials: []; error: string };
 
+type SlackIntegrationState =
+  | { status: "idle"; integrations: []; error: null }
+  | { status: "loading"; integrations: []; error: null }
+  | { status: "ready"; integrations: SlackIntegration[]; error: null }
+  | { status: "error"; integrations: []; error: string };
+
 type GatewayStatusState =
   | { status: "idle"; gateway: null; error: null }
   | { status: "loading"; gateway: null; error: null }
@@ -116,6 +130,10 @@ type InviteStatusFilter = WorkspaceInviteManagementStatus | "ALL";
 type GithubCredentialAction =
   | { type: "update"; credentialId: number }
   | { type: "delete"; credentialId: number };
+
+type SlackIntegrationAction =
+  | { type: "update"; integrationId: number }
+  | { type: "delete"; integrationId: number };
 
 const INVITE_STATUS_FILTERS: { value: InviteStatusFilter; label: string }[] = [
   { value: "PENDING", label: "대기" },
@@ -182,6 +200,33 @@ export default function WorkspaceSettingsPage({
   const [githubEditDisplayName, setGithubEditDisplayName] = useState("");
   const [githubEditToken, setGithubEditToken] = useState("");
   const [githubActionState, setGithubActionState] = useState<MutationState>({
+    status: "idle",
+    message: null,
+  });
+  const [slackIntegrationState, setSlackIntegrationState] = useState<SlackIntegrationState>({
+    status: "idle",
+    integrations: [],
+    error: null,
+  });
+  const [slackTeamIdInput, setSlackTeamIdInput] = useState("");
+  const [slackChannelIdInput, setSlackChannelIdInput] = useState("");
+  const [slackChannelNameInput, setSlackChannelNameInput] = useState("");
+  const [slackBotTokenInput, setSlackBotTokenInput] = useState("");
+  const [slackInstallState, setSlackInstallState] = useState<MutationState>({
+    status: "idle",
+    message: null,
+  });
+  const [slackCreateState, setSlackCreateState] = useState<MutationState>({
+    status: "idle",
+    message: null,
+  });
+  const [slackAction, setSlackAction] = useState<SlackIntegrationAction | null>(null);
+  const [editingSlackIntegrationId, setEditingSlackIntegrationId] = useState<number | null>(null);
+  const [slackEditTeamId, setSlackEditTeamId] = useState("");
+  const [slackEditChannelId, setSlackEditChannelId] = useState("");
+  const [slackEditChannelName, setSlackEditChannelName] = useState("");
+  const [slackEditBotToken, setSlackEditBotToken] = useState("");
+  const [slackActionState, setSlackActionState] = useState<MutationState>({
     status: "idle",
     message: null,
   });
@@ -257,6 +302,22 @@ export default function WorkspaceSettingsPage({
         credentials: [],
         error: messageFromError(error, "GitHub 자격 증명 목록을 확인하지 못했습니다."),
       } satisfies GithubCredentialState;
+    }
+  }, [numericWorkspaceId]);
+
+  const fetchSlackIntegrationList = useCallback(async () => {
+    try {
+      const integrations = await fetchSlackIntegrations(
+        resolveAccessToken(),
+        numericWorkspaceId,
+      );
+      return { status: "ready", integrations, error: null } satisfies SlackIntegrationState;
+    } catch (error) {
+      return {
+        status: "error",
+        integrations: [],
+        error: messageFromError(error, "Slack 연동 목록을 확인하지 못했습니다."),
+      } satisfies SlackIntegrationState;
     }
   }, [numericWorkspaceId]);
 
@@ -365,6 +426,33 @@ export default function WorkspaceSettingsPage({
   useEffect(() => {
     let ignore = false;
 
+    async function loadInitialSlackIntegrations() {
+      if (state.status !== "ready" || state.workspace.myRole !== "ADMIN") {
+        setSlackIntegrationState({ status: "idle", integrations: [], error: null });
+        return;
+      }
+
+      await Promise.resolve();
+      if (!ignore) {
+        setSlackIntegrationState({ status: "loading", integrations: [], error: null });
+      }
+
+      const nextState = await fetchSlackIntegrationList();
+      if (!ignore) {
+        setSlackIntegrationState(nextState);
+      }
+    }
+
+    void loadInitialSlackIntegrations();
+
+    return () => {
+      ignore = true;
+    };
+  }, [fetchSlackIntegrationList, state]);
+
+  useEffect(() => {
+    let ignore = false;
+
     async function loadGatewayStatus() {
       if (state.status !== "ready" || state.workspace.myRole !== "ADMIN") {
         setGatewayStatusState({ status: "idle", gateway: null, error: null });
@@ -411,6 +499,7 @@ export default function WorkspaceSettingsPage({
   const isInviteLogLoading = inviteLogState.status === "loading";
   const hasInviteAction = inviteActionId !== null;
   const isGithubCredentialLoading = githubCredentialState.status === "loading";
+  const isSlackIntegrationLoading = slackIntegrationState.status === "loading";
   const isGatewayStatusLoading = gatewayStatusState.status === "loading";
   const normalizedGatewayForm = useMemo(
     () =>
@@ -435,6 +524,20 @@ export default function WorkspaceSettingsPage({
     trimmedGithubToken.length > 0 &&
     !isCreatingGithubCredential &&
     !hasGithubCredentialAction;
+  const trimmedSlackTeamId = slackTeamIdInput.trim();
+  const trimmedSlackChannelId = slackChannelIdInput.trim();
+  const trimmedSlackChannelName = slackChannelNameInput.trim();
+  const trimmedSlackBotToken = slackBotTokenInput.trim();
+  const isOpeningSlackInstall = slackInstallState.status === "submitting";
+  const isCreatingSlackIntegration = slackCreateState.status === "submitting";
+  const hasSlackIntegrationAction = slackAction !== null;
+  const canCreateSlackIntegration =
+    isAdmin &&
+    trimmedSlackTeamId.length > 0 &&
+    trimmedSlackChannelId.length > 0 &&
+    trimmedSlackBotToken.length > 0 &&
+    !isCreatingSlackIntegration &&
+    !hasSlackIntegrationAction;
 
   const reloadInviteLog = async () => {
     if (!isAdmin) {
@@ -444,6 +547,16 @@ export default function WorkspaceSettingsPage({
     setInviteLogState({ status: "loading", invites: [], error: null });
     setInviteActionState({ status: "idle", message: null });
     setInviteLogState(await fetchInviteLog(toInviteStatusParam(inviteFilter)));
+  };
+
+  const reloadSlackIntegrations = async () => {
+    if (!isAdmin) {
+      return;
+    }
+
+    setSlackIntegrationState({ status: "loading", integrations: [], error: null });
+    setSlackActionState({ status: "idle", message: null });
+    setSlackIntegrationState(await fetchSlackIntegrationList());
   };
 
   const reloadGatewayStatus = async () => {
@@ -861,6 +974,212 @@ export default function WorkspaceSettingsPage({
       });
     } finally {
       setGithubAction(null);
+    }
+  };
+
+  const handleOpenSlackInstallUrl = async () => {
+    if (!isAdmin || isOpeningSlackInstall) {
+      return;
+    }
+
+    setSlackInstallState({ status: "submitting", message: null });
+    try {
+      const installUrl = await fetchSlackInstallUrl(resolveAccessToken(), numericWorkspaceId);
+      if (typeof window !== "undefined") {
+        window.open(installUrl.url, "_blank", "noopener,noreferrer");
+      }
+      setSlackInstallState({
+        status: "success",
+        message: "Slack 설치 페이지를 열었습니다.",
+      });
+    } catch (error) {
+      setSlackInstallState({
+        status: "error",
+        message: messageFromError(error, "Slack 설치 URL을 확인하지 못했습니다."),
+      });
+    }
+  };
+
+  const handleCreateSlackIntegration = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (!isAdmin) {
+      return;
+    }
+
+    if (!trimmedSlackTeamId || !trimmedSlackChannelId || !trimmedSlackBotToken) {
+      setSlackCreateState({
+        status: "error",
+        message: "Team ID, Channel ID, bot token을 모두 입력해 주세요.",
+      });
+      return;
+    }
+
+    setSlackCreateState({ status: "submitting", message: null });
+    try {
+      const createdIntegration = await createSlackIntegration(
+        resolveAccessToken(),
+        numericWorkspaceId,
+        {
+          slackTeamId: trimmedSlackTeamId,
+          slackChannelId: trimmedSlackChannelId,
+          channelName: trimmedSlackChannelName || undefined,
+          botToken: trimmedSlackBotToken,
+        },
+      );
+      setSlackIntegrationState((previous) =>
+        previous.status === "ready"
+          ? {
+              ...previous,
+              integrations: [createdIntegration, ...previous.integrations],
+            }
+          : { status: "ready", integrations: [createdIntegration], error: null },
+      );
+      setSlackTeamIdInput("");
+      setSlackChannelIdInput("");
+      setSlackChannelNameInput("");
+      setSlackBotTokenInput("");
+      setSlackCreateState({
+        status: "success",
+        message: "Slack 연동이 등록되었습니다.",
+      });
+    } catch (error) {
+      setSlackCreateState({
+        status: "error",
+        message: messageFromError(error, "Slack 연동을 등록하지 못했습니다."),
+      });
+    }
+  };
+
+  const startSlackIntegrationEdit = (integration: SlackIntegration) => {
+    if (!isAdmin || hasSlackIntegrationAction) {
+      return;
+    }
+
+    setEditingSlackIntegrationId(integration.id);
+    setSlackEditTeamId(integration.slackTeamId);
+    setSlackEditChannelId(integration.slackChannelId);
+    setSlackEditChannelName(integration.channelName ?? "");
+    setSlackEditBotToken("");
+    setSlackActionState({ status: "idle", message: null });
+  };
+
+  const cancelSlackIntegrationEdit = () => {
+    if (hasSlackIntegrationAction) {
+      return;
+    }
+
+    setEditingSlackIntegrationId(null);
+    setSlackEditTeamId("");
+    setSlackEditChannelId("");
+    setSlackEditChannelName("");
+    setSlackEditBotToken("");
+  };
+
+  const handleUpdateSlackIntegration = async (
+    event: FormEvent<HTMLFormElement>,
+    integration: SlackIntegration,
+  ) => {
+    event.preventDefault();
+
+    if (!isAdmin || hasSlackIntegrationAction) {
+      return;
+    }
+
+    const nextTeamId = slackEditTeamId.trim();
+    const nextChannelId = slackEditChannelId.trim();
+    const nextChannelName = slackEditChannelName.trim();
+    const nextBotToken = slackEditBotToken.trim();
+    if (!nextTeamId || !nextChannelId) {
+      setSlackActionState({
+        status: "error",
+        message: "Team ID와 Channel ID를 입력해 주세요.",
+      });
+      return;
+    }
+
+    setSlackAction({ type: "update", integrationId: integration.id });
+    setSlackActionState({ status: "submitting", message: null });
+    try {
+      const updatedIntegration = await updateSlackIntegration(
+        resolveAccessToken(),
+        numericWorkspaceId,
+        integration.id,
+        {
+          slackTeamId: nextTeamId,
+          slackChannelId: nextChannelId,
+          channelName: nextChannelName || undefined,
+          botToken: nextBotToken || undefined,
+        },
+      );
+      setSlackIntegrationState((previous) =>
+        previous.status === "ready"
+          ? {
+              ...previous,
+              integrations: previous.integrations.map((currentIntegration) =>
+                currentIntegration.id === updatedIntegration.id
+                  ? updatedIntegration
+                  : currentIntegration,
+              ),
+            }
+          : previous,
+      );
+      setEditingSlackIntegrationId(null);
+      setSlackEditTeamId("");
+      setSlackEditChannelId("");
+      setSlackEditChannelName("");
+      setSlackEditBotToken("");
+      setSlackActionState({
+        status: "success",
+        message: "Slack 연동이 수정되었습니다.",
+      });
+    } catch (error) {
+      setSlackActionState({
+        status: "error",
+        message: messageFromError(error, "Slack 연동을 수정하지 못했습니다."),
+      });
+    } finally {
+      setSlackAction(null);
+    }
+  };
+
+  const handleDeleteSlackIntegration = async (integration: SlackIntegration) => {
+    if (!isAdmin || hasSlackIntegrationAction) {
+      return;
+    }
+
+    setSlackAction({ type: "delete", integrationId: integration.id });
+    setSlackActionState({ status: "submitting", message: null });
+    try {
+      await deleteSlackIntegration(resolveAccessToken(), numericWorkspaceId, integration.id);
+      setSlackIntegrationState((previous) =>
+        previous.status === "ready"
+          ? {
+              ...previous,
+              integrations: previous.integrations.filter(
+                (currentIntegration) => currentIntegration.id !== integration.id,
+              ),
+            }
+          : previous,
+      );
+      if (editingSlackIntegrationId === integration.id) {
+        setEditingSlackIntegrationId(null);
+        setSlackEditTeamId("");
+        setSlackEditChannelId("");
+        setSlackEditChannelName("");
+        setSlackEditBotToken("");
+      }
+      setSlackActionState({
+        status: "success",
+        message: "Slack 연동이 삭제되었습니다.",
+      });
+    } catch (error) {
+      setSlackActionState({
+        status: "error",
+        message: messageFromError(error, "Slack 연동을 삭제하지 못했습니다."),
+      });
+    } finally {
+      setSlackAction(null);
     }
   };
 
@@ -1285,6 +1604,359 @@ export default function WorkspaceSettingsPage({
                   <Mail aria-hidden="true" />
                   <strong>표시할 초대가 없습니다</strong>
                   <p>조건에 맞는 워크스페이스 초대가 생기면 이곳에 표시됩니다.</p>
+                </div>
+              ) : null}
+            </section>
+
+            <section className="workspace-settings-section" aria-label="Slack 연동 설정">
+              <div className="workspace-section-title">
+                <div>
+                  <span className="workspace-detail-label">Slack</span>
+                  <h2>연동 설정</h2>
+                </div>
+                <span className={isAdmin ? "workspace-count-badge" : "workspace-lock-badge"}>
+                  {isAdmin ? "ADMIN" : "읽기 전용"}
+                </span>
+              </div>
+
+              {!isAdmin ? (
+                <p className="workspace-github-help">
+                  관리자 역할만 Slack 설치와 수동 연동을 관리할 수 있습니다.
+                </p>
+              ) : null}
+
+              {isAdmin ? (
+                <div className="workspace-invite-management-toolbar">
+                  <button
+                    className="secondary-action workspace-invite-refresh"
+                    type="button"
+                    onClick={() => void handleOpenSlackInstallUrl()}
+                    disabled={isOpeningSlackInstall}
+                  >
+                    {isOpeningSlackInstall ? (
+                      <Loader2 className="spin" aria-hidden="true" />
+                    ) : (
+                      <KeyRound aria-hidden="true" />
+                    )}
+                    <span>{isOpeningSlackInstall ? "확인 중" : "Slack 설치 열기"}</span>
+                  </button>
+                  <button
+                    className="secondary-action workspace-invite-refresh"
+                    type="button"
+                    onClick={() => void reloadSlackIntegrations()}
+                    disabled={isSlackIntegrationLoading}
+                  >
+                    <RefreshCw
+                      className={isSlackIntegrationLoading ? "spin" : undefined}
+                      aria-hidden="true"
+                    />
+                    <span>목록 새로고침</span>
+                  </button>
+                </div>
+              ) : null}
+
+              {isAdmin && slackInstallState.status === "error" ? (
+                <SettingsNotice tone="danger" icon={<AlertCircle aria-hidden="true" />}>
+                  {slackInstallState.message}
+                </SettingsNotice>
+              ) : null}
+
+              {isAdmin && slackInstallState.status === "success" ? (
+                <SettingsNotice tone="success" icon={<CheckCircle2 aria-hidden="true" />}>
+                  {slackInstallState.message}
+                </SettingsNotice>
+              ) : null}
+
+              {isAdmin ? (
+                <form
+                  className="workspace-settings-form workspace-gateway-form"
+                  onSubmit={handleCreateSlackIntegration}
+                >
+                  <div className="workspace-gateway-form-grid">
+                    <label className="form-field">
+                      <span>
+                        <strong>Team ID</strong>
+                        <small>{slackTeamIdInput.length}/120</small>
+                      </span>
+                      <input
+                        value={slackTeamIdInput}
+                        onChange={(event) => {
+                          setSlackTeamIdInput(event.target.value);
+                          setSlackCreateState({ status: "idle", message: null });
+                        }}
+                        maxLength={120}
+                        disabled={!isAdmin || isCreatingSlackIntegration}
+                      />
+                    </label>
+
+                    <label className="form-field">
+                      <span>
+                        <strong>Channel ID</strong>
+                        <small>{slackChannelIdInput.length}/120</small>
+                      </span>
+                      <input
+                        value={slackChannelIdInput}
+                        onChange={(event) => {
+                          setSlackChannelIdInput(event.target.value);
+                          setSlackCreateState({ status: "idle", message: null });
+                        }}
+                        maxLength={120}
+                        disabled={!isAdmin || isCreatingSlackIntegration}
+                      />
+                    </label>
+                  </div>
+
+                  <div className="workspace-gateway-form-grid">
+                    <label className="form-field">
+                      <span>
+                        <strong>Channel Name</strong>
+                        <small>선택</small>
+                      </span>
+                      <input
+                        value={slackChannelNameInput}
+                        onChange={(event) => {
+                          setSlackChannelNameInput(event.target.value);
+                          setSlackCreateState({ status: "idle", message: null });
+                        }}
+                        maxLength={120}
+                        disabled={!isAdmin || isCreatingSlackIntegration}
+                      />
+                    </label>
+
+                    <label className="form-field">
+                      <span>
+                        <strong>Bot Token</strong>
+                        <small>저장 후 masked token만 표시됩니다</small>
+                      </span>
+                      <input
+                        value={slackBotTokenInput}
+                        onChange={(event) => {
+                          setSlackBotTokenInput(event.target.value);
+                          setSlackCreateState({ status: "idle", message: null });
+                        }}
+                        type="password"
+                        autoComplete="off"
+                        disabled={!isAdmin || isCreatingSlackIntegration}
+                      />
+                    </label>
+                  </div>
+
+                  {slackCreateState.status === "error" ? (
+                    <SettingsNotice tone="danger" icon={<AlertCircle aria-hidden="true" />}>
+                      {slackCreateState.message}
+                    </SettingsNotice>
+                  ) : null}
+
+                  {slackCreateState.status === "success" ? (
+                    <SettingsNotice tone="success" icon={<CheckCircle2 aria-hidden="true" />}>
+                      {slackCreateState.message}
+                    </SettingsNotice>
+                  ) : null}
+
+                  <div className="workspace-settings-actions">
+                    <button
+                      className="primary-action primary-action-active"
+                      type="submit"
+                      disabled={!canCreateSlackIntegration}
+                    >
+                      {isCreatingSlackIntegration ? (
+                        <Loader2 className="spin" aria-hidden="true" />
+                      ) : (
+                        <KeyRound aria-hidden="true" />
+                      )}
+                      <span>{isCreatingSlackIntegration ? "등록 중" : "등록"}</span>
+                    </button>
+                  </div>
+                </form>
+              ) : null}
+
+              {isAdmin && isSlackIntegrationLoading ? (
+                <div className="workspace-member-empty">
+                  <Loader2 className="spin" aria-hidden="true" />
+                  <strong>Slack 연동 확인 중</strong>
+                  <p>워크스페이스에 등록된 Slack 연동을 불러오고 있습니다.</p>
+                </div>
+              ) : null}
+
+              {isAdmin && slackIntegrationState.status === "error" ? (
+                <SettingsNotice tone="danger" icon={<AlertCircle aria-hidden="true" />}>
+                  {slackIntegrationState.error}
+                </SettingsNotice>
+              ) : null}
+
+              {isAdmin && slackActionState.status === "error" ? (
+                <SettingsNotice tone="danger" icon={<AlertCircle aria-hidden="true" />}>
+                  {slackActionState.message}
+                </SettingsNotice>
+              ) : null}
+
+              {isAdmin && slackActionState.status === "success" ? (
+                <SettingsNotice tone="success" icon={<CheckCircle2 aria-hidden="true" />}>
+                  {slackActionState.message}
+                </SettingsNotice>
+              ) : null}
+
+              {isAdmin &&
+              slackIntegrationState.status === "ready" &&
+              slackIntegrationState.integrations.length > 0 ? (
+                <div className="workspace-settings-member-list">
+                  {slackIntegrationState.integrations.map((integration) => {
+                    const isEditing = editingSlackIntegrationId === integration.id;
+                    const updateBusy =
+                      slackAction?.type === "update" &&
+                      slackAction.integrationId === integration.id;
+                    const deleteBusy =
+                      slackAction?.type === "delete" &&
+                      slackAction.integrationId === integration.id;
+
+                    return (
+                      <article className="workspace-settings-member-row" key={integration.id}>
+                        <div className="workspace-member-avatar">
+                          <Hash aria-hidden="true" />
+                        </div>
+
+                        {isEditing ? (
+                          <form
+                            className="workspace-github-edit-form"
+                            onSubmit={(event) =>
+                              void handleUpdateSlackIntegration(event, integration)
+                            }
+                          >
+                            <label className="form-field workspace-github-edit-field">
+                              <span>
+                                <strong>Team ID</strong>
+                              </span>
+                              <input
+                                value={slackEditTeamId}
+                                onChange={(event) => {
+                                  setSlackEditTeamId(event.target.value);
+                                  setSlackActionState({ status: "idle", message: null });
+                                }}
+                                maxLength={120}
+                                disabled={hasSlackIntegrationAction}
+                              />
+                            </label>
+                            <label className="form-field workspace-github-edit-field">
+                              <span>
+                                <strong>Channel ID</strong>
+                              </span>
+                              <input
+                                value={slackEditChannelId}
+                                onChange={(event) => {
+                                  setSlackEditChannelId(event.target.value);
+                                  setSlackActionState({ status: "idle", message: null });
+                                }}
+                                maxLength={120}
+                                disabled={hasSlackIntegrationAction}
+                              />
+                            </label>
+                            <label className="form-field workspace-github-edit-field">
+                              <span>
+                                <strong>Channel Name</strong>
+                              </span>
+                              <input
+                                value={slackEditChannelName}
+                                onChange={(event) => {
+                                  setSlackEditChannelName(event.target.value);
+                                  setSlackActionState({ status: "idle", message: null });
+                                }}
+                                maxLength={120}
+                                disabled={hasSlackIntegrationAction}
+                              />
+                            </label>
+                            <label className="form-field workspace-github-edit-field">
+                              <span>
+                                <strong>새 bot token</strong>
+                              </span>
+                              <input
+                                value={slackEditBotToken}
+                                onChange={(event) => {
+                                  setSlackEditBotToken(event.target.value);
+                                  setSlackActionState({ status: "idle", message: null });
+                                }}
+                                type="password"
+                                autoComplete="off"
+                                disabled={hasSlackIntegrationAction}
+                              />
+                            </label>
+                            <div className="workspace-github-row-actions">
+                              <button
+                                className="primary-action primary-action-active workspace-github-row-button"
+                                type="submit"
+                                disabled={
+                                  hasSlackIntegrationAction ||
+                                  !slackEditTeamId.trim() ||
+                                  !slackEditChannelId.trim()
+                                }
+                              >
+                                {updateBusy ? (
+                                  <Loader2 className="spin" aria-hidden="true" />
+                                ) : (
+                                  <Save aria-hidden="true" />
+                                )}
+                                <span>{updateBusy ? "저장 중" : "저장"}</span>
+                              </button>
+                              <button
+                                className="secondary-action workspace-github-row-button"
+                                type="button"
+                                onClick={cancelSlackIntegrationEdit}
+                                disabled={hasSlackIntegrationAction}
+                              >
+                                취소
+                              </button>
+                            </div>
+                          </form>
+                        ) : (
+                          <>
+                            <div className="workspace-member-main">
+                              <strong>{integration.channelName ?? integration.slackChannelId}</strong>
+                              <p>{`${integration.slackTeamId} · ${integration.slackChannelId}`}</p>
+                              <span>{`Token ${integration.maskedBotToken}`}</span>
+                            </div>
+                            <div className="workspace-settings-member-actions">
+                              <div className="workspace-member-meta">
+                                <span className="role-badge">
+                                  {integration.active ? "활성" : "비활성"}
+                                </span>
+                                <span>{`Integration #${integration.id}`}</span>
+                              </div>
+                              <button
+                                className="secondary-action workspace-github-row-button"
+                                type="button"
+                                onClick={() => startSlackIntegrationEdit(integration)}
+                                disabled={hasSlackIntegrationAction}
+                              >
+                                수정
+                              </button>
+                              <button
+                                className="danger-action workspace-github-row-button"
+                                type="button"
+                                onClick={() => void handleDeleteSlackIntegration(integration)}
+                                disabled={hasSlackIntegrationAction}
+                              >
+                                {deleteBusy ? (
+                                  <Loader2 className="spin" aria-hidden="true" />
+                                ) : (
+                                  <Trash2 aria-hidden="true" />
+                                )}
+                                <span>{deleteBusy ? "삭제 중" : "삭제"}</span>
+                              </button>
+                            </div>
+                          </>
+                        )}
+                      </article>
+                    );
+                  })}
+                </div>
+              ) : null}
+
+              {isAdmin &&
+              slackIntegrationState.status === "ready" &&
+              slackIntegrationState.integrations.length === 0 ? (
+                <div className="workspace-member-empty">
+                  <Hash aria-hidden="true" />
+                  <strong>등록된 Slack 연동이 없습니다</strong>
+                  <p>Slack 앱 설치 또는 수동 등록을 완료하면 이곳에 표시됩니다.</p>
                 </div>
               ) : null}
             </section>
