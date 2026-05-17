@@ -58,11 +58,14 @@ import {
   type WorkspaceInviteManagementStatus,
 } from "@/lib/invites";
 import {
+  createSlackChannelMapping,
   createSlackIntegration,
   deleteSlackIntegration,
+  fetchSlackChannelMappings,
   fetchSlackInstallUrl,
   fetchSlackIntegrations,
   updateSlackIntegration,
+  type SlackChannelMapping,
   type SlackIntegration,
 } from "@/lib/slack";
 import {
@@ -112,6 +115,12 @@ type SlackIntegrationState =
   | { status: "loading"; integrations: []; error: null }
   | { status: "ready"; integrations: SlackIntegration[]; error: null }
   | { status: "error"; integrations: []; error: string };
+
+type SlackChannelMappingState =
+  | { status: "idle"; mappings: []; error: null }
+  | { status: "loading"; mappings: []; error: null }
+  | { status: "ready"; mappings: SlackChannelMapping[]; error: null }
+  | { status: "error"; mappings: []; error: string };
 
 type GatewayStatusState =
   | { status: "idle"; gateway: null; error: null }
@@ -230,6 +239,20 @@ export default function WorkspaceSettingsPage({
     status: "idle",
     message: null,
   });
+  const [slackChannelMappingState, setSlackChannelMappingState] =
+    useState<SlackChannelMappingState>({
+      status: "idle",
+      mappings: [],
+      error: null,
+    });
+  const [slackMappingTeamIdInput, setSlackMappingTeamIdInput] = useState("");
+  const [slackMappingChannelIdInput, setSlackMappingChannelIdInput] = useState("");
+  const [slackMappingChannelNameInput, setSlackMappingChannelNameInput] = useState("");
+  const [slackMappingBotTokenInput, setSlackMappingBotTokenInput] = useState("");
+  const [slackMappingCreateState, setSlackMappingCreateState] = useState<MutationState>({
+    status: "idle",
+    message: null,
+  });
   const [gatewayStatusState, setGatewayStatusState] = useState<GatewayStatusState>({
     status: "idle",
     gateway: null,
@@ -318,6 +341,22 @@ export default function WorkspaceSettingsPage({
         integrations: [],
         error: messageFromError(error, "Slack 연동 목록을 확인하지 못했습니다."),
       } satisfies SlackIntegrationState;
+    }
+  }, [numericWorkspaceId]);
+
+  const fetchSlackChannelMappingList = useCallback(async () => {
+    try {
+      const mappings = await fetchSlackChannelMappings(
+        resolveAccessToken(),
+        numericWorkspaceId,
+      );
+      return { status: "ready", mappings, error: null } satisfies SlackChannelMappingState;
+    } catch (error) {
+      return {
+        status: "error",
+        mappings: [],
+        error: messageFromError(error, "Slack 채널 매핑 목록을 확인하지 못했습니다."),
+      } satisfies SlackChannelMappingState;
     }
   }, [numericWorkspaceId]);
 
@@ -453,6 +492,33 @@ export default function WorkspaceSettingsPage({
   useEffect(() => {
     let ignore = false;
 
+    async function loadInitialSlackChannelMappings() {
+      if (state.status !== "ready" || state.workspace.myRole !== "ADMIN") {
+        setSlackChannelMappingState({ status: "idle", mappings: [], error: null });
+        return;
+      }
+
+      await Promise.resolve();
+      if (!ignore) {
+        setSlackChannelMappingState({ status: "loading", mappings: [], error: null });
+      }
+
+      const nextState = await fetchSlackChannelMappingList();
+      if (!ignore) {
+        setSlackChannelMappingState(nextState);
+      }
+    }
+
+    void loadInitialSlackChannelMappings();
+
+    return () => {
+      ignore = true;
+    };
+  }, [fetchSlackChannelMappingList, state]);
+
+  useEffect(() => {
+    let ignore = false;
+
     async function loadGatewayStatus() {
       if (state.status !== "ready" || state.workspace.myRole !== "ADMIN") {
         setGatewayStatusState({ status: "idle", gateway: null, error: null });
@@ -531,6 +597,14 @@ export default function WorkspaceSettingsPage({
   const isOpeningSlackInstall = slackInstallState.status === "submitting";
   const isCreatingSlackIntegration = slackCreateState.status === "submitting";
   const hasSlackIntegrationAction = slackAction !== null;
+  const isSlackChannelMappingLoading = slackChannelMappingState.status === "loading";
+  const slackChannelMappings =
+    slackChannelMappingState.status === "ready" ? slackChannelMappingState.mappings : [];
+  const trimmedSlackMappingTeamId = slackMappingTeamIdInput.trim();
+  const trimmedSlackMappingChannelId = slackMappingChannelIdInput.trim();
+  const trimmedSlackMappingChannelName = slackMappingChannelNameInput.trim();
+  const trimmedSlackMappingBotToken = slackMappingBotTokenInput.trim();
+  const isCreatingSlackChannelMapping = slackMappingCreateState.status === "submitting";
   const canCreateSlackIntegration =
     isAdmin &&
     trimmedSlackTeamId.length > 0 &&
@@ -538,6 +612,12 @@ export default function WorkspaceSettingsPage({
     trimmedSlackBotToken.length > 0 &&
     !isCreatingSlackIntegration &&
     !hasSlackIntegrationAction;
+  const canCreateSlackChannelMapping =
+    isAdmin &&
+    trimmedSlackMappingTeamId.length > 0 &&
+    trimmedSlackMappingChannelId.length > 0 &&
+    trimmedSlackMappingBotToken.length > 0 &&
+    !isCreatingSlackChannelMapping;
 
   const reloadInviteLog = async () => {
     if (!isAdmin) {
@@ -557,6 +637,16 @@ export default function WorkspaceSettingsPage({
     setSlackIntegrationState({ status: "loading", integrations: [], error: null });
     setSlackActionState({ status: "idle", message: null });
     setSlackIntegrationState(await fetchSlackIntegrationList());
+  };
+
+  const reloadSlackChannelMappings = async () => {
+    if (!isAdmin) {
+      return;
+    }
+
+    setSlackChannelMappingState({ status: "loading", mappings: [], error: null });
+    setSlackMappingCreateState({ status: "idle", message: null });
+    setSlackChannelMappingState(await fetchSlackChannelMappingList());
   };
 
   const reloadGatewayStatus = async () => {
@@ -1047,6 +1137,61 @@ export default function WorkspaceSettingsPage({
       setSlackCreateState({
         status: "error",
         message: messageFromError(error, "Slack 연동을 등록하지 못했습니다."),
+      });
+    }
+  };
+
+  const handleCreateSlackChannelMapping = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (!isAdmin) {
+      return;
+    }
+
+    if (
+      !trimmedSlackMappingTeamId ||
+      !trimmedSlackMappingChannelId ||
+      !trimmedSlackMappingBotToken
+    ) {
+      setSlackMappingCreateState({
+        status: "error",
+        message: "Team ID, Channel ID, bot token을 모두 입력해 주세요.",
+      });
+      return;
+    }
+
+    setSlackMappingCreateState({ status: "submitting", message: null });
+    try {
+      const createdMapping = await createSlackChannelMapping(
+        resolveAccessToken(),
+        numericWorkspaceId,
+        {
+          teamId: trimmedSlackMappingTeamId,
+          channelId: trimmedSlackMappingChannelId,
+          channelName: trimmedSlackMappingChannelName || undefined,
+          botToken: trimmedSlackMappingBotToken,
+        },
+      );
+      setSlackChannelMappingState((previous) =>
+        previous.status === "ready"
+          ? {
+              ...previous,
+              mappings: [createdMapping, ...previous.mappings],
+            }
+          : { status: "ready", mappings: [createdMapping], error: null },
+      );
+      setSlackMappingTeamIdInput("");
+      setSlackMappingChannelIdInput("");
+      setSlackMappingChannelNameInput("");
+      setSlackMappingBotTokenInput("");
+      setSlackMappingCreateState({
+        status: "success",
+        message: "Slack 채널 매핑이 등록되었습니다.",
+      });
+    } catch (error) {
+      setSlackMappingCreateState({
+        status: "error",
+        message: messageFromError(error, "Slack 채널 매핑을 등록하지 못했습니다."),
       });
     }
   };
@@ -1957,6 +2102,195 @@ export default function WorkspaceSettingsPage({
                   <Hash aria-hidden="true" />
                   <strong>등록된 Slack 연동이 없습니다</strong>
                   <p>Slack 앱 설치 또는 수동 등록을 완료하면 이곳에 표시됩니다.</p>
+                </div>
+              ) : null}
+            </section>
+
+            <section className="workspace-settings-section" aria-label="Slack 채널 매핑 설정">
+              <div className="workspace-section-title">
+                <div>
+                  <span className="workspace-detail-label">Slack</span>
+                  <h2>채널 매핑</h2>
+                </div>
+                <span className={isAdmin ? "workspace-count-badge" : "workspace-lock-badge"}>
+                  {isAdmin ? `${slackChannelMappings.length}개` : "읽기 전용"}
+                </span>
+              </div>
+
+              {!isAdmin ? (
+                <p className="workspace-github-help">
+                  관리자 역할만 Slack 채널 매핑을 등록하고 확인할 수 있습니다.
+                </p>
+              ) : null}
+
+              {isAdmin ? (
+                <div className="workspace-invite-management-toolbar">
+                  <button
+                    className="secondary-action workspace-invite-refresh"
+                    type="button"
+                    onClick={() => void reloadSlackChannelMappings()}
+                    disabled={isSlackChannelMappingLoading}
+                  >
+                    <RefreshCw
+                      className={isSlackChannelMappingLoading ? "spin" : undefined}
+                      aria-hidden="true"
+                    />
+                    <span>목록 새로고침</span>
+                  </button>
+                </div>
+              ) : null}
+
+              {isAdmin ? (
+                <form
+                  className="workspace-settings-form workspace-gateway-form"
+                  onSubmit={handleCreateSlackChannelMapping}
+                >
+                  <div className="workspace-gateway-form-grid">
+                    <label className="form-field">
+                      <span>
+                        <strong>Team ID</strong>
+                        <small>{slackMappingTeamIdInput.length}/120</small>
+                      </span>
+                      <input
+                        value={slackMappingTeamIdInput}
+                        onChange={(event) => {
+                          setSlackMappingTeamIdInput(event.target.value);
+                          setSlackMappingCreateState({ status: "idle", message: null });
+                        }}
+                        maxLength={120}
+                        disabled={!isAdmin || isCreatingSlackChannelMapping}
+                      />
+                    </label>
+
+                    <label className="form-field">
+                      <span>
+                        <strong>Channel ID</strong>
+                        <small>{slackMappingChannelIdInput.length}/120</small>
+                      </span>
+                      <input
+                        value={slackMappingChannelIdInput}
+                        onChange={(event) => {
+                          setSlackMappingChannelIdInput(event.target.value);
+                          setSlackMappingCreateState({ status: "idle", message: null });
+                        }}
+                        maxLength={120}
+                        disabled={!isAdmin || isCreatingSlackChannelMapping}
+                      />
+                    </label>
+                  </div>
+
+                  <div className="workspace-gateway-form-grid">
+                    <label className="form-field">
+                      <span>
+                        <strong>Channel Name</strong>
+                        <small>선택</small>
+                      </span>
+                      <input
+                        value={slackMappingChannelNameInput}
+                        onChange={(event) => {
+                          setSlackMappingChannelNameInput(event.target.value);
+                          setSlackMappingCreateState({ status: "idle", message: null });
+                        }}
+                        maxLength={120}
+                        disabled={!isAdmin || isCreatingSlackChannelMapping}
+                      />
+                    </label>
+
+                    <label className="form-field">
+                      <span>
+                        <strong>Bot Token</strong>
+                        <small>저장 후 masked token만 표시됩니다</small>
+                      </span>
+                      <input
+                        value={slackMappingBotTokenInput}
+                        onChange={(event) => {
+                          setSlackMappingBotTokenInput(event.target.value);
+                          setSlackMappingCreateState({ status: "idle", message: null });
+                        }}
+                        type="password"
+                        autoComplete="off"
+                        disabled={!isAdmin || isCreatingSlackChannelMapping}
+                      />
+                    </label>
+                  </div>
+
+                  {slackMappingCreateState.status === "error" ? (
+                    <SettingsNotice tone="danger" icon={<AlertCircle aria-hidden="true" />}>
+                      {slackMappingCreateState.message}
+                    </SettingsNotice>
+                  ) : null}
+
+                  {slackMappingCreateState.status === "success" ? (
+                    <SettingsNotice tone="success" icon={<CheckCircle2 aria-hidden="true" />}>
+                      {slackMappingCreateState.message}
+                    </SettingsNotice>
+                  ) : null}
+
+                  <div className="workspace-settings-actions">
+                    <button
+                      className="primary-action primary-action-active"
+                      type="submit"
+                      disabled={!canCreateSlackChannelMapping}
+                    >
+                      {isCreatingSlackChannelMapping ? (
+                        <Loader2 className="spin" aria-hidden="true" />
+                      ) : (
+                        <Hash aria-hidden="true" />
+                      )}
+                      <span>{isCreatingSlackChannelMapping ? "등록 중" : "등록"}</span>
+                    </button>
+                  </div>
+                </form>
+              ) : null}
+
+              {isAdmin && isSlackChannelMappingLoading ? (
+                <div className="workspace-member-empty">
+                  <Loader2 className="spin" aria-hidden="true" />
+                  <strong>Slack 채널 매핑 확인 중</strong>
+                  <p>워크스페이스에 등록된 Slack 채널 매핑을 불러오고 있습니다.</p>
+                </div>
+              ) : null}
+
+              {isAdmin && slackChannelMappingState.status === "error" ? (
+                <SettingsNotice tone="danger" icon={<AlertCircle aria-hidden="true" />}>
+                  {slackChannelMappingState.error}
+                </SettingsNotice>
+              ) : null}
+
+              {isAdmin &&
+              slackChannelMappingState.status === "ready" &&
+              slackChannelMappings.length > 0 ? (
+                <div className="workspace-settings-member-list">
+                  {slackChannelMappings.map((mapping) => (
+                    <article className="workspace-settings-member-row" key={mapping.mappingId}>
+                      <div className="workspace-member-avatar">
+                        <Hash aria-hidden="true" />
+                      </div>
+                      <div className="workspace-member-main">
+                        <strong>{mapping.channelName ?? mapping.channelId}</strong>
+                        <p>{`${mapping.teamId} · ${mapping.channelId}`}</p>
+                        <span>{`Token ${mapping.maskedBotToken}`}</span>
+                      </div>
+                      <div className="workspace-settings-member-actions">
+                        <div className="workspace-member-meta">
+                          <span className="role-badge">
+                            {mapping.active ? "활성" : "비활성"}
+                          </span>
+                          <span>{`Mapping #${mapping.mappingId}`}</span>
+                        </div>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              ) : null}
+
+              {isAdmin &&
+              slackChannelMappingState.status === "ready" &&
+              slackChannelMappings.length === 0 ? (
+                <div className="workspace-member-empty">
+                  <Hash aria-hidden="true" />
+                  <strong>등록된 Slack 채널 매핑이 없습니다</strong>
+                  <p>팀과 채널을 연결하면 이곳에서 매핑 상태를 확인할 수 있습니다.</p>
                 </div>
               ) : null}
             </section>

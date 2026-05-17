@@ -75,6 +75,15 @@ test("workspace settings exposes slack integration controls", () => {
   assert.match(source, /Slack/);
 });
 
+test("workspace settings exposes slack channel mapping controls", () => {
+  const source = readSource("app/workspaces/[workspaceId]/settings/page.tsx");
+
+  assert.match(source, /fetchSlackChannelMappings/);
+  assert.match(source, /createSlackChannelMapping/);
+  assert.match(source, /aria-label="Slack 채널 매핑 설정"/);
+  assert.match(source, /slackChannelMappings/);
+});
+
 test("workspace detail exposes dashboard summary sections", () => {
   const source = readSource("app/workspaces/[workspaceId]/page.tsx");
 
