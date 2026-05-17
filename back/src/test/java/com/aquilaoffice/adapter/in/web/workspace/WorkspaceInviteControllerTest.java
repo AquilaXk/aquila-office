@@ -17,16 +17,20 @@ import com.aquilaoffice.application.port.in.AcceptWorkspaceInviteUseCase;
 import com.aquilaoffice.application.port.in.GetWorkspaceInviteQuery;
 import com.aquilaoffice.application.port.in.GetWorkspaceInviteResult;
 import com.aquilaoffice.application.port.in.GetWorkspaceInviteUseCase;
+import com.aquilaoffice.domain.member.MemberRole;
 import com.aquilaoffice.domain.workspace.WorkspaceInviteStatus;
 import com.aquilaoffice.domain.workspace.WorkspaceMemberRole;
 import com.aquilaoffice.global.handler.GlobalExceptionHandler;
+import com.aquilaoffice.global.security.AuthenticatedMember;
 import java.time.LocalDateTime;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -101,7 +105,7 @@ class WorkspaceInviteControllerTest {
                         acceptedAt));
 
         mockMvc.perform(post("/api/v1/workspace-invites/invite-token/accept")
-                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, " google-1 "))
+                        .principal(authenticatedPrincipal("google-1")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.code").value("200"))
@@ -121,12 +125,11 @@ class WorkspaceInviteControllerTest {
     }
 
     @Test
-    void acceptWorkspaceInviteRejectsBlankMemberHeader() throws Exception {
-        mockMvc.perform(post("/api/v1/workspace-invites/invite-token/accept")
-                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, " "))
-                .andExpect(status().isBadRequest())
+    void acceptWorkspaceInviteRejectsMissingPrincipal() throws Exception {
+        mockMvc.perform(post("/api/v1/workspace-invites/invite-token/accept"))
+                .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.success").value(false))
-                .andExpect(jsonPath("$.code").value("400"));
+                .andExpect(jsonPath("$.code").value("401"));
 
         verifyNoInteractions(acceptWorkspaceInviteUseCase);
     }
@@ -137,9 +140,15 @@ class WorkspaceInviteControllerTest {
                 .willThrow(new IllegalArgumentException("workspace invite not found"));
 
         mockMvc.perform(post("/api/v1/workspace-invites/missing-token/accept")
-                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, "google-1"))
+                        .principal(authenticatedPrincipal("google-1")))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.code").value("404"));
+    }
+
+    private static UsernamePasswordAuthenticationToken authenticatedPrincipal(String googleSub) {
+        AuthenticatedMember member =
+                new AuthenticatedMember(1L, googleSub, googleSub + "@example.com", MemberRole.USER);
+        return new UsernamePasswordAuthenticationToken(member, null, List.of());
     }
 }
