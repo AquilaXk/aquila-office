@@ -39,6 +39,11 @@ import {
   type ArtifactNode,
   type ArtifactTree,
 } from "@/lib/artifacts";
+import {
+  fetchTaskChatMessages,
+  sendWorkspaceChatMessage,
+  type ChatMessage,
+} from "@/lib/chat";
 import { createWorkspaceInvite, type WorkspaceInvite } from "@/lib/invites";
 import {
   createWorkspaceTask,
@@ -110,6 +115,11 @@ type TaskMutationState = {
   status: "idle" | "submitting" | "success" | "error";
   message: string | null;
   taskId: number | null;
+};
+
+type ChatMutationState = {
+  status: "idle" | "submitting" | "success" | "error";
+  message: string | null;
 };
 
 type DashboardSummaryState =
@@ -243,6 +253,18 @@ export default function WorkspaceDetailPage({
   const [reportState, setReportState] = useState<ModalLoadState>({
     status: "idle",
     error: null,
+  });
+  const [selectedChatTask, setSelectedChatTask] = useState<WorkspaceTask | null>(null);
+  const [taskChatMessages, setTaskChatMessages] = useState<ChatMessage[]>([]);
+  const [taskChatState, setTaskChatState] = useState<ModalLoadState>({
+    status: "idle",
+    error: null,
+  });
+  const [taskChatMessageInput, setTaskChatMessageInput] = useState("");
+  const [taskChatAgentIdInput, setTaskChatAgentIdInput] = useState("");
+  const [taskChatMutation, setTaskChatMutation] = useState<ChatMutationState>({
+    status: "idle",
+    message: null,
   });
   const [filesOpen, setFilesOpen] = useState(false);
   const [artifactTree, setArtifactTree] = useState<ArtifactTree | null>(null);
@@ -578,6 +600,87 @@ export default function WorkspaceDetailPage({
     [numericWorkspaceId],
   );
 
+  const openTaskChat = useCallback(
+    async (task: WorkspaceTask) => {
+      setSelectedChatTask(task);
+      setTaskChatMessages([]);
+      setTaskChatAgentIdInput(defaultAgentIdForTask(task, workspaceAgents));
+      setTaskChatMessageInput("");
+      setTaskChatMutation({ status: "idle", message: null });
+      setTaskChatState({ status: "loading", error: null });
+
+      try {
+        const messages = await fetchTaskChatMessages(
+          resolveAccessToken(),
+          numericWorkspaceId,
+          task.taskId,
+        );
+        setTaskChatMessages(messages);
+        setTaskChatState({ status: "ready", error: null });
+      } catch (error) {
+        setTaskChatState({
+          status: "error",
+          error: messageFromError(error, "Task chat 메시지를 불러오지 못했습니다."),
+        });
+      }
+    },
+    [numericWorkspaceId, workspaceAgents],
+  );
+
+  const handleSendTaskChatMessage = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (!selectedChatTask) {
+      return;
+    }
+
+    const message = taskChatMessageInput.trim();
+    if (!message) {
+      setTaskChatMutation({
+        status: "error",
+        message: "전송할 메시지를 입력해 주세요.",
+      });
+      return;
+    }
+
+    const agentId = parseOptionalPositiveInteger(taskChatAgentIdInput);
+    if (agentId === null) {
+      setTaskChatMutation({
+        status: "error",
+        message: "Agent를 선택해 주세요.",
+      });
+      return;
+    }
+
+    setTaskChatMutation({ status: "submitting", message: null });
+    try {
+      const currentSessionId = taskChatMessages.find((chatMessage) => chatMessage.chatSessionId)
+        ?.chatSessionId;
+      const result = await sendWorkspaceChatMessage(resolveAccessToken(), numericWorkspaceId, {
+        message,
+        agentId,
+        taskType: selectedChatTask.type,
+        priority: selectedChatTask.priority,
+        title: selectedChatTask.title,
+        createPr,
+        chatSessionId: currentSessionId ?? null,
+      });
+      setTaskChatMessages((current) => mergeChatMessages(current, result.messages));
+      setTaskChatMessageInput("");
+      setTaskChatState({ status: "ready", error: null });
+      setTaskChatMutation({
+        status: "success",
+        message: `Task #${result.taskId} chat 메시지가 전송되었습니다.`,
+      });
+      await refreshTaskData();
+    } catch (error) {
+      setTaskChatMutation({
+        status: "error",
+        message: messageFromError(error, "Task chat 메시지를 전송하지 못했습니다."),
+      });
+    }
+  };
+
   const openWorkspaceFiles = useCallback(async () => {
     setFilesOpen(true);
     setArtifactTree(null);
@@ -790,6 +893,12 @@ export default function WorkspaceDetailPage({
   const canCreateAgent = agentCreateForm.name.trim().length > 0 && !isAgentMutating;
   const isTaskMutating = taskMutation.status === "submitting";
   const canCreateTask = taskCreateForm.title.trim().length > 0 && !isTaskMutating;
+  const isSendingTaskChat = taskChatMutation.status === "submitting";
+  const canSendTaskChatMessage =
+    selectedChatTask !== null &&
+    taskChatMessageInput.trim().length > 0 &&
+    taskChatAgentIdInput.trim().length > 0 &&
+    !isSendingTaskChat;
   const canCreateInvite = workspace?.myRole === "ADMIN";
   const isCreatingInvite = inviteState.status === "submitting";
   const canSubmitInvite = canCreateInvite && inviteEmail.trim().length > 0 && !isCreatingInvite;
@@ -1476,6 +1585,7 @@ export default function WorkspaceDetailPage({
                             task={task}
                             key={task.taskId}
                             busy={isTaskMutating && taskMutation.taskId === task.taskId}
+                            onOpenChat={openTaskChat}
                             onOpenReports={openTaskReports}
                             onRunTask={handleRunTask}
                             onUpdateStatus={handleUpdateTaskStatus}
@@ -1671,6 +1781,34 @@ export default function WorkspaceDetailPage({
         }}
         onOpenArtifact={(path) => void openArtifactFile(path)}
       />
+      <TaskChatModal
+        task={selectedChatTask}
+        messages={taskChatMessages}
+        state={taskChatState}
+        messageInput={taskChatMessageInput}
+        agentIdInput={taskChatAgentIdInput}
+        agents={workspaceAgents}
+        mutation={taskChatMutation}
+        canSend={canSendTaskChatMessage}
+        onMessageChange={(value) => {
+          setTaskChatMessageInput(value);
+          setTaskChatMutation({ status: "idle", message: null });
+        }}
+        onAgentChange={(value) => {
+          setTaskChatAgentIdInput(value);
+          setTaskChatMutation({ status: "idle", message: null });
+        }}
+        onSubmit={handleSendTaskChatMessage}
+        onReload={(task) => void openTaskChat(task)}
+        onClose={() => {
+          setSelectedChatTask(null);
+          setTaskChatMessages([]);
+          setTaskChatState({ status: "idle", error: null });
+          setTaskChatMessageInput("");
+          setTaskChatAgentIdInput("");
+          setTaskChatMutation({ status: "idle", message: null });
+        }}
+      />
       <WorkspaceFilesModal
         open={filesOpen}
         tree={artifactTree}
@@ -1700,12 +1838,14 @@ export default function WorkspaceDetailPage({
 function TaskCard({
   task,
   busy,
+  onOpenChat,
   onOpenReports,
   onRunTask,
   onUpdateStatus,
 }: {
   task: WorkspaceTask;
   busy: boolean;
+  onOpenChat: (task: WorkspaceTask) => void;
   onOpenReports: (task: WorkspaceTask) => void;
   onRunTask: (task: WorkspaceTask) => void;
   onUpdateStatus: (task: WorkspaceTask, status: TaskStatus) => void;
@@ -1733,6 +1873,15 @@ function TaskCard({
         >
           <FileText aria-hidden="true" />
           <span>Report</span>
+        </button>
+        <button
+          className="secondary-action workspace-task-refresh"
+          type="button"
+          onClick={() => onOpenChat(task)}
+          disabled={busy}
+        >
+          <Send aria-hidden="true" />
+          <span>Chat</span>
         </button>
         <button
           className="secondary-action workspace-task-refresh"
@@ -1849,6 +1998,165 @@ function TaskReportsModal({
               ))}
             </div>
           ) : null}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function TaskChatModal({
+  task,
+  messages,
+  state,
+  messageInput,
+  agentIdInput,
+  agents,
+  mutation,
+  canSend,
+  onMessageChange,
+  onAgentChange,
+  onSubmit,
+  onReload,
+  onClose,
+}: {
+  task: WorkspaceTask | null;
+  messages: ChatMessage[];
+  state: ModalLoadState;
+  messageInput: string;
+  agentIdInput: string;
+  agents: WorkspaceAgent[];
+  mutation: ChatMutationState;
+  canSend: boolean;
+  onMessageChange: (value: string) => void;
+  onAgentChange: (value: string) => void;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  onReload: (task: WorkspaceTask) => void;
+  onClose: () => void;
+}) {
+  if (!task) {
+    return null;
+  }
+
+  return (
+    <div className="workspace-modal-backdrop" role="presentation">
+      <section className="workspace-modal" role="dialog" aria-modal="true" aria-label="Task chat 메시지">
+        <header className="workspace-modal-header">
+          <div>
+            <span className="workspace-detail-label">Task #{task.taskId}</span>
+            <h2>Chat</h2>
+          </div>
+          <div className="workspace-modal-actions">
+            <button
+              className="secondary-action workspace-task-refresh"
+              type="button"
+              onClick={() => onReload(task)}
+              disabled={state.status === "loading"}
+            >
+              {state.status === "loading" ? (
+                <Loader2 className="spin" aria-hidden="true" />
+              ) : (
+                <RefreshCw aria-hidden="true" />
+              )}
+              <span>새로고침</span>
+            </button>
+            <button className="icon-button workspace-modal-close" type="button" onClick={onClose} aria-label="닫기">
+              <X aria-hidden="true" />
+            </button>
+          </div>
+        </header>
+
+        <div className="workspace-modal-body">
+          <div className="workspace-modal-summary">
+            <strong>{task.title}</strong>
+            {task.description ? <p>{task.description}</p> : null}
+          </div>
+
+          {state.status === "loading" ? (
+            <ModalState icon={<Loader2 className="spin" aria-hidden="true" />} text="Chat 메시지를 불러오고 있습니다." />
+          ) : null}
+          {state.status === "error" ? (
+            <ModalState icon={<AlertCircle aria-hidden="true" />} text={state.error} tone="danger" />
+          ) : null}
+          {state.status === "ready" && messages.length === 0 ? (
+            <ModalState icon={<Send aria-hidden="true" />} text="아직 표시할 chat 메시지가 없습니다." />
+          ) : null}
+
+          {messages.length > 0 ? (
+            <div className="workspace-report-list">
+              {messages.map((message) => (
+                <article className="workspace-report-card" key={message.messageId}>
+                  <div className="workspace-report-card-header">
+                    <strong>{formatChatRole(message.role)}</strong>
+                    <span>{formatDateTime(message.createdAt)}</span>
+                  </div>
+                  <p>{message.content}</p>
+                  <div className="workspace-report-artifacts">
+                    <span className="role-badge">Session #{message.chatSessionId}</span>
+                    {message.taskExecutionId ? <span>Execution #{message.taskExecutionId}</span> : null}
+                  </div>
+                </article>
+              ))}
+            </div>
+          ) : null}
+
+          <form className="workspace-invite-form" onSubmit={onSubmit}>
+            <label className="form-field">
+              <span>
+                <strong>Agent</strong>
+                <small>{agents.length}개</small>
+              </span>
+              <select
+                value={agentIdInput}
+                onChange={(event) => onAgentChange(event.target.value)}
+                disabled={mutation.status === "submitting" || agents.length === 0}
+              >
+                <option value="">Agent 선택</option>
+                {agents.map((agent) => (
+                  <option value={agent.agentId} key={agent.agentId}>
+                    {agent.name} · {formatAgentStatus(agent.status)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="form-field">
+              <span>
+                <strong>Message</strong>
+                <small>{messageInput.length}/1000</small>
+              </span>
+              <textarea
+                value={messageInput}
+                onChange={(event) => onMessageChange(event.target.value)}
+                maxLength={1000}
+                disabled={mutation.status === "submitting"}
+              />
+            </label>
+
+            {mutation.status === "error" && mutation.message ? (
+              <div className="workspace-task-notice" role="alert">
+                <AlertCircle aria-hidden="true" />
+                <span>{mutation.message}</span>
+              </div>
+            ) : null}
+            {mutation.status === "success" && mutation.message ? (
+              <div className="workspace-task-notice">
+                <Send aria-hidden="true" />
+                <span>{mutation.message}</span>
+              </div>
+            ) : null}
+
+            <button
+              className="primary-action primary-action-active workspace-invite-submit"
+              type="submit"
+              disabled={!canSend}
+            >
+              {mutation.status === "submitting" ? (
+                <Loader2 className="spin" aria-hidden="true" />
+              ) : (
+                <Send aria-hidden="true" />
+              )}
+              <span>{mutation.status === "submitting" ? "전송 중" : "메시지 전송"}</span>
+            </button>
+          </form>
         </div>
       </section>
     </div>
@@ -2078,6 +2386,29 @@ function messageFromError(error: unknown, fallback: string): string {
   return fallback;
 }
 
+function defaultAgentIdForTask(task: WorkspaceTask, agents: WorkspaceAgent[]): string {
+  if (typeof task.assignedAgentId === "number" && task.assignedAgentId > 0) {
+    return String(task.assignedAgentId);
+  }
+  if (typeof task.assignedAgentId === "string" && task.assignedAgentId.trim()) {
+    return task.assignedAgentId.trim();
+  }
+
+  const readyAgent = agents.find((agent) => agent.status === "READY");
+  return String(readyAgent?.agentId ?? agents[0]?.agentId ?? "");
+}
+
+function mergeChatMessages(current: ChatMessage[], incoming: ChatMessage[]): ChatMessage[] {
+  const byId = new Map<number, ChatMessage>();
+  for (const message of current) {
+    byId.set(message.messageId, message);
+  }
+  for (const message of incoming) {
+    byId.set(message.messageId, message);
+  }
+  return [...byId.values()].sort((left, right) => left.messageId - right.messageId);
+}
+
 function isValidWorkspaceId(workspaceId: number): boolean {
   return Number.isInteger(workspaceId) && workspaceId > 0;
 }
@@ -2166,6 +2497,16 @@ function formatTaskPriority(priority?: TaskPriority): string {
     return "보통";
   }
   return "낮음";
+}
+
+function formatChatRole(role: ChatMessage["role"]): string {
+  if (role === "USER") {
+    return "사용자";
+  }
+  if (role === "ASSISTANT") {
+    return "Agent";
+  }
+  return "System";
 }
 
 function formatScore(value: number): string {
