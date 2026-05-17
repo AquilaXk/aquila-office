@@ -761,7 +761,7 @@ class WorkspaceControllerTest {
 
         mockMvc.perform(get("/api/v1/workspaces/101/invites")
                         .queryParam("status", " PENDING ")
-                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, " google-1 "))
+                        .principal(authenticatedPrincipal("google-1")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.code").value("200"))
@@ -786,10 +786,20 @@ class WorkspaceControllerTest {
     void listWorkspaceInvitesRejectsInvalidStatus() throws Exception {
         mockMvc.perform(get("/api/v1/workspaces/101/invites")
                         .queryParam("status", "unknown")
-                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, "google-1"))
+                        .principal(authenticatedPrincipal("google-1")))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.code").value("400"));
+
+        verifyNoInteractions(listWorkspaceInvitesUseCase);
+    }
+
+    @Test
+    void listWorkspaceInvitesRejectsMissingPrincipal() throws Exception {
+        mockMvc.perform(get("/api/v1/workspaces/101/invites"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code").value("401"));
 
         verifyNoInteractions(listWorkspaceInvitesUseCase);
     }
@@ -800,7 +810,7 @@ class WorkspaceControllerTest {
                 .willThrow(new IllegalArgumentException("workspace not found"));
 
         mockMvc.perform(get("/api/v1/workspaces/999/invites")
-                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, "google-1"))
+                        .principal(authenticatedPrincipal("google-1")))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.code").value("404"));
