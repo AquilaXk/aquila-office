@@ -221,9 +221,9 @@ public class WorkspaceController {
     @PatchMapping("/{workspaceId}")
     public ResponseEntity<RsData<WorkspaceResponse>> updateWorkspace(
             @PathVariable Long workspaceId,
-            @RequestHeader(name = CREATOR_GOOGLE_SUB_HEADER, required = false) String creatorGoogleSub,
+            Authentication authentication,
             @Valid @RequestBody UpdateWorkspaceRequest request) {
-        String normalizedCreatorGoogleSub = requireCreatorGoogleSub(creatorGoogleSub);
+        String normalizedCreatorGoogleSub = requireAuthenticatedCreatorGoogleSub(authentication);
 
         try {
             UpdateWorkspaceResult result =
