@@ -463,7 +463,7 @@ class WorkspaceControllerTest {
                         LocalDateTime.of(2026, 5, 15, 10, 0)));
 
         mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch("/api/v1/workspaces/101")
-                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, " google-1 ")
+                        .principal(authenticatedPrincipal("google-1"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"name\":\" Updated Team \",\"description\":\" Updated Description \"}"))
                 .andExpect(status().isOk())
@@ -486,12 +486,24 @@ class WorkspaceControllerTest {
     @Test
     void updateWorkspaceRejectsBlankName() throws Exception {
         mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch("/api/v1/workspaces/101")
-                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, "google-1")
+                        .principal(authenticatedPrincipal("google-1"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"name\":\" \",\"description\":\"Description\"}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.code").value("400"));
+
+        verifyNoInteractions(updateWorkspaceUseCase);
+    }
+
+    @Test
+    void updateWorkspaceRejectsMissingPrincipal() throws Exception {
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch("/api/v1/workspaces/101")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"Updated Team\",\"description\":\"Description\"}"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code").value("401"));
 
         verifyNoInteractions(updateWorkspaceUseCase);
     }
