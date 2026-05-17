@@ -57,14 +57,14 @@ class WorkspacePresenceControllerTest {
     private CloseWorkspacePresenceStreamUseCase closeWorkspacePresenceStreamUseCase;
 
     @Test
-    void openStreamReturnsSseEmitterAndPassesHeaderCommand() throws Exception {
+    void openStreamReturnsSseEmitterAndPassesPrincipalCommand() throws Exception {
         given(openWorkspacePresenceStreamUseCase.openStream(
                         any(OpenWorkspacePresenceStreamCommand.class),
                         any(WorkspacePresenceEventSink.class)))
                 .willReturn(new OpenWorkspacePresenceStreamResult(101L, 2L));
 
         MvcResult result = mockMvc.perform(get("/api/v1/workspaces/101/presence/stream")
-                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, " google-2 "))
+                        .principal(authenticatedPrincipal("google-2")))
                 .andExpect(request().asyncStarted())
                 .andReturn();
 
@@ -234,6 +234,13 @@ class WorkspacePresenceControllerTest {
         assertThatThrownBy(
                         () -> WorkspacePresenceController.class.getDeclaredMethod("requireMemberGoogleSub", String.class))
                 .isInstanceOf(NoSuchMethodException.class);
+    }
+
+    @Test
+    void workspaceControllerDoesNotExposeLegacyCreatorHeaderConstant() {
+        assertThatThrownBy(
+                        () -> WorkspaceController.class.getDeclaredField("CREATOR_GOOGLE_SUB_HEADER"))
+                .isInstanceOf(NoSuchFieldException.class);
     }
 
     private static UsernamePasswordAuthenticationToken authenticatedPrincipal(String googleSub) {

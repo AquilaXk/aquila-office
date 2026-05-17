@@ -53,7 +53,6 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -63,9 +62,6 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/v1/workspaces")
 public class WorkspaceController {
-
-    // 실제 인증 어댑터가 연결되기 전까지 웹 요청에서 생성자를 식별하는 임시 경계값이다.
-    public static final String CREATOR_GOOGLE_SUB_HEADER = "X-Aquila-Creator-Google-Sub";
 
     private final CreateWorkspaceUseCase createWorkspaceUseCase;
     private final CreateWorkspaceInviteUseCase createWorkspaceInviteUseCase;
