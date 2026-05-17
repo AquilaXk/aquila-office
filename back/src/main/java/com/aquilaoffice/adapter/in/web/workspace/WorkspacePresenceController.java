@@ -9,11 +9,13 @@ import com.aquilaoffice.application.port.in.UpdateWorkspacePresencePositionUseCa
 import com.aquilaoffice.global.exception.CommonErrorCode;
 import com.aquilaoffice.global.exception.ServiceException;
 import com.aquilaoffice.global.response.RsData;
+import com.aquilaoffice.global.security.AuthenticatedMember;
 import jakarta.validation.Valid;
 import java.util.Locale;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -88,10 +90,9 @@ public class WorkspacePresenceController {
     @PatchMapping("/me/position")
     public ResponseEntity<RsData<Void>> updateMyPosition(
             @PathVariable Long workspaceId,
-            @RequestHeader(name = WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, required = false)
-                    String memberGoogleSub,
+            Authentication authentication,
             @Valid @RequestBody(required = false) WorkspacePresencePositionUpdateRequest request) {
-        String normalizedMemberGoogleSub = requireMemberGoogleSub(memberGoogleSub);
+        String normalizedMemberGoogleSub = requireAuthenticatedMemberGoogleSub(authentication);
         if (request == null) {
             throw new ServiceException(CommonErrorCode.BAD_REQUEST);
         }
@@ -111,6 +112,14 @@ public class WorkspacePresenceController {
             throw new ServiceException(CommonErrorCode.BAD_REQUEST);
         }
         return memberGoogleSub.trim();
+    }
+
+    private String requireAuthenticatedMemberGoogleSub(Authentication authentication) {
+        if (authentication == null
+                || !(authentication.getPrincipal() instanceof AuthenticatedMember authenticatedMember)) {
+            throw new ServiceException(CommonErrorCode.UNAUTHORIZED);
+        }
+        return authenticatedMember.googleSub();
     }
 
     private String resolveMemberGoogleSub(
