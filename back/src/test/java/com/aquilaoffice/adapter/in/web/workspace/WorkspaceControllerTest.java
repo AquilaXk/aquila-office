@@ -463,7 +463,7 @@ class WorkspaceControllerTest {
                         LocalDateTime.of(2026, 5, 15, 10, 0)));
 
         mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch("/api/v1/workspaces/101")
-                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, " google-1 ")
+                        .principal(authenticatedPrincipal("google-1"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"name\":\" Updated Team \",\"description\":\" Updated Description \"}"))
                 .andExpect(status().isOk())
@@ -486,7 +486,7 @@ class WorkspaceControllerTest {
     @Test
     void updateWorkspaceRejectsBlankName() throws Exception {
         mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch("/api/v1/workspaces/101")
-                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, "google-1")
+                        .principal(authenticatedPrincipal("google-1"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"name\":\" \",\"description\":\"Description\"}"))
                 .andExpect(status().isBadRequest())
@@ -497,9 +497,21 @@ class WorkspaceControllerTest {
     }
 
     @Test
+    void updateWorkspaceRejectsMissingPrincipal() throws Exception {
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch("/api/v1/workspaces/101")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"Updated Team\",\"description\":\"Description\"}"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code").value("401"));
+
+        verifyNoInteractions(updateWorkspaceUseCase);
+    }
+
+    @Test
     void deleteWorkspaceReturnsOkEnvelope() throws Exception {
         mockMvc.perform(delete("/api/v1/workspaces/101")
-                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, " google-1 "))
+                        .principal(authenticatedPrincipal("google-1")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.code").value("200"));
@@ -509,6 +521,16 @@ class WorkspaceControllerTest {
         verify(deleteWorkspaceUseCase).deleteWorkspace(commandCaptor.capture());
         assertThat(commandCaptor.getValue().workspaceId()).isEqualTo(101L);
         assertThat(commandCaptor.getValue().requesterGoogleSub()).isEqualTo("google-1");
+    }
+
+    @Test
+    void deleteWorkspaceRejectsMissingPrincipal() throws Exception {
+        mockMvc.perform(delete("/api/v1/workspaces/101"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code").value("401"));
+
+        verifyNoInteractions(deleteWorkspaceUseCase);
     }
 
     @Test

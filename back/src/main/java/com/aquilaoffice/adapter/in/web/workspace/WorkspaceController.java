@@ -221,9 +221,9 @@ public class WorkspaceController {
     @PatchMapping("/{workspaceId}")
     public ResponseEntity<RsData<WorkspaceResponse>> updateWorkspace(
             @PathVariable Long workspaceId,
-            @RequestHeader(name = CREATOR_GOOGLE_SUB_HEADER, required = false) String creatorGoogleSub,
+            Authentication authentication,
             @Valid @RequestBody UpdateWorkspaceRequest request) {
-        String normalizedCreatorGoogleSub = requireCreatorGoogleSub(creatorGoogleSub);
+        String normalizedCreatorGoogleSub = requireAuthenticatedCreatorGoogleSub(authentication);
 
         try {
             UpdateWorkspaceResult result =
@@ -238,8 +238,8 @@ public class WorkspaceController {
     @DeleteMapping("/{workspaceId}")
     public ResponseEntity<RsData<Void>> deleteWorkspace(
             @PathVariable Long workspaceId,
-            @RequestHeader(name = CREATOR_GOOGLE_SUB_HEADER, required = false) String creatorGoogleSub) {
-        String normalizedCreatorGoogleSub = requireCreatorGoogleSub(creatorGoogleSub);
+            Authentication authentication) {
+        String normalizedCreatorGoogleSub = requireAuthenticatedCreatorGoogleSub(authentication);
 
         try {
             deleteWorkspaceUseCase.deleteWorkspace(new DeleteWorkspaceCommand(workspaceId, normalizedCreatorGoogleSub));
