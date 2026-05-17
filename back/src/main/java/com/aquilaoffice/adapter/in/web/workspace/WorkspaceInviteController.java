@@ -15,7 +15,6 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -62,13 +61,6 @@ public class WorkspaceInviteController {
             // token 수락 실패 사유는 초대 존재 여부와 멤버십 정보를 드러내지 않도록 동일한 404로 응답한다.
             throw new ServiceException(CommonErrorCode.NOT_FOUND);
         }
-    }
-
-    private String requireMemberGoogleSub(String memberGoogleSub) {
-        if (memberGoogleSub == null || memberGoogleSub.isBlank()) {
-            throw new ServiceException(CommonErrorCode.BAD_REQUEST);
-        }
-        return memberGoogleSub.trim();
     }
 
     private String requireAuthenticatedMemberGoogleSub(Authentication authentication) {
