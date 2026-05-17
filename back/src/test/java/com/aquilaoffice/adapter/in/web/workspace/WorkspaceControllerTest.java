@@ -389,7 +389,7 @@ class WorkspaceControllerTest {
                         List.<WorkspaceDashboardRecentLogResult>of()));
 
         mockMvc.perform(get("/api/v1/workspaces/101/dashboard/summary")
-                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, " google-1 "))
+                        .principal(authenticatedPrincipal("google-1")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.code").value("200"))
@@ -415,6 +415,28 @@ class WorkspaceControllerTest {
         verify(getWorkspaceDashboardSummaryUseCase).getSummary(queryCaptor.capture());
         assertThat(queryCaptor.getValue().workspaceId()).isEqualTo(101L);
         assertThat(queryCaptor.getValue().memberGoogleSub()).isEqualTo("google-1");
+    }
+
+    @Test
+    void getWorkspaceDashboardSummaryRejectsMissingPrincipal() throws Exception {
+        mockMvc.perform(get("/api/v1/workspaces/101/dashboard/summary"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code").value("401"));
+
+        verifyNoInteractions(getWorkspaceDashboardSummaryUseCase);
+    }
+
+    @Test
+    void getWorkspaceDashboardSummaryReturnsNotFoundEnvelope() throws Exception {
+        given(getWorkspaceDashboardSummaryUseCase.getSummary(any(GetWorkspaceDashboardSummaryQuery.class)))
+                .willThrow(new IllegalArgumentException("workspace membership required"));
+
+        mockMvc.perform(get("/api/v1/workspaces/999/dashboard/summary")
+                        .principal(authenticatedPrincipal("google-1")))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code").value("404"));
     }
 
     @Test
