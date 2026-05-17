@@ -132,8 +132,8 @@ public class WorkspaceController {
     @GetMapping("/{workspaceId}")
     public ResponseEntity<RsData<WorkspaceResponse>> getWorkspaceDetail(
             @PathVariable Long workspaceId,
-            @RequestHeader(name = CREATOR_GOOGLE_SUB_HEADER, required = false) String creatorGoogleSub) {
-        String normalizedCreatorGoogleSub = requireCreatorGoogleSub(creatorGoogleSub);
+            Authentication authentication) {
+        String normalizedCreatorGoogleSub = requireAuthenticatedCreatorGoogleSub(authentication);
 
         try {
             GetWorkspaceDetailResult result = getWorkspaceDetailUseCase.getWorkspaceDetail(
@@ -148,8 +148,8 @@ public class WorkspaceController {
     @GetMapping("/{workspaceId}/dashboard/summary")
     public ResponseEntity<RsData<WorkspaceDashboardSummaryResponse>> getWorkspaceDashboardSummary(
             @PathVariable Long workspaceId,
-            @RequestHeader(name = CREATOR_GOOGLE_SUB_HEADER, required = false) String creatorGoogleSub) {
-        String normalizedCreatorGoogleSub = requireCreatorGoogleSub(creatorGoogleSub);
+            Authentication authentication) {
+        String normalizedCreatorGoogleSub = requireAuthenticatedCreatorGoogleSub(authentication);
 
         try {
             GetWorkspaceDashboardSummaryResult result = getWorkspaceDashboardSummaryUseCase.getSummary(
