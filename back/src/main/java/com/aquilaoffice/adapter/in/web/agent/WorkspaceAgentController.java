@@ -119,13 +119,6 @@ public class WorkspaceAgentController {
         }
     }
 
-    private String requireRequesterGoogleSub(String requesterGoogleSub) {
-        if (requesterGoogleSub == null || requesterGoogleSub.isBlank()) {
-            throw new ServiceException(CommonErrorCode.BAD_REQUEST);
-        }
-        return requesterGoogleSub.trim();
-    }
-
     private String requireAuthenticatedRequesterGoogleSub(Authentication authentication) {
         if (authentication == null
                 || !(authentication.getPrincipal() instanceof AuthenticatedMember authenticatedMember)) {
