@@ -8,10 +8,12 @@ import com.aquilaoffice.application.port.in.ListSlackChannelMappingsUseCase;
 import com.aquilaoffice.global.exception.CommonErrorCode;
 import com.aquilaoffice.global.exception.ServiceException;
 import com.aquilaoffice.global.response.RsData;
+import com.aquilaoffice.global.security.AuthenticatedMember;
 import jakarta.validation.Valid;
 import java.net.URI;
 import java.util.List;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -40,10 +42,9 @@ public class SlackChannelMappingController {
     @PostMapping
     public ResponseEntity<RsData<SlackChannelMappingResponse>> createSlackChannelMapping(
             @PathVariable Long workspaceId,
-            @RequestHeader(name = WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, required = false)
-                    String requesterGoogleSub,
+            Authentication authentication,
             @Valid @RequestBody CreateSlackChannelMappingRequest request) {
-        String normalizedRequesterGoogleSub = requireRequesterGoogleSub(requesterGoogleSub);
+        String normalizedRequesterGoogleSub = requireAuthenticatedRequesterGoogleSub(authentication);
 
         try {
             CreateSlackChannelMappingResult result = createSlackChannelMappingUseCase.createSlackChannelMapping(
@@ -63,9 +64,8 @@ public class SlackChannelMappingController {
     @GetMapping
     public ResponseEntity<RsData<List<SlackChannelMappingResponse>>> listSlackChannelMappings(
             @PathVariable Long workspaceId,
-            @RequestHeader(name = WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, required = false)
-                    String requesterGoogleSub) {
-        String normalizedRequesterGoogleSub = requireRequesterGoogleSub(requesterGoogleSub);
+            Authentication authentication) {
+        String normalizedRequesterGoogleSub = requireAuthenticatedRequesterGoogleSub(authentication);
 
         try {
             return ResponseEntity.ok(RsData.ok(listSlackChannelMappingsUseCase
@@ -86,5 +86,13 @@ public class SlackChannelMappingController {
             throw new ServiceException(CommonErrorCode.BAD_REQUEST);
         }
         return requesterGoogleSub.trim();
+    }
+
+    private String requireAuthenticatedRequesterGoogleSub(Authentication authentication) {
+        if (authentication == null
+                || !(authentication.getPrincipal() instanceof AuthenticatedMember authenticatedMember)) {
+            throw new ServiceException(CommonErrorCode.UNAUTHORIZED);
+        }
+        return authenticatedMember.googleSub();
     }
 }
