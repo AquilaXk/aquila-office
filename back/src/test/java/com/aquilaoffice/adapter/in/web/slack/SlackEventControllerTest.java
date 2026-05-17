@@ -11,11 +11,13 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.aquilaoffice.adapter.in.web.workspace.WorkspaceController;
 import com.aquilaoffice.application.port.in.ReceiveSlackEventCommand;
 import com.aquilaoffice.application.port.in.ReceiveSlackEventResult;
 import com.aquilaoffice.application.port.in.ReceiveSlackEventUseCase;
+import com.aquilaoffice.domain.member.MemberRole;
 import com.aquilaoffice.global.handler.GlobalExceptionHandler;
+import com.aquilaoffice.global.security.AuthenticatedMember;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,6 +25,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -46,7 +49,7 @@ class SlackEventControllerTest {
                 .willReturn(new ReceiveSlackEventResult("challenge-token", false, "url verification", null, null, null));
 
         mockMvc.perform(post("/api/v1/workspaces/101/slack/events")
-                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, " google-1 ")
+                        .principal(authenticatedPrincipal("google-1"))
                         .header("X-Slack-Request-Timestamp", "1715841000")
                         .header("X-Slack-Signature", "v0=test-signature")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -84,7 +87,7 @@ class SlackEventControllerTest {
                         "T123:C456:1715841000.000100"));
 
         mockMvc.perform(post("/api/v1/workspaces/101/slack/events")
-                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, "google-1")
+                        .principal(authenticatedPrincipal("google-1"))
                         .header("X-Slack-Request-Timestamp", "1715841000")
                         .header("X-Slack-Signature", "v0=test-signature")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -175,7 +178,7 @@ class SlackEventControllerTest {
                 .verifyOrThrow(any(String.class), any(String.class), any(String.class));
 
         mockMvc.perform(post("/api/v1/workspaces/101/slack/events")
-                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, "google-1")
+                        .principal(authenticatedPrincipal("google-1"))
                         .header("X-Slack-Request-Timestamp", "1715841000")
                         .header("X-Slack-Signature", "v0=invalid")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -188,14 +191,20 @@ class SlackEventControllerTest {
     }
 
     @Test
-    void missingRequesterReturnsBadRequestAndDoesNotCallUseCase() throws Exception {
+    void missingPrincipalReturnsUnauthorizedAndDoesNotCallUseCase() throws Exception {
         mockMvc.perform(post("/api/v1/workspaces/101/slack/events")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"type\":\"event_callback\"}"))
-                .andExpect(status().isBadRequest())
+                .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.success").value(false))
-                .andExpect(jsonPath("$.code").value("400"));
+                .andExpect(jsonPath("$.code").value("401"));
 
         verifyNoInteractions(receiveSlackEventUseCase);
+    }
+
+    private static UsernamePasswordAuthenticationToken authenticatedPrincipal(String googleSub) {
+        AuthenticatedMember member =
+                new AuthenticatedMember(1L, googleSub, googleSub + "@example.com", MemberRole.USER);
+        return new UsernamePasswordAuthenticationToken(member, null, List.of());
     }
 }
