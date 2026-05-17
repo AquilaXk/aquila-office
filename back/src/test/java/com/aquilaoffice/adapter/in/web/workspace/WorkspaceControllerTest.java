@@ -57,11 +57,13 @@ import com.aquilaoffice.application.port.in.UpdateWorkspaceUseCase;
 import com.aquilaoffice.application.port.in.WorkspaceDashboardRecentLogResult;
 import com.aquilaoffice.application.port.in.WorkspaceDashboardRecentReportResult;
 import com.aquilaoffice.domain.execution.TaskExecutionStatus;
+import com.aquilaoffice.domain.member.MemberRole;
 import com.aquilaoffice.domain.workspace.WorkspaceInviteStatus;
 import com.aquilaoffice.domain.workspace.WorkspaceMemberRole;
 import com.aquilaoffice.global.exception.CommonErrorCode;
 import com.aquilaoffice.global.handler.GlobalExceptionHandler;
 import com.aquilaoffice.global.exception.ServiceException;
+import com.aquilaoffice.global.security.AuthenticatedMember;
 import java.time.LocalDateTime;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -72,6 +74,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -284,7 +287,7 @@ class WorkspaceControllerTest {
                         LocalDateTime.of(2026, 5, 15, 10, 0))));
 
         mockMvc.perform(get("/api/v1/workspaces")
-                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, " google-1 "))
+                        .principal(authenticatedPrincipal("google-1")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.code").value("200"))
@@ -302,12 +305,11 @@ class WorkspaceControllerTest {
     }
 
     @Test
-    void listWorkspacesRejectsBlankCreatorHeader() throws Exception {
-        mockMvc.perform(get("/api/v1/workspaces")
-                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, " "))
-                .andExpect(status().isBadRequest())
+    void listWorkspacesRejectsMissingPrincipal() throws Exception {
+        mockMvc.perform(get("/api/v1/workspaces"))
+                .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.success").value(false))
-                .andExpect(jsonPath("$.code").value("400"));
+                .andExpect(jsonPath("$.code").value("401"));
 
         verifyNoInteractions(listWorkspacesUseCase);
     }
@@ -907,5 +909,11 @@ class WorkspaceControllerTest {
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.code").value("404"));
+    }
+
+    private static UsernamePasswordAuthenticationToken authenticatedPrincipal(String googleSub) {
+        AuthenticatedMember member =
+                new AuthenticatedMember(1L, googleSub, googleSub + "@example.com", MemberRole.USER);
+        return new UsernamePasswordAuthenticationToken(member, null, List.of());
     }
 }
