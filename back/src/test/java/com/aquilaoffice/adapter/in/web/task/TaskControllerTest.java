@@ -12,7 +12,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.aquilaoffice.adapter.in.web.workspace.WorkspaceController;
 import com.aquilaoffice.application.port.in.CreateTaskCommand;
 import com.aquilaoffice.application.port.in.CreateTaskResult;
 import com.aquilaoffice.application.port.in.CreateTaskUseCase;
@@ -32,7 +31,9 @@ import com.aquilaoffice.domain.execution.TaskExecutionStatus;
 import com.aquilaoffice.domain.task.TaskPriority;
 import com.aquilaoffice.domain.task.TaskStatus;
 import com.aquilaoffice.domain.task.TaskType;
+import com.aquilaoffice.domain.member.MemberRole;
 import com.aquilaoffice.global.handler.GlobalExceptionHandler;
+import com.aquilaoffice.global.security.AuthenticatedMember;
 import java.time.LocalDateTime;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -43,6 +44,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -77,7 +79,7 @@ class TaskControllerTest {
         given(createTaskUseCase.createTask(any(CreateTaskCommand.class))).willReturn(createResult());
 
         mockMvc.perform(post("/api/v1/workspaces/101/tasks")
-                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, " google-1 ")
+                        .principal(authenticatedPrincipal("google-1"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -115,7 +117,7 @@ class TaskControllerTest {
         given(listTasksUseCase.listTasks(any(ListTasksQuery.class))).willReturn(List.of(listResult()));
 
         mockMvc.perform(get("/api/v1/workspaces/101/tasks")
-                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, " google-1 "))
+                        .principal(authenticatedPrincipal("google-1")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data[0].taskId").value(301))
@@ -132,7 +134,7 @@ class TaskControllerTest {
         given(getTaskDetailUseCase.getTaskDetail(any(GetTaskDetailQuery.class))).willReturn(detailResult());
 
         mockMvc.perform(get("/api/v1/workspaces/101/tasks/301")
-                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, "google-1"))
+                        .principal(authenticatedPrincipal("google-1")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.taskId").value(301))
@@ -151,7 +153,7 @@ class TaskControllerTest {
                 .willReturn(updateResult());
 
         mockMvc.perform(patch("/api/v1/workspaces/101/tasks/301/status")
-                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, " google-1 ")
+                        .principal(authenticatedPrincipal("google-1"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"status\":\"IN_PROGRESS\"}"))
                 .andExpect(status().isOk())
@@ -173,7 +175,7 @@ class TaskControllerTest {
         given(runTaskUseCase.runTask(any(RunTaskCommand.class))).willReturn(runResult());
 
         mockMvc.perform(post("/api/v1/workspaces/101/tasks/301/run")
-                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, " google-1 ")
+                        .principal(authenticatedPrincipal("google-1"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"createPr\":true}"))
                 .andExpect(status().isOk())
@@ -195,11 +197,11 @@ class TaskControllerTest {
     }
 
     @Test
-    void missingHeaderReturnsBadRequestAndDoesNotCallUseCases() throws Exception {
+    void missingPrincipalReturnsUnauthorizedAndDoesNotCallUseCases() throws Exception {
         mockMvc.perform(get("/api/v1/workspaces/101/tasks"))
-                .andExpect(status().isBadRequest())
+                .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.success").value(false))
-                .andExpect(jsonPath("$.code").value("400"));
+                .andExpect(jsonPath("$.code").value("401"));
 
         verifyNoInteractions(
                 createTaskUseCase,
@@ -212,7 +214,7 @@ class TaskControllerTest {
     @Test
     void blankTitleReturnsBadRequest() throws Exception {
         mockMvc.perform(post("/api/v1/workspaces/101/tasks")
-                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, "google-1")
+                        .principal(authenticatedPrincipal("google-1"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"title\":\" \"}"))
                 .andExpect(status().isBadRequest())
@@ -228,10 +230,16 @@ class TaskControllerTest {
                 .willThrow(new IllegalArgumentException("workspace membership not found"));
 
         mockMvc.perform(get("/api/v1/workspaces/999/tasks")
-                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, "google-1"))
+                        .principal(authenticatedPrincipal("google-1")))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.code").value("404"));
+    }
+
+    private static UsernamePasswordAuthenticationToken authenticatedPrincipal(String googleSub) {
+        AuthenticatedMember member =
+                new AuthenticatedMember(1L, googleSub, googleSub + "@example.com", MemberRole.USER);
+        return new UsernamePasswordAuthenticationToken(member, null, List.of());
     }
 
     private static CreateTaskResult createResult() {
