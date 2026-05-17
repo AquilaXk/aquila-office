@@ -13,15 +13,13 @@ import {
 } from "lucide-react";
 import { use, useCallback, useEffect, useMemo, useState } from "react";
 import { ApiError } from "@/lib/api-client";
+import { resolveAccessToken } from "@/lib/auth";
 import {
   acceptWorkspaceInvite,
   fetchWorkspaceInvite,
   type AcceptedWorkspaceInvite,
   type WorkspaceInvite,
 } from "@/lib/invites";
-
-const DEV_ACCESS_TOKEN =
-  process.env.NEXT_PUBLIC_DEV_ACCESS_TOKEN ?? "";
 
 type InviteState =
   | { status: "loading"; invite: null; accepted: null; error: null }
@@ -100,7 +98,7 @@ export default function WorkspaceInviteAcceptPage({
     setAcceptError(null);
 
     try {
-      const accepted = await acceptWorkspaceInvite(token, DEV_ACCESS_TOKEN);
+      const accepted = await acceptWorkspaceInvite(token, resolveAccessToken());
       setState((current) =>
         current.invite
           ? { status: "accepted", invite: current.invite, accepted, error: null }
@@ -231,7 +229,7 @@ export default function WorkspaceInviteAcceptPage({
         </div>
         <div>
           <ShieldCheck aria-hidden="true" />
-          <strong>{DEV_ACCESS_TOKEN ? "설정됨" : "미설정"}</strong>
+          <strong>{resolveAccessToken() ? "설정됨" : "미설정"}</strong>
           <span>개발 access token</span>
         </div>
       </aside>

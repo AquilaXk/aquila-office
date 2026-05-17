@@ -1,6 +1,6 @@
-import { apiFetch } from "./api-client.ts";
-
 export const AUTH_STORAGE_KEY = "aquila-office.auth";
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
 
 export type AuthMemberRole = "ADMIN" | "USER";
 
@@ -18,33 +18,41 @@ export type RefreshedAuthTokens = Pick<AuthTokens, "accessToken" | "refreshToken
 const DEV_ACCESS_TOKEN = process.env.NEXT_PUBLIC_DEV_ACCESS_TOKEN ?? "";
 
 export async function loginWithGoogle(idToken: string): Promise<AuthTokens> {
-  return apiFetch<AuthTokens>("/api/v1/auth/google/login", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ idToken }),
-  });
+  return authPost<AuthTokens>("/api/v1/auth/google/login", { idToken });
 }
 
 export async function refreshAuthToken(refreshToken: string): Promise<RefreshedAuthTokens> {
-  return apiFetch<RefreshedAuthTokens>("/api/v1/auth/token/refresh", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ refreshToken }),
-  });
+  return authPost<RefreshedAuthTokens>("/api/v1/auth/token/refresh", { refreshToken });
 }
 
 export async function logoutAuth(refreshToken: string): Promise<void> {
-  await apiFetch<void>("/api/v1/auth/logout", {
+  await authPost<void>("/api/v1/auth/logout", { refreshToken });
+}
+
+async function authPost<T>(path: string, payload: unknown): Promise<T> {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
     method: "POST",
     headers: {
+      Accept: "application/json",
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ refreshToken }),
+    body: JSON.stringify(payload),
   });
+  const body = await response.json();
+
+  if (!response.ok) {
+    throw new Error(messageFromEnvelope(body, "인증 요청을 처리하지 못했습니다."));
+  }
+
+  if (isApiEnvelope<T>(body)) {
+    if (!body.success) {
+      throw new Error(body.message);
+    }
+
+    return body.data;
+  }
+
+  return body as T;
 }
 
 export function readAuthTokens(storage: Storage | undefined = browserStorage()): AuthTokens | null {
@@ -90,6 +98,33 @@ function browserStorage(): Storage | undefined {
   }
 
   return window.localStorage;
+}
+
+type ApiEnvelope<T> = {
+  success: boolean;
+  message: string;
+  data: T;
+};
+
+function isApiEnvelope<T>(value: unknown): value is ApiEnvelope<T> {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "success" in value &&
+    "message" in value &&
+    "data" in value
+  );
+}
+
+function messageFromEnvelope(value: unknown, fallback: string): string {
+  if (typeof value === "object" && value !== null && "message" in value) {
+    const message = (value as { message?: unknown }).message;
+    if (typeof message === "string" && message.length > 0) {
+      return message;
+    }
+  }
+
+  return fallback;
 }
 
 function isAuthTokens(value: unknown): value is AuthTokens {

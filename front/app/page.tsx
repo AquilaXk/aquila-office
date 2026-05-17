@@ -4,6 +4,8 @@ import {
   AlertCircle,
   Building2,
   FolderOpen,
+  LogIn,
+  LogOut,
   Plus,
   RefreshCw,
   Server,
@@ -13,17 +15,24 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { API_BASE_URL, ApiError, apiFetch } from "@/lib/api-client";
+import {
+  clearAuthTokens,
+  loginWithGoogle,
+  logoutAuth,
+  readAuthTokens,
+  refreshAuthToken,
+  resolveAccessToken,
+  saveAuthTokens,
+  type AuthTokens,
+} from "@/lib/auth";
 import {
   BRAND_MASCOT_PATH,
   REPRESENTATIVE_IMAGE_PATHS,
   SERVICE_NAME,
 } from "@/lib/branding";
 import { fetchWorkspaces, type WorkspaceSummary } from "@/lib/workspaces";
-
-const DEV_ACCESS_TOKEN =
-  process.env.NEXT_PUBLIC_DEV_ACCESS_TOKEN ?? "";
 
 type HealthResponse = {
   status: string;
@@ -40,6 +49,12 @@ type WorkspaceState =
   | { status: "idle" | "loading"; data: null; error: null }
   | { status: "ready"; data: WorkspaceSummary[]; error: null }
   | { status: "offline"; data: null; error: string };
+
+type AuthState =
+  | { status: "idle"; email: string | null; message: string | null; error: null }
+  | { status: "submitting"; email: string | null; message: string | null; error: null }
+  | { status: "ready"; email: string; message: string; error: null }
+  | { status: "error"; email: string | null; message: null; error: string };
 
 const assetHighlights = [
   {
@@ -59,6 +74,11 @@ const assetHighlights = [
 const brandMascotAsset = "brand-mascot.png";
 
 export default function Home() {
+  const [accessToken, setAccessToken] = useState(() => resolveAccessToken());
+  const [idToken, setIdToken] = useState("");
+  const [authState, setAuthState] = useState<AuthState>(() =>
+    authStateFromTokens(readAuthTokens()),
+  );
   const [health, setHealth] = useState<HealthState>({
     status: "idle",
     data: null,
@@ -76,16 +96,16 @@ export default function Home() {
 
     const [healthResult, workspaceResult] = await Promise.all([
       fetchHealth(),
-      fetchWorkspaceList(),
+      fetchWorkspaceList(accessToken),
     ]);
     setHealth(healthResult);
     setWorkspaces(workspaceResult);
-  }, []);
+  }, [accessToken]);
 
   useEffect(() => {
     let ignore = false;
 
-    Promise.all([fetchHealth(), fetchWorkspaceList()]).then(
+    Promise.all([fetchHealth(), fetchWorkspaceList(accessToken)]).then(
       ([healthResult, workspaceResult]) => {
         if (!ignore) {
           setHealth(healthResult);
@@ -97,7 +117,122 @@ export default function Home() {
     return () => {
       ignore = true;
     };
-  }, []);
+  }, [accessToken]);
+
+  const handleLogin = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (!idToken.trim()) {
+      setAuthState({
+        status: "error",
+        email: authState.email,
+        message: null,
+        error: "Google id token을 입력해 주세요.",
+      });
+      return;
+    }
+
+    setAuthState({
+      status: "submitting",
+      email: authState.email,
+      message: null,
+      error: null,
+    });
+
+    try {
+      const tokens = await loginWithGoogle(idToken);
+      saveAuthTokens(tokens);
+      setAccessToken(tokens.accessToken);
+      setIdToken("");
+      setAuthState({
+        status: "ready",
+        email: tokens.email,
+        message: "인증 세션이 저장되었습니다.",
+        error: null,
+      });
+    } catch (error) {
+      setAuthState({
+        status: "error",
+        email: authState.email,
+        message: null,
+        error: messageFromError(error, "로그인 요청을 처리하지 못했습니다."),
+      });
+    }
+  };
+
+  const handleRefreshToken = async () => {
+    const tokens = readAuthTokens();
+    if (!tokens) {
+      setAuthState({
+        status: "error",
+        email: null,
+        message: null,
+        error: "저장된 refresh token이 없습니다.",
+      });
+      return;
+    }
+
+    setAuthState({
+      status: "submitting",
+      email: tokens.email,
+      message: null,
+      error: null,
+    });
+
+    try {
+      const refreshed = await refreshAuthToken(tokens.refreshToken);
+      const nextTokens = { ...tokens, ...refreshed };
+      saveAuthTokens(nextTokens);
+      setAccessToken(nextTokens.accessToken);
+      setAuthState({
+        status: "ready",
+        email: nextTokens.email,
+        message: "인증 세션이 갱신되었습니다.",
+        error: null,
+      });
+    } catch (error) {
+      setAuthState({
+        status: "error",
+        email: tokens.email,
+        message: null,
+        error: messageFromError(error, "token 갱신 요청을 처리하지 못했습니다."),
+      });
+    }
+  };
+
+  const handleLogout = async () => {
+    const tokens = readAuthTokens();
+
+    setAuthState({
+      status: "submitting",
+      email: tokens?.email ?? authState.email,
+      message: null,
+      error: null,
+    });
+
+    try {
+      if (tokens) {
+        await logoutAuth(tokens.refreshToken);
+      }
+      clearAuthTokens();
+      setAccessToken(resolveAccessToken());
+      setAuthState({
+        status: "idle",
+        email: null,
+        message: "인증 세션이 삭제되었습니다.",
+        error: null,
+      });
+    } catch (error) {
+      clearAuthTokens();
+      setAccessToken(resolveAccessToken());
+      setAuthState({
+        status: "error",
+        email: null,
+        message: null,
+        error: messageFromError(error, "로그아웃 요청을 처리하지 못했습니다."),
+      });
+    }
+  };
 
   const checkedAt = health.data?.checkedAt
     ? new Intl.DateTimeFormat("ko-KR", {
@@ -110,6 +245,8 @@ export default function Home() {
   const isOnline = health.status === "online";
   const isWorkspaceLoading = workspaces.status === "loading";
   const workspaceCount = workspaces.data?.length ?? 0;
+  const isAuthSubmitting = authState.status === "submitting";
+  const hasAccessToken = Boolean(accessToken);
 
   return (
     <main className="app-shell">
@@ -183,6 +320,61 @@ export default function Home() {
                 </figcaption>
               </figure>
             ))}
+          </div>
+        </section>
+
+        <section className="workspace-section" aria-label="인증 세션">
+          <div className="section-header">
+            <div>
+              <p className="eyebrow">Auth</p>
+              <h2>인증 세션</h2>
+            </div>
+            <span className="role-badge">
+              {hasAccessToken ? "token ready" : "token empty"}
+            </span>
+          </div>
+
+          <form className="workspace-create-form" onSubmit={(event) => void handleLogin(event)}>
+            <label className="form-field">
+              <span>Google id token</span>
+              <input
+                type="text"
+                value={idToken}
+                onChange={(event) => setIdToken(event.target.value)}
+                placeholder="google-1|aquila@example.com|Aquila User"
+                disabled={isAuthSubmitting}
+              />
+            </label>
+            <div className="form-actions">
+              <button className="primary-action primary-action-active" type="submit" disabled={isAuthSubmitting}>
+                {isAuthSubmitting ? <RefreshCw className="spin" aria-hidden="true" /> : <LogIn aria-hidden="true" />}
+                <span>{isAuthSubmitting ? "처리 중" : "로그인"}</span>
+              </button>
+              <button
+                className="secondary-action"
+                type="button"
+                onClick={() => void handleRefreshToken()}
+                disabled={isAuthSubmitting}
+              >
+                <RefreshCw aria-hidden="true" />
+                <span>Refresh</span>
+              </button>
+              <button
+                className="secondary-action"
+                type="button"
+                onClick={() => void handleLogout()}
+                disabled={isAuthSubmitting}
+              >
+                <LogOut aria-hidden="true" />
+                <span>Logout</span>
+              </button>
+            </div>
+          </form>
+
+          <div className={authState.status === "error" ? "state-panel state-panel-error" : "state-panel"}>
+            <UserRound aria-hidden="true" />
+            <strong>{authState.email ?? "브라우저 세션"}</strong>
+            <p>{authState.error ?? authState.message ?? "저장된 token으로 보호 API를 호출합니다."}</p>
           </div>
         </section>
 
@@ -300,15 +492,32 @@ async function fetchHealth(): Promise<HealthState> {
   }
 }
 
-async function fetchWorkspaceList(): Promise<WorkspaceState> {
+async function fetchWorkspaceList(accessToken: string): Promise<WorkspaceState> {
   try {
-    const data = await fetchWorkspaces(DEV_ACCESS_TOKEN);
+    const data = await fetchWorkspaces(accessToken);
     return { status: "ready", data, error: null };
   } catch (error) {
     const message =
       error instanceof ApiError ? error.message : "워크스페이스 목록을 확인하지 못했습니다.";
     return { status: "offline", data: null, error: message };
   }
+}
+
+function authStateFromTokens(tokens: AuthTokens | null): AuthState {
+  if (!tokens) {
+    return { status: "idle", email: null, message: null, error: null };
+  }
+
+  return {
+    status: "ready",
+    email: tokens.email,
+    message: "저장된 인증 세션을 사용 중입니다.",
+    error: null,
+  };
+}
+
+function messageFromError(error: unknown, fallback: string): string {
+  return error instanceof ApiError ? error.message : fallback;
 }
 
 function formatDate(value: string): string {
