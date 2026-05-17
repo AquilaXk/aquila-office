@@ -15,6 +15,17 @@ export type SlackInstallUrl = {
   url: string;
 };
 
+export type SlackChannelMapping = {
+  mappingId: number;
+  workspaceId: number;
+  teamId: string;
+  channelId: string;
+  channelName: string | null;
+  maskedBotToken: string;
+  createdByGoogleSub: string;
+  active: boolean;
+};
+
 export type CreateSlackIntegrationInput = {
   slackTeamId: string;
   slackChannelId: string;
@@ -27,6 +38,13 @@ export type UpdateSlackIntegrationInput = {
   slackChannelId?: string;
   channelName?: string;
   botToken?: string;
+};
+
+export type CreateSlackChannelMappingInput = {
+  teamId: string;
+  channelId: string;
+  channelName?: string;
+  botToken: string;
 };
 
 export type DeleteSlackIntegrationResult = {
@@ -47,6 +65,10 @@ export function slackIntegrationPath(workspaceId: number, integrationId: number)
   return `${slackIntegrationsPath(workspaceId)}/${integrationId}`;
 }
 
+export function slackChannelMappingsPath(workspaceId: number): string {
+  return `/api/v1/workspaces/${workspaceId}/slack/channel-mappings`;
+}
+
 export async function fetchSlackInstallUrl(
   accessToken: string,
   workspaceId: number,
@@ -62,6 +84,30 @@ export async function fetchSlackIntegrations(
 ): Promise<SlackIntegration[]> {
   return apiFetch<SlackIntegration[]>(slackIntegrationsPath(workspaceId), {
     accessToken,
+  });
+}
+
+export async function fetchSlackChannelMappings(
+  accessToken: string,
+  workspaceId: number,
+): Promise<SlackChannelMapping[]> {
+  return apiFetch<SlackChannelMapping[]>(slackChannelMappingsPath(workspaceId), {
+    accessToken,
+  });
+}
+
+export async function createSlackChannelMapping(
+  accessToken: string,
+  workspaceId: number,
+  input: CreateSlackChannelMappingInput,
+): Promise<SlackChannelMapping> {
+  return apiFetch<SlackChannelMapping>(slackChannelMappingsPath(workspaceId), {
+    method: "POST",
+    accessToken,
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(input),
   });
 }
 
