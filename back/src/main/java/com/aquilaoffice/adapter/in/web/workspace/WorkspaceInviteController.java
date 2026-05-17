@@ -9,7 +9,9 @@ import com.aquilaoffice.application.port.in.GetWorkspaceInviteUseCase;
 import com.aquilaoffice.global.exception.CommonErrorCode;
 import com.aquilaoffice.global.exception.ServiceException;
 import com.aquilaoffice.global.response.RsData;
+import com.aquilaoffice.global.security.AuthenticatedMember;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -49,9 +51,8 @@ public class WorkspaceInviteController {
     @PostMapping("/{token}/accept")
     public ResponseEntity<RsData<AcceptWorkspaceInviteResponse>> acceptWorkspaceInvite(
             @PathVariable String token,
-            @RequestHeader(name = WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, required = false)
-                    String memberGoogleSub) {
-        String normalizedMemberGoogleSub = requireMemberGoogleSub(memberGoogleSub);
+            Authentication authentication) {
+        String normalizedMemberGoogleSub = requireAuthenticatedMemberGoogleSub(authentication);
 
         try {
             AcceptWorkspaceInviteResult result = acceptWorkspaceInviteUseCase.acceptWorkspaceInvite(
@@ -68,5 +69,13 @@ public class WorkspaceInviteController {
             throw new ServiceException(CommonErrorCode.BAD_REQUEST);
         }
         return memberGoogleSub.trim();
+    }
+
+    private String requireAuthenticatedMemberGoogleSub(Authentication authentication) {
+        if (authentication == null
+                || !(authentication.getPrincipal() instanceof AuthenticatedMember authenticatedMember)) {
+            throw new ServiceException(CommonErrorCode.UNAUTHORIZED);
+        }
+        return authenticatedMember.googleSub();
     }
 }
