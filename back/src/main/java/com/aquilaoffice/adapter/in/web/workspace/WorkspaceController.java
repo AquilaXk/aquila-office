@@ -308,9 +308,9 @@ public class WorkspaceController {
 
     @PostMapping
     public ResponseEntity<RsData<WorkspaceResponse>> createWorkspace(
-            @RequestHeader(name = CREATOR_GOOGLE_SUB_HEADER, required = false) String creatorGoogleSub,
+            Authentication authentication,
             @Valid @RequestBody CreateWorkspaceRequest request) {
-        String normalizedCreatorGoogleSub = requireCreatorGoogleSub(creatorGoogleSub);
+        String normalizedCreatorGoogleSub = requireAuthenticatedCreatorGoogleSub(authentication);
 
         try {
             // inbound adapter는 HTTP 입력을 application command로 바꾸고, 실제 생성 규칙은 use case에 위임한다.
