@@ -51,6 +51,18 @@ test("home dashboard exposes auth token session actions", () => {
   assert.match(source, /clearAuthTokens/);
 });
 
+test("workspace settings exposes slack integration controls", () => {
+  const source = readSource("app/workspaces/[workspaceId]/settings/page.tsx");
+
+  assert.match(source, /fetchSlackInstallUrl/);
+  assert.match(source, /fetchSlackIntegrations/);
+  assert.match(source, /createSlackIntegration/);
+  assert.match(source, /updateSlackIntegration/);
+  assert.match(source, /deleteSlackIntegration/);
+  assert.match(source, /aria-label="Slack 연동 설정"/);
+  assert.match(source, /Slack/);
+});
+
 function readSource(filePath: string): string {
   return readFileSync(path.join(appRoot, filePath), "utf8");
 }
