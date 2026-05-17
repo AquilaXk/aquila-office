@@ -329,9 +329,9 @@ public class WorkspaceController {
     @PostMapping("/{workspaceId}/invites")
     public ResponseEntity<RsData<WorkspaceInviteResponse>> createWorkspaceInvite(
             @PathVariable Long workspaceId,
-            @RequestHeader(name = CREATOR_GOOGLE_SUB_HEADER, required = false) String creatorGoogleSub,
+            Authentication authentication,
             @Valid @RequestBody CreateWorkspaceInviteRequest request) {
-        String normalizedCreatorGoogleSub = requireCreatorGoogleSub(creatorGoogleSub);
+        String normalizedCreatorGoogleSub = requireAuthenticatedCreatorGoogleSub(authentication);
 
         try {
             CreateWorkspaceInviteResult result = createWorkspaceInviteUseCase.createWorkspaceInvite(
