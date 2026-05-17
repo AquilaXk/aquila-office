@@ -25,8 +25,11 @@ import Link from "next/link";
 import { use, useCallback, useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
 import { ApiError } from "@/lib/api-client";
 import {
+  createWorkspaceAgent,
+  deleteWorkspaceAgent,
   fetchWorkspaceAgents,
   type WorkspaceAgent,
+  type WorkspaceAgentCategory,
 } from "@/lib/agents";
 import { resolveAccessToken } from "@/lib/auth";
 import {
@@ -82,6 +85,18 @@ type AgentLoadState =
   | { status: "idle" | "loading"; error: null }
   | { status: "ready"; error: null }
   | { status: "error"; error: string };
+
+type AgentCreateFormState = {
+  name: string;
+  category: WorkspaceAgentCategory;
+  workspacePath: string;
+};
+
+type AgentMutationState = {
+  status: "idle" | "submitting" | "success" | "error";
+  message: string | null;
+  agentId: number | null;
+};
 
 type TaskCreateFormState = {
   title: string;
@@ -151,6 +166,14 @@ const TASK_STATUS_OPTIONS: TaskStatus[] = [
   "CANCELED",
 ];
 
+const AGENT_CATEGORY_OPTIONS: WorkspaceAgentCategory[] = [
+  "ORCHESTRATOR",
+  "BACKEND",
+  "FRONTEND",
+  "QA",
+  "CUSTOM",
+];
+
 export default function WorkspaceDetailPage({
   params,
 }: {
@@ -181,6 +204,16 @@ export default function WorkspaceDetailPage({
   const [agentState, setAgentState] = useState<AgentLoadState>({
     status: "idle",
     error: null,
+  });
+  const [agentCreateForm, setAgentCreateForm] = useState<AgentCreateFormState>({
+    name: "",
+    category: "CUSTOM",
+    workspacePath: "",
+  });
+  const [agentMutation, setAgentMutation] = useState<AgentMutationState>({
+    status: "idle",
+    message: null,
+    agentId: null,
   });
   const [taskCreateForm, setTaskCreateForm] = useState<TaskCreateFormState>({
     title: "",
@@ -330,6 +363,83 @@ export default function WorkspaceDetailPage({
   const refreshTaskData = useCallback(async () => {
     await Promise.all([reloadTasks(), reloadDashboardSummary()]);
   }, [reloadDashboardSummary, reloadTasks]);
+
+  const refreshAgentData = useCallback(async () => {
+    await Promise.all([reloadAgents(), reloadDashboardSummary()]);
+  }, [reloadAgents, reloadDashboardSummary]);
+
+  const handleCreateAgent = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    const name = agentCreateForm.name.trim();
+    if (!name) {
+      setAgentMutation({
+        status: "error",
+        message: "Agent 이름을 입력해 주세요.",
+        agentId: null,
+      });
+      return;
+    }
+
+    if (!isValidWorkspaceId(numericWorkspaceId)) {
+      setAgentMutation({
+        status: "error",
+        message: "올바르지 않은 워크스페이스입니다.",
+        agentId: null,
+      });
+      return;
+    }
+
+    setAgentMutation({ status: "submitting", message: "Agent 등록 중", agentId: null });
+
+    try {
+      const created = await createWorkspaceAgent(resolveAccessToken(), numericWorkspaceId, {
+        name,
+        category: agentCreateForm.category,
+        workspacePath: agentCreateForm.workspacePath.trim() || undefined,
+      });
+      setAgentCreateForm((current) => ({
+        ...current,
+        name: "",
+        workspacePath: "",
+      }));
+      await refreshAgentData();
+      setAgentMutation({
+        status: "success",
+        message: `Agent #${created.agentId} 등록 완료`,
+        agentId: created.agentId,
+      });
+    } catch (error) {
+      setAgentMutation({
+        status: "error",
+        message: messageFromError(error, "Agent 등록을 처리하지 못했습니다."),
+        agentId: null,
+      });
+    }
+  };
+
+  const handleDeleteAgent = useCallback(
+    async (agent: WorkspaceAgent) => {
+      setAgentMutation({ status: "submitting", message: "Agent 삭제 중", agentId: agent.agentId });
+
+      try {
+        await deleteWorkspaceAgent(resolveAccessToken(), numericWorkspaceId, agent.agentId);
+        await refreshAgentData();
+        setAgentMutation({
+          status: "success",
+          message: `Agent #${agent.agentId} 삭제 완료`,
+          agentId: agent.agentId,
+        });
+      } catch (error) {
+        setAgentMutation({
+          status: "error",
+          message: messageFromError(error, "Agent 삭제를 처리하지 못했습니다."),
+          agentId: agent.agentId,
+        });
+      }
+    },
+    [numericWorkspaceId, refreshAgentData],
+  );
 
   const handleCreateTask = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -676,6 +786,8 @@ export default function WorkspaceDetailPage({
   const memberStats = memberTaskStats.status === "ready" ? memberTaskStats.stats : [];
   const readyAgentCount = workspaceAgents.filter((agent) => agent.status === "READY").length;
   const isDashboardLoading = dashboardSummary.status === "loading" || memberTaskStats.status === "loading";
+  const isAgentMutating = agentMutation.status === "submitting";
+  const canCreateAgent = agentCreateForm.name.trim().length > 0 && !isAgentMutating;
   const isTaskMutating = taskMutation.status === "submitting";
   const canCreateTask = taskCreateForm.title.trim().length > 0 && !isTaskMutating;
   const canCreateInvite = workspace?.myRole === "ADMIN";
@@ -1028,6 +1140,90 @@ export default function WorkspaceDetailPage({
                 </div>
               ) : null}
 
+              <form className="workspace-invite-form" aria-label="Agent 등록" onSubmit={handleCreateAgent}>
+                <label className="form-field">
+                  <span>
+                    <strong>Agent 이름</strong>
+                    <small>필수</small>
+                  </span>
+                  <input
+                    type="text"
+                    value={agentCreateForm.name}
+                    onChange={(event) =>
+                      setAgentCreateForm((current) => ({ ...current, name: event.target.value }))
+                    }
+                    placeholder="Agent 이름"
+                    disabled={isAgentMutating}
+                  />
+                </label>
+
+                <label className="form-field">
+                  <span>
+                    <strong>카테고리</strong>
+                    <small>{formatAgentCategory(agentCreateForm.category)}</small>
+                  </span>
+                  <select
+                    value={agentCreateForm.category}
+                    onChange={(event) =>
+                      setAgentCreateForm((current) => ({
+                        ...current,
+                        category: event.target.value as WorkspaceAgentCategory,
+                      }))
+                    }
+                    disabled={isAgentMutating}
+                  >
+                    {AGENT_CATEGORY_OPTIONS.map((category) => (
+                      <option value={category} key={category}>
+                        {formatAgentCategory(category)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="form-field">
+                  <span>
+                    <strong>Workspace path</strong>
+                    <small>선택</small>
+                  </span>
+                  <input
+                    type="text"
+                    value={agentCreateForm.workspacePath}
+                    onChange={(event) =>
+                      setAgentCreateForm((current) => ({ ...current, workspacePath: event.target.value }))
+                    }
+                    placeholder="/workspace"
+                    disabled={isAgentMutating}
+                  />
+                </label>
+
+                {agentMutation.status === "error" ? (
+                  <div className="form-notice form-notice-error" role="alert">
+                    <AlertCircle aria-hidden="true" />
+                    <span>{agentMutation.message}</span>
+                  </div>
+                ) : null}
+
+                {agentMutation.status === "success" ? (
+                  <div className="form-notice form-notice-success" role="status">
+                    <ShieldCheck aria-hidden="true" />
+                    <span>{agentMutation.message}</span>
+                  </div>
+                ) : null}
+
+                <button
+                  className="primary-action primary-action-active workspace-invite-submit"
+                  type="submit"
+                  disabled={!canCreateAgent}
+                >
+                  {isAgentMutating && agentMutation.agentId === null ? (
+                    <Loader2 className="spin" aria-hidden="true" />
+                  ) : (
+                    <Send aria-hidden="true" />
+                  )}
+                  <span>{isAgentMutating && agentMutation.agentId === null ? "등록 중" : "Agent 등록"}</span>
+                </button>
+              </form>
+
               {workspaceAgents.length > 0 ? (
                 <div className="workspace-member-list">
                   {workspaceAgents.map((agent) => (
@@ -1044,6 +1240,19 @@ export default function WorkspaceDetailPage({
                       <div className="workspace-member-meta">
                         <span className="role-badge">{formatAgentStatus(agent.status)}</span>
                         <span>{agent.skillFiles.length} skill</span>
+                        <button
+                          className="secondary-action workspace-task-refresh"
+                          type="button"
+                          onClick={() => void handleDeleteAgent(agent)}
+                          disabled={isAgentMutating}
+                        >
+                          {isAgentMutating && agentMutation.agentId === agent.agentId ? (
+                            <Loader2 className="spin" aria-hidden="true" />
+                          ) : (
+                            <X aria-hidden="true" />
+                          )}
+                          <span>삭제</span>
+                        </button>
                       </div>
                     </article>
                   ))}
