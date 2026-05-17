@@ -350,8 +350,8 @@ public class WorkspaceController {
     public ResponseEntity<RsData<Void>> revokeWorkspaceInvite(
             @PathVariable Long workspaceId,
             @PathVariable Long inviteId,
-            @RequestHeader(name = CREATOR_GOOGLE_SUB_HEADER, required = false) String creatorGoogleSub) {
-        String normalizedCreatorGoogleSub = requireCreatorGoogleSub(creatorGoogleSub);
+            Authentication authentication) {
+        String normalizedCreatorGoogleSub = requireAuthenticatedCreatorGoogleSub(authentication);
 
         try {
             revokeWorkspaceInviteUseCase.revokeWorkspaceInvite(
