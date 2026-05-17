@@ -236,6 +236,13 @@ class WorkspacePresenceControllerTest {
                 .isInstanceOf(NoSuchMethodException.class);
     }
 
+    @Test
+    void workspaceControllerDoesNotExposeLegacyCreatorHeaderConstant() {
+        assertThatThrownBy(
+                        () -> WorkspaceController.class.getDeclaredField("CREATOR_GOOGLE_SUB_HEADER"))
+                .isInstanceOf(NoSuchFieldException.class);
+    }
+
     private static UsernamePasswordAuthenticationToken authenticatedPrincipal(String googleSub) {
         AuthenticatedMember member =
                 new AuthenticatedMember(1L, googleSub, googleSub + "@example.com", MemberRole.USER);
