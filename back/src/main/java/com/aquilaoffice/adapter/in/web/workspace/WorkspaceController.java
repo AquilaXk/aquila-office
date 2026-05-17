@@ -254,9 +254,9 @@ public class WorkspaceController {
     public ResponseEntity<RsData<Void>> changeWorkspaceMemberRole(
             @PathVariable Long workspaceId,
             @PathVariable Long memberId,
-            @RequestHeader(name = CREATOR_GOOGLE_SUB_HEADER, required = false) String creatorGoogleSub,
+            Authentication authentication,
             @Valid @RequestBody ChangeWorkspaceMemberRoleRequest request) {
-        String normalizedCreatorGoogleSub = requireCreatorGoogleSub(creatorGoogleSub);
+        String normalizedCreatorGoogleSub = requireAuthenticatedCreatorGoogleSub(authentication);
 
         try {
             changeWorkspaceMemberRoleUseCase.changeWorkspaceMemberRole(
