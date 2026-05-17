@@ -1,6 +1,5 @@
 package com.aquilaoffice.adapter.in.web.slack;
 
-import com.aquilaoffice.adapter.in.web.workspace.WorkspaceController;
 import com.aquilaoffice.application.port.in.CreateSlackChannelMappingResult;
 import com.aquilaoffice.application.port.in.CreateSlackChannelMappingUseCase;
 import com.aquilaoffice.application.port.in.DeleteSlackIntegrationCommand;
@@ -25,7 +24,6 @@ import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -132,13 +130,6 @@ public class SlackIntegrationController {
             // 삭제 권한이 없거나 대상 연동을 찾을 수 없는 경우 같은 404로 숨긴다.
             throw new ServiceException(CommonErrorCode.NOT_FOUND);
         }
-    }
-
-    private String requireRequesterGoogleSub(String requesterGoogleSub) {
-        if (requesterGoogleSub == null || requesterGoogleSub.isBlank()) {
-            throw new ServiceException(CommonErrorCode.BAD_REQUEST);
-        }
-        return requesterGoogleSub.trim();
     }
 
     private String requireAuthenticatedRequesterGoogleSub(Authentication authentication) {
