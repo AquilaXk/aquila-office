@@ -104,6 +104,15 @@ test("workspace detail exposes agent list surface", () => {
   assert.match(source, /workspaceAgents/);
 });
 
+test("workspace detail exposes agent management controls", () => {
+  const source = readSource("app/workspaces/[workspaceId]/page.tsx");
+
+  assert.match(source, /createWorkspaceAgent/);
+  assert.match(source, /deleteWorkspaceAgent/);
+  assert.match(source, /aria-label="Agent 등록"/);
+  assert.match(source, /handleDeleteAgent/);
+});
+
 test("home dashboard exposes member profile settings", () => {
   const source = readSource("app/page.tsx");
 
