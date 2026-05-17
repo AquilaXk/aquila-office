@@ -1,6 +1,7 @@
 package com.aquilaoffice.adapter.in.web.workspace;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
@@ -144,6 +145,13 @@ class WorkspaceInviteControllerTest {
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.code").value("404"));
+    }
+
+    @Test
+    void workspaceInviteControllerDoesNotExposeLegacyMemberHeaderHelper() {
+        assertThatThrownBy(
+                        () -> WorkspaceInviteController.class.getDeclaredMethod("requireMemberGoogleSub", String.class))
+                .isInstanceOf(NoSuchMethodException.class);
     }
 
     private static UsernamePasswordAuthenticationToken authenticatedPrincipal(String googleSub) {
