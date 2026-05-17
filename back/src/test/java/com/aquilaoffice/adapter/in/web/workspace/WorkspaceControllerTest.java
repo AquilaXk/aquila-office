@@ -1,6 +1,7 @@
 package com.aquilaoffice.adapter.in.web.workspace;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
@@ -741,7 +742,7 @@ class WorkspaceControllerTest {
     @Test
     void leaveWorkspaceReturnsOkEnvelope() throws Exception {
         mockMvc.perform(delete("/api/v1/workspaces/101/members/me")
-                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, " google-2 "))
+                        .principal(authenticatedPrincipal("google-2")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.code").value("200"));
@@ -754,12 +755,11 @@ class WorkspaceControllerTest {
     }
 
     @Test
-    void leaveWorkspaceRejectsBlankCreatorHeader() throws Exception {
-        mockMvc.perform(delete("/api/v1/workspaces/101/members/me")
-                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, " "))
-                .andExpect(status().isBadRequest())
+    void leaveWorkspaceRejectsMissingPrincipal() throws Exception {
+        mockMvc.perform(delete("/api/v1/workspaces/101/members/me"))
+                .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.success").value(false))
-                .andExpect(jsonPath("$.code").value("400"));
+                .andExpect(jsonPath("$.code").value("401"));
 
         verifyNoInteractions(leaveWorkspaceUseCase);
     }
@@ -771,7 +771,7 @@ class WorkspaceControllerTest {
                 .leaveWorkspace(any(LeaveWorkspaceCommand.class));
 
         mockMvc.perform(delete("/api/v1/workspaces/101/members/me")
-                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, "google-1"))
+                        .principal(authenticatedPrincipal("google-1")))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.code").value("400"));
@@ -784,10 +784,16 @@ class WorkspaceControllerTest {
                 .leaveWorkspace(any(LeaveWorkspaceCommand.class));
 
         mockMvc.perform(delete("/api/v1/workspaces/999/members/me")
-                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, "google-2"))
+                        .principal(authenticatedPrincipal("google-2")))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.code").value("404"));
+    }
+
+    @Test
+    void workspaceControllerDoesNotExposeLegacyCreatorHeaderHelper() {
+        assertThatThrownBy(() -> WorkspaceController.class.getDeclaredMethod("requireCreatorGoogleSub", String.class))
+                .isInstanceOf(NoSuchMethodException.class);
     }
 
     @Test

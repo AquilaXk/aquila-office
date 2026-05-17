@@ -292,8 +292,8 @@ public class WorkspaceController {
     @DeleteMapping("/{workspaceId}/members/me")
     public ResponseEntity<RsData<Void>> leaveWorkspace(
             @PathVariable Long workspaceId,
-            @RequestHeader(name = CREATOR_GOOGLE_SUB_HEADER, required = false) String creatorGoogleSub) {
-        String normalizedCreatorGoogleSub = requireCreatorGoogleSub(creatorGoogleSub);
+            Authentication authentication) {
+        String normalizedCreatorGoogleSub = requireAuthenticatedCreatorGoogleSub(authentication);
 
         try {
             leaveWorkspaceUseCase.leaveWorkspace(new LeaveWorkspaceCommand(workspaceId, normalizedCreatorGoogleSub));
@@ -383,13 +383,6 @@ public class WorkspaceController {
             // 초대/워크스페이스가 없거나 관리자 권한이 없는 경우 같은 404로 응답한다.
             throw new ServiceException(CommonErrorCode.NOT_FOUND);
         }
-    }
-
-    private String requireCreatorGoogleSub(String creatorGoogleSub) {
-        if (creatorGoogleSub == null || creatorGoogleSub.isBlank()) {
-            throw new ServiceException(CommonErrorCode.BAD_REQUEST);
-        }
-        return creatorGoogleSub.trim();
     }
 
     private String requireAuthenticatedCreatorGoogleSub(Authentication authentication) {
