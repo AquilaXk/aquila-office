@@ -715,7 +715,7 @@ class WorkspaceControllerTest {
     @Test
     void removeWorkspaceMemberReturnsOkEnvelope() throws Exception {
         mockMvc.perform(delete("/api/v1/workspaces/101/members/2")
-                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, " google-1 "))
+                        .principal(authenticatedPrincipal("google-1")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.code").value("200"));
@@ -726,6 +726,16 @@ class WorkspaceControllerTest {
         assertThat(commandCaptor.getValue().workspaceId()).isEqualTo(101L);
         assertThat(commandCaptor.getValue().memberId()).isEqualTo(2L);
         assertThat(commandCaptor.getValue().requesterGoogleSub()).isEqualTo("google-1");
+    }
+
+    @Test
+    void removeWorkspaceMemberRejectsMissingPrincipal() throws Exception {
+        mockMvc.perform(delete("/api/v1/workspaces/101/members/2"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code").value("401"));
+
+        verifyNoInteractions(removeWorkspaceMemberUseCase);
     }
 
     @Test
