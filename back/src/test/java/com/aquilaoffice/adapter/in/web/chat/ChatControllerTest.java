@@ -1,6 +1,7 @@
 package com.aquilaoffice.adapter.in.web.chat;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
@@ -173,6 +174,13 @@ class ChatControllerTest {
                 .andExpect(jsonPath("$.code").value("400"));
 
         verifyNoInteractions(sendChatMessageUseCase);
+    }
+
+    @Test
+    void chatControllerDoesNotExposeLegacyRequesterHeaderHelper() {
+        assertThatThrownBy(
+                        () -> ChatController.class.getDeclaredMethod("requireRequesterGoogleSub", String.class))
+                .isInstanceOf(NoSuchMethodException.class);
     }
 
     private static SendChatMessageResult sendResult() {
