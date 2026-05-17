@@ -222,7 +222,7 @@ class WorkspaceControllerTest {
                         LocalDateTime.of(2026, 5, 22, 10, 0)));
 
         mockMvc.perform(post("/api/v1/workspaces/101/invites")
-                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, " google-1 ")
+                        .principal(authenticatedPrincipal("google-1"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"email\":\"invitee@example.com\"}"))
                 .andExpect(status().isCreated())
@@ -250,7 +250,7 @@ class WorkspaceControllerTest {
     @Test
     void createWorkspaceInviteRejectsBlankEmail() throws Exception {
         mockMvc.perform(post("/api/v1/workspaces/101/invites")
-                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, "google-1")
+                        .principal(authenticatedPrincipal("google-1"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"email\":\" \"}"))
                 .andExpect(status().isBadRequest())
@@ -261,12 +261,24 @@ class WorkspaceControllerTest {
     }
 
     @Test
+    void createWorkspaceInviteRejectsMissingPrincipal() throws Exception {
+        mockMvc.perform(post("/api/v1/workspaces/101/invites")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"invitee@example.com\"}"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code").value("401"));
+
+        verifyNoInteractions(createWorkspaceInviteUseCase);
+    }
+
+    @Test
     void createWorkspaceInviteReturnsNotFoundEnvelope() throws Exception {
         given(createWorkspaceInviteUseCase.createWorkspaceInvite(any(CreateWorkspaceInviteCommand.class)))
                 .willThrow(new IllegalArgumentException("workspace admin membership required"));
 
         mockMvc.perform(post("/api/v1/workspaces/101/invites")
-                        .header(WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, "google-1")
+                        .principal(authenticatedPrincipal("google-1"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"email\":\"invitee@example.com\"}"))
                 .andExpect(status().isNotFound())
