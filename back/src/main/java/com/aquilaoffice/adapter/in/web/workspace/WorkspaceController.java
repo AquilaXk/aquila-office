@@ -39,10 +39,12 @@ import com.aquilaoffice.domain.workspace.WorkspaceInviteStatus;
 import com.aquilaoffice.global.exception.CommonErrorCode;
 import com.aquilaoffice.global.exception.ServiceException;
 import com.aquilaoffice.global.response.RsData;
+import com.aquilaoffice.global.security.AuthenticatedMember;
 import jakarta.validation.Valid;
 import java.net.URI;
 import java.util.List;
 import java.util.Locale;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -116,8 +118,8 @@ public class WorkspaceController {
 
     @GetMapping
     public ResponseEntity<RsData<List<WorkspaceResponse>>> listWorkspaces(
-            @RequestHeader(name = CREATOR_GOOGLE_SUB_HEADER, required = false) String creatorGoogleSub) {
-        String normalizedCreatorGoogleSub = requireCreatorGoogleSub(creatorGoogleSub);
+            Authentication authentication) {
+        String normalizedCreatorGoogleSub = requireAuthenticatedCreatorGoogleSub(authentication);
 
         List<ListWorkspacesResult> results =
                 listWorkspacesUseCase.listWorkspaces(new ListWorkspacesQuery(normalizedCreatorGoogleSub));
@@ -388,6 +390,14 @@ public class WorkspaceController {
             throw new ServiceException(CommonErrorCode.BAD_REQUEST);
         }
         return creatorGoogleSub.trim();
+    }
+
+    private String requireAuthenticatedCreatorGoogleSub(Authentication authentication) {
+        if (authentication == null
+                || !(authentication.getPrincipal() instanceof AuthenticatedMember authenticatedMember)) {
+            throw new ServiceException(CommonErrorCode.UNAUTHORIZED);
+        }
+        return authenticatedMember.googleSub();
     }
 
     private WorkspaceInviteStatus parseInviteStatus(String status) {
