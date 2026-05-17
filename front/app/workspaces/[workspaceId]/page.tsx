@@ -44,9 +44,13 @@ import {
   type WorkspaceTask,
 } from "@/lib/tasks";
 import {
+  fetchWorkspaceDashboardSummary,
   fetchWorkspaceDetail,
+  fetchWorkspaceMemberTaskStats,
   fetchWorkspaceMembers,
+  type WorkspaceDashboardSummary,
   type WorkspaceDetail,
+  type WorkspaceMemberTaskStats,
   type WorkspaceMember,
   type WorkspaceMemberRole,
 } from "@/lib/workspaces";
@@ -66,6 +70,16 @@ type TaskLoadState =
   | { status: "loading"; error: null }
   | { status: "ready"; error: null }
   | { status: "error"; error: string };
+
+type DashboardSummaryState =
+  | { status: "idle" | "loading"; summary: null; error: null }
+  | { status: "ready"; summary: WorkspaceDashboardSummary; error: null }
+  | { status: "error"; summary: null; error: string };
+
+type MemberTaskStatsState =
+  | { status: "idle" | "loading"; stats: WorkspaceMemberTaskStats[]; error: null }
+  | { status: "ready"; stats: WorkspaceMemberTaskStats[]; error: null }
+  | { status: "error"; stats: WorkspaceMemberTaskStats[]; error: string };
 
 type ModalLoadState =
   | { status: "idle"; error: null }
@@ -113,6 +127,16 @@ export default function WorkspaceDetailPage({
     status: "loading",
     error: null,
   });
+  const [dashboardSummary, setDashboardSummary] = useState<DashboardSummaryState>({
+    status: "idle",
+    summary: null,
+    error: null,
+  });
+  const [memberTaskStats, setMemberTaskStats] = useState<MemberTaskStatsState>({
+    status: "idle",
+    stats: [],
+    error: null,
+  });
   const [selectedTask, setSelectedTask] = useState<WorkspaceTask | null>(null);
   const [taskReports, setTaskReports] = useState<AgentReport[]>([]);
   const [reportState, setReportState] = useState<ModalLoadState>({
@@ -153,6 +177,54 @@ export default function WorkspaceDetailPage({
       setTaskState({
         status: "error",
         error: messageFromError(error, "Task 목록을 불러오지 못했습니다."),
+      });
+    }
+  }, [numericWorkspaceId]);
+
+  const reloadDashboardSummary = useCallback(async () => {
+    if (!isValidWorkspaceId(numericWorkspaceId)) {
+      setDashboardSummary({
+        status: "error",
+        summary: null,
+        error: "올바르지 않은 워크스페이스입니다.",
+      });
+      setMemberTaskStats({
+        status: "error",
+        stats: [],
+        error: "올바르지 않은 워크스페이스입니다.",
+      });
+      return;
+    }
+
+    setDashboardSummary({ status: "loading", summary: null, error: null });
+    setMemberTaskStats({ status: "loading", stats: [], error: null });
+
+    const [summaryResult, statsResult] = await Promise.all([
+      fetchWorkspaceDashboardSummary(resolveAccessToken(), numericWorkspaceId)
+        .then((summary) => ({ ok: true as const, summary }))
+        .catch((error) => ({ ok: false as const, error })),
+      fetchWorkspaceMemberTaskStats(resolveAccessToken(), numericWorkspaceId)
+        .then((stats) => ({ ok: true as const, stats }))
+        .catch((error) => ({ ok: false as const, error })),
+    ]);
+
+    if (summaryResult.ok) {
+      setDashboardSummary({ status: "ready", summary: summaryResult.summary, error: null });
+    } else {
+      setDashboardSummary({
+        status: "error",
+        summary: null,
+        error: messageFromError(summaryResult.error, "Dashboard 요약을 불러오지 못했습니다."),
+      });
+    }
+
+    if (statsResult.ok) {
+      setMemberTaskStats({ status: "ready", stats: statsResult.stats, error: null });
+    } else {
+      setMemberTaskStats({
+        status: "error",
+        stats: [],
+        error: messageFromError(statsResult.error, "멤버 작업 통계를 불러오지 못했습니다."),
       });
     }
   }, [numericWorkspaceId]);
@@ -223,6 +295,16 @@ export default function WorkspaceDetailPage({
         workspace: null,
         error: "올바르지 않은 워크스페이스입니다.",
       });
+      setDashboardSummary({
+        status: "error",
+        summary: null,
+        error: "올바르지 않은 워크스페이스입니다.",
+      });
+      setMemberTaskStats({
+        status: "error",
+        stats: [],
+        error: "올바르지 않은 워크스페이스입니다.",
+      });
       return;
     }
 
@@ -233,10 +315,11 @@ export default function WorkspaceDetailPage({
       ]);
       setState({ status: "ready", workspace, members, error: null });
       void reloadTasks();
+      void reloadDashboardSummary();
     } catch (error) {
       setState(toFailureState(error, "워크스페이스 정보를 확인하지 못했습니다."));
     }
-  }, [numericWorkspaceId, reloadTasks]);
+  }, [numericWorkspaceId, reloadDashboardSummary, reloadTasks]);
 
   useEffect(() => {
     let ignore = false;
@@ -254,16 +337,32 @@ export default function WorkspaceDetailPage({
             status: "error",
             error: "올바르지 않은 워크스페이스입니다.",
           });
+          setDashboardSummary({
+            status: "error",
+            summary: null,
+            error: "올바르지 않은 워크스페이스입니다.",
+          });
+          setMemberTaskStats({
+            status: "error",
+            stats: [],
+            error: "올바르지 않은 워크스페이스입니다.",
+          });
         }
         return;
       }
 
       try {
-        const [workspace, members, initialTasksResult] = await Promise.all([
+        const [workspace, members, initialTasksResult, initialSummaryResult, initialMemberTaskStatsResult] = await Promise.all([
           fetchWorkspaceDetail(resolveAccessToken(), numericWorkspaceId),
           fetchWorkspaceMembers(resolveAccessToken(), numericWorkspaceId),
           fetchWorkspaceTasks(resolveAccessToken(), numericWorkspaceId)
             .then((nextTasks) => ({ ok: true as const, nextTasks }))
+            .catch((error) => ({ ok: false as const, error })),
+          fetchWorkspaceDashboardSummary(resolveAccessToken(), numericWorkspaceId)
+            .then((summary) => ({ ok: true as const, summary }))
+            .catch((error) => ({ ok: false as const, error })),
+          fetchWorkspaceMemberTaskStats(resolveAccessToken(), numericWorkspaceId)
+            .then((stats) => ({ ok: true as const, stats }))
             .catch((error) => ({ ok: false as const, error })),
         ]);
         if (!ignore) {
@@ -276,6 +375,28 @@ export default function WorkspaceDetailPage({
             setTaskState({
               status: "error",
               error: messageFromError(initialTasksResult.error, "Task 목록을 불러오지 못했습니다."),
+            });
+          }
+          if (initialSummaryResult.ok) {
+            setDashboardSummary({ status: "ready", summary: initialSummaryResult.summary, error: null });
+          } else {
+            setDashboardSummary({
+              status: "error",
+              summary: null,
+              error: messageFromError(initialSummaryResult.error, "Dashboard 요약을 불러오지 못했습니다."),
+            });
+          }
+          if (initialMemberTaskStatsResult.ok) {
+            setMemberTaskStats({
+              status: "ready",
+              stats: initialMemberTaskStatsResult.stats,
+              error: null,
+            });
+          } else {
+            setMemberTaskStats({
+              status: "error",
+              stats: [],
+              error: messageFromError(initialMemberTaskStatsResult.error, "멤버 작업 통계를 불러오지 못했습니다."),
             });
           }
         }
@@ -304,6 +425,11 @@ export default function WorkspaceDetailPage({
       })),
     [tasks],
   );
+  const summary = dashboardSummary.status === "ready" ? dashboardSummary.summary : null;
+  const recentReports = summary?.recentReports ?? [];
+  const recentLogs = summary?.recentLogs ?? [];
+  const memberStats = memberTaskStats.status === "ready" ? memberTaskStats.stats : [];
+  const isDashboardLoading = dashboardSummary.status === "loading" || memberTaskStats.status === "loading";
   const canCreateInvite = workspace?.myRole === "ADMIN";
   const isCreatingInvite = inviteState.status === "submitting";
   const canSubmitInvite = canCreateInvite && inviteEmail.trim().length > 0 && !isCreatingInvite;
@@ -449,6 +575,172 @@ export default function WorkspaceDetailPage({
               <strong>{workspace.name}</strong>
               <p>{workspace.description ?? "설명 없음"}</p>
             </div>
+
+            <section className="workspace-task-section" aria-label="워크스페이스 대시보드 요약">
+              <div className="workspace-section-title">
+                <div>
+                  <span className="workspace-detail-label">Dashboard</span>
+                  <h2>운영 요약</h2>
+                </div>
+                <button
+                  className="secondary-action workspace-task-refresh"
+                  type="button"
+                  onClick={() => void reloadDashboardSummary()}
+                  disabled={isDashboardLoading}
+                >
+                  {isDashboardLoading ? (
+                    <Loader2 className="spin" aria-hidden="true" />
+                  ) : (
+                    <RefreshCw aria-hidden="true" />
+                  )}
+                  <span>새로고침</span>
+                </button>
+              </div>
+
+              {dashboardSummary.status === "error" ? (
+                <div className="workspace-task-notice" role="alert">
+                  <AlertCircle aria-hidden="true" />
+                  <span>{dashboardSummary.error}</span>
+                </div>
+              ) : null}
+
+              {memberTaskStats.status === "error" ? (
+                <div className="workspace-task-notice" role="alert">
+                  <AlertCircle aria-hidden="true" />
+                  <span>{memberTaskStats.error}</span>
+                </div>
+              ) : null}
+
+              {isDashboardLoading ? (
+                <div className="workspace-task-notice">
+                  <Loader2 className="spin" aria-hidden="true" />
+                  <span>Dashboard 요약을 불러오고 있습니다.</span>
+                </div>
+              ) : null}
+
+              {summary ? (
+                <dl className="workspace-detail-meta">
+                  <DetailMetaItem
+                    icon={<Users aria-hidden="true" />}
+                    label="Agent"
+                    value={`${summary.agentCount}개 · 실행 ${summary.runningAgentCount}개`}
+                  />
+                  <DetailMetaItem
+                    icon={<ShieldCheck aria-hidden="true" />}
+                    label="Agent 상태"
+                    value={`대기 ${summary.idleAgentCount}개 · 오류 ${summary.errorAgentCount}개`}
+                  />
+                  <DetailMetaItem
+                    icon={<ListChecks aria-hidden="true" />}
+                    label="Task"
+                    value={`${summary.taskCount}개 · 진행 ${summary.runningTaskCount}개`}
+                  />
+                  <DetailMetaItem
+                    icon={<AlertCircle aria-hidden="true" />}
+                    label="Task 결과"
+                    value={`완료 ${summary.completedTaskCount}개 · 실패 ${summary.failedTaskCount}개`}
+                  />
+                </dl>
+              ) : !isDashboardLoading ? (
+                <div className="workspace-member-empty">
+                  <ListChecks aria-hidden="true" />
+                  <strong>요약 데이터가 없습니다</strong>
+                  <p>워크스페이스 작업이 집계되면 운영 요약이 표시됩니다.</p>
+                </div>
+              ) : null}
+
+              <div className="workspace-section-title">
+                <div>
+                  <span className="workspace-detail-label">Recent</span>
+                  <h2>최근 report와 log</h2>
+                </div>
+                <span className="workspace-count-badge">{recentReports.length + recentLogs.length}개</span>
+              </div>
+
+              {recentReports.length > 0 || recentLogs.length > 0 ? (
+                <div className="workspace-member-list">
+                  {recentReports.slice(0, 3).map((report) => (
+                    <article className="workspace-member-row" key={`report-${report.executionId}-${report.createdAt}`}>
+                      <div className="workspace-member-avatar">
+                        <FileText aria-hidden="true" />
+                      </div>
+                      <div className="workspace-member-main">
+                        <strong>{report.summary ?? report.failureReason ?? "요약 없음"}</strong>
+                        <p>
+                          Task #{report.taskId} · Agent #{report.agentId} · {formatDateTime(report.createdAt)}
+                        </p>
+                      </div>
+                      <div className="workspace-member-meta">
+                        <span className="role-badge">{report.status}</span>
+                        <span>Report</span>
+                      </div>
+                    </article>
+                  ))}
+                  {recentLogs.slice(0, 3).map((log) => (
+                    <article className="workspace-member-row" key={`log-${log.executionId}-${log.createdAt}-${log.message}`}>
+                      <div className="workspace-member-avatar">
+                        <AlertCircle aria-hidden="true" />
+                      </div>
+                      <div className="workspace-member-main">
+                        <strong>{log.message}</strong>
+                        <p>
+                          Task #{log.taskId} · Agent #{log.agentId} · {formatDateTime(log.createdAt)}
+                        </p>
+                      </div>
+                      <div className="workspace-member-meta">
+                        <span className="role-badge">{log.level}</span>
+                        <span>Log</span>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              ) : (
+                <div className="workspace-member-empty">
+                  <FileText aria-hidden="true" />
+                  <strong>최근 기록이 없습니다</strong>
+                  <p>Agent 실행 report나 log가 생성되면 이곳에 표시됩니다.</p>
+                </div>
+              )}
+
+              <div className="workspace-section-title">
+                <div>
+                  <span className="workspace-detail-label">Score</span>
+                  <h2>멤버 작업 점수</h2>
+                </div>
+                <span className="workspace-count-badge">{memberStats.length}명</span>
+              </div>
+
+              {memberStats.length > 0 ? (
+                <div className="workspace-member-list">
+                  {memberStats.map((stat) => (
+                    <article className="workspace-member-row" key={stat.memberId}>
+                      <div className="workspace-member-avatar">
+                        <UserRound aria-hidden="true" />
+                      </div>
+                      <div className="workspace-member-main">
+                        <strong>{stat.memberName}</strong>
+                        <p>
+                          Task {stat.taskCount} · 완료 {stat.completedTaskCount} · 진행 {stat.runningTaskCount} · 실패{" "}
+                          {stat.failedTaskCount}
+                        </p>
+                      </div>
+                      <div className="workspace-member-meta">
+                        <span className="role-badge">#{stat.rank}</span>
+                        <span>
+                          총점 {formatScore(stat.totalScore)} · health {formatScore(stat.healthScore)}
+                        </span>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              ) : (
+                <div className="workspace-member-empty">
+                  <Users aria-hidden="true" />
+                  <strong>멤버 작업 통계가 없습니다</strong>
+                  <p>멤버별 Task 기록이 집계되면 순위와 점수가 표시됩니다.</p>
+                </div>
+              )}
+            </section>
 
             <section className="workspace-task-section" aria-label="워크스페이스 Task">
               <div className="workspace-section-title">
@@ -1104,6 +1396,13 @@ function formatTaskPriority(priority?: TaskPriority): string {
     return "보통";
   }
   return "낮음";
+}
+
+function formatScore(value: number): string {
+  if (!Number.isFinite(value)) {
+    return "-";
+  }
+  return Number.isInteger(value) ? String(value) : value.toFixed(1);
 }
 
 function artifactPath(artifact: TaskArtifact): string | null {
