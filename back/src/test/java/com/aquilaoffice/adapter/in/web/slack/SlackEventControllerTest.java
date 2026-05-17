@@ -1,6 +1,7 @@
 package com.aquilaoffice.adapter.in.web.slack;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
@@ -200,6 +201,14 @@ class SlackEventControllerTest {
                 .andExpect(jsonPath("$.code").value("401"));
 
         verifyNoInteractions(receiveSlackEventUseCase);
+    }
+
+    @Test
+    void slackEventControllerDoesNotExposeLegacyRequesterHeaderHelper() {
+        assertThatThrownBy(
+                        () -> SlackEventController.class.getDeclaredMethod(
+                                "requireRequesterGoogleSub", String.class))
+                .isInstanceOf(NoSuchMethodException.class);
     }
 
     private static UsernamePasswordAuthenticationToken authenticatedPrincipal(String googleSub) {
