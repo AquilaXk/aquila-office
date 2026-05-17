@@ -95,6 +95,15 @@ test("workspace detail exposes task mutation controls", () => {
   assert.match(source, /createPr/);
 });
 
+test("workspace detail exposes agent list surface", () => {
+  const source = readSource("app/workspaces/[workspaceId]/page.tsx");
+
+  assert.match(source, /fetchWorkspaceAgents/);
+  assert.match(source, /type WorkspaceAgent/);
+  assert.match(source, /aria-label="워크스페이스 Agent"/);
+  assert.match(source, /workspaceAgents/);
+});
+
 test("home dashboard exposes member profile settings", () => {
   const source = readSource("app/page.tsx");
 
