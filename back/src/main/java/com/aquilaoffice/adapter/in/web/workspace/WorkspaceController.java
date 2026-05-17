@@ -164,8 +164,8 @@ public class WorkspaceController {
     @GetMapping("/{workspaceId}/members")
     public ResponseEntity<RsData<List<WorkspaceMemberResponse>>> listWorkspaceMembers(
             @PathVariable Long workspaceId,
-            @RequestHeader(name = CREATOR_GOOGLE_SUB_HEADER, required = false) String creatorGoogleSub) {
-        String normalizedCreatorGoogleSub = requireCreatorGoogleSub(creatorGoogleSub);
+            Authentication authentication) {
+        String normalizedCreatorGoogleSub = requireAuthenticatedCreatorGoogleSub(authentication);
 
         try {
             List<ListWorkspaceMembersResult> results = listWorkspaceMembersUseCase.listWorkspaceMembers(
@@ -182,8 +182,8 @@ public class WorkspaceController {
     @GetMapping("/{workspaceId}/members/task-stats")
     public ResponseEntity<RsData<List<WorkspaceMemberTaskStatsResponse>>> listWorkspaceMemberTaskStats(
             @PathVariable Long workspaceId,
-            @RequestHeader(name = CREATOR_GOOGLE_SUB_HEADER, required = false) String creatorGoogleSub) {
-        String normalizedCreatorGoogleSub = requireCreatorGoogleSub(creatorGoogleSub);
+            Authentication authentication) {
+        String normalizedCreatorGoogleSub = requireAuthenticatedCreatorGoogleSub(authentication);
 
         try {
             List<ListWorkspaceMemberTaskStatsResult> results =
