@@ -367,9 +367,9 @@ public class WorkspaceController {
     public ResponseEntity<RsData<WorkspaceInviteManagementResponse>> extendWorkspaceInvite(
             @PathVariable Long workspaceId,
             @PathVariable Long inviteId,
-            @RequestHeader(name = CREATOR_GOOGLE_SUB_HEADER, required = false) String creatorGoogleSub,
+            Authentication authentication,
             @Valid @RequestBody(required = false) ExtendWorkspaceInviteRequest request) {
-        String normalizedCreatorGoogleSub = requireCreatorGoogleSub(creatorGoogleSub);
+        String normalizedCreatorGoogleSub = requireAuthenticatedCreatorGoogleSub(authentication);
         ExtendWorkspaceInviteRequest normalizedRequest =
                 request == null ? new ExtendWorkspaceInviteRequest(null) : request;
 
