@@ -24,6 +24,7 @@ import {
 import Link from "next/link";
 import { use, useCallback, useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
 import { ApiError } from "@/lib/api-client";
+import { resolveAccessToken } from "@/lib/auth";
 import {
   fetchArtifactFile,
   fetchArtifactTree,
@@ -49,9 +50,6 @@ import {
   type WorkspaceMember,
   type WorkspaceMemberRole,
 } from "@/lib/workspaces";
-
-const DEV_ACCESS_TOKEN =
-  process.env.NEXT_PUBLIC_DEV_ACCESS_TOKEN ?? "";
 
 type WorkspaceDetailState =
   | { status: "loading"; workspace: null; error: null }
@@ -147,7 +145,7 @@ export default function WorkspaceDetailPage({
     setTaskState({ status: "loading", error: null });
 
     try {
-      const nextTasks = await fetchWorkspaceTasks(DEV_ACCESS_TOKEN, numericWorkspaceId);
+      const nextTasks = await fetchWorkspaceTasks(resolveAccessToken(), numericWorkspaceId);
       setTasks(nextTasks);
       setTaskState({ status: "ready", error: null });
     } catch (error) {
@@ -166,7 +164,7 @@ export default function WorkspaceDetailPage({
       setReportState({ status: "loading", error: null });
 
       try {
-        const reports = await fetchTaskReports(DEV_ACCESS_TOKEN, numericWorkspaceId, task.taskId);
+        const reports = await fetchTaskReports(resolveAccessToken(), numericWorkspaceId, task.taskId);
         setTaskReports(reports);
         setReportState({ status: "ready", error: null });
       } catch (error) {
@@ -185,7 +183,7 @@ export default function WorkspaceDetailPage({
     setArtifactTreeState({ status: "loading", error: null });
 
     try {
-      const tree = await fetchArtifactTree(DEV_ACCESS_TOKEN, numericWorkspaceId);
+      const tree = await fetchArtifactTree(resolveAccessToken(), numericWorkspaceId);
       setArtifactTree(tree);
       setArtifactTreeState({ status: "ready", error: null });
     } catch (error) {
@@ -203,7 +201,7 @@ export default function WorkspaceDetailPage({
       setArtifactFileState({ status: "loading", error: null });
 
       try {
-        const file = await fetchArtifactFile(DEV_ACCESS_TOKEN, numericWorkspaceId, path);
+        const file = await fetchArtifactFile(resolveAccessToken(), numericWorkspaceId, path);
         setArtifactFile(file);
         setArtifactFileState({ status: "ready", error: null });
       } catch (error) {
@@ -230,8 +228,8 @@ export default function WorkspaceDetailPage({
 
     try {
       const [workspace, members] = await Promise.all([
-        fetchWorkspaceDetail(DEV_ACCESS_TOKEN, numericWorkspaceId),
-        fetchWorkspaceMembers(DEV_ACCESS_TOKEN, numericWorkspaceId),
+        fetchWorkspaceDetail(resolveAccessToken(), numericWorkspaceId),
+        fetchWorkspaceMembers(resolveAccessToken(), numericWorkspaceId),
       ]);
       setState({ status: "ready", workspace, members, error: null });
       void reloadTasks();
@@ -262,9 +260,9 @@ export default function WorkspaceDetailPage({
 
       try {
         const [workspace, members, initialTasksResult] = await Promise.all([
-          fetchWorkspaceDetail(DEV_ACCESS_TOKEN, numericWorkspaceId),
-          fetchWorkspaceMembers(DEV_ACCESS_TOKEN, numericWorkspaceId),
-          fetchWorkspaceTasks(DEV_ACCESS_TOKEN, numericWorkspaceId)
+          fetchWorkspaceDetail(resolveAccessToken(), numericWorkspaceId),
+          fetchWorkspaceMembers(resolveAccessToken(), numericWorkspaceId),
+          fetchWorkspaceTasks(resolveAccessToken(), numericWorkspaceId)
             .then((nextTasks) => ({ ok: true as const, nextTasks }))
             .catch((error) => ({ ok: false as const, error })),
         ]);
@@ -347,7 +345,7 @@ export default function WorkspaceDetailPage({
 
     try {
       const invite = await createWorkspaceInvite(
-        DEV_ACCESS_TOKEN,
+        resolveAccessToken(),
         numericWorkspaceId,
         { email },
       );
@@ -664,7 +662,7 @@ export default function WorkspaceDetailPage({
       <aside className="workspace-detail-side" aria-label="조회 정보">
         <div>
           <UserRound aria-hidden="true" />
-          <strong>{DEV_ACCESS_TOKEN ? "설정됨" : "미설정"}</strong>
+          <strong>{resolveAccessToken() ? "설정됨" : "미설정"}</strong>
           <span>개발 access token</span>
         </div>
         <div>

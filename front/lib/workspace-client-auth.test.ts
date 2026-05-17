@@ -32,13 +32,23 @@ test("workspace API clients use accessToken option without temporary member head
   }
 });
 
-test("workspace pages use the development access token env name", () => {
+test("workspace pages resolve access token through auth session helper", () => {
   for (const filePath of pageFiles) {
     const source = readSource(filePath);
 
-    assert.doesNotMatch(source, /TEMP_MEMBER_GOOGLE_SUB|NEXT_PUBLIC_DEV_MEMBER_GOOGLE_SUB/);
-    assert.match(source, /DEV_ACCESS_TOKEN|NEXT_PUBLIC_DEV_ACCESS_TOKEN/);
+    assert.doesNotMatch(source, /DEV_ACCESS_TOKEN|NEXT_PUBLIC_DEV_ACCESS_TOKEN/);
+    assert.match(source, /resolveAccessToken/);
   }
+});
+
+test("home dashboard exposes auth token session actions", () => {
+  const source = readSource("app/page.tsx");
+
+  assert.match(source, /loginWithGoogle/);
+  assert.match(source, /refreshAuthToken/);
+  assert.match(source, /logoutAuth/);
+  assert.match(source, /saveAuthTokens/);
+  assert.match(source, /clearAuthTokens/);
 });
 
 function readSource(filePath: string): string {

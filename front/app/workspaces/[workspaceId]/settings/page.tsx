@@ -31,6 +31,7 @@ import {
   type ReactNode,
 } from "react";
 import { ApiError } from "@/lib/api-client";
+import { resolveAccessToken } from "@/lib/auth";
 import {
   createWorkspaceGatewayBinding,
   fetchWorkspaceGatewayStatus,
@@ -68,8 +69,6 @@ import {
   type WorkspaceMemberRole,
 } from "@/lib/workspaces";
 
-const DEV_ACCESS_TOKEN =
-  process.env.NEXT_PUBLIC_DEV_ACCESS_TOKEN ?? "";
 const NAME_MAX_LENGTH = 100;
 const DESCRIPTION_MAX_LENGTH = 500;
 
@@ -216,8 +215,8 @@ export default function WorkspaceSettingsPage({
 
     try {
       const [workspace, members] = await Promise.all([
-        fetchWorkspaceDetail(DEV_ACCESS_TOKEN, numericWorkspaceId),
-        fetchWorkspaceMembers(DEV_ACCESS_TOKEN, numericWorkspaceId),
+        fetchWorkspaceDetail(resolveAccessToken(), numericWorkspaceId),
+        fetchWorkspaceMembers(resolveAccessToken(), numericWorkspaceId),
       ]);
       return { status: "ready", workspace, members, error: null } satisfies WorkspaceSettingsState;
     } catch (error) {
@@ -229,7 +228,7 @@ export default function WorkspaceSettingsPage({
     async (status: WorkspaceInviteManagementStatus | undefined = "PENDING") => {
       try {
         const invites = await fetchWorkspaceInvites(
-          DEV_ACCESS_TOKEN,
+          resolveAccessToken(),
           numericWorkspaceId,
           status,
         );
@@ -248,7 +247,7 @@ export default function WorkspaceSettingsPage({
   const fetchGithubCredentialList = useCallback(async () => {
     try {
       const credentials = await fetchGithubCredentials(
-        DEV_ACCESS_TOKEN,
+        resolveAccessToken(),
         numericWorkspaceId,
       );
       return { status: "ready", credentials, error: null } satisfies GithubCredentialState;
@@ -264,7 +263,7 @@ export default function WorkspaceSettingsPage({
   const fetchGatewayStatus = useCallback(async () => {
     try {
       const gateway = await fetchWorkspaceGatewayStatus(
-        DEV_ACCESS_TOKEN,
+        resolveAccessToken(),
         numericWorkspaceId,
       );
       return { status: "ready", gateway, error: null } satisfies GatewayStatusState;
@@ -480,7 +479,7 @@ export default function WorkspaceSettingsPage({
     setGatewayConnectionTestState({ status: "submitting", result: null, message: null });
     try {
       const result = await testWorkspaceGatewayConnection(
-        DEV_ACCESS_TOKEN,
+        resolveAccessToken(),
         numericWorkspaceId,
         {
           gatewayUrl: normalizedGatewayForm.gatewayUrl,
@@ -521,7 +520,7 @@ export default function WorkspaceSettingsPage({
 
     setGatewayBindingState({ status: "submitting", message: null });
     try {
-      await createWorkspaceGatewayBinding(DEV_ACCESS_TOKEN, numericWorkspaceId, {
+      await createWorkspaceGatewayBinding(resolveAccessToken(), numericWorkspaceId, {
         gatewayUrl: normalizedGatewayForm.gatewayUrl,
         token: normalizedGatewayForm.token,
         validateConnection: normalizedGatewayForm.validateConnection,
@@ -550,7 +549,7 @@ export default function WorkspaceSettingsPage({
     setInviteActionId(invite.inviteId);
     setInviteActionState({ status: "submitting", message: null });
     try {
-      await revokeWorkspaceInvite(DEV_ACCESS_TOKEN, numericWorkspaceId, invite.inviteId);
+      await revokeWorkspaceInvite(resolveAccessToken(), numericWorkspaceId, invite.inviteId);
       setInviteLogState((previous) =>
         previous.status === "ready"
           ? {
@@ -584,7 +583,7 @@ export default function WorkspaceSettingsPage({
 
     setUpdateState({ status: "submitting", message: null });
     try {
-      const updated = await updateWorkspace(DEV_ACCESS_TOKEN, numericWorkspaceId, {
+      const updated = await updateWorkspace(resolveAccessToken(), numericWorkspaceId, {
         name: trimmedName,
         description: trimmedDescription || undefined,
       });
@@ -613,7 +612,7 @@ export default function WorkspaceSettingsPage({
 
     setDeleteState({ status: "submitting", message: null });
     try {
-      await deleteWorkspace(DEV_ACCESS_TOKEN, numericWorkspaceId);
+      await deleteWorkspace(resolveAccessToken(), numericWorkspaceId);
       router.replace("/");
     } catch (error) {
       setDeleteState({
@@ -635,7 +634,7 @@ export default function WorkspaceSettingsPage({
     setMemberState({ status: "submitting", message: null });
     try {
       await changeWorkspaceMemberRole(
-        DEV_ACCESS_TOKEN,
+        resolveAccessToken(),
         numericWorkspaceId,
         member.memberId,
         nextRole,
@@ -671,7 +670,7 @@ export default function WorkspaceSettingsPage({
     setMemberAction({ type: "remove", memberId: member.memberId });
     setMemberState({ status: "submitting", message: null });
     try {
-      await removeWorkspaceMember(DEV_ACCESS_TOKEN, numericWorkspaceId, member.memberId);
+      await removeWorkspaceMember(resolveAccessToken(), numericWorkspaceId, member.memberId);
       setState((previous) =>
         previous.status === "ready"
           ? {
@@ -711,7 +710,7 @@ export default function WorkspaceSettingsPage({
     setGithubCreateState({ status: "submitting", message: null });
     try {
       const createdCredential = await createGithubCredential(
-        DEV_ACCESS_TOKEN,
+        resolveAccessToken(),
         numericWorkspaceId,
         {
           displayName: trimmedGithubDisplayName,
@@ -785,7 +784,7 @@ export default function WorkspaceSettingsPage({
     setGithubActionState({ status: "submitting", message: null });
     try {
       const updatedCredential = await updateGithubCredential(
-        DEV_ACCESS_TOKEN,
+        resolveAccessToken(),
         numericWorkspaceId,
         credential.credentialId,
         {
@@ -831,7 +830,7 @@ export default function WorkspaceSettingsPage({
     setGithubActionState({ status: "submitting", message: null });
     try {
       await deleteGithubCredential(
-        DEV_ACCESS_TOKEN,
+        resolveAccessToken(),
         numericWorkspaceId,
         credential.credentialId,
       );
@@ -1732,7 +1731,7 @@ export default function WorkspaceSettingsPage({
       <aside className="workspace-settings-side" aria-label="설정 조회 정보">
         <div>
           <UserRound aria-hidden="true" />
-          <strong>{DEV_ACCESS_TOKEN ? "설정됨" : "미설정"}</strong>
+          <strong>{resolveAccessToken() ? "설정됨" : "미설정"}</strong>
           <span>개발 access token</span>
         </div>
         <div>
