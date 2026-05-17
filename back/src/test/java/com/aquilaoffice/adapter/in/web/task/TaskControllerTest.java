@@ -1,6 +1,7 @@
 package com.aquilaoffice.adapter.in.web.task;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
@@ -234,6 +235,13 @@ class TaskControllerTest {
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.code").value("404"));
+    }
+
+    @Test
+    void taskControllerDoesNotExposeLegacyRequesterHeaderHelper() {
+        assertThatThrownBy(
+                        () -> TaskController.class.getDeclaredMethod("requireRequesterGoogleSub", String.class))
+                .isInstanceOf(NoSuchMethodException.class);
     }
 
     private static UsernamePasswordAuthenticationToken authenticatedPrincipal(String googleSub) {
