@@ -13,6 +13,7 @@ const protectedClientFiles = [
   "lib/agents.ts",
   "lib/github.ts",
   "lib/artifacts.ts",
+  "lib/members.ts",
 ] as const;
 
 const pageFiles = [
@@ -61,6 +62,15 @@ test("workspace settings exposes slack integration controls", () => {
   assert.match(source, /deleteSlackIntegration/);
   assert.match(source, /aria-label="Slack 연동 설정"/);
   assert.match(source, /Slack/);
+});
+
+test("home dashboard exposes member profile settings", () => {
+  const source = readSource("app/page.tsx");
+
+  assert.match(source, /fetchMemberProfile/);
+  assert.match(source, /updateMemberProfile/);
+  assert.match(source, /aria-label="회원 프로필 설정"/);
+  assert.match(source, /avatarColors/);
 });
 
 function readSource(filePath: string): string {
