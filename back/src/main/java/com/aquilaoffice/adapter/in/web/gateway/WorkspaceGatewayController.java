@@ -1,6 +1,5 @@
 package com.aquilaoffice.adapter.in.web.gateway;
 
-import com.aquilaoffice.adapter.in.web.workspace.WorkspaceController;
 import com.aquilaoffice.application.port.in.CreateWorkspaceGatewayBindingResult;
 import com.aquilaoffice.application.port.in.CreateWorkspaceGatewayBindingUseCase;
 import com.aquilaoffice.application.port.in.GetWorkspaceGatewayStatusQuery;
@@ -11,14 +10,15 @@ import com.aquilaoffice.application.port.in.TestWorkspaceGatewayConnectionUseCas
 import com.aquilaoffice.global.exception.CommonErrorCode;
 import com.aquilaoffice.global.exception.ServiceException;
 import com.aquilaoffice.global.response.RsData;
+import com.aquilaoffice.global.security.AuthenticatedMember;
 import jakarta.validation.Valid;
 import java.net.URI;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -45,9 +45,8 @@ public class WorkspaceGatewayController {
     @GetMapping
     public ResponseEntity<RsData<WorkspaceGatewayStatusResponse>> getWorkspaceGatewayStatus(
             @PathVariable Long workspaceId,
-            @RequestHeader(name = WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, required = false)
-                    String requesterGoogleSub) {
-        String normalizedRequesterGoogleSub = requireRequesterGoogleSub(requesterGoogleSub);
+            Authentication authentication) {
+        String normalizedRequesterGoogleSub = requireAuthenticatedRequesterGoogleSub(authentication);
 
         try {
             GetWorkspaceGatewayStatusResult result = getWorkspaceGatewayStatusUseCase.getWorkspaceGatewayStatus(
@@ -62,10 +61,9 @@ public class WorkspaceGatewayController {
     @PostMapping("/connection-test")
     public ResponseEntity<RsData<WorkspaceGatewayConnectionTestResponse>> testWorkspaceGatewayConnection(
             @PathVariable Long workspaceId,
-            @RequestHeader(name = WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, required = false)
-                    String requesterGoogleSub,
+            Authentication authentication,
             @Valid @RequestBody TestWorkspaceGatewayConnectionRequest request) {
-        String normalizedRequesterGoogleSub = requireRequesterGoogleSub(requesterGoogleSub);
+        String normalizedRequesterGoogleSub = requireAuthenticatedRequesterGoogleSub(authentication);
 
         try {
             TestWorkspaceGatewayConnectionResult result =
@@ -81,10 +79,9 @@ public class WorkspaceGatewayController {
     @PostMapping("/binding")
     public ResponseEntity<RsData<WorkspaceGatewayBindingResponse>> createWorkspaceGatewayBinding(
             @PathVariable Long workspaceId,
-            @RequestHeader(name = WorkspaceController.CREATOR_GOOGLE_SUB_HEADER, required = false)
-                    String requesterGoogleSub,
+            Authentication authentication,
             @Valid @RequestBody CreateWorkspaceGatewayBindingRequest request) {
-        String normalizedRequesterGoogleSub = requireRequesterGoogleSub(requesterGoogleSub);
+        String normalizedRequesterGoogleSub = requireAuthenticatedRequesterGoogleSub(authentication);
 
         try {
             CreateWorkspaceGatewayBindingResult result =
@@ -105,5 +102,13 @@ public class WorkspaceGatewayController {
             throw new ServiceException(CommonErrorCode.BAD_REQUEST);
         }
         return requesterGoogleSub.trim();
+    }
+
+    private String requireAuthenticatedRequesterGoogleSub(Authentication authentication) {
+        if (authentication == null
+                || !(authentication.getPrincipal() instanceof AuthenticatedMember authenticatedMember)) {
+            throw new ServiceException(CommonErrorCode.UNAUTHORIZED);
+        }
+        return authenticatedMember.googleSub();
     }
 }
