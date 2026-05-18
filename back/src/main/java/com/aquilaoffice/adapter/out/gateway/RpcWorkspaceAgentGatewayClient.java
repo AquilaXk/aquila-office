@@ -27,7 +27,7 @@ import org.springframework.stereotype.Component;
 @Component
 final class RpcWorkspaceAgentGatewayClient implements WorkspaceAgentGatewayClient {
 
-    private static final String METHOD_AGENT_RUN = "agent.run";
+    private static final String METHOD_CHAT_SEND = "chat.send";
     private static final String METHOD_AGENT_CREATE = "agent.create";
     private static final String METHOD_AGENT_LIST = "agent.list";
     private static final String METHOD_AGENT_DELETE = "agent.delete";
@@ -147,7 +147,7 @@ final class RpcWorkspaceAgentGatewayClient implements WorkspaceAgentGatewayClien
             session = transport.connect(rpcUri, new RpcGatewayListener());
             JsonNode response = exchange(
                     session,
-                    METHOD_AGENT_RUN,
+                    METHOD_CHAT_SEND,
                     request.gatewayToken(),
                     agentRunParams(request));
             return toAgentRunResponse(response);
@@ -255,6 +255,7 @@ final class RpcWorkspaceAgentGatewayClient implements WorkspaceAgentGatewayClien
         params.put("openClawAgentId", request.openClawAgentId());
         params.put("workspacePath", request.workspacePath());
         params.put("sessionKey", request.sessionKey());
+        params.put("idempotencyKey", "task-" + request.taskId() + "-execution-" + request.executionId());
         params.put("prompt", request.prompt());
         params.put("createPr", request.createPr());
         return params;

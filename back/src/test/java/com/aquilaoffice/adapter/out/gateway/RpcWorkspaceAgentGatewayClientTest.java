@@ -22,7 +22,7 @@ class RpcWorkspaceAgentGatewayClientTest {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Test
-    void sendsAgentRunRequestAndCompletesMatchingResponse() throws Exception {
+    void sendsChatSendRequestAndCompletesMatchingResponse() throws Exception {
         RespondingTransport transport = new RespondingTransport(
                 objectMapper,
                 requestId -> """
@@ -44,7 +44,7 @@ class RpcWorkspaceAgentGatewayClientTest {
 
         JsonNode message = objectMapper.readTree(transport.sentMessage());
         assertThat(message.path("id").asText()).isNotBlank();
-        assertThat(message.path("method").asText()).isEqualTo("agent.run");
+        assertThat(message.path("method").asText()).isEqualTo("chat.send");
         assertThat(message.path("token").asText()).isEqualTo("secret-token");
         JsonNode params = message.path("params");
         assertThat(params.path("workspaceId").asLong()).isEqualTo(101L);
@@ -54,6 +54,7 @@ class RpcWorkspaceAgentGatewayClientTest {
         assertThat(params.path("openClawAgentId").asText()).isEqualTo("oc-agent-1");
         assertThat(params.path("workspacePath").asText()).isEqualTo("/workspace/project");
         assertThat(params.path("sessionKey").asText()).isEqualTo("workspace-101-execution-701");
+        assertThat(params.path("idempotencyKey").asText()).isEqualTo("task-301-execution-701");
         assertThat(params.path("prompt").asText()).isEqualTo("테스트를 작성해주세요.");
         assertThat(params.path("createPr").asBoolean()).isTrue();
     }
