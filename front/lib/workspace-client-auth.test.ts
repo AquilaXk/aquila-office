@@ -63,6 +63,11 @@ test("home dashboard exposes auth token session actions", () => {
   assert.match(source, /clearAuthTokens/);
 });
 
+test("frontend route aliases expose workspace and auth entries", () => {
+  assert.match(readSource("app/workspaces/page.tsx"), /HomePage/);
+  assert.match(readSource("app/auth/page.tsx"), /HomePage/);
+});
+
 test("workspace settings exposes slack integration controls", () => {
   const source = readSource("app/workspaces/[workspaceId]/settings/page.tsx");
 
@@ -82,6 +87,18 @@ test("workspace settings exposes slack channel mapping controls", () => {
   assert.match(source, /createSlackChannelMapping/);
   assert.match(source, /aria-label="Slack 채널 매핑 설정"/);
   assert.match(source, /slackChannelMappings/);
+});
+
+test("frontend exposes slack integration result routes", () => {
+  const successSource = readSource("app/settings/integrations/success/page.tsx");
+  const failSource = readSource("app/settings/integrations/fail/page.tsx");
+
+  assert.match(successSource, /SlackIntegrationSuccessPage/);
+  assert.match(successSource, /aio\.slack\.returnTo/);
+  assert.match(successSource, /연동 목록으로 이동/);
+  assert.match(failSource, /SlackIntegrationFailPage/);
+  assert.match(failSource, /aio\.slack\.returnTo/);
+  assert.match(failSource, /재시도/);
 });
 
 test("workspace detail exposes dashboard summary sections", () => {
