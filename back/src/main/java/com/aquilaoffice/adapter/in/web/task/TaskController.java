@@ -70,6 +70,24 @@ public class TaskController {
         }
     }
 
+    @PostMapping("/run")
+    public ResponseEntity<RsData<RunTaskResponse>> createAndRunTask(
+            @PathVariable Long workspaceId,
+            Authentication authentication,
+            @Valid @RequestBody CreateAndRunTaskRequest request) {
+        String normalizedRequesterGoogleSub = requireAuthenticatedRequesterGoogleSub(authentication);
+
+        try {
+            CreateTaskResult createdTask =
+                    createTaskUseCase.createTask(request.toCreateCommand(workspaceId, normalizedRequesterGoogleSub));
+            return ResponseEntity.ok(RsData.ok(RunTaskResponse.from(runTaskUseCase.runTask(
+                    request.toRunCommand(workspaceId, createdTask.taskId(), normalizedRequesterGoogleSub)))));
+        } catch (IllegalArgumentException | IllegalStateException exception) {
+            // 생성과 실행 중 어느 단계에서 실패해도 내부 권한/상태 정책을 같은 404로 숨긴다.
+            throw new ServiceException(CommonErrorCode.NOT_FOUND);
+        }
+    }
+
     @GetMapping
     public ResponseEntity<RsData<List<TaskResponse>>> listTasks(
             @PathVariable Long workspaceId,
