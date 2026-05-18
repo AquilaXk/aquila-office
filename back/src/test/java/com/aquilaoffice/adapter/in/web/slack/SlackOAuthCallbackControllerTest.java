@@ -79,6 +79,19 @@ class SlackOAuthCallbackControllerTest {
     }
 
     @Test
+    void oauthErrorReturnsBadRequestAndDoesNotCallUseCase() throws Exception {
+        mockMvc.perform(get("/api/v1/slack/oauth/callback")
+                        .param("error", "access_denied")
+                        .param("code", "code-789")
+                        .param("state", "workspaceId:101:requester:google-1"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code").value("400"));
+
+        verifyNoInteractions(completeSlackOAuthCallbackUseCase);
+    }
+
+    @Test
     void tokenExchangeFailureReturnsBadRequest() throws Exception {
         given(completeSlackOAuthCallbackUseCase.completeSlackOAuthCallback(
                 any(CompleteSlackOAuthCallbackCommand.class)))

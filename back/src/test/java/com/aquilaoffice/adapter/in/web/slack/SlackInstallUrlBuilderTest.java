@@ -26,6 +26,20 @@ class SlackInstallUrlBuilderTest {
     }
 
     @Test
+    void buildUsesConfiguredScopes() {
+        SlackInstallUrlBuilder builder = new SlackInstallUrlBuilder(
+                "client-123",
+                "http://localhost:8080/api/v1/slack/oauth/callback",
+                URI.create("https://slack.com/oauth/v2/authorize"),
+                "app_mentions:read,chat:write,commands");
+
+        String url = builder.build(101L, "google-1");
+
+        assertThat(url).contains("scope=app_mentions%3Aread%2Cchat%3Awrite%2Ccommands");
+        assertThat(url).doesNotContain("incoming-webhook");
+    }
+
+    @Test
     void buildFailsWhenClientIdIsMissing() {
         SlackInstallUrlBuilder builder = new SlackInstallUrlBuilder(
                 " ",
