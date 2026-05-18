@@ -1,4 +1,4 @@
-import { apiFetch } from "@/lib/api-client";
+import { apiFetch } from "@/lib/api";
 
 export type GithubCredential = {
   credentialId: number;
@@ -39,10 +39,7 @@ export async function createGithubCredential(
     {
       method: "POST",
       accessToken,
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(input),
+      json: input,
     },
   );
 }
@@ -58,10 +55,7 @@ export async function updateGithubCredential(
     {
       method: "PATCH",
       accessToken,
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(input),
+      json: input,
     },
   );
 }

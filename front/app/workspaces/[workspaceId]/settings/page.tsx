@@ -30,7 +30,7 @@ import {
   type FormEvent,
   type ReactNode,
 } from "react";
-import { ApiError } from "@/lib/api-client";
+import { ApiError } from "@/lib/api";
 import { resolveAccessToken } from "@/lib/auth";
 import {
   createWorkspaceGatewayBinding,

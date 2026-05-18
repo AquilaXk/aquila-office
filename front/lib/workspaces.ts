@@ -1,4 +1,4 @@
-import { apiFetch } from "@/lib/api-client";
+import { apiFetch } from "@/lib/api";
 
 export type WorkspaceMemberRole = "ADMIN" | "MEMBER";
 
@@ -131,10 +131,7 @@ export async function createWorkspace(
   return apiFetch<WorkspaceSummary>("/api/v1/workspaces", {
     method: "POST",
     accessToken,
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(input),
+    json: input,
   });
 }
 
@@ -146,10 +143,7 @@ export async function updateWorkspace(
   return apiFetch<WorkspaceDetail>(`/api/v1/workspaces/${workspaceId}`, {
     method: "PATCH",
     accessToken,
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(input),
+    json: input,
   });
 }
 
@@ -172,10 +166,7 @@ export async function changeWorkspaceMemberRole(
   return apiFetch<void>(`/api/v1/workspaces/${workspaceId}/members/${memberId}`, {
     method: "PATCH",
     accessToken,
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ role }),
+    json: { role },
   });
 }
 

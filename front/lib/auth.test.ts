@@ -10,6 +10,7 @@ import {
   saveAuthTokens,
   type AuthTokens,
 } from "./auth.ts";
+import { ApiError } from "./api-client.ts";
 
 const authTokens: AuthTokens = {
   memberId: 1,
@@ -82,6 +83,36 @@ test("refreshAuthToken and logoutAuth post refresh token to auth endpoints", asy
         body: { refreshToken: "aquila-refresh.next" },
       },
     ]);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("loginWithGoogle rejects failed auth envelope with ApiError", async () => {
+  const originalFetch = globalThis.fetch;
+
+  globalThis.fetch = async () =>
+    new Response(
+      JSON.stringify({
+        success: false,
+        code: "UNAUTHORIZED",
+        message: "Google token invalid",
+        data: null,
+      }),
+      {
+        status: 401,
+        headers: { "Content-Type": "application/json" },
+      },
+    );
+
+  try {
+    await assert.rejects(
+      () => loginWithGoogle("invalid-token"),
+      (error) =>
+        error instanceof ApiError &&
+        error.status === 401 &&
+        error.message === "Google token invalid",
+    );
   } finally {
     globalThis.fetch = originalFetch;
   }

@@ -1,4 +1,4 @@
-import { apiFetch } from "@/lib/api-client";
+import { apiFetch } from "@/lib/api";
 import {
   workspaceGatewayBindingPath,
   workspaceGatewayConnectionTestPath,
@@ -68,10 +68,7 @@ export async function testWorkspaceGatewayConnection(
     {
       method: "POST",
       accessToken,
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(input),
+      json: input,
     },
   );
 }
@@ -84,9 +81,6 @@ export async function createWorkspaceGatewayBinding(
   return apiFetch<WorkspaceGatewayBinding>(workspaceGatewayBindingPath(workspaceId), {
     method: "POST",
     accessToken,
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(input),
+    json: input,
   });
 }

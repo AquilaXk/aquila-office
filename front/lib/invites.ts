@@ -1,4 +1,4 @@
-import { apiFetch } from "@/lib/api-client";
+import { apiFetch } from "@/lib/api";
 import { type WorkspaceMemberRole } from "@/lib/workspaces";
 
 export type WorkspaceInviteStatus = "PENDING" | "ACCEPTED" | "EXPIRED";
@@ -62,10 +62,7 @@ export async function createWorkspaceInvite(
   return apiFetch<WorkspaceInvite>(`/api/v1/workspaces/${workspaceId}/invites`, {
     method: "POST",
     accessToken,
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(input),
+    json: input,
   });
 }
 

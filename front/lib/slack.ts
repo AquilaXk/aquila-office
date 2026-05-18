@@ -1,4 +1,4 @@
-import { apiFetch } from "@/lib/api-client";
+import { apiFetch } from "@/lib/api";
 
 export type SlackIntegration = {
   id: number;
@@ -104,10 +104,7 @@ export async function createSlackChannelMapping(
   return apiFetch<SlackChannelMapping>(slackChannelMappingsPath(workspaceId), {
     method: "POST",
     accessToken,
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(input),
+    json: input,
   });
 }
 
@@ -119,10 +116,7 @@ export async function createSlackIntegration(
   return apiFetch<SlackIntegration>(slackIntegrationsPath(workspaceId), {
     method: "POST",
     accessToken,
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(input),
+    json: input,
   });
 }
 
@@ -135,10 +129,7 @@ export async function updateSlackIntegration(
   return apiFetch<SlackIntegration>(slackIntegrationPath(workspaceId, integrationId), {
     method: "PATCH",
     accessToken,
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(input),
+    json: input,
   });
 }
 

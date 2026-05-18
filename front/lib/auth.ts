@@ -1,6 +1,6 @@
-export const AUTH_STORAGE_KEY = "aquila-office.auth";
+import { apiFetch } from "./api/index.ts";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
+export const AUTH_STORAGE_KEY = "aquila-office.auth";
 
 export type AuthMemberRole = "ADMIN" | "USER";
 
@@ -30,29 +30,10 @@ export async function logoutAuth(refreshToken: string): Promise<void> {
 }
 
 async function authPost<T>(path: string, payload: unknown): Promise<T> {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
+  return apiFetch<T>(path, {
     method: "POST",
-    headers: {
-      Accept: "application/json",
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(payload),
+    json: payload,
   });
-  const body = await response.json();
-
-  if (!response.ok) {
-    throw new Error(messageFromEnvelope(body, "인증 요청을 처리하지 못했습니다."));
-  }
-
-  if (isApiEnvelope<T>(body)) {
-    if (!body.success) {
-      throw new Error(body.message);
-    }
-
-    return body.data;
-  }
-
-  return body as T;
 }
 
 export function readAuthTokens(storage: Storage | undefined = browserStorage()): AuthTokens | null {
@@ -98,33 +79,6 @@ function browserStorage(): Storage | undefined {
   }
 
   return window.localStorage;
-}
-
-type ApiEnvelope<T> = {
-  success: boolean;
-  message: string;
-  data: T;
-};
-
-function isApiEnvelope<T>(value: unknown): value is ApiEnvelope<T> {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    "success" in value &&
-    "message" in value &&
-    "data" in value
-  );
-}
-
-function messageFromEnvelope(value: unknown, fallback: string): string {
-  if (typeof value === "object" && value !== null && "message" in value) {
-    const message = (value as { message?: unknown }).message;
-    if (typeof message === "string" && message.length > 0) {
-      return message;
-    }
-  }
-
-  return fallback;
 }
 
 function isAuthTokens(value: unknown): value is AuthTokens {

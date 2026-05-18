@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useState, type FormEvent } from "react";
-import { ApiError } from "@/lib/api-client";
+import { ApiError } from "@/lib/api";
 import { resolveAccessToken } from "@/lib/auth";
 import { createWorkspace, type WorkspaceSummary } from "@/lib/workspaces";
 

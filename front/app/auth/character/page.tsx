@@ -4,7 +4,7 @@ import { AlertCircle, ArrowLeft, Loader2, Save, UserRound } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState, type FormEvent } from "react";
-import { ApiError } from "@/lib/api-client";
+import { ApiError } from "@/lib/api";
 import { resolveAccessToken } from "@/lib/auth";
 import { fetchMemberProfile, updateMemberProfile } from "@/lib/members";
 
