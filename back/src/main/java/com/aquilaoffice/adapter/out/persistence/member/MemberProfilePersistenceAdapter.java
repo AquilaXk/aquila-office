@@ -2,6 +2,7 @@ package com.aquilaoffice.adapter.out.persistence.member;
 
 import com.aquilaoffice.application.port.in.MemberAvatarColorsResult;
 import com.aquilaoffice.application.port.in.MemberProfileResult;
+import com.aquilaoffice.application.port.out.InitializeMemberProfilePort;
 import com.aquilaoffice.application.port.out.LoadMemberProfilePort;
 import com.aquilaoffice.application.port.out.MemberProfileUpdate;
 import com.aquilaoffice.application.port.out.UpdateMemberProfilePort;
@@ -14,7 +15,8 @@ import org.springframework.transaction.annotation.Transactional;
  * 멤버 프로필 outbound port를 JPA repository 조합으로 구현한다.
  */
 @Repository
-public class MemberProfilePersistenceAdapter implements LoadMemberProfilePort, UpdateMemberProfilePort {
+public class MemberProfilePersistenceAdapter
+        implements InitializeMemberProfilePort, LoadMemberProfilePort, UpdateMemberProfilePort {
 
     private final MemberJpaRepository memberJpaRepository;
     private final MemberProfileJpaRepository memberProfileJpaRepository;
@@ -24,6 +26,13 @@ public class MemberProfilePersistenceAdapter implements LoadMemberProfilePort, U
             MemberProfileJpaRepository memberProfileJpaRepository) {
         this.memberJpaRepository = memberJpaRepository;
         this.memberProfileJpaRepository = memberProfileJpaRepository;
+    }
+
+    @Override
+    @Transactional
+    public void initializeDefaultProfile(String googleSub) {
+        String normalizedGoogleSub = normalizeGoogleSub(googleSub);
+        memberJpaRepository.findByGoogleSub(normalizedGoogleSub).ifPresent(this::findOrCreateProfile);
     }
 
     @Override

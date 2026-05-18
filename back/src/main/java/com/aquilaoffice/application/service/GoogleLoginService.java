@@ -3,6 +3,7 @@ package com.aquilaoffice.application.service;
 import com.aquilaoffice.application.port.in.GoogleLoginCommand;
 import com.aquilaoffice.application.port.in.GoogleLoginResult;
 import com.aquilaoffice.application.port.in.GoogleLoginUseCase;
+import com.aquilaoffice.application.port.out.InitializeMemberProfilePort;
 import com.aquilaoffice.application.port.out.IssueAuthTokenPort;
 import com.aquilaoffice.application.port.out.IssuedAuthTokens;
 import com.aquilaoffice.application.port.out.SaveGoogleLoginMemberPort;
@@ -24,6 +25,7 @@ public class GoogleLoginService implements GoogleLoginUseCase {
     private final SaveGoogleLoginMemberPort saveGoogleLoginMemberPort;
     private final IssueAuthTokenPort issueAuthTokenPort;
     private final SaveRefreshTokenPort saveRefreshTokenPort;
+    private final InitializeMemberProfilePort initializeMemberProfilePort;
     private final String adminAllowlistEmails;
 
     public GoogleLoginService(
@@ -31,6 +33,7 @@ public class GoogleLoginService implements GoogleLoginUseCase {
             SaveGoogleLoginMemberPort saveGoogleLoginMemberPort,
             IssueAuthTokenPort issueAuthTokenPort,
             SaveRefreshTokenPort saveRefreshTokenPort,
+            InitializeMemberProfilePort initializeMemberProfilePort,
             String adminAllowlistEmails) {
         this.verifyGoogleIdTokenPort =
                 Objects.requireNonNull(verifyGoogleIdTokenPort, "verifyGoogleIdTokenPort must not be null");
@@ -39,6 +42,8 @@ public class GoogleLoginService implements GoogleLoginUseCase {
         this.issueAuthTokenPort = Objects.requireNonNull(issueAuthTokenPort, "issueAuthTokenPort must not be null");
         this.saveRefreshTokenPort =
                 Objects.requireNonNull(saveRefreshTokenPort, "saveRefreshTokenPort must not be null");
+        this.initializeMemberProfilePort =
+                Objects.requireNonNull(initializeMemberProfilePort, "initializeMemberProfilePort must not be null");
         this.adminAllowlistEmails = adminAllowlistEmails == null ? "" : adminAllowlistEmails;
     }
 
@@ -52,6 +57,7 @@ public class GoogleLoginService implements GoogleLoginUseCase {
                 googleUser.email(),
                 googleUser.name(),
                 requestedRole);
+        initializeMemberProfilePort.initializeDefaultProfile(member.googleSub());
         IssuedAuthTokens tokens = issueAuthTokenPort.issue(member.memberId(), member.email(), member.role());
         saveRefreshTokenPort.saveOrRotate(
                 member.memberId(),

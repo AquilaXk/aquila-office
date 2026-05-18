@@ -64,6 +64,7 @@ import com.aquilaoffice.application.port.out.ExchangeSlackOAuthCodePort;
 import com.aquilaoffice.application.port.out.ExtendWorkspaceInvitePort;
 import com.aquilaoffice.application.port.out.ExistsGithubCredentialPort;
 import com.aquilaoffice.application.port.out.GenerateWorkspaceInviteTokenPort;
+import com.aquilaoffice.application.port.out.InitializeMemberProfilePort;
 import com.aquilaoffice.application.port.out.IssueAuthTokenPort;
 import com.aquilaoffice.application.port.out.LoadGithubCredentialPort;
 import com.aquilaoffice.application.port.out.LoadGithubCredentialsPort;
@@ -276,12 +277,14 @@ public class ApplicationServiceConfig {
             SaveGoogleLoginMemberPort saveGoogleLoginMemberPort,
             IssueAuthTokenPort issueAuthTokenPort,
             SaveRefreshTokenPort saveRefreshTokenPort,
+            InitializeMemberProfilePort initializeMemberProfilePort,
             @Value("${ADMIN_ALLOWLIST_EMAILS:}") String adminAllowlistEmails) {
         return new GoogleLoginService(
                 verifyGoogleIdTokenPort,
                 saveGoogleLoginMemberPort,
                 issueAuthTokenPort,
                 saveRefreshTokenPort,
+                initializeMemberProfilePort,
                 adminAllowlistEmails);
     }
 

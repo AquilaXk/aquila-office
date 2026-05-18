@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.aquilaoffice.application.port.in.GoogleLoginCommand;
 import com.aquilaoffice.application.port.in.GoogleLoginResult;
+import com.aquilaoffice.application.port.out.InitializeMemberProfilePort;
 import com.aquilaoffice.application.port.out.IssueAuthTokenPort;
 import com.aquilaoffice.application.port.out.IssuedAuthTokens;
 import com.aquilaoffice.application.port.out.SaveGoogleLoginMemberPort;
@@ -25,6 +26,7 @@ class GoogleLoginServiceTest {
     void googleLoginCreatesUserMemberAndReturnsIssuedTokens() {
         FakeSaveGoogleLoginMemberPort saveMemberPort = new FakeSaveGoogleLoginMemberPort(1L);
         FakeSaveRefreshTokenPort saveRefreshTokenPort = new FakeSaveRefreshTokenPort();
+        FakeInitializeMemberProfilePort initializeMemberProfilePort = new FakeInitializeMemberProfilePort();
         GoogleLoginService service = new GoogleLoginService(
                 new FakeVerifyGoogleIdTokenPort(new VerifiedGoogleUser(
                         " google-1 ",
@@ -33,6 +35,7 @@ class GoogleLoginServiceTest {
                 saveMemberPort,
                 new FakeIssueAuthTokenPort(),
                 saveRefreshTokenPort,
+                initializeMemberProfilePort,
                 "");
 
         GoogleLoginResult result = service.login(new GoogleLoginCommand(" id-token "));
@@ -51,12 +54,14 @@ class GoogleLoginServiceTest {
         assertThat(saveRefreshTokenPort.saved.refreshToken()).isEqualTo("refresh-1-USER");
         assertThat(saveRefreshTokenPort.saved.refreshTokenExpiresAt())
                 .isEqualTo(Instant.parse("2026-06-01T00:00:00Z"));
+        assertThat(initializeMemberProfilePort.initializedGoogleSub).isEqualTo("google-1");
     }
 
     @Test
     void googleLoginPromotesAllowlistedEmailToAdmin() {
         FakeSaveGoogleLoginMemberPort saveMemberPort = new FakeSaveGoogleLoginMemberPort(2L);
         FakeSaveRefreshTokenPort saveRefreshTokenPort = new FakeSaveRefreshTokenPort();
+        FakeInitializeMemberProfilePort initializeMemberProfilePort = new FakeInitializeMemberProfilePort();
         GoogleLoginService service = new GoogleLoginService(
                 new FakeVerifyGoogleIdTokenPort(new VerifiedGoogleUser(
                         "google-admin",
@@ -65,6 +70,7 @@ class GoogleLoginServiceTest {
                 saveMemberPort,
                 new FakeIssueAuthTokenPort(),
                 saveRefreshTokenPort,
+                initializeMemberProfilePort,
                 " owner@example.com, ADMIN@example.com ");
 
         GoogleLoginResult result = service.login(new GoogleLoginCommand("id-token"));
@@ -136,6 +142,15 @@ class GoogleLoginServiceTest {
         @Override
         public void saveOrRotate(Long memberId, String refreshToken, Instant refreshTokenExpiresAt) {
             this.saved = new SavedRefreshToken(memberId, refreshToken, refreshTokenExpiresAt);
+        }
+    }
+
+    private static class FakeInitializeMemberProfilePort implements InitializeMemberProfilePort {
+        private String initializedGoogleSub;
+
+        @Override
+        public void initializeDefaultProfile(String googleSub) {
+            this.initializedGoogleSub = googleSub;
         }
     }
 }

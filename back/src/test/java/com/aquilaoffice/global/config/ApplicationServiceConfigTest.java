@@ -62,6 +62,7 @@ import com.aquilaoffice.application.port.out.ExchangeSlackOAuthCodePort;
 import com.aquilaoffice.application.port.out.ExtendWorkspaceInvitePort;
 import com.aquilaoffice.application.port.out.ExistsGithubCredentialPort;
 import com.aquilaoffice.application.port.out.GenerateWorkspaceInviteTokenPort;
+import com.aquilaoffice.application.port.out.InitializeMemberProfilePort;
 import com.aquilaoffice.application.port.out.IssueAuthTokenPort;
 import com.aquilaoffice.application.port.out.LoadGithubCredentialPort;
 import com.aquilaoffice.application.port.out.LoadGithubCredentialsPort;
@@ -321,6 +322,9 @@ class ApplicationServiceConfigTest {
     private SaveRefreshTokenPort saveRefreshTokenPort;
 
     @MockitoBean
+    private InitializeMemberProfilePort initializeMemberProfilePort;
+
+    @MockitoBean
     private ResolveRefreshTokenPort resolveRefreshTokenPort;
 
     @MockitoBean
@@ -521,6 +525,8 @@ class ApplicationServiceConfigTest {
                 .isSameAs(issueAuthTokenPort);
         assertThat(ReflectionTestUtils.getField(googleLoginUseCase, "saveRefreshTokenPort"))
                 .isSameAs(saveRefreshTokenPort);
+        assertThat(ReflectionTestUtils.getField(googleLoginUseCase, "initializeMemberProfilePort"))
+                .isSameAs(initializeMemberProfilePort);
     }
 
     @Test
