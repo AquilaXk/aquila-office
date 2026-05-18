@@ -23,6 +23,7 @@ import com.aquilaoffice.application.port.in.GetArtifactFileUseCase;
 import com.aquilaoffice.application.port.in.GetArtifactTreeUseCase;
 import com.aquilaoffice.application.port.in.GetMemberProfileUseCase;
 import com.aquilaoffice.application.port.in.GetOrchestrationPlanArtifactUseCase;
+import com.aquilaoffice.application.port.in.GetOrchestrationPlanFileUseCase;
 import com.aquilaoffice.application.port.in.GetWorkspaceAgentUseCase;
 import com.aquilaoffice.application.port.in.GetWorkspaceGatewayStatusUseCase;
 import com.aquilaoffice.application.port.in.GetWorkspaceDashboardSummaryUseCase;
@@ -136,6 +137,7 @@ import com.aquilaoffice.application.service.ExtendWorkspaceInviteService;
 import com.aquilaoffice.application.service.GetArtifactFileService;
 import com.aquilaoffice.application.service.GetArtifactTreeService;
 import com.aquilaoffice.application.service.GetOrchestrationPlanArtifactService;
+import com.aquilaoffice.application.service.GetOrchestrationPlanFileService;
 import com.aquilaoffice.application.service.GetWorkspaceAgentService;
 import com.aquilaoffice.application.service.GetWorkspaceGatewayStatusService;
 import com.aquilaoffice.application.service.GetWorkspaceDashboardSummaryService;
@@ -506,6 +508,9 @@ class ApplicationServiceConfigTest {
     private GetOrchestrationPlanArtifactUseCase getOrchestrationPlanArtifactUseCase;
 
     @Autowired
+    private GetOrchestrationPlanFileUseCase getOrchestrationPlanFileUseCase;
+
+    @Autowired
     private SendChatMessageUseCase sendChatMessageUseCase;
 
     @Autowired
@@ -771,6 +776,11 @@ class ApplicationServiceConfigTest {
     @Test
     void registersGetOrchestrationPlanArtifactUseCase() {
         assertThat(getOrchestrationPlanArtifactUseCase).isInstanceOf(GetOrchestrationPlanArtifactService.class);
+    }
+
+    @Test
+    void registersGetOrchestrationPlanFileUseCase() {
+        assertThat(getOrchestrationPlanFileUseCase).isInstanceOf(GetOrchestrationPlanFileService.class);
     }
 
     @Test

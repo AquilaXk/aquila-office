@@ -9,6 +9,8 @@ import com.aquilaoffice.application.port.out.LoadWorkspaceArtifactsPort;
 import com.aquilaoffice.application.port.out.OrchestrationPlanArtifactData;
 import com.aquilaoffice.application.port.out.OrchestrationPlanFileData;
 import com.aquilaoffice.application.port.out.OrchestrationPlanStepData;
+import com.aquilaoffice.application.port.out.SaveWorkspaceArtifactPort;
+import com.aquilaoffice.application.port.out.WorkspaceArtifactFileCommand;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -25,7 +27,8 @@ import org.springframework.stereotype.Repository;
  * 워크스페이스별 artifact root 아래의 파일만 읽는 filesystem adapter다.
  */
 @Repository
-public class WorkspaceArtifactFilesystemAdapter implements LoadWorkspaceArtifactsPort, LoadOrchestrationPlanArtifactPort {
+public class WorkspaceArtifactFilesystemAdapter
+        implements LoadWorkspaceArtifactsPort, LoadOrchestrationPlanArtifactPort, SaveWorkspaceArtifactPort {
 
     private static final String WORKSPACE_ROOT_DIRECTORY = "workspaces";
     private static final String PLAN_DIRECTORY = "plans";
@@ -77,6 +80,20 @@ public class WorkspaceArtifactFilesystemAdapter implements LoadWorkspaceArtifact
                     Files.readString(artifactFile, StandardCharsets.UTF_8));
         } catch (IOException exception) {
             throw new IllegalStateException("artifact file read failed", exception);
+        }
+    }
+
+    @Override
+    public ArtifactFileData saveFile(WorkspaceArtifactFileCommand command) {
+        Objects.requireNonNull(command, "command must not be null");
+        Path workspaceRoot = workspaceRoot(command.workspaceId());
+        Path artifactFile = resolveInsideWorkspace(workspaceRoot, command.path());
+        try {
+            ensureWritableParent(workspaceRoot, artifactFile);
+            Files.writeString(artifactFile, command.content(), StandardCharsets.UTF_8);
+            return loadFile(command.workspaceId(), relativePath(workspaceRoot, artifactFile));
+        } catch (IOException exception) {
+            throw new IllegalStateException("artifact file write failed", exception);
         }
     }
 
@@ -220,6 +237,31 @@ public class WorkspaceArtifactFilesystemAdapter implements LoadWorkspaceArtifact
             throw new IllegalArgumentException("artifact path is outside workspace root");
         }
         return resolvedPath;
+    }
+
+    private void ensureWritableParent(Path workspaceRoot, Path artifactFile) throws IOException {
+        Path parent = artifactFile.getParent();
+        if (parent == null || !parent.startsWith(workspaceRoot)) {
+            throw new IllegalArgumentException("artifact path is outside workspace root");
+        }
+        rejectSymlinkAncestors(workspaceRoot, parent);
+        Files.createDirectories(parent);
+    }
+
+    private void rejectSymlinkAncestors(Path workspaceRoot, Path targetDirectory) {
+        if (!targetDirectory.startsWith(workspaceRoot)) {
+            throw new IllegalArgumentException("artifact path is outside workspace root");
+        }
+        Path current = workspaceRoot;
+        if (Files.exists(current, LinkOption.NOFOLLOW_LINKS) && Files.isSymbolicLink(current)) {
+            throw new IllegalArgumentException("artifact path is outside workspace root");
+        }
+        for (Path segment : workspaceRoot.relativize(targetDirectory)) {
+            current = current.resolve(segment);
+            if (Files.exists(current, LinkOption.NOFOLLOW_LINKS) && Files.isSymbolicLink(current)) {
+                throw new IllegalArgumentException("artifact path is outside workspace root");
+            }
+        }
     }
 
     private String relativePath(Path workspaceRoot, Path path) {
