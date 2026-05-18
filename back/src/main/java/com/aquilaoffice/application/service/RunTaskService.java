@@ -9,10 +9,12 @@ import com.aquilaoffice.application.port.out.LoadWorkspaceAgentPort;
 import com.aquilaoffice.application.port.out.LoadWorkspaceGatewayBindingPort;
 import com.aquilaoffice.application.port.out.LoadWorkspacePort;
 import com.aquilaoffice.application.port.out.RunWorkspaceAgentPort;
+import com.aquilaoffice.application.port.out.SaveTaskExecutionLogPort;
 import com.aquilaoffice.application.port.out.SaveTaskExecutionPort;
 import com.aquilaoffice.application.port.out.SavedTaskExecution;
 import com.aquilaoffice.application.port.out.SavedWorkspaceAgent;
 import com.aquilaoffice.application.port.out.TaskDetail;
+import com.aquilaoffice.application.port.out.TaskExecutionLogCommand;
 import com.aquilaoffice.application.port.out.TaskExecutionStatusUpdate;
 import com.aquilaoffice.application.port.out.TaskStatusUpdate;
 import com.aquilaoffice.application.port.out.UpdateTaskExecutionPort;
@@ -43,6 +45,7 @@ public class RunTaskService implements RunTaskUseCase {
     private final SaveTaskExecutionPort saveTaskExecutionPort;
     private final UpdateTaskExecutionPort updateTaskExecutionPort;
     private final UpdateTaskStatusPort updateTaskStatusPort;
+    private final SaveTaskExecutionLogPort saveTaskExecutionLogPort;
     private final RunWorkspaceAgentPort runWorkspaceAgentPort;
 
     public RunTaskService(
@@ -54,6 +57,7 @@ public class RunTaskService implements RunTaskUseCase {
             SaveTaskExecutionPort saveTaskExecutionPort,
             UpdateTaskExecutionPort updateTaskExecutionPort,
             UpdateTaskStatusPort updateTaskStatusPort,
+            SaveTaskExecutionLogPort saveTaskExecutionLogPort,
             RunWorkspaceAgentPort runWorkspaceAgentPort) {
         this.loadMemberPort = Objects.requireNonNull(loadMemberPort, "loadMemberPort must not be null");
         this.loadWorkspacePort = Objects.requireNonNull(loadWorkspacePort, "loadWorkspacePort must not be null");
@@ -68,6 +72,8 @@ public class RunTaskService implements RunTaskUseCase {
                 Objects.requireNonNull(updateTaskExecutionPort, "updateTaskExecutionPort must not be null");
         this.updateTaskStatusPort =
                 Objects.requireNonNull(updateTaskStatusPort, "updateTaskStatusPort must not be null");
+        this.saveTaskExecutionLogPort =
+                Objects.requireNonNull(saveTaskExecutionLogPort, "saveTaskExecutionLogPort must not be null");
         this.runWorkspaceAgentPort =
                 Objects.requireNonNull(runWorkspaceAgentPort, "runWorkspaceAgentPort must not be null");
     }
@@ -83,6 +89,7 @@ public class RunTaskService implements RunTaskUseCase {
         SavedWorkspaceAgent agent = resolveReadyAgent(task);
         SavedTaskExecution execution =
                 saveTaskExecutionPort.save(TaskExecution.create(command.workspaceId(), command.taskId(), agent.agentId()));
+        saveExecutionLog(execution, "INFO", "Task execution queued");
 
         return loadWorkspaceGatewayBindingPort
                 .findActiveByWorkspaceId(command.workspaceId())
@@ -97,8 +104,9 @@ public class RunTaskService implements RunTaskUseCase {
             SavedTaskExecution execution,
             WorkspaceGatewayBinding binding) {
         updateTaskStatus(task.workspaceId(), task.taskId(), TaskStatus.IN_PROGRESS);
-        updateExecutionStatus(
+        SavedTaskExecution runningExecution = updateExecutionStatus(
                 task.workspaceId(), task.taskId(), execution.executionId(), TaskExecutionStatus.RUNNING, null, null);
+        saveExecutionLog(runningExecution, "INFO", "Task execution running");
 
         try {
             WorkspaceAgentRunResult runResult = runWorkspaceAgentPort.run(new WorkspaceAgentRunCommand(
@@ -134,6 +142,7 @@ public class RunTaskService implements RunTaskUseCase {
                 TaskExecutionStatus.SUCCEEDED,
                 finalText,
                 null);
+        saveExecutionLog(updatedExecution, "INFO", "Task execution succeeded");
         updateTaskStatus(task.workspaceId(), task.taskId(), TaskStatus.COMPLETED);
         return toResult(task.workspaceId(), task.taskId(), updatedExecution, agent.agentId(), TaskStatus.COMPLETED);
     }
@@ -146,6 +155,7 @@ public class RunTaskService implements RunTaskUseCase {
                 TaskExecutionStatus.FAILED,
                 null,
                 failureReason);
+        saveExecutionLog(updatedExecution, "ERROR", failureReason);
         updateTaskStatus(task.workspaceId(), task.taskId(), TaskStatus.FAILED);
         return toResult(task.workspaceId(), task.taskId(), updatedExecution, execution.agentId(), TaskStatus.FAILED);
     }
@@ -162,6 +172,7 @@ public class RunTaskService implements RunTaskUseCase {
                 TaskExecutionStatus.FAILED,
                 null,
                 failureReason);
+        saveExecutionLog(updatedExecution, "ERROR", failureReason);
         updateTaskStatus(task.workspaceId(), task.taskId(), TaskStatus.FAILED);
         return toResult(task.workspaceId(), task.taskId(), updatedExecution, agent.agentId(), TaskStatus.FAILED);
     }
@@ -227,6 +238,16 @@ public class RunTaskService implements RunTaskUseCase {
 
     private void updateTaskStatus(Long workspaceId, Long taskId, TaskStatus status) {
         updateTaskStatusPort.updateStatus(new TaskStatusUpdate(workspaceId, taskId, status));
+    }
+
+    private void saveExecutionLog(SavedTaskExecution execution, String level, String message) {
+        saveTaskExecutionLogPort.save(new TaskExecutionLogCommand(
+                execution.workspaceId(),
+                execution.taskId(),
+                execution.executionId(),
+                execution.agentId(),
+                level,
+                message));
     }
 
     private RunTaskResult toResult(
