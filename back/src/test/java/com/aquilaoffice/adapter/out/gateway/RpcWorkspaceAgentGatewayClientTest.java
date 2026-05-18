@@ -151,6 +151,76 @@ class RpcWorkspaceAgentGatewayClientTest {
         assertThat(connectMessage.path("params").path("challenge").asText()).isEqualTo("challenge-1");
     }
 
+    @Test
+    void sendsAgentListRequestAndMapsGatewayAgents() throws Exception {
+        RespondingTransport transport = new RespondingTransport(
+                objectMapper,
+                requestId -> """
+                        {"id":"%s","result":{"success":true,"agents":[
+                          {"openClawAgentId":"oc-agent-1","name":"Backend Agent","category":"BACKEND","status":"READY"}
+                        ],"failureReason":null}}
+                        """.formatted(requestId));
+        RpcWorkspaceAgentGatewayClient client = new RpcWorkspaceAgentGatewayClient(
+                transport,
+                objectMapper,
+                new GatewayRpcProperties(Duration.ofMillis(200), "/rpc"));
+
+        WorkspaceAgentListGatewayResponse response = client.list(
+                new WorkspaceAgentListGatewayRequest(
+                        101L,
+                        "https://gateway.example.com/base/",
+                        "secret-token"));
+
+        assertThat(response.success()).isTrue();
+        assertThat(response.failureReason()).isNull();
+        assertThat(response.agents()).singleElement().satisfies(agent -> {
+            assertThat(agent.openClawAgentId()).isEqualTo("oc-agent-1");
+            assertThat(agent.name()).isEqualTo("Backend Agent");
+            assertThat(agent.category()).isEqualTo("BACKEND");
+            assertThat(agent.status()).isEqualTo("READY");
+        });
+        assertThat(client.pendingRequestCount()).isZero();
+        assertThat(transport.connectedUri()).isEqualTo(URI.create("wss://gateway.example.com/base/rpc"));
+        assertThat(transport.closed()).isTrue();
+
+        JsonNode message = objectMapper.readTree(transport.sentMessage());
+        assertThat(message.path("method").asText()).isEqualTo("agent.list");
+        assertThat(message.path("token").asText()).isEqualTo("secret-token");
+        assertThat(message.path("params").path("workspaceId").asLong()).isEqualTo(101L);
+    }
+
+    @Test
+    void sendsAgentDeleteRequestAndMapsGatewayResult() throws Exception {
+        RespondingTransport transport = new RespondingTransport(
+                objectMapper,
+                requestId -> """
+                        {"id":"%s","result":{"success":true,"failureReason":null}}
+                        """.formatted(requestId));
+        RpcWorkspaceAgentGatewayClient client = new RpcWorkspaceAgentGatewayClient(
+                transport,
+                objectMapper,
+                new GatewayRpcProperties(Duration.ofMillis(200), "/rpc"));
+
+        WorkspaceAgentDeleteGatewayResponse response = client.delete(
+                new WorkspaceAgentDeleteGatewayRequest(
+                        101L,
+                        "https://gateway.example.com/base/",
+                        "secret-token",
+                        "oc-agent-1"));
+
+        assertThat(response.success()).isTrue();
+        assertThat(response.failureReason()).isNull();
+        assertThat(client.pendingRequestCount()).isZero();
+        assertThat(transport.closed()).isTrue();
+
+        JsonNode message = objectMapper.readTree(transport.sentMessage());
+        assertThat(message.path("method").asText()).isEqualTo("agent.delete");
+        assertThat(message.path("token").asText()).isEqualTo("secret-token");
+        JsonNode params = message.path("params");
+        assertThat(params.path("workspaceId").asLong()).isEqualTo(101L);
+        assertThat(params.path("openClawAgentId").asText()).isEqualTo("oc-agent-1");
+    }
+
     private static WorkspaceAgentGatewayRequest request(String gatewayUrl) {
         return new WorkspaceAgentGatewayRequest(
                 101L,
