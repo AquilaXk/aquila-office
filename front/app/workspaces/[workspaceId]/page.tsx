@@ -46,6 +46,12 @@ import {
 } from "@/lib/chat";
 import { createWorkspaceInvite, type WorkspaceInvite } from "@/lib/invites";
 import {
+  createWorkspacePresenceStream,
+  parseWorkspacePresenceMessage,
+  updateWorkspacePresencePosition,
+  type WorkspacePresenceMessage,
+} from "@/lib/presence";
+import {
   createWorkspaceTask,
   fetchTaskReports,
   fetchWorkspaceTasks,
@@ -121,6 +127,13 @@ type ChatMutationState = {
   status: "idle" | "submitting" | "success" | "error";
   message: string | null;
 };
+
+type PresenceMutationState = {
+  status: "idle" | "submitting" | "success" | "error";
+  message: string | null;
+};
+
+type PresenceStreamStatus = "idle" | "connecting" | "open" | "error";
 
 type DashboardSummaryState =
   | { status: "idle" | "loading"; summary: null; error: null }
@@ -263,6 +276,13 @@ export default function WorkspaceDetailPage({
   const [taskChatMessageInput, setTaskChatMessageInput] = useState("");
   const [taskChatAgentIdInput, setTaskChatAgentIdInput] = useState("");
   const [taskChatMutation, setTaskChatMutation] = useState<ChatMutationState>({
+    status: "idle",
+    message: null,
+  });
+  const [presenceStreamStatus, setPresenceStreamStatus] =
+    useState<PresenceStreamStatus>("idle");
+  const [presenceEvents, setPresenceEvents] = useState<WorkspacePresenceMessage[]>([]);
+  const [presenceMutation, setPresenceMutation] = useState<PresenceMutationState>({
     status: "idle",
     message: null,
   });
@@ -872,6 +892,57 @@ export default function WorkspaceDetailPage({
     };
   }, [numericWorkspaceId]);
 
+  useEffect(() => {
+    let ignore = false;
+    let stream: EventSource | null = null;
+
+    async function connectPresenceStream() {
+      await Promise.resolve();
+      if (ignore) {
+        return;
+      }
+
+      if (state.status !== "ready" || !isValidWorkspaceId(numericWorkspaceId)) {
+        setPresenceStreamStatus("idle");
+        setPresenceEvents([]);
+        return;
+      }
+
+      const accessToken = resolveAccessToken();
+      if (!accessToken) {
+        setPresenceStreamStatus("error");
+        return;
+      }
+
+      setPresenceStreamStatus("connecting");
+      stream = createWorkspacePresenceStream(numericWorkspaceId, accessToken);
+
+      stream.onopen = () => {
+        setPresenceStreamStatus("open");
+      };
+      stream.onmessage = (event) => {
+        const message = parseWorkspacePresenceMessage(String(event.data));
+        if (!message) {
+          return;
+        }
+        setPresenceEvents((current) => [message, ...current].slice(0, 5));
+        if (message.type === "presence.error") {
+          setPresenceStreamStatus("error");
+        }
+      };
+      stream.onerror = () => {
+        setPresenceStreamStatus("error");
+      };
+    }
+
+    void connectPresenceStream();
+
+    return () => {
+      ignore = true;
+      stream?.close();
+    };
+  }, [numericWorkspaceId, state.status]);
+
   const workspace = state.workspace;
   const members = state.status === "ready" ? state.members : [];
   const adminCount = members.filter((member) => member.role === "ADMIN").length;
@@ -899,9 +970,41 @@ export default function WorkspaceDetailPage({
     taskChatMessageInput.trim().length > 0 &&
     taskChatAgentIdInput.trim().length > 0 &&
     !isSendingTaskChat;
+  const latestPresenceEvent = presenceEvents[0] ?? null;
+  const latestPresenceSnapshot = presenceEvents.find(
+    (event) => event.type === "presence.snapshot",
+  );
+  const onlinePresenceMembers = latestPresenceSnapshot?.members ?? [];
+  const isUpdatingPresence = presenceMutation.status === "submitting";
   const canCreateInvite = workspace?.myRole === "ADMIN";
   const isCreatingInvite = inviteState.status === "submitting";
   const canSubmitInvite = canCreateInvite && inviteEmail.trim().length > 0 && !isCreatingInvite;
+
+  const handleUpdatePresencePosition = async () => {
+    if (!isValidWorkspaceId(numericWorkspaceId) || isUpdatingPresence) {
+      return;
+    }
+
+    setPresenceMutation({ status: "submitting", message: null });
+    try {
+      await updateWorkspacePresencePosition(resolveAccessToken(), numericWorkspaceId, {
+        position: {
+          left: "workspace-detail",
+          top: "task-board",
+        },
+        status: "ACTIVE",
+      });
+      setPresenceMutation({
+        status: "success",
+        message: "Presence 위치가 갱신되었습니다.",
+      });
+    } catch (error) {
+      setPresenceMutation({
+        status: "error",
+        message: messageFromError(error, "Presence 위치를 갱신하지 못했습니다."),
+      });
+    }
+  };
 
   const handleCreateInvite = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -1768,6 +1871,33 @@ export default function WorkspaceDetailPage({
           <strong>{tasks.length}개</strong>
           <span>Task board 표시 항목</span>
         </div>
+        <div aria-label="Workspace presence">
+          <Users aria-hidden="true" />
+          <strong>{formatPresenceStatus(presenceStreamStatus)}</strong>
+          <span>
+            online {onlinePresenceMembers.length}명 · 최근{" "}
+            {latestPresenceEvent ? formatPresenceEventType(latestPresenceEvent.type) : "없음"}
+          </span>
+          <button
+            className="secondary-action workspace-task-refresh"
+            type="button"
+            onClick={() => void handleUpdatePresencePosition()}
+            disabled={isUpdatingPresence || state.status !== "ready"}
+          >
+            {isUpdatingPresence ? (
+              <Loader2 className="spin" aria-hidden="true" />
+            ) : (
+              <RefreshCw aria-hidden="true" />
+            )}
+            <span>{isUpdatingPresence ? "갱신 중" : "위치 갱신"}</span>
+          </button>
+          {presenceMutation.status === "error" && presenceMutation.message ? (
+            <span>{presenceMutation.message}</span>
+          ) : null}
+          {presenceMutation.status === "success" && presenceMutation.message ? (
+            <span>{presenceMutation.message}</span>
+          ) : null}
+        </div>
       </aside>
 
       <TaskReportsModal
@@ -2507,6 +2637,34 @@ function formatChatRole(role: ChatMessage["role"]): string {
     return "Agent";
   }
   return "System";
+}
+
+function formatPresenceStatus(status: PresenceStreamStatus): string {
+  if (status === "open") {
+    return "연결됨";
+  }
+  if (status === "connecting") {
+    return "연결 중";
+  }
+  if (status === "error") {
+    return "오류";
+  }
+  return "대기";
+}
+
+function formatPresenceEventType(type: WorkspacePresenceMessage["type"]): string {
+  switch (type) {
+    case "presence.snapshot":
+      return "snapshot";
+    case "presence.join":
+      return "join";
+    case "presence.leave":
+      return "leave";
+    case "presence.position":
+      return "position";
+    case "presence.error":
+      return "error";
+  }
 }
 
 function formatScore(value: number): string {
