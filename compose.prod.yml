@@ -39,6 +39,15 @@ services:
       AQUILA_EXTERNAL_TOKEN_KEY_ID: ${AQUILA_EXTERNAL_TOKEN_KEY_ID:-prod}
       AQUILA_GATEWAY_RPC_REQUEST_TIMEOUT: ${AQUILA_GATEWAY_RPC_REQUEST_TIMEOUT:-30s}
       AQUILA_GATEWAY_RPC_PATH: ${AQUILA_GATEWAY_RPC_PATH:-/rpc}
+      GOOGLE_CLOUD_PROJECT_ID: ${GOOGLE_CLOUD_PROJECT_ID:-grepp-ai-project}
+      VERTEX_AI_LOCATION: ${VERTEX_AI_LOCATION:-us-central1}
+      VERTEX_AI_MODEL: ${VERTEX_AI_MODEL:-gemini-2.5-flash}
+      GOOGLE_APPLICATION_CREDENTIALS: ${GOOGLE_APPLICATION_CREDENTIALS:-/run/secrets/vertex-key.json}
+    volumes:
+      - type: bind
+        source: ${VERTEX_AI_CREDENTIALS_HOST_PATH:-./vertex-key.json}
+        target: /run/secrets/vertex-key.json
+        read_only: true
     depends_on:
       postgres:
         condition: service_healthy
