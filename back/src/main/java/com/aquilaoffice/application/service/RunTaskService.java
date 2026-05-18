@@ -21,6 +21,9 @@ import com.aquilaoffice.application.port.out.UpdateTaskExecutionPort;
 import com.aquilaoffice.application.port.out.UpdateTaskStatusPort;
 import com.aquilaoffice.application.port.out.WorkspaceAgentRunCommand;
 import com.aquilaoffice.application.port.out.WorkspaceAgentRunResult;
+import com.aquilaoffice.application.port.out.WorkspaceExecutionLock;
+import com.aquilaoffice.application.port.out.WorkspaceExecutionLockCommand;
+import com.aquilaoffice.application.port.out.WorkspaceExecutionLockPort;
 import com.aquilaoffice.domain.agent.WorkspaceAgentStatus;
 import com.aquilaoffice.domain.execution.TaskExecution;
 import com.aquilaoffice.domain.execution.TaskExecutionStatus;
@@ -47,6 +50,7 @@ public class RunTaskService implements RunTaskUseCase {
     private final UpdateTaskStatusPort updateTaskStatusPort;
     private final SaveTaskExecutionLogPort saveTaskExecutionLogPort;
     private final RunWorkspaceAgentPort runWorkspaceAgentPort;
+    private final WorkspaceExecutionLockPort workspaceExecutionLockPort;
 
     public RunTaskService(
             LoadMemberPort loadMemberPort,
@@ -59,6 +63,32 @@ public class RunTaskService implements RunTaskUseCase {
             UpdateTaskStatusPort updateTaskStatusPort,
             SaveTaskExecutionLogPort saveTaskExecutionLogPort,
             RunWorkspaceAgentPort runWorkspaceAgentPort) {
+        this(
+                loadMemberPort,
+                loadWorkspacePort,
+                loadTaskPort,
+                loadWorkspaceAgentPort,
+                loadWorkspaceGatewayBindingPort,
+                saveTaskExecutionPort,
+                updateTaskExecutionPort,
+                updateTaskStatusPort,
+                saveTaskExecutionLogPort,
+                runWorkspaceAgentPort,
+                WorkspaceExecutionLockPort.alwaysAvailable());
+    }
+
+    public RunTaskService(
+            LoadMemberPort loadMemberPort,
+            LoadWorkspacePort loadWorkspacePort,
+            LoadTaskPort loadTaskPort,
+            LoadWorkspaceAgentPort loadWorkspaceAgentPort,
+            LoadWorkspaceGatewayBindingPort loadWorkspaceGatewayBindingPort,
+            SaveTaskExecutionPort saveTaskExecutionPort,
+            UpdateTaskExecutionPort updateTaskExecutionPort,
+            UpdateTaskStatusPort updateTaskStatusPort,
+            SaveTaskExecutionLogPort saveTaskExecutionLogPort,
+            RunWorkspaceAgentPort runWorkspaceAgentPort,
+            WorkspaceExecutionLockPort workspaceExecutionLockPort) {
         this.loadMemberPort = Objects.requireNonNull(loadMemberPort, "loadMemberPort must not be null");
         this.loadWorkspacePort = Objects.requireNonNull(loadWorkspacePort, "loadWorkspacePort must not be null");
         this.loadTaskPort = Objects.requireNonNull(loadTaskPort, "loadTaskPort must not be null");
@@ -76,6 +106,8 @@ public class RunTaskService implements RunTaskUseCase {
                 Objects.requireNonNull(saveTaskExecutionLogPort, "saveTaskExecutionLogPort must not be null");
         this.runWorkspaceAgentPort =
                 Objects.requireNonNull(runWorkspaceAgentPort, "runWorkspaceAgentPort must not be null");
+        this.workspaceExecutionLockPort =
+                Objects.requireNonNull(workspaceExecutionLockPort, "workspaceExecutionLockPort must not be null");
     }
 
     @Override
@@ -87,14 +119,29 @@ public class RunTaskService implements RunTaskUseCase {
         TaskDetail task = loadTask(command.workspaceId(), command.taskId());
         requireRunnableTask(task);
         SavedWorkspaceAgent agent = resolveReadyAgent(task);
-        SavedTaskExecution execution =
-                saveTaskExecutionPort.save(TaskExecution.create(command.workspaceId(), command.taskId(), agent.agentId()));
-        saveExecutionLog(execution, "INFO", "Task execution queued");
+        WorkspaceExecutionLock lock = acquireWorkspaceLock(task, agent);
+        try {
+            SavedTaskExecution execution = saveTaskExecutionPort.save(
+                    TaskExecution.create(command.workspaceId(), command.taskId(), agent.agentId()));
+            saveExecutionLog(execution, "INFO", "Task execution queued");
 
-        return loadWorkspaceGatewayBindingPort
-                .findActiveByWorkspaceId(command.workspaceId())
-                .map(binding -> runWithBinding(command, task, agent, execution, binding))
-                .orElseGet(() -> failBeforeGateway(task, execution, GATEWAY_BINDING_NOT_FOUND));
+            return loadWorkspaceGatewayBindingPort
+                    .findActiveByWorkspaceId(command.workspaceId())
+                    .map(binding -> runWithBinding(command, task, agent, execution, binding))
+                    .orElseGet(() -> failBeforeGateway(task, execution, GATEWAY_BINDING_NOT_FOUND));
+        } finally {
+            lock.close();
+        }
+    }
+
+    private WorkspaceExecutionLock acquireWorkspaceLock(TaskDetail task, SavedWorkspaceAgent agent) {
+        return workspaceExecutionLockPort
+                .tryAcquire(new WorkspaceExecutionLockCommand(
+                        task.workspaceId(),
+                        task.taskId(),
+                        agent.agentId(),
+                        agent.workspacePath()))
+                .orElseThrow(() -> new IllegalStateException("workspace path is already running"));
     }
 
     private RunTaskResult runWithBinding(

@@ -27,6 +27,9 @@ import com.aquilaoffice.application.port.out.UpdateTaskExecutionPort;
 import com.aquilaoffice.application.port.out.UpdateTaskStatusPort;
 import com.aquilaoffice.application.port.out.WorkspaceAgentRunCommand;
 import com.aquilaoffice.application.port.out.WorkspaceAgentRunResult;
+import com.aquilaoffice.application.port.out.WorkspaceExecutionLock;
+import com.aquilaoffice.application.port.out.WorkspaceExecutionLockCommand;
+import com.aquilaoffice.application.port.out.WorkspaceExecutionLockPort;
 import com.aquilaoffice.domain.agent.WorkspaceAgentCategory;
 import com.aquilaoffice.domain.agent.WorkspaceAgentSkillFileSyncStatus;
 import com.aquilaoffice.domain.agent.WorkspaceAgentStatus;
@@ -204,6 +207,49 @@ class RunTaskServiceTest {
         assertThat(result.agentId()).isEqualTo(502L);
     }
 
+    @Test
+    void runTaskRejectsWhenWorkspacePathIsAlreadyLocked() {
+        FakeRunWorkspaceAgentPort runPort = new FakeRunWorkspaceAgentPort(
+                new WorkspaceAgentRunResult(true, "unused", null));
+        FakeWorkspaceExecutionLockPort lockPort = new FakeWorkspaceExecutionLockPort(false);
+        RunTaskService service = newService(
+                taskDetail(TaskStatus.ASSIGNED, 501L),
+                List.of(savedAgent(501L, WorkspaceAgentStatus.READY, "gateway-agent-1")),
+                Optional.of(gatewayBinding()),
+                runPort,
+                new FakeSaveTaskExecutionPort(),
+                new FakeUpdateTaskExecutionPort(),
+                new FakeUpdateTaskStatusPort(),
+                lockPort,
+                WorkspaceMemberRole.MEMBER);
+
+        assertThatThrownBy(() -> service.runTask(new RunTaskCommand(101L, 301L, "google-1", false)))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("workspace path is already running");
+        assertThat(runPort.called).isFalse();
+        assertThat(lockPort.lastCommand.workspacePath()).isEqualTo(".aquila/workspaces/101");
+    }
+
+    @Test
+    void runTaskReleasesWorkspaceLockWhenGatewayThrowsException() {
+        FakeWorkspaceExecutionLockPort lockPort = new FakeWorkspaceExecutionLockPort(true);
+        RunTaskService service = newService(
+                taskDetail(TaskStatus.ASSIGNED, 501L),
+                List.of(savedAgent(501L, WorkspaceAgentStatus.READY, "gateway-agent-1")),
+                Optional.of(gatewayBinding()),
+                new FakeRunWorkspaceAgentPort(new IllegalStateException("gateway timeout")),
+                new FakeSaveTaskExecutionPort(),
+                new FakeUpdateTaskExecutionPort(),
+                new FakeUpdateTaskStatusPort(),
+                lockPort,
+                WorkspaceMemberRole.MEMBER);
+
+        RunTaskResult result = service.runTask(new RunTaskCommand(101L, 301L, "google-1", false));
+
+        assertThat(result.failureReason()).isEqualTo("gateway timeout");
+        assertThat(lockPort.lastLock.closed).isTrue();
+    }
+
     private static RunTaskService newService(
             TaskDetail task,
             List<SavedWorkspaceAgent> agents,
@@ -222,6 +268,7 @@ class RunTaskServiceTest {
                 updateExecutionPort,
                 updateTaskStatusPort,
                 new FakeSaveTaskExecutionLogPort(),
+                new FakeWorkspaceExecutionLockPort(true),
                 role);
     }
 
@@ -235,6 +282,53 @@ class RunTaskServiceTest {
             UpdateTaskStatusPort updateTaskStatusPort,
             SaveTaskExecutionLogPort saveLogPort,
             WorkspaceMemberRole role) {
+        return newService(
+                task,
+                agents,
+                binding,
+                runPort,
+                saveExecutionPort,
+                updateExecutionPort,
+                updateTaskStatusPort,
+                saveLogPort,
+                new FakeWorkspaceExecutionLockPort(true),
+                role);
+    }
+
+    private static RunTaskService newService(
+            TaskDetail task,
+            List<SavedWorkspaceAgent> agents,
+            Optional<WorkspaceGatewayBinding> binding,
+            RunWorkspaceAgentPort runPort,
+            SaveTaskExecutionPort saveExecutionPort,
+            UpdateTaskExecutionPort updateExecutionPort,
+            UpdateTaskStatusPort updateTaskStatusPort,
+            WorkspaceExecutionLockPort lockPort,
+            WorkspaceMemberRole role) {
+        return newService(
+                task,
+                agents,
+                binding,
+                runPort,
+                saveExecutionPort,
+                updateExecutionPort,
+                updateTaskStatusPort,
+                new FakeSaveTaskExecutionLogPort(),
+                lockPort,
+                role);
+    }
+
+    private static RunTaskService newService(
+            TaskDetail task,
+            List<SavedWorkspaceAgent> agents,
+            Optional<WorkspaceGatewayBinding> binding,
+            RunWorkspaceAgentPort runPort,
+            SaveTaskExecutionPort saveExecutionPort,
+            UpdateTaskExecutionPort updateExecutionPort,
+            UpdateTaskStatusPort updateTaskStatusPort,
+            SaveTaskExecutionLogPort saveLogPort,
+            WorkspaceExecutionLockPort lockPort,
+            WorkspaceMemberRole role) {
         return new RunTaskService(
                 new FakeLoadMemberPort(Optional.of(Member.createUser("google-1", "user@example.com", "User"))),
                 new FakeLoadWorkspacePort(Optional.of(workspaceDetail(role))),
@@ -245,7 +339,8 @@ class RunTaskServiceTest {
                 updateExecutionPort,
                 updateTaskStatusPort,
                 saveLogPort,
-                runPort);
+                runPort,
+                lockPort);
     }
 
     private static GetWorkspaceDetailResult workspaceDetail(WorkspaceMemberRole role) {
@@ -468,6 +563,35 @@ class RunTaskServiceTest {
                 throw exception;
             }
             return result;
+        }
+    }
+
+    private static class FakeWorkspaceExecutionLockPort implements WorkspaceExecutionLockPort {
+        private final boolean available;
+        private WorkspaceExecutionLockCommand lastCommand;
+        private FakeWorkspaceExecutionLock lastLock;
+
+        private FakeWorkspaceExecutionLockPort(boolean available) {
+            this.available = available;
+        }
+
+        @Override
+        public Optional<WorkspaceExecutionLock> tryAcquire(WorkspaceExecutionLockCommand command) {
+            this.lastCommand = command;
+            if (!available) {
+                return Optional.empty();
+            }
+            this.lastLock = new FakeWorkspaceExecutionLock();
+            return Optional.of(lastLock);
+        }
+    }
+
+    private static class FakeWorkspaceExecutionLock implements WorkspaceExecutionLock {
+        private boolean closed;
+
+        @Override
+        public void close() {
+            closed = true;
         }
     }
 }
