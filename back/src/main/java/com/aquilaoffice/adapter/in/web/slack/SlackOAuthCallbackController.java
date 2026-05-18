@@ -34,7 +34,9 @@ public class SlackOAuthCallbackController {
     @GetMapping
     public ResponseEntity<RsData<SlackOAuthCallbackResponse>> completeSlackOAuthCallback(
             @RequestParam(name = "code", required = false) String code,
-            @RequestParam(name = "state", required = false) String state) {
+            @RequestParam(name = "state", required = false) String state,
+            @RequestParam(name = "error", required = false) String error) {
+        rejectOAuthError(error);
         String normalizedCode = requireQueryParam(code);
         String normalizedState = requireQueryParam(state);
 
@@ -46,6 +48,12 @@ public class SlackOAuthCallbackController {
                             redirectUri));
             return ResponseEntity.ok(RsData.ok(SlackOAuthCallbackResponse.from(result)));
         } catch (IllegalArgumentException | IllegalStateException exception) {
+            throw new ServiceException(CommonErrorCode.BAD_REQUEST);
+        }
+    }
+
+    private void rejectOAuthError(String error) {
+        if (error != null && !error.isBlank()) {
             throw new ServiceException(CommonErrorCode.BAD_REQUEST);
         }
     }
