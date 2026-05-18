@@ -78,6 +78,10 @@ export function workspaceTasksPath(workspaceId: number): string {
   return `/api/v1/workspaces/${workspaceId}/tasks`;
 }
 
+export function workspaceTasksRunPath(workspaceId: number): string {
+  return `${workspaceTasksPath(workspaceId)}/run`;
+}
+
 export function workspaceTaskPath(workspaceId: number, taskId: number): string {
   return `${workspaceTasksPath(workspaceId)}/${taskId}`;
 }

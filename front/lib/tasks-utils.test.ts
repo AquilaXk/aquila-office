@@ -6,6 +6,7 @@ import {
   normalizeWorkspaceTasks,
   workspaceTaskReportsPath,
   workspaceTasksPath,
+  workspaceTasksRunPath,
   type AgentReport,
   type WorkspaceTask,
 } from "./tasks-utils.ts";
@@ -46,6 +47,7 @@ const report: AgentReport = {
 
 test("workspace task paths target a single workspace", () => {
   assert.equal(workspaceTasksPath(101), "/api/v1/workspaces/101/tasks");
+  assert.equal(workspaceTasksRunPath(101), "/api/v1/workspaces/101/tasks/run");
   assert.equal(
     workspaceTaskReportsPath(101, 301),
     "/api/v1/workspaces/101/tasks/301/reports",
@@ -58,10 +60,13 @@ test("task mutation clients expose write and run contracts", () => {
 
   assert.match(utilsSource, /workspaceTaskStatusPath/);
   assert.match(utilsSource, /workspaceTaskRunPath/);
+  assert.match(utilsSource, /workspaceTasksRunPath/);
   assert.match(utilsSource, /\/status/);
   assert.match(utilsSource, /\/run/);
   assert.match(clientSource, /export type CreateWorkspaceTaskInput/);
+  assert.match(clientSource, /export type CreateAndRunWorkspaceTaskInput/);
   assert.match(clientSource, /createWorkspaceTask/);
+  assert.match(clientSource, /createAndRunWorkspaceTask/);
   assert.match(clientSource, /updateWorkspaceTaskStatus/);
   assert.match(clientSource, /runWorkspaceTask/);
   assert.match(clientSource, /createPr/);
