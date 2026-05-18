@@ -219,6 +219,16 @@ const AGENT_CATEGORY_OPTIONS: WorkspaceAgentCategory[] = [
   "CUSTOM",
 ];
 
+const officeSceneNavItems = [
+  { id: "connections", label: "Connections", icon: Settings },
+  { id: "tasks", label: "Tasks", icon: ListChecks },
+  { id: "hire-agent", label: "Hire agent", icon: UserRound },
+  { id: "files", label: "Files", icon: FolderTree },
+  { id: "leave-workspace", label: "Leave workspace", icon: ArrowLeft },
+] as const;
+
+type OfficeSceneNavItemId = (typeof officeSceneNavItems)[number]["id"];
+
 const EMPTY_WORKSPACE_MEMBERS: WorkspaceMember[] = [];
 const EMPTY_PRESENCE_MEMBERS: WorkspacePresenceMessage["members"] = [];
 
@@ -849,6 +859,25 @@ export default function WorkspaceDetailPage({
     [numericWorkspaceId],
   );
 
+  const scrollToWorkspaceSection = useCallback((sectionId: string) => {
+    document.getElementById(sectionId)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, []);
+
+  const handleOfficeSceneNavAction = useCallback(
+    (itemId: OfficeSceneNavItemId) => {
+      if (itemId === "tasks") {
+        scrollToWorkspaceSection("workspace-tasks");
+      }
+      if (itemId === "hire-agent") {
+        scrollToWorkspaceSection("workspace-hire-agent");
+      }
+      if (itemId === "files") {
+        void openWorkspaceFiles();
+      }
+    },
+    [openWorkspaceFiles, scrollToWorkspaceSection],
+  );
+
   const reloadWorkspace = useCallback(async () => {
     setState({ status: "loading", workspace: null, error: null });
 
@@ -1295,34 +1324,56 @@ export default function WorkspaceDetailPage({
 
         {workspace ? (
           <section className="workspace-detail-content" aria-label="워크스페이스 정보">
-            <div className="workspace-detail-summary">
-              <span className="workspace-detail-label">워크스페이스 이름</span>
-              <strong>{workspace.name}</strong>
-              <p>{workspace.description ?? "설명 없음"}</p>
-            </div>
+            <section className="workspace-office-scene workspace-2d-section" aria-label="워크스페이스 오피스 씬">
+              <nav className="workspace-office-nav" aria-label="워크스페이스 오피스 씬 메뉴">
+                {officeSceneNavItems.map((item) => {
+                  const Icon = item.icon;
+                  if (item.id === "connections") {
+                    return (
+                      <Link
+                        className="workspace-office-nav-item"
+                        href={`/workspaces/${numericWorkspaceId}/settings`}
+                        key={item.id}
+                      >
+                        <Icon aria-hidden="true" />
+                        <span>{item.label}</span>
+                      </Link>
+                    );
+                  }
+                  if (item.id === "leave-workspace") {
+                    return (
+                      <Link className="workspace-office-nav-item" href="/workspaces" key={item.id}>
+                        <Icon aria-hidden="true" />
+                        <span>{item.label}</span>
+                      </Link>
+                    );
+                  }
+                  return (
+                    <button
+                      className="workspace-office-nav-item"
+                      type="button"
+                      key={item.id}
+                      onClick={() => handleOfficeSceneNavAction(item.id)}
+                    >
+                      <Icon aria-hidden="true" />
+                      <span>{item.label}</span>
+                    </button>
+                  );
+                })}
+              </nav>
 
-            <section className="workspace-detail-action-rail" aria-label="워크스페이스 상세 작업">
-              <div className={`workspace-detail-readiness workspace-detail-readiness-${detailOverview.readiness}`}>
-                <ShieldCheck aria-hidden="true" />
-                <span>{formatWorkspaceDetailReadiness(detailOverview.readiness)}</span>
+              <div className="workspace-office-hero">
+                <div className="workspace-detail-summary">
+                  <span className="workspace-detail-label">Workspace office</span>
+                  <strong>{workspace.name}</strong>
+                  <p>{workspace.description ?? "설명 없음"}</p>
+                </div>
+                <div className={`workspace-detail-readiness workspace-detail-readiness-${detailOverview.readiness}`}>
+                  <ShieldCheck aria-hidden="true" />
+                  <span>{formatWorkspaceDetailReadiness(detailOverview.readiness)}</span>
+                </div>
               </div>
-              {detailActionItems.map((item) => (
-                <WorkspaceDetailActionCard
-                  item={item}
-                  key={item.id}
-                  onClick={() => {
-                    if (item.id === "files") {
-                      void openWorkspaceFiles();
-                    }
-                    if (item.id === "chat" && tasks[0]) {
-                      void openTaskChat(tasks[0]);
-                    }
-                  }}
-                />
-              ))}
-            </section>
 
-            <section className="workspace-2d-section" aria-label="워크스페이스 2D 화면">
               <Workspace2DCanvas
                 agents={workspaceAgents}
                 members={members}
@@ -1331,6 +1382,23 @@ export default function WorkspaceDetailPage({
                   updatePresencePosition(position, "2D workspace 위치가 갱신되었습니다.")
                 }
               />
+
+              <section className="workspace-detail-action-rail" aria-label="워크스페이스 상세 작업">
+                {detailActionItems.map((item) => (
+                  <WorkspaceDetailActionCard
+                    item={item}
+                    key={item.id}
+                    onClick={() => {
+                      if (item.id === "files") {
+                        void openWorkspaceFiles();
+                      }
+                      if (item.id === "chat" && tasks[0]) {
+                        void openTaskChat(tasks[0]);
+                      }
+                    }}
+                  />
+                ))}
+              </section>
             </section>
 
             <section className="workspace-task-section" aria-label="워크스페이스 대시보드 요약">
@@ -1499,7 +1567,7 @@ export default function WorkspaceDetailPage({
               )}
             </section>
 
-            <section className="workspace-member-section" aria-label="워크스페이스 Agent">
+            <section id="workspace-hire-agent" className="workspace-member-section" aria-label="워크스페이스 Agent">
               <div className="workspace-section-title">
                 <div>
                   <span className="workspace-detail-label">Agents</span>
@@ -1813,7 +1881,7 @@ export default function WorkspaceDetailPage({
               </form>
             </section>
 
-            <section className="workspace-task-section" aria-label="워크스페이스 Task">
+            <section id="workspace-tasks" className="workspace-task-section" aria-label="워크스페이스 Task">
               <div className="workspace-section-title">
                 <div>
                   <span className="workspace-detail-label">Tasks</span>

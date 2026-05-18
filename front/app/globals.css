@@ -1487,6 +1487,65 @@ h2 {
   padding: 16px;
 }
 
+.workspace-office-scene {
+  display: grid;
+  min-height: calc(100vh - 64px);
+  align-content: start;
+  gap: 14px;
+  min-width: 0;
+  border: 1px solid var(--gothic-line);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgba(241, 230, 204, 0.05), rgba(16, 18, 20, 0.18)),
+    var(--gothic-surface);
+  box-shadow: var(--shadow);
+  padding: 16px;
+}
+
+.workspace-office-nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.workspace-office-nav-item {
+  display: inline-flex;
+  min-height: 38px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid var(--gothic-line);
+  border-radius: 8px;
+  background: var(--gothic-surface-raised);
+  color: var(--gothic-parchment);
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  padding: 0 12px;
+  text-decoration: none;
+}
+
+.workspace-office-nav-item:hover,
+.workspace-office-nav-item:focus-visible {
+  border-color: var(--gothic-line-strong);
+  color: var(--gothic-brass);
+  outline: none;
+}
+
+.workspace-office-nav-item svg {
+  width: 16px;
+  height: 16px;
+}
+
+.workspace-office-hero {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
 .workspace-2d-section {
   min-width: 0;
 }
@@ -1558,10 +1617,15 @@ h2 {
   border: 1px solid rgba(227, 198, 130, 0.36);
   border-radius: 8px;
   background:
-    radial-gradient(circle at 30% 20%, rgba(194, 163, 91, 0.14), transparent 30%),
+    linear-gradient(135deg, rgba(194, 163, 91, 0.1), rgba(16, 18, 20, 0.08)),
     #101214;
   cursor: grab;
   touch-action: none;
+}
+
+.workspace-2d-canvas:focus-visible {
+  outline: 2px solid rgba(227, 198, 130, 0.5);
+  outline-offset: 2px;
 }
 
 .workspace-2d-canvas:active {
@@ -1580,6 +1644,71 @@ h2 {
   bottom: 10px;
   flex-wrap: wrap;
   background: rgba(16, 18, 20, 0.88);
+}
+
+.workspace-2d-hud {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.workspace-2d-hud > div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  border: 1px solid rgba(194, 163, 91, 0.24);
+  border-radius: 8px;
+  background: rgba(31, 35, 39, 0.7);
+  padding: 10px;
+}
+
+.workspace-2d-hud span,
+.workspace-2d-dialogue p {
+  color: var(--gothic-muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.workspace-2d-hud strong,
+.workspace-2d-dialogue strong {
+  overflow: hidden;
+  color: var(--gothic-parchment);
+  font-size: 14px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workspace-2d-minimap {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 132px;
+  height: 82px;
+  overflow: hidden;
+  border: 1px solid rgba(227, 198, 130, 0.46);
+  border-radius: 8px;
+  background: rgba(16, 18, 20, 0.88);
+}
+
+.workspace-2d-minimap-zone,
+.workspace-2d-minimap-view {
+  position: absolute;
+  display: block;
+  border-radius: 4px;
+}
+
+.workspace-2d-minimap-room {
+  border: 1px solid rgba(194, 163, 91, 0.42);
+  background: rgba(194, 163, 91, 0.08);
+}
+
+.workspace-2d-minimap-desk {
+  background: rgba(111, 159, 121, 0.28);
+}
+
+.workspace-2d-minimap-view {
+  border: 1px solid var(--gothic-parchment);
+  background: rgba(241, 230, 204, 0.12);
 }
 
 .workspace-2d-roster {
@@ -1700,6 +1829,20 @@ h2 {
 .workspace-2d-selection {
   justify-content: flex-start;
   width: fit-content;
+}
+
+.workspace-2d-dialogue {
+  display: grid;
+  gap: 4px;
+  border: 1px solid rgba(194, 163, 91, 0.28);
+  border-radius: 8px;
+  background: rgba(16, 18, 20, 0.64);
+  padding: 12px;
+}
+
+.workspace-2d-dialogue p {
+  margin: 0;
+  line-height: 1.45;
 }
 
 .workspace-task-refresh {
@@ -3803,6 +3946,24 @@ h2 {
     grid-column: 2;
     justify-items: start;
     white-space: normal;
+  }
+
+  .workspace-office-scene {
+    min-height: auto;
+  }
+
+  .workspace-office-nav,
+  .workspace-office-hero {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .workspace-office-nav-item {
+    width: 100%;
+  }
+
+  .workspace-2d-hud {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .invite-shell {
