@@ -22,7 +22,7 @@ permissions:
 
 jobs:
   backend:
-    name: Backend Test
+    name: Backend Quality Gate
     runs-on: ubuntu-latest
 
     steps:
@@ -39,8 +39,22 @@ jobs:
       - name: Grant Gradle wrapper permission
         run: chmod +x back/gradlew
 
-      - name: Run backend tests
-        run: ./back/gradlew -p back test
+      - name: Run backend quality gate
+        run: ./back/gradlew -p back check
+
+      - name: Upload backend check reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-check-reports
+          path: |
+            back/build/reports/tests/test/
+            back/build/reports/checkstyle/
+            back/build/reports/spotbugs/
+            back/build/reports/jacoco/test/
+            back/build/reports/problems/
+          if-no-files-found: ignore
+          retention-days: 14
 
   frontend:
     name: Frontend Quality Gate
