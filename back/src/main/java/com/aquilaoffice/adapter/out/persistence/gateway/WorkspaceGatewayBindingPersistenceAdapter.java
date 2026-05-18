@@ -5,6 +5,7 @@ import com.aquilaoffice.adapter.out.persistence.workspace.WorkspaceJpaRepository
 import com.aquilaoffice.application.port.out.LoadWorkspaceGatewayBindingPort;
 import com.aquilaoffice.application.port.out.SaveWorkspaceGatewayBindingPort;
 import com.aquilaoffice.domain.gateway.WorkspaceGatewayBinding;
+import com.aquilaoffice.global.security.ExternalTokenCipher;
 import java.time.LocalDateTime;
 import java.util.Objects;
 import java.util.Optional;
@@ -20,12 +21,15 @@ public class WorkspaceGatewayBindingPersistenceAdapter
 
     private final WorkspaceJpaRepository workspaceJpaRepository;
     private final WorkspaceGatewayBindingJpaRepository workspaceGatewayBindingJpaRepository;
+    private final ExternalTokenCipher externalTokenCipher;
 
     public WorkspaceGatewayBindingPersistenceAdapter(
             WorkspaceJpaRepository workspaceJpaRepository,
-            WorkspaceGatewayBindingJpaRepository workspaceGatewayBindingJpaRepository) {
+            WorkspaceGatewayBindingJpaRepository workspaceGatewayBindingJpaRepository,
+            ExternalTokenCipher externalTokenCipher) {
         this.workspaceJpaRepository = workspaceJpaRepository;
         this.workspaceGatewayBindingJpaRepository = workspaceGatewayBindingJpaRepository;
+        this.externalTokenCipher = externalTokenCipher;
     }
 
     @Override
@@ -41,7 +45,10 @@ public class WorkspaceGatewayBindingPersistenceAdapter
                 .forEach(entity -> entity.softDelete(replacedAt));
 
         WorkspaceGatewayBindingJpaEntity savedEntity = workspaceGatewayBindingJpaRepository.save(
-                WorkspaceGatewayBindingJpaEntity.from(binding, workspaceEntity));
+                WorkspaceGatewayBindingJpaEntity.from(
+                        binding,
+                        workspaceEntity,
+                        externalTokenCipher.encrypt(binding.getToken())));
         return toDomain(savedEntity);
     }
 
@@ -59,7 +66,7 @@ public class WorkspaceGatewayBindingPersistenceAdapter
                 entity.getId(),
                 entity.getWorkspace().getId(),
                 entity.getGatewayUrl(),
-                entity.getToken(),
+                externalTokenCipher.decrypt(entity.getToken()),
                 entity.getCreatedByGoogleSub());
     }
 }

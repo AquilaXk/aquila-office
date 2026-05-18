@@ -67,23 +67,27 @@ public class SlackChannelMappingJpaEntity extends BaseEntity {
 
     public static SlackChannelMappingJpaEntity from(
             SlackChannelMapping mapping,
-            WorkspaceJpaEntity workspace) {
+            WorkspaceJpaEntity workspace,
+            String encryptedBotToken) {
         return new SlackChannelMappingJpaEntity(
                 workspace,
                 mapping.getTeamId(),
                 mapping.getChannelId(),
                 mapping.getChannelName(),
-                mapping.getBotToken(),
+                encryptedBotToken,
                 mapping.getCreatedByGoogleSub(),
                 mapping.isActive());
     }
 
-    public void apply(SlackChannelMapping mapping, WorkspaceJpaEntity workspace) {
+    public void apply(
+            SlackChannelMapping mapping,
+            WorkspaceJpaEntity workspace,
+            String encryptedBotToken) {
         this.workspace = requireWorkspaceEntity(workspace);
         this.teamId = mapping.getTeamId();
         this.channelId = mapping.getChannelId();
         this.channelName = mapping.getChannelName();
-        this.botToken = mapping.getBotToken();
+        this.botToken = encryptedBotToken;
         this.createdByGoogleSub = mapping.getCreatedByGoogleSub();
         this.active = mapping.isActive();
     }

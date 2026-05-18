@@ -12,9 +12,12 @@ import com.aquilaoffice.domain.member.Member;
 import com.aquilaoffice.domain.member.MemberRole;
 import com.aquilaoffice.domain.slack.SlackChannelMapping;
 import com.aquilaoffice.domain.workspace.Workspace;
+import com.aquilaoffice.global.config.properties.ExternalTokenEncryptionProperties;
+import com.aquilaoffice.global.security.AesGcmExternalTokenCipher;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.context.annotation.Import;
 
@@ -22,7 +25,8 @@ import org.springframework.context.annotation.Import;
  * Slack channel mapping persistence adapter가 active mapping만 조회하는지 검증한다.
  */
 @DataJpaTest
-@Import(SlackChannelMappingPersistenceAdapter.class)
+@Import({SlackChannelMappingPersistenceAdapter.class, AesGcmExternalTokenCipher.class})
+@EnableConfigurationProperties(ExternalTokenEncryptionProperties.class)
 class SlackChannelMappingPersistenceAdapterTest {
 
     @Autowired
@@ -55,6 +59,11 @@ class SlackChannelMappingPersistenceAdapterTest {
         assertThat(savedMapping.getId()).isNotNull();
         assertThat(savedMapping.getWorkspaceId()).isEqualTo(workspaceEntity.getId());
         assertThat(savedMapping.getBotToken()).isEqualTo("xoxb-token-secret");
+        assertThat(slackChannelMappingJpaRepository.findById(savedMapping.getId()))
+                .hasValueSatisfying(entity -> {
+                    assertThat(entity.getBotToken()).startsWith("enc:v1:test-key:");
+                    assertThat(entity.getBotToken()).doesNotContain("xoxb-token-secret");
+                });
         assertThat(loadSlackChannelMappingPort.findActiveByTeamIdAndChannelId("T123", "C456"))
                 .hasValueSatisfying(found -> {
                     assertThat(found.getId()).isEqualTo(savedMapping.getId());
@@ -135,6 +144,11 @@ class SlackChannelMappingPersistenceAdapterTest {
 
         assertThat(updatedMapping.getId()).isEqualTo(savedMapping.getId());
         assertThat(slackChannelMappingJpaRepository.count()).isEqualTo(1L);
+        assertThat(slackChannelMappingJpaRepository.findById(updatedMapping.getId()))
+                .hasValueSatisfying(entity -> {
+                    assertThat(entity.getBotToken()).startsWith("enc:v1:test-key:");
+                    assertThat(entity.getBotToken()).doesNotContain("xoxb-new-secret");
+                });
         assertThat(loadSlackChannelMappingPort.findActiveByIdAndWorkspaceId(
                         savedMapping.getId(),
                         workspaceEntity.getId()))

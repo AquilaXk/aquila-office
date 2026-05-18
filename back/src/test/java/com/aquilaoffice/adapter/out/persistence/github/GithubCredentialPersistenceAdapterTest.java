@@ -17,8 +17,11 @@ import com.aquilaoffice.domain.github.GithubCredential;
 import com.aquilaoffice.domain.member.Member;
 import com.aquilaoffice.domain.member.MemberRole;
 import com.aquilaoffice.domain.workspace.Workspace;
+import com.aquilaoffice.global.config.properties.ExternalTokenEncryptionProperties;
+import com.aquilaoffice.global.security.AesGcmExternalTokenCipher;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.context.annotation.Import;
 
@@ -26,7 +29,8 @@ import org.springframework.context.annotation.Import;
  * GitHub 자격 증명 persistence adapter가 outbound port 계약대로 저장, 조회, 수정, 삭제를 수행하는지 검증한다.
  */
 @DataJpaTest
-@Import(GithubCredentialPersistenceAdapter.class)
+@Import({GithubCredentialPersistenceAdapter.class, AesGcmExternalTokenCipher.class})
+@EnableConfigurationProperties(ExternalTokenEncryptionProperties.class)
 class GithubCredentialPersistenceAdapterTest {
 
     @Autowired
@@ -65,6 +69,11 @@ class GithubCredentialPersistenceAdapterTest {
 
         assertThat(savedCredential.getId()).isNotNull();
         assertThat(savedCredential.getDisplayName()).isEqualTo("Main Token");
+        assertThat(githubCredentialJpaRepository.findById(savedCredential.getId()))
+                .hasValueSatisfying(entity -> {
+                    assertThat(entity.getToken()).startsWith("enc:v1:test-key:");
+                    assertThat(entity.getToken()).doesNotContain("ghp_1234567890abcdef");
+                });
         assertThat(loadGithubCredentialsPort.findActiveByWorkspaceId(workspaceEntity.getId()))
                 .singleElement()
                 .satisfies(found -> {
@@ -100,7 +109,8 @@ class GithubCredentialPersistenceAdapterTest {
         assertThat(githubCredentialJpaRepository.findById(savedCredential.getId()))
                 .hasValueSatisfying(entity -> {
                     assertThat(entity.getDisplayName()).isEqualTo("Backup Token");
-                    assertThat(entity.getToken()).isEqualTo("ghp_fedcba0987654321");
+                    assertThat(entity.getToken()).startsWith("enc:v1:test-key:");
+                    assertThat(entity.getToken()).doesNotContain("ghp_fedcba0987654321");
                 });
     }
 

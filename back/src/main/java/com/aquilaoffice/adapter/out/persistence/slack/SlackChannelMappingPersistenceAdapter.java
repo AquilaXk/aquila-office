@@ -5,6 +5,7 @@ import com.aquilaoffice.adapter.out.persistence.workspace.WorkspaceJpaRepository
 import com.aquilaoffice.application.port.out.LoadSlackChannelMappingPort;
 import com.aquilaoffice.application.port.out.SaveSlackChannelMappingPort;
 import com.aquilaoffice.domain.slack.SlackChannelMapping;
+import com.aquilaoffice.global.security.ExternalTokenCipher;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -20,12 +21,15 @@ public class SlackChannelMappingPersistenceAdapter
 
     private final WorkspaceJpaRepository workspaceJpaRepository;
     private final SlackChannelMappingJpaRepository slackChannelMappingJpaRepository;
+    private final ExternalTokenCipher externalTokenCipher;
 
     public SlackChannelMappingPersistenceAdapter(
             WorkspaceJpaRepository workspaceJpaRepository,
-            SlackChannelMappingJpaRepository slackChannelMappingJpaRepository) {
+            SlackChannelMappingJpaRepository slackChannelMappingJpaRepository,
+            ExternalTokenCipher externalTokenCipher) {
         this.workspaceJpaRepository = workspaceJpaRepository;
         this.slackChannelMappingJpaRepository = slackChannelMappingJpaRepository;
+        this.externalTokenCipher = externalTokenCipher;
     }
 
     @Override
@@ -75,7 +79,7 @@ public class SlackChannelMappingPersistenceAdapter
                 entity.getTeamId(),
                 entity.getChannelId(),
                 entity.getChannelName(),
-                entity.getBotToken(),
+                externalTokenCipher.decrypt(entity.getBotToken()),
                 entity.getCreatedByGoogleSub(),
                 entity.isActive());
     }
@@ -84,13 +88,19 @@ public class SlackChannelMappingPersistenceAdapter
             SlackChannelMapping mapping,
             WorkspaceJpaEntity workspaceEntity) {
         if (mapping.getId() == null) {
-            return SlackChannelMappingJpaEntity.from(mapping, workspaceEntity);
+            return SlackChannelMappingJpaEntity.from(
+                    mapping,
+                    workspaceEntity,
+                    externalTokenCipher.encrypt(mapping.getBotToken()));
         }
 
         SlackChannelMappingJpaEntity entity = slackChannelMappingJpaRepository
                 .findById(mapping.getId())
                 .orElseThrow(() -> new IllegalArgumentException("slack channel mapping entity not found"));
-        entity.apply(mapping, workspaceEntity);
+        entity.apply(
+                mapping,
+                workspaceEntity,
+                externalTokenCipher.encrypt(mapping.getBotToken()));
         return entity;
     }
 
