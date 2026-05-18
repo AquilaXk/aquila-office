@@ -31,6 +31,7 @@ import com.aquilaoffice.application.port.in.GetMemberProfileUseCase;
 import com.aquilaoffice.application.port.in.GoogleLoginUseCase;
 import com.aquilaoffice.application.port.in.LeaveWorkspaceUseCase;
 import com.aquilaoffice.application.port.in.ListTaskReportsUseCase;
+import com.aquilaoffice.application.port.in.ListTaskExecutionLogsUseCase;
 import com.aquilaoffice.application.port.in.ListGithubCredentialsUseCase;
 import com.aquilaoffice.application.port.in.ListChatSessionMessagesUseCase;
 import com.aquilaoffice.application.port.in.ListChatTaskMessagesUseCase;
@@ -83,6 +84,7 @@ import com.aquilaoffice.application.port.out.LoadOrchestrationPlanArtifactPort;
 import com.aquilaoffice.application.port.out.LoadOrchestrationSessionPort;
 import com.aquilaoffice.application.port.out.LoadSlackChannelMappingPort;
 import com.aquilaoffice.application.port.out.LoadTaskExecutionReportsPort;
+import com.aquilaoffice.application.port.out.LoadTaskExecutionLogsPort;
 import com.aquilaoffice.application.port.out.LoadTaskPort;
 import com.aquilaoffice.application.port.out.LoadTasksPort;
 import com.aquilaoffice.application.port.out.LoadWorkspaceArtifactsPort;
@@ -157,6 +159,7 @@ import com.aquilaoffice.application.service.LeaveWorkspaceService;
 import com.aquilaoffice.application.service.MemberProfileService;
 import com.aquilaoffice.application.service.OpenWorkspacePresenceStreamService;
 import com.aquilaoffice.application.service.ListTaskReportsService;
+import com.aquilaoffice.application.service.ListTaskExecutionLogsService;
 import com.aquilaoffice.application.service.ListGithubCredentialsService;
 import com.aquilaoffice.application.service.ListChatSessionMessagesService;
 import com.aquilaoffice.application.service.ListChatTaskMessagesService;
@@ -682,6 +685,16 @@ public class ApplicationServiceConfig {
             LoadTaskExecutionReportsPort loadTaskExecutionReportsPort) {
         return new ListTaskReportsService(
                 loadMemberPort, loadWorkspacePort, loadTaskPort, loadTaskExecutionReportsPort);
+    }
+
+    @Bean
+    public ListTaskExecutionLogsUseCase listTaskExecutionLogsUseCase(
+            LoadMemberPort loadMemberPort,
+            LoadWorkspacePort loadWorkspacePort,
+            LoadTaskPort loadTaskPort,
+            LoadTaskExecutionLogsPort loadTaskExecutionLogsPort) {
+        return new ListTaskExecutionLogsService(
+                loadMemberPort, loadWorkspacePort, loadTaskPort, loadTaskExecutionLogsPort);
     }
 
     @Bean

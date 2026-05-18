@@ -1,7 +1,10 @@
 import { apiFetch } from "@/lib/api";
 import {
   normalizeTaskReports,
+  normalizeTaskExecutionLogs,
   normalizeWorkspaceTasks,
+  workspaceTaskLogsPath,
+  workspaceTaskMessagesPath,
   workspaceTaskPath,
   workspaceTaskReportsPath,
   workspaceTaskRunPath,
@@ -10,15 +13,20 @@ import {
   workspaceTasksPath,
   type AgentReport,
   type RunWorkspaceTaskResult,
+  type TaskExecutionLog,
   type TaskPriority,
   type TaskStatus,
   type TaskType,
   type WorkspaceTask,
 } from "@/lib/tasks-utils";
+import type { ChatMessage } from "@/lib/chat";
 
 export {
   normalizeTaskReports,
+  normalizeTaskExecutionLogs,
   normalizeWorkspaceTasks,
+  workspaceTaskLogsPath,
+  workspaceTaskMessagesPath,
   workspaceTaskPath,
   workspaceTaskReportsPath,
   workspaceTaskRunPath,
@@ -29,6 +37,7 @@ export {
   type RunWorkspaceTaskResult,
   type TaskArtifact,
   type TaskArtifactType,
+  type TaskExecutionLog,
   type TaskExecutionStatus,
   type TaskPriority,
   type TaskStatus,
@@ -135,4 +144,26 @@ export async function fetchTaskReports(
   });
 
   return normalizeTaskReports(payload);
+}
+
+export async function fetchTaskExecutionLogs(
+  accessToken: string,
+  workspaceId: number,
+  taskId: number,
+): Promise<TaskExecutionLog[]> {
+  const payload = await apiFetch<unknown>(workspaceTaskLogsPath(workspaceId, taskId), {
+    accessToken,
+  });
+
+  return normalizeTaskExecutionLogs(payload);
+}
+
+export async function fetchTaskMessages(
+  accessToken: string,
+  workspaceId: number,
+  taskId: number,
+): Promise<ChatMessage[]> {
+  return apiFetch<ChatMessage[]>(workspaceTaskMessagesPath(workspaceId, taskId), {
+    accessToken,
+  });
 }

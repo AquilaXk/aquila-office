@@ -30,6 +30,7 @@ import com.aquilaoffice.application.port.in.GetWorkspaceDashboardSummaryUseCase;
 import com.aquilaoffice.application.port.in.GetTaskDetailUseCase;
 import com.aquilaoffice.application.port.in.GoogleLoginUseCase;
 import com.aquilaoffice.application.port.in.LeaveWorkspaceUseCase;
+import com.aquilaoffice.application.port.in.ListTaskExecutionLogsUseCase;
 import com.aquilaoffice.application.port.in.ListTaskReportsUseCase;
 import com.aquilaoffice.application.port.in.ListWorkspaceAgentsUseCase;
 import com.aquilaoffice.application.port.in.ListGithubCredentialsUseCase;
@@ -80,6 +81,7 @@ import com.aquilaoffice.application.port.out.LoadMemberProfilePort;
 import com.aquilaoffice.application.port.out.LoadOrchestrationPlanArtifactPort;
 import com.aquilaoffice.application.port.out.LoadOrchestrationSessionPort;
 import com.aquilaoffice.application.port.out.LoadSlackChannelMappingPort;
+import com.aquilaoffice.application.port.out.LoadTaskExecutionLogsPort;
 import com.aquilaoffice.application.port.out.LoadTaskExecutionReportsPort;
 import com.aquilaoffice.application.port.out.LoadTaskPort;
 import com.aquilaoffice.application.port.out.LoadTasksPort;
@@ -150,6 +152,7 @@ import com.aquilaoffice.application.service.GoogleLoginService;
 import com.aquilaoffice.application.service.LeaveWorkspaceService;
 import com.aquilaoffice.application.service.MemberProfileService;
 import com.aquilaoffice.application.service.OpenWorkspacePresenceStreamService;
+import com.aquilaoffice.application.service.ListTaskExecutionLogsService;
 import com.aquilaoffice.application.service.ListTaskReportsService;
 import com.aquilaoffice.application.service.ListWorkspaceAgentsService;
 import com.aquilaoffice.application.service.ListGithubCredentialsService;
@@ -327,6 +330,9 @@ class ApplicationServiceConfigTest {
 
     @MockitoBean
     private LoadTaskExecutionReportsPort loadTaskExecutionReportsPort;
+
+    @MockitoBean
+    private LoadTaskExecutionLogsPort loadTaskExecutionLogsPort;
 
     @MockitoBean
     private LoadWorkspaceArtifactsPort loadWorkspaceArtifactsPort;
@@ -513,6 +519,9 @@ class ApplicationServiceConfigTest {
 
     @Autowired
     private ListTaskReportsUseCase listTaskReportsUseCase;
+
+    @Autowired
+    private ListTaskExecutionLogsUseCase listTaskExecutionLogsUseCase;
 
     @Autowired
     private GetArtifactTreeUseCase getArtifactTreeUseCase;
@@ -777,6 +786,11 @@ class ApplicationServiceConfigTest {
     @Test
     void registersListTaskReportsUseCase() {
         assertThat(listTaskReportsUseCase).isInstanceOf(ListTaskReportsService.class);
+    }
+
+    @Test
+    void registersListTaskExecutionLogsUseCase() {
+        assertThat(listTaskExecutionLogsUseCase).isInstanceOf(ListTaskExecutionLogsService.class);
     }
 
     @Test

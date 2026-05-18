@@ -5,6 +5,7 @@ import com.aquilaoffice.adapter.out.persistence.task.TaskJpaRepository;
 import com.aquilaoffice.adapter.out.persistence.workspace.WorkspaceJpaEntity;
 import com.aquilaoffice.adapter.out.persistence.workspace.WorkspaceJpaRepository;
 import com.aquilaoffice.application.port.out.LoadTaskExecutionReportsPort;
+import com.aquilaoffice.application.port.out.LoadTaskExecutionLogsPort;
 import com.aquilaoffice.application.port.out.SaveTaskExecutionLogPort;
 import com.aquilaoffice.application.port.out.SaveTaskExecutionPort;
 import com.aquilaoffice.application.port.out.SavedTaskExecutionLog;
@@ -26,7 +27,8 @@ public class TaskExecutionPersistenceAdapter
         implements SaveTaskExecutionPort,
                 SaveTaskExecutionLogPort,
                 UpdateTaskExecutionPort,
-                LoadTaskExecutionReportsPort {
+                LoadTaskExecutionReportsPort,
+                LoadTaskExecutionLogsPort {
 
     private final WorkspaceJpaRepository workspaceJpaRepository;
     private final TaskJpaRepository taskJpaRepository;
@@ -89,6 +91,16 @@ public class TaskExecutionPersistenceAdapter
     public List<SavedTaskExecution> findByWorkspaceIdAndTaskIdOrderByCreatedAtDesc(Long workspaceId, Long taskId) {
         return taskExecutionJpaRepository.findByWorkspace_IdAndTask_IdOrderByCreatedAtDesc(workspaceId, taskId).stream()
                 .map(this::toSavedTaskExecution)
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<SavedTaskExecutionLog> findByWorkspaceIdAndTaskIdOrderByCreatedAtAsc(Long workspaceId, Long taskId) {
+        return taskExecutionLogJpaRepository
+                .findByWorkspaceIdAndTaskIdOrderByCreatedAtAsc(workspaceId, taskId)
+                .stream()
+                .map(this::toSavedTaskExecutionLog)
                 .toList();
     }
 

@@ -19,6 +19,10 @@ import com.aquilaoffice.application.port.in.CreateTaskUseCase;
 import com.aquilaoffice.application.port.in.GetTaskDetailQuery;
 import com.aquilaoffice.application.port.in.GetTaskDetailResult;
 import com.aquilaoffice.application.port.in.GetTaskDetailUseCase;
+import com.aquilaoffice.application.port.in.ListChatTaskMessagesQuery;
+import com.aquilaoffice.application.port.in.ListChatTaskMessagesUseCase;
+import com.aquilaoffice.application.port.in.ListTaskExecutionLogsQuery;
+import com.aquilaoffice.application.port.in.ListTaskExecutionLogsUseCase;
 import com.aquilaoffice.application.port.in.ListTasksQuery;
 import com.aquilaoffice.application.port.in.ListTasksResult;
 import com.aquilaoffice.application.port.in.ListTasksUseCase;
@@ -28,6 +32,7 @@ import com.aquilaoffice.application.port.in.RunTaskUseCase;
 import com.aquilaoffice.application.port.in.UpdateTaskStatusCommand;
 import com.aquilaoffice.application.port.in.UpdateTaskStatusResult;
 import com.aquilaoffice.application.port.in.UpdateTaskStatusUseCase;
+import com.aquilaoffice.domain.chat.ChatMessageRole;
 import com.aquilaoffice.domain.execution.TaskExecutionStatus;
 import com.aquilaoffice.domain.task.TaskPriority;
 import com.aquilaoffice.domain.task.TaskStatus;
@@ -74,6 +79,12 @@ class TaskControllerTest {
 
     @MockitoBean
     private RunTaskUseCase runTaskUseCase;
+
+    @MockitoBean
+    private ListTaskExecutionLogsUseCase listTaskExecutionLogsUseCase;
+
+    @MockitoBean
+    private ListChatTaskMessagesUseCase listChatTaskMessagesUseCase;
 
     @Test
     void createTaskReturnsCreatedEnvelope() throws Exception {
@@ -246,6 +257,50 @@ class TaskControllerTest {
     }
 
     @Test
+    void listTaskLogsReturnsOkEnvelope() throws Exception {
+        given(listTaskExecutionLogsUseCase.listTaskExecutionLogs(any(ListTaskExecutionLogsQuery.class)))
+                .willReturn(List.of(taskLogResult()));
+
+        mockMvc.perform(get("/api/v1/workspaces/101/tasks/301/logs")
+                        .principal(authenticatedPrincipal("google-1")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data[0].logId").value(801))
+                .andExpect(jsonPath("$.data[0].taskExecutionId").value(701))
+                .andExpect(jsonPath("$.data[0].level").value("INFO"))
+                .andExpect(jsonPath("$.data[0].message").value("작업 실행 시작"));
+
+        ArgumentCaptor<ListTaskExecutionLogsQuery> queryCaptor =
+                ArgumentCaptor.forClass(ListTaskExecutionLogsQuery.class);
+        verify(listTaskExecutionLogsUseCase).listTaskExecutionLogs(queryCaptor.capture());
+        assertThat(queryCaptor.getValue().workspaceId()).isEqualTo(101L);
+        assertThat(queryCaptor.getValue().taskId()).isEqualTo(301L);
+        assertThat(queryCaptor.getValue().requesterGoogleSub()).isEqualTo("google-1");
+    }
+
+    @Test
+    void listTaskMessagesAliasReturnsOkEnvelope() throws Exception {
+        given(listChatTaskMessagesUseCase.listChatTaskMessages(any(ListChatTaskMessagesQuery.class)))
+                .willReturn(List.of(taskMessageResult()));
+
+        mockMvc.perform(get("/api/v1/workspaces/101/tasks/301/messages")
+                        .principal(authenticatedPrincipal("google-1")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data[0].messageId").value(901))
+                .andExpect(jsonPath("$.data[0].taskId").value(301))
+                .andExpect(jsonPath("$.data[0].role").value("ASSISTANT"))
+                .andExpect(jsonPath("$.data[0].content").value("작업 결과를 정리했습니다."));
+
+        ArgumentCaptor<ListChatTaskMessagesQuery> queryCaptor =
+                ArgumentCaptor.forClass(ListChatTaskMessagesQuery.class);
+        verify(listChatTaskMessagesUseCase).listChatTaskMessages(queryCaptor.capture());
+        assertThat(queryCaptor.getValue().workspaceId()).isEqualTo(101L);
+        assertThat(queryCaptor.getValue().taskId()).isEqualTo(301L);
+        assertThat(queryCaptor.getValue().requesterGoogleSub()).isEqualTo("google-1");
+    }
+
+    @Test
     void missingPrincipalReturnsUnauthorizedAndDoesNotCallUseCases() throws Exception {
         mockMvc.perform(get("/api/v1/workspaces/101/tasks"))
                 .andExpect(status().isUnauthorized())
@@ -367,5 +422,28 @@ class TaskControllerTest {
                 TaskExecutionStatus.SUCCEEDED,
                 "완료 요약",
                 null);
+    }
+
+    private static com.aquilaoffice.application.port.in.TaskExecutionLogResult taskLogResult() {
+        return new com.aquilaoffice.application.port.in.TaskExecutionLogResult(
+                801L,
+                101L,
+                301L,
+                701L,
+                501L,
+                "INFO",
+                "작업 실행 시작",
+                LocalDateTime.of(2026, 5, 16, 10, 2));
+    }
+
+    private static com.aquilaoffice.application.port.in.ChatMessageResult taskMessageResult() {
+        return new com.aquilaoffice.application.port.in.ChatMessageResult(
+                901L,
+                9010L,
+                301L,
+                701L,
+                ChatMessageRole.ASSISTANT,
+                "작업 결과를 정리했습니다.",
+                LocalDateTime.of(2026, 5, 16, 10, 3));
     }
 }
