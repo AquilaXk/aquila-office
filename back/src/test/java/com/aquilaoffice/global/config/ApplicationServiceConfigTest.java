@@ -7,6 +7,7 @@ import com.aquilaoffice.application.port.in.AcceptWorkspaceInviteUseCase;
 import com.aquilaoffice.application.port.in.ChangeWorkspaceMemberRoleUseCase;
 import com.aquilaoffice.application.port.in.CompleteSlackOAuthCallbackUseCase;
 import com.aquilaoffice.application.port.in.CreateGithubCredentialUseCase;
+import com.aquilaoffice.application.port.in.CreateOrchestrationSessionUseCase;
 import com.aquilaoffice.application.port.in.CreateSlackChannelMappingUseCase;
 import com.aquilaoffice.application.port.in.CreateTaskUseCase;
 import com.aquilaoffice.application.port.in.CreateWorkspaceAgentUseCase;
@@ -16,6 +17,7 @@ import com.aquilaoffice.application.port.in.DeleteWorkspaceAgentUseCase;
 import com.aquilaoffice.application.port.in.DeleteWorkspaceUseCase;
 import com.aquilaoffice.application.port.in.DeleteGithubCredentialUseCase;
 import com.aquilaoffice.application.port.in.DeleteSlackIntegrationUseCase;
+import com.aquilaoffice.application.port.in.DispatchOrchestrationSessionUseCase;
 import com.aquilaoffice.application.port.in.ExtendWorkspaceInviteUseCase;
 import com.aquilaoffice.application.port.in.GetArtifactFileUseCase;
 import com.aquilaoffice.application.port.in.GetArtifactTreeUseCase;
@@ -74,6 +76,7 @@ import com.aquilaoffice.application.port.out.LoadChatSessionPort;
 import com.aquilaoffice.application.port.out.LoadMemberPort;
 import com.aquilaoffice.application.port.out.LoadMemberProfilePort;
 import com.aquilaoffice.application.port.out.LoadOrchestrationPlanArtifactPort;
+import com.aquilaoffice.application.port.out.LoadOrchestrationSessionPort;
 import com.aquilaoffice.application.port.out.LoadSlackChannelMappingPort;
 import com.aquilaoffice.application.port.out.LoadTaskExecutionReportsPort;
 import com.aquilaoffice.application.port.out.LoadTaskPort;
@@ -95,6 +98,7 @@ import com.aquilaoffice.application.port.out.SaveGithubCredentialPort;
 import com.aquilaoffice.application.port.out.SaveChatMessagePort;
 import com.aquilaoffice.application.port.out.SaveChatSessionPort;
 import com.aquilaoffice.application.port.out.SaveGoogleLoginMemberPort;
+import com.aquilaoffice.application.port.out.SaveOrchestrationSessionPort;
 import com.aquilaoffice.application.port.out.SaveRefreshTokenPort;
 import com.aquilaoffice.application.port.out.SaveSlackChannelMappingPort;
 import com.aquilaoffice.application.port.out.SaveTaskExecutionLogPort;
@@ -108,6 +112,8 @@ import com.aquilaoffice.application.port.out.SendSlackReplyPort;
 import com.aquilaoffice.application.port.out.UpdateTaskExecutionPort;
 import com.aquilaoffice.application.port.out.UpdateGithubCredentialPort;
 import com.aquilaoffice.application.port.out.UpdateMemberProfilePort;
+import com.aquilaoffice.application.port.out.UpdateOrchestrationSessionStatusPort;
+import com.aquilaoffice.application.port.out.UpdateOrchestrationStepPort;
 import com.aquilaoffice.application.port.out.UpdateTaskStatusPort;
 import com.aquilaoffice.application.port.out.UpdateWorkspacePort;
 import com.aquilaoffice.application.port.out.VerifyGoogleIdTokenPort;
@@ -115,6 +121,7 @@ import com.aquilaoffice.application.service.AcceptWorkspaceInviteService;
 import com.aquilaoffice.application.service.ChangeWorkspaceMemberRoleService;
 import com.aquilaoffice.application.service.CompleteSlackOAuthCallbackService;
 import com.aquilaoffice.application.service.CreateGithubCredentialService;
+import com.aquilaoffice.application.service.CreateOrchestrationSessionService;
 import com.aquilaoffice.application.service.CreateSlackChannelMappingService;
 import com.aquilaoffice.application.service.CreateTaskService;
 import com.aquilaoffice.application.service.CreateWorkspaceAgentService;
@@ -123,6 +130,7 @@ import com.aquilaoffice.application.service.DeleteWorkspaceAgentService;
 import com.aquilaoffice.application.service.DeleteWorkspaceService;
 import com.aquilaoffice.application.service.DeleteGithubCredentialService;
 import com.aquilaoffice.application.service.DeleteSlackIntegrationService;
+import com.aquilaoffice.application.service.DispatchOrchestrationSessionService;
 import com.aquilaoffice.application.service.ExtendWorkspaceInviteService;
 import com.aquilaoffice.application.service.GetArtifactFileService;
 import com.aquilaoffice.application.service.GetArtifactTreeService;
@@ -308,6 +316,18 @@ class ApplicationServiceConfigTest {
     private LoadOrchestrationPlanArtifactPort loadOrchestrationPlanArtifactPort;
 
     @MockitoBean
+    private SaveOrchestrationSessionPort saveOrchestrationSessionPort;
+
+    @MockitoBean
+    private LoadOrchestrationSessionPort loadOrchestrationSessionPort;
+
+    @MockitoBean
+    private UpdateOrchestrationStepPort updateOrchestrationStepPort;
+
+    @MockitoBean
+    private UpdateOrchestrationSessionStatusPort updateOrchestrationSessionStatusPort;
+
+    @MockitoBean
     private RunWorkspaceAgentPort runWorkspaceAgentPort;
 
     @MockitoBean
@@ -462,6 +482,12 @@ class ApplicationServiceConfigTest {
 
     @Autowired
     private RunTaskUseCase runTaskUseCase;
+
+    @Autowired
+    private CreateOrchestrationSessionUseCase createOrchestrationSessionUseCase;
+
+    @Autowired
+    private DispatchOrchestrationSessionUseCase dispatchOrchestrationSessionUseCase;
 
     @Autowired
     private ListTaskReportsUseCase listTaskReportsUseCase;
@@ -711,6 +737,16 @@ class ApplicationServiceConfigTest {
     @Test
     void registersRunTaskUseCase() {
         assertThat(runTaskUseCase).isInstanceOf(RunTaskService.class);
+    }
+
+    @Test
+    void registersCreateOrchestrationSessionUseCase() {
+        assertThat(createOrchestrationSessionUseCase).isInstanceOf(CreateOrchestrationSessionService.class);
+    }
+
+    @Test
+    void registersDispatchOrchestrationSessionUseCase() {
+        assertThat(dispatchOrchestrationSessionUseCase).isInstanceOf(DispatchOrchestrationSessionService.class);
     }
 
     @Test
