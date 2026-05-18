@@ -2,6 +2,8 @@
 
 Aquila Office is a Java 21 + Spring Boot project.
 
+Completion criteria are tracked in [COMPLETION_CHECKLIST.md](COMPLETION_CHECKLIST.md).
+
 ## Backend
 
 ```bash
