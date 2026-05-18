@@ -8,6 +8,8 @@ import { ApiError } from "@/lib/api-client";
 import { resolveAccessToken } from "@/lib/auth";
 import { fetchMemberProfile, updateMemberProfile } from "@/lib/members";
 
+type AvatarColorKey = "skin" | "hair" | "shirt";
+
 type ProfileLoadState =
   | { status: "loading"; error: null }
   | { status: "ready"; error: null }
@@ -16,6 +18,18 @@ type ProfileLoadState =
 type ProfileSaveState = {
   status: "idle" | "submitting" | "success" | "error";
   message: string | null;
+};
+
+const COLOR_FIELDS: { key: AvatarColorKey; label: string }[] = [
+  { key: "skin", label: "Skin" },
+  { key: "hair", label: "Hair" },
+  { key: "shirt", label: "Shirt" },
+];
+
+const DEFAULT_AVATAR_COLORS: Record<AvatarColorKey, string> = {
+  skin: "#d8b48a",
+  hair: "#101820",
+  shirt: "#7c3aed",
 };
 
 export default function CharacterProfilePage() {
@@ -40,6 +54,8 @@ function CharacterProfileForm() {
   });
   const [displayName, setDisplayName] = useState("");
   const [avatarKind, setAvatarKind] = useState("operator");
+  const [avatarColors, setAvatarColors] =
+    useState<Record<AvatarColorKey, string>>(DEFAULT_AVATAR_COLORS);
 
   useEffect(() => {
     let cancelled = false;
@@ -51,6 +67,7 @@ function CharacterProfileForm() {
         }
         setDisplayName(profile.displayName);
         setAvatarKind(profile.avatarKind);
+        setAvatarColors(profile.avatarColors);
         setLoadState({ status: "ready", error: null });
       })
       .catch((error) => {
@@ -73,10 +90,15 @@ function CharacterProfileForm() {
 
     const nextDisplayName = displayName.trim();
     const nextAvatarKind = avatarKind.trim();
-    if (!nextDisplayName || !nextAvatarKind) {
+    const nextAvatarColors = {
+      skin: avatarColors.skin.trim(),
+      hair: avatarColors.hair.trim(),
+      shirt: avatarColors.shirt.trim(),
+    };
+    if (!nextDisplayName || !nextAvatarKind || !nextAvatarColors.skin || !nextAvatarColors.hair || !nextAvatarColors.shirt) {
       setSaveState({
         status: "error",
-        message: "표시 이름과 avatar kind를 입력해 주세요.",
+        message: "표시 이름, avatar kind, skin/hair/shirt 색상을 입력해 주세요.",
       });
       return;
     }
@@ -86,6 +108,7 @@ function CharacterProfileForm() {
       await updateMemberProfile(resolveAccessToken(), {
         displayName: nextDisplayName,
         avatarKind: nextAvatarKind,
+        avatarColors: nextAvatarColors,
       });
       setSaveState({
         status: "success",
@@ -163,6 +186,30 @@ function CharacterProfileForm() {
               disabled={isSubmitting}
             />
           </label>
+
+          <fieldset className="workspace-create-form" aria-label="Avatar 색상 설정">
+            <legend className="eyebrow">Avatar colors</legend>
+            {COLOR_FIELDS.map((field) => (
+              <label className="form-field" key={field.key}>
+                <span>
+                  <strong>{field.label}</strong>
+                  <small>{`avatarColors.${field.key}`}</small>
+                </span>
+                <input
+                  type="color"
+                  value={avatarColors[field.key]}
+                  onChange={(event) => {
+                    setAvatarColors((current) => ({
+                      ...current,
+                      [field.key]: event.target.value,
+                    }));
+                    setSaveState({ status: "idle", message: null });
+                  }}
+                  disabled={isSubmitting}
+                />
+              </label>
+            ))}
+          </fieldset>
 
           {saveState.status === "error" && saveState.message ? (
             <div className="workspace-task-notice" role="alert">
