@@ -2746,6 +2746,15 @@ h2 {
   background: #ffffff;
 }
 
+.workspace-artifact-row-directory {
+  font-weight: 800;
+}
+
+.workspace-artifact-row-expanded {
+  border-color: var(--border);
+  background: #ffffff;
+}
+
 .workspace-artifact-row span {
   flex: 0 0 auto;
   width: 12px;
