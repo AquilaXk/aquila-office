@@ -23,7 +23,24 @@ test("common ui index exports shared controls", () => {
   assert.match(source, /Badge/);
   assert.match(source, /Panel/);
   assert.match(source, /TextField/);
+  assert.match(source, /Card/);
+  assert.match(source, /Modal/);
+  assert.match(source, /Toast/);
+  assert.match(source, /Dropdown/);
+  assert.match(source, /Tab/);
+  assert.match(source, /ChatBubble/);
+  assert.match(source, /Input/);
   assert.match(source, /cn/);
+});
+
+test("shared interaction components expose accessibility contracts", () => {
+  assert.match(readSource("components/ui/Modal.tsx"), /role="dialog"/);
+  assert.match(readSource("components/ui/Modal.tsx"), /Escape/);
+  assert.match(readSource("components/ui/Dropdown.tsx"), /aria-expanded/);
+  assert.match(readSource("components/ui/Tab.tsx"), /role="tablist"/);
+  assert.match(readSource("components/ui/Toast.tsx"), /role="status"/);
+  assert.match(readSource("components/ui/Input.tsx"), /aria-invalid/);
+  assert.match(readSource("components/ui/ChatBubble.tsx"), /aria-label/);
 });
 
 test("icon button requires an accessible label contract", () => {
