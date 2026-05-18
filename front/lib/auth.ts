@@ -1,4 +1,9 @@
-import { apiFetch } from "./api/index.ts";
+// API module alias for Next consumers: @/lib/api/auth
+import {
+  loginWithGoogle as postGoogleLogin,
+  logoutAuth as postLogoutAuth,
+  refreshAuthToken as postRefreshAuthToken,
+} from "./api/auth.ts";
 
 export const AUTH_STORAGE_KEY = "aquila-office.auth";
 
@@ -18,22 +23,15 @@ export type RefreshedAuthTokens = Pick<AuthTokens, "accessToken" | "refreshToken
 const DEV_ACCESS_TOKEN = process.env.NEXT_PUBLIC_DEV_ACCESS_TOKEN ?? "";
 
 export async function loginWithGoogle(idToken: string): Promise<AuthTokens> {
-  return authPost<AuthTokens>("/api/v1/auth/google/login", { idToken });
+  return postGoogleLogin(idToken);
 }
 
 export async function refreshAuthToken(refreshToken: string): Promise<RefreshedAuthTokens> {
-  return authPost<RefreshedAuthTokens>("/api/v1/auth/token/refresh", { refreshToken });
+  return postRefreshAuthToken(refreshToken);
 }
 
 export async function logoutAuth(refreshToken: string): Promise<void> {
-  await authPost<void>("/api/v1/auth/logout", { refreshToken });
-}
-
-async function authPost<T>(path: string, payload: unknown): Promise<T> {
-  return apiFetch<T>(path, {
-    method: "POST",
-    json: payload,
-  });
+  await postLogoutAuth(refreshToken);
 }
 
 export function readAuthTokens(storage: Storage | undefined = browserStorage()): AuthTokens | null {

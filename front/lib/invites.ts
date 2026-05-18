@@ -1,91 +1,17 @@
-import { apiFetch } from "@/lib/api";
-import { type WorkspaceMemberRole } from "@/lib/workspaces";
-
-export type WorkspaceInviteStatus = "PENDING" | "ACCEPTED" | "EXPIRED";
-export type WorkspaceInviteManagementStatus = WorkspaceInviteStatus | "REVOKED";
-
-export type WorkspaceInvite = {
-  inviteId: number;
-  workspaceId: number;
-  email: string;
-  token: string;
-  status: WorkspaceInviteStatus;
-  createdAt: string;
-  expiresAt: string;
-  acceptedAt: string | null;
-};
-
-export type WorkspaceInviteManagement = {
-  inviteId: number;
-  workspaceId: number;
-  email: string;
-  token: string;
-  status: WorkspaceInviteManagementStatus;
-  createdAt: string;
-  expiresAt: string;
-  acceptedAt: string | null;
-  revokedAt: string | null;
-};
-
-export type AcceptedWorkspaceInvite = {
-  inviteId: number;
-  workspaceId: number;
-  memberGoogleSub: string;
-  role: WorkspaceMemberRole;
-  acceptedAt: string;
-};
-
-export type CreateWorkspaceInviteInput = {
-  email: string;
-};
-
-export async function fetchWorkspaceInvite(token: string): Promise<WorkspaceInvite> {
-  return apiFetch<WorkspaceInvite>(`/api/v1/workspace-invites/${encodeURIComponent(token)}`);
-}
-
-export async function fetchWorkspaceInvites(
-  accessToken: string,
-  workspaceId: number,
-  status?: WorkspaceInviteManagementStatus,
-): Promise<WorkspaceInviteManagement[]> {
-  const query = status ? `?status=${encodeURIComponent(status)}` : "";
-  return apiFetch<WorkspaceInviteManagement[]>(`/api/v1/workspaces/${workspaceId}/invites${query}`, {
-    accessToken,
-  });
-}
-
-export async function createWorkspaceInvite(
-  accessToken: string,
-  workspaceId: number,
-  input: CreateWorkspaceInviteInput,
-): Promise<WorkspaceInvite> {
-  return apiFetch<WorkspaceInvite>(`/api/v1/workspaces/${workspaceId}/invites`, {
-    method: "POST",
-    accessToken,
-    json: input,
-  });
-}
-
-export async function acceptWorkspaceInvite(
-  token: string,
-  accessToken: string,
-): Promise<AcceptedWorkspaceInvite> {
-  return apiFetch<AcceptedWorkspaceInvite>(
-    `/api/v1/workspace-invites/${encodeURIComponent(token)}/accept`,
-    {
-      method: "POST",
-      accessToken,
-    },
-  );
-}
-
-export async function revokeWorkspaceInvite(
-  accessToken: string,
-  workspaceId: number,
-  inviteId: number,
-): Promise<void> {
-  return apiFetch<void>(`/api/v1/workspaces/${workspaceId}/invites/${inviteId}`, {
-    method: "DELETE",
-    accessToken,
-  });
-}
+// API module alias for Next consumers: @/lib/api/invites
+// Delegated workspace mutations keep the accessToken contract in the domain API module.
+export {
+  acceptWorkspaceInvite,
+  createWorkspaceInvite,
+  fetchWorkspaceInvite,
+  fetchWorkspaceInvites,
+  revokeWorkspaceInvite,
+} from "./api/invites.ts";
+export type {
+  AcceptedWorkspaceInvite,
+  CreateWorkspaceInviteInput,
+  WorkspaceInvite,
+  WorkspaceInviteManagement,
+  WorkspaceInviteManagementStatus,
+  WorkspaceInviteStatus,
+} from "./api/invites.ts";
