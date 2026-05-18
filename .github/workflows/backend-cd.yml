@@ -48,7 +48,7 @@ jobs:
           fi
 
       - name: Build backend image
-        run: docker build -f back/Dockerfile -t "$IMAGE_REF" .
+        run: docker build -f docker/Dockerfile -t "$IMAGE_REF" .
 
       - name: Save backend image
         run: docker save "$IMAGE_REF" -o backend-image.tar
