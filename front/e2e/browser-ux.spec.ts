@@ -109,6 +109,19 @@ test.describe("브라우저 UI UX 회귀", () => {
     await expect(page.getByRole("link", { name: "상세 보기" })).toHaveAttribute("href", `/workspaces/${workspaceId}`);
   });
 
+  test("인증 라우트가 Google 로그인과 인증 후 returnTo 이동을 유지한다", async ({ page }) => {
+    await installMockApi(page);
+
+    await page.goto("/auth?returnTo=/workspaces/new");
+    await expect(page.getByRole("heading", { name: "Google 로그인" })).toBeVisible();
+    await expect(page.locator(".auth-google-action")).toBeVisible();
+
+    await seedAuthTokens(page);
+    await page.goto("/auth?returnTo=/workspaces/new");
+    await page.waitForURL((url) => url.pathname === "/workspaces/new");
+    await expect(page.getByPlaceholder("예: Product Engineering")).toBeVisible();
+  });
+
   test("캐릭터 프로필 설정에서 avatar와 색상 저장 흐름을 검증한다", async ({ page }) => {
     await installMockApi(page);
     await seedAuthTokens(page);
