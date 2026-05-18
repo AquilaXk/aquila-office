@@ -6,6 +6,7 @@ import com.aquilaoffice.application.port.in.ReceiveSlackEventUseCase;
 import com.aquilaoffice.application.port.in.SendChatMessageCommand;
 import com.aquilaoffice.application.port.in.SendChatMessageResult;
 import com.aquilaoffice.application.port.in.SendChatMessageUseCase;
+import com.aquilaoffice.application.port.out.ClaimSlackEventPort;
 import com.aquilaoffice.application.port.out.LoadSlackChannelMappingPort;
 import com.aquilaoffice.application.port.out.SendSlackReplyPort;
 import com.aquilaoffice.application.port.out.SlackReplyRequest;
@@ -25,11 +26,13 @@ public class ReceiveSlackEventService implements ReceiveSlackEventUseCase {
     private static final String APP_MENTION_EVENT_TYPE = "app_mention";
     private static final int TITLE_LIMIT = 64;
     private static final SendSlackReplyPort NOOP_SLACK_REPLY_PORT = request -> {};
+    private static final ClaimSlackEventPort CLAIM_ALL_SLACK_EVENT_PORT = eventId -> true;
 
     private final SlackAgentCommandParser slackAgentCommandParser;
     private final SendChatMessageUseCase sendChatMessageUseCase;
     private final LoadSlackChannelMappingPort loadSlackChannelMappingPort;
     private final SendSlackReplyPort sendSlackReplyPort;
+    private final ClaimSlackEventPort claimSlackEventPort;
 
     public ReceiveSlackEventService(
             SlackAgentCommandParser slackAgentCommandParser,
@@ -41,7 +44,12 @@ public class ReceiveSlackEventService implements ReceiveSlackEventUseCase {
             SlackAgentCommandParser slackAgentCommandParser,
             SendChatMessageUseCase sendChatMessageUseCase,
             LoadSlackChannelMappingPort loadSlackChannelMappingPort) {
-        this(slackAgentCommandParser, sendChatMessageUseCase, loadSlackChannelMappingPort, NOOP_SLACK_REPLY_PORT);
+        this(
+                slackAgentCommandParser,
+                sendChatMessageUseCase,
+                loadSlackChannelMappingPort,
+                NOOP_SLACK_REPLY_PORT,
+                CLAIM_ALL_SLACK_EVENT_PORT);
     }
 
     public ReceiveSlackEventService(
@@ -49,6 +57,20 @@ public class ReceiveSlackEventService implements ReceiveSlackEventUseCase {
             SendChatMessageUseCase sendChatMessageUseCase,
             LoadSlackChannelMappingPort loadSlackChannelMappingPort,
             SendSlackReplyPort sendSlackReplyPort) {
+        this(
+                slackAgentCommandParser,
+                sendChatMessageUseCase,
+                loadSlackChannelMappingPort,
+                sendSlackReplyPort,
+                CLAIM_ALL_SLACK_EVENT_PORT);
+    }
+
+    public ReceiveSlackEventService(
+            SlackAgentCommandParser slackAgentCommandParser,
+            SendChatMessageUseCase sendChatMessageUseCase,
+            LoadSlackChannelMappingPort loadSlackChannelMappingPort,
+            SendSlackReplyPort sendSlackReplyPort,
+            ClaimSlackEventPort claimSlackEventPort) {
         this.slackAgentCommandParser =
                 Objects.requireNonNull(slackAgentCommandParser, "slackAgentCommandParser must not be null");
         this.sendChatMessageUseCase =
@@ -57,6 +79,8 @@ public class ReceiveSlackEventService implements ReceiveSlackEventUseCase {
                 Objects.requireNonNull(loadSlackChannelMappingPort, "loadSlackChannelMappingPort must not be null");
         this.sendSlackReplyPort =
                 Objects.requireNonNull(sendSlackReplyPort, "sendSlackReplyPort must not be null");
+        this.claimSlackEventPort =
+                Objects.requireNonNull(claimSlackEventPort, "claimSlackEventPort must not be null");
     }
 
     @Override
@@ -71,6 +95,9 @@ public class ReceiveSlackEventService implements ReceiveSlackEventUseCase {
         if (event == null || !APP_MENTION_EVENT_TYPE.equals(normalize(event.type()))) {
             return ignored(null, "unsupported event type");
         }
+        if (isBotEvent(event)) {
+            return ignored(null, "bot event");
+        }
 
         SlackAgentCommandParser.ParsedCommand parsedCommand = slackAgentCommandParser.parse(event.text());
         if (!parsedCommand.matched()) {
@@ -80,6 +107,9 @@ public class ReceiveSlackEventService implements ReceiveSlackEventUseCase {
         ResolvedSlackWorkspace resolvedWorkspace = resolveWorkspace(command, event);
         if (resolvedWorkspace == null) {
             return ignored(null, "slack channel mapping not found");
+        }
+        if (isDuplicateEvent(command.eventId())) {
+            return ignored(null, "duplicate event");
         }
         String eventSourceRef = sourceRef(command.teamId(), event.channel(), event.ts(), event.threadTs());
         SendChatMessageResult sendResult = sendChatMessageUseCase.sendChatMessage(new SendChatMessageCommand(
@@ -154,6 +184,15 @@ public class ReceiveSlackEventService implements ReceiveSlackEventUseCase {
 
     private ReceiveSlackEventResult ignored(String challenge, String reason) {
         return new ReceiveSlackEventResult(challenge, false, reason, null, null, null);
+    }
+
+    private boolean isDuplicateEvent(String eventId) {
+        String normalizedEventId = normalize(eventId);
+        return !normalizedEventId.isBlank() && !claimSlackEventPort.claimEvent(normalizedEventId);
+    }
+
+    private boolean isBotEvent(ReceiveSlackEventCommand.SlackEventPayload event) {
+        return !normalize(event.botId()).isBlank() || "bot_message".equals(normalize(event.subtype()));
     }
 
     private String resolveTitle(String message) {

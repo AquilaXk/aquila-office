@@ -173,6 +173,49 @@ class SlackEventControllerTest {
     }
 
     @Test
+    void receiveGlobalSlackEventMapsSubtypeAndBotIdForLoopPrevention() throws Exception {
+        given(receiveSlackEventUseCase.receiveSlackEvent(any(ReceiveSlackEventCommand.class)))
+                .willReturn(new ReceiveSlackEventResult(
+                        null,
+                        false,
+                        "bot event",
+                        null,
+                        null,
+                        null));
+
+        mockMvc.perform(post("/api/v1/slack/events")
+                        .header("X-Slack-Request-Timestamp", "1715841000")
+                        .header("X-Slack-Signature", "v0=test-signature")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "type": "event_callback",
+                                  "team_id": "T123",
+                                  "event_id": "E123",
+                                  "event": {
+                                    "type": "app_mention",
+                                    "subtype": "bot_message",
+                                    "bot_id": "B123",
+                                    "channel": "C456",
+                                    "user": "U789",
+                                    "text": "<@U123ABC> /agent 501 결제 오류 수정",
+                                    "ts": "1715841000.000100"
+                                  }
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.processed").value(false))
+                .andExpect(jsonPath("$.data.ignoredReason").value("bot event"));
+
+        ArgumentCaptor<ReceiveSlackEventCommand> commandCaptor =
+                ArgumentCaptor.forClass(ReceiveSlackEventCommand.class);
+        verify(receiveSlackEventUseCase).receiveSlackEvent(commandCaptor.capture());
+        assertThat(commandCaptor.getValue().event().subtype()).isEqualTo("bot_message");
+        assertThat(commandCaptor.getValue().event().botId()).isEqualTo("B123");
+    }
+
+    @Test
     void invalidSignatureReturnsBadRequestAndDoesNotCallUseCase() throws Exception {
         willThrow(new IllegalArgumentException("slack request signature mismatch"))
                 .given(slackSignatureVerifier)

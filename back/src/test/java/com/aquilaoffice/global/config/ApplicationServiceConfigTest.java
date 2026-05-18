@@ -59,6 +59,7 @@ import com.aquilaoffice.application.port.out.AcceptWorkspaceInvitePort;
 import com.aquilaoffice.application.port.out.AnalyzeChatIntentPort;
 import com.aquilaoffice.application.port.out.AuthenticateWorkspaceGatewayPort;
 import com.aquilaoffice.application.port.out.ChangeWorkspaceMemberRolePort;
+import com.aquilaoffice.application.port.out.ClaimSlackEventPort;
 import com.aquilaoffice.application.port.out.CreateWorkspaceAgentGatewayPort;
 import com.aquilaoffice.application.port.out.DeleteRefreshTokenPort;
 import com.aquilaoffice.application.port.out.DeleteWorkspacePort;
@@ -272,6 +273,9 @@ class ApplicationServiceConfigTest {
 
     @MockitoBean
     private SendSlackReplyPort sendSlackReplyPort;
+
+    @MockitoBean
+    private ClaimSlackEventPort claimSlackEventPort;
 
     @MockitoBean
     private ExchangeSlackOAuthCodePort exchangeSlackOAuthCodePort;
@@ -809,6 +813,8 @@ class ApplicationServiceConfigTest {
                 .isSameAs(loadSlackChannelMappingPort);
         assertThat(ReflectionTestUtils.getField(receiveSlackEventUseCase, "sendSlackReplyPort"))
                 .isSameAs(sendSlackReplyPort);
+        assertThat(ReflectionTestUtils.getField(receiveSlackEventUseCase, "claimSlackEventPort"))
+                .isSameAs(claimSlackEventPort);
     }
 
     @Test

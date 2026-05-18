@@ -15,5 +15,18 @@ public record ReceiveSlackEventCommand(
             String user,
             String text,
             String ts,
-            String threadTs) {}
+            String threadTs,
+            String subtype,
+            String botId) {
+
+        public SlackEventPayload(
+                String type,
+                String channel,
+                String user,
+                String text,
+                String ts,
+                String threadTs) {
+            this(type, channel, user, text, ts, threadTs, null, null);
+        }
+    }
 }

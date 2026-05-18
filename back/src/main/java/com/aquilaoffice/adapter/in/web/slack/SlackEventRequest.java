@@ -30,7 +30,9 @@ public record SlackEventRequest(
             String user,
             String text,
             String ts,
-            @JsonProperty("thread_ts") String threadTs) {
+            @JsonProperty("thread_ts") String threadTs,
+            String subtype,
+            @JsonProperty("bot_id") String botId) {
 
         ReceiveSlackEventCommand.SlackEventPayload toPayload() {
             return new ReceiveSlackEventCommand.SlackEventPayload(
@@ -39,7 +41,9 @@ public record SlackEventRequest(
                     user,
                     text,
                     ts,
-                    threadTs);
+                    threadTs,
+                    subtype,
+                    botId);
         }
     }
 }
