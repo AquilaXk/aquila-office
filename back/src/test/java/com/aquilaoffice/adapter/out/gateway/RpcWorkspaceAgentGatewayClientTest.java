@@ -3,8 +3,10 @@ package com.aquilaoffice.adapter.out.gateway;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.aquilaoffice.global.config.properties.GatewayRpcProperties;
+import com.aquilaoffice.global.metrics.MicrometerWorkflowMetrics;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.net.URI;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -95,6 +97,50 @@ class RpcWorkspaceAgentGatewayClientTest {
         assertThat(response.failureReason()).isEqualTo("gateway rpc request timed out");
         assertThat(client.pendingRequestCount()).isZero();
         assertThat(transport.closed()).isTrue();
+    }
+
+    @Test
+    void recordsGatewayRpcMetricsForSuccessAndTimeout() {
+        SimpleMeterRegistry registry = new SimpleMeterRegistry();
+        RespondingTransport respondingTransport = new RespondingTransport(
+                objectMapper,
+                requestId -> """
+                        {"id":"%s","result":{"success":true,"finalText":"done","failureReason":null}}
+                        """.formatted(requestId));
+        RpcWorkspaceAgentGatewayClient successClient = new RpcWorkspaceAgentGatewayClient(
+                respondingTransport,
+                objectMapper,
+                new GatewayRpcProperties(Duration.ofMillis(200), "/rpc"),
+                new MicrometerWorkflowMetrics(registry));
+
+        successClient.run(request("https://gateway.example.com"));
+
+        SilentTransport silentTransport = new SilentTransport();
+        RpcWorkspaceAgentGatewayClient timeoutClient = new RpcWorkspaceAgentGatewayClient(
+                silentTransport,
+                objectMapper,
+                new GatewayRpcProperties(Duration.ofMillis(25), "/rpc"),
+                new MicrometerWorkflowMetrics(registry));
+
+        timeoutClient.run(request("https://gateway.example.com"));
+
+        assertThat(registry.find("aquila.gateway.rpc.requests")
+                        .tag("method", "chat.send")
+                        .counter()
+                        .count())
+                .isEqualTo(2.0);
+        assertThat(registry.find("aquila.gateway.rpc.completed")
+                        .tag("method", "chat.send")
+                        .tag("outcome", "success")
+                        .counter()
+                        .count())
+                .isEqualTo(1.0);
+        assertThat(registry.find("aquila.gateway.rpc.completed")
+                        .tag("method", "chat.send")
+                        .tag("outcome", "timeout")
+                        .counter()
+                        .count())
+                .isEqualTo(1.0);
     }
 
     @Test

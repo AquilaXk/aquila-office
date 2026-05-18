@@ -15,6 +15,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.aquilaoffice.application.port.in.ReceiveSlackEventCommand;
 import com.aquilaoffice.application.port.in.ReceiveSlackEventResult;
 import com.aquilaoffice.application.port.in.ReceiveSlackEventUseCase;
+import com.aquilaoffice.application.service.WorkflowMetrics;
 import com.aquilaoffice.domain.member.MemberRole;
 import com.aquilaoffice.global.handler.GlobalExceptionHandler;
 import com.aquilaoffice.global.security.AuthenticatedMember;
@@ -43,6 +44,9 @@ class SlackEventControllerTest {
 
     @MockitoBean
     private SlackSignatureVerifier slackSignatureVerifier;
+
+    @MockitoBean
+    private WorkflowMetrics workflowMetrics;
 
     @Test
     void receiveSlackEventReturnsRawChallenge() throws Exception {
@@ -74,6 +78,7 @@ class SlackEventControllerTest {
                 eq("1715841000"),
                 eq("v0=test-signature"),
                 any(String.class));
+        verify(workflowMetrics).recordSlackEventReceived("workspace");
     }
 
     @Test
@@ -231,6 +236,8 @@ class SlackEventControllerTest {
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.code").value("400"));
 
+        verify(workflowMetrics).recordSlackEventReceived("workspace");
+        verify(workflowMetrics).recordSlackSignatureFailure("workspace");
         verifyNoInteractions(receiveSlackEventUseCase);
     }
 

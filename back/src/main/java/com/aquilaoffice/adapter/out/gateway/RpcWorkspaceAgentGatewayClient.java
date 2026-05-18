@@ -1,5 +1,6 @@
 package com.aquilaoffice.adapter.out.gateway;
 
+import com.aquilaoffice.application.service.WorkflowMetrics;
 import com.aquilaoffice.domain.gateway.GatewayConnectionStatus;
 import com.aquilaoffice.global.config.properties.GatewayRpcProperties;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -18,6 +19,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -41,22 +43,37 @@ final class RpcWorkspaceAgentGatewayClient implements WorkspaceAgentGatewayClien
     private final GatewayWebSocketTransport transport;
     private final ObjectMapper objectMapper;
     private final GatewayRpcProperties properties;
+    private final WorkflowMetrics workflowMetrics;
     private final ConcurrentMap<String, CompletableFuture<JsonNode>> pendingRequests = new ConcurrentHashMap<>();
 
     @Autowired
     RpcWorkspaceAgentGatewayClient(
             GatewayWebSocketTransport transport,
-            GatewayRpcProperties properties) {
-        this(transport, new ObjectMapper(), properties);
+            GatewayRpcProperties properties,
+            ObjectProvider<WorkflowMetrics> workflowMetricsProvider) {
+        this(
+                transport,
+                new ObjectMapper(),
+                properties,
+                workflowMetricsProvider.getIfAvailable(WorkflowMetrics::noop));
     }
 
     RpcWorkspaceAgentGatewayClient(
             GatewayWebSocketTransport transport,
             ObjectMapper objectMapper,
             GatewayRpcProperties properties) {
+        this(transport, objectMapper, properties, WorkflowMetrics.noop());
+    }
+
+    RpcWorkspaceAgentGatewayClient(
+            GatewayWebSocketTransport transport,
+            ObjectMapper objectMapper,
+            GatewayRpcProperties properties,
+            WorkflowMetrics workflowMetrics) {
         this.transport = Objects.requireNonNull(transport, "transport must not be null");
         this.objectMapper = Objects.requireNonNull(objectMapper, "objectMapper must not be null");
         this.properties = Objects.requireNonNull(properties, "properties must not be null");
+        this.workflowMetrics = Objects.requireNonNull(workflowMetrics, "workflowMetrics must not be null");
     }
 
     @Override
@@ -237,11 +254,24 @@ final class RpcWorkspaceAgentGatewayClient implements WorkspaceAgentGatewayClien
             throws InterruptedException, ExecutionException, TimeoutException {
         String requestId = UUID.randomUUID().toString();
         CompletableFuture<JsonNode> pendingResponse = new CompletableFuture<>();
+        WorkflowMetrics.OperationSample metricsSample = workflowMetrics.startGatewayRpc(method);
         pendingRequests.put(requestId, pendingResponse);
         try {
             session.sendText(toRpcMessage(requestId, method, token, params))
                     .get(properties.requestTimeout().toMillis(), TimeUnit.MILLISECONDS);
-            return pendingResponse.get(properties.requestTimeout().toMillis(), TimeUnit.MILLISECONDS);
+            JsonNode response = pendingResponse.get(properties.requestTimeout().toMillis(), TimeUnit.MILLISECONDS);
+            if ("success".equals(resolveRpcOutcome(response))) {
+                metricsSample.recordSuccess();
+            } else {
+                metricsSample.recordFailure();
+            }
+            return response;
+        } catch (TimeoutException exception) {
+            metricsSample.recordTimeout();
+            throw exception;
+        } catch (InterruptedException | ExecutionException | RuntimeException exception) {
+            metricsSample.recordFailure();
+            throw exception;
         } finally {
             pendingRequests.remove(requestId);
         }
@@ -498,6 +528,24 @@ final class RpcWorkspaceAgentGatewayClient implements WorkspaceAgentGatewayClien
                 firstNonBlank(message, "gateway connected"),
                 result.path("agentCount").asInt(0),
                 null);
+    }
+
+    private String resolveRpcOutcome(JsonNode root) {
+        JsonNode error = root.path("error");
+        if (!error.isMissingNode() && !error.isNull()) {
+            return "failure";
+        }
+        JsonNode result = root.path("result");
+        if (result.isMissingNode() || result.isNull()) {
+            return "failure";
+        }
+        if (result.has("success") && !result.path("success").asBoolean(false)) {
+            return "failure";
+        }
+        if (result.has("connected") && !result.path("connected").asBoolean(false)) {
+            return "failure";
+        }
+        return "success";
     }
 
     private String resolveGatewayErrorMessage(JsonNode error) {

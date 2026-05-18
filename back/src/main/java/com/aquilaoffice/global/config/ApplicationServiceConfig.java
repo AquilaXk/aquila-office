@@ -184,10 +184,12 @@ import com.aquilaoffice.application.service.UpdateWorkspacePresencePositionServi
 import com.aquilaoffice.application.service.UpdateSlackIntegrationService;
 import com.aquilaoffice.application.service.UpdateTaskStatusService;
 import com.aquilaoffice.application.service.UpdateWorkspaceService;
+import com.aquilaoffice.application.service.WorkflowMetrics;
 import com.aquilaoffice.application.service.WorkspacePresenceRegistry;
 import com.aquilaoffice.adapter.in.web.slack.SlackSignatureVerifier;
 import java.time.Clock;
 import java.time.Duration;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
@@ -628,7 +630,8 @@ public class ApplicationServiceConfig {
             UpdateTaskStatusPort updateTaskStatusPort,
             SaveTaskExecutionLogPort saveTaskExecutionLogPort,
             RunWorkspaceAgentPort runWorkspaceAgentPort,
-            WorkspaceExecutionLockPort workspaceExecutionLockPort) {
+            WorkspaceExecutionLockPort workspaceExecutionLockPort,
+            ObjectProvider<WorkflowMetrics> workflowMetricsProvider) {
         return new RunTaskService(
                 loadMemberPort,
                 loadWorkspacePort,
@@ -640,7 +643,8 @@ public class ApplicationServiceConfig {
                 updateTaskStatusPort,
                 saveTaskExecutionLogPort,
                 runWorkspaceAgentPort,
-                workspaceExecutionLockPort);
+                workspaceExecutionLockPort,
+                workflowMetricsProvider.getIfAvailable(WorkflowMetrics::noop));
     }
 
     @Bean
@@ -790,13 +794,15 @@ public class ApplicationServiceConfig {
             SendChatMessageUseCase sendChatMessageUseCase,
             LoadSlackChannelMappingPort loadSlackChannelMappingPort,
             SendSlackReplyPort sendSlackReplyPort,
-            ClaimSlackEventPort claimSlackEventPort) {
+            ClaimSlackEventPort claimSlackEventPort,
+            ObjectProvider<WorkflowMetrics> workflowMetricsProvider) {
         return new ReceiveSlackEventService(
                 slackAgentCommandParser,
                 sendChatMessageUseCase,
                 loadSlackChannelMappingPort,
                 sendSlackReplyPort,
-                claimSlackEventPort);
+                claimSlackEventPort,
+                workflowMetricsProvider.getIfAvailable(WorkflowMetrics::noop));
     }
 
     @Bean
