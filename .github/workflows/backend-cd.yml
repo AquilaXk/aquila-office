@@ -90,6 +90,7 @@ jobs:
           ssh -o StrictHostKeyChecking=accept-new "$remote" "install -d /tmp/aquila-office-deploy"
           scp -o StrictHostKeyChecking=accept-new \
             backend-image.tar \
+            scripts/deploy-bluegreen.sh \
             scripts/deploy/backend-blue-green.sh \
             scripts/deploy/oci-backend-hook.sh \
             "$remote:/tmp/aquila-office-deploy/"
