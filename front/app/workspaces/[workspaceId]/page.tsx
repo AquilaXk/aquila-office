@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { use, useCallback, useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
+import Workspace2DCanvas from "@/components/workspace/Workspace2DCanvas";
 import { MarkdownContent } from "@/components/ui";
 import { ApiError } from "@/lib/api";
 import {
@@ -55,6 +56,7 @@ import {
   parseWorkspacePresenceMessage,
   updateWorkspacePresencePosition,
   type WorkspacePresenceMessage,
+  type WorkspacePresencePosition,
 } from "@/lib/presence";
 import {
   createWorkspaceTask,
@@ -1076,30 +1078,44 @@ export default function WorkspaceDetailPage({
   const isCreatingInvite = inviteState.status === "submitting";
   const canSubmitInvite = canCreateInvite && inviteEmail.trim().length > 0 && !isCreatingInvite;
 
+  const updatePresencePosition = useCallback(
+    async (
+      position: WorkspacePresencePosition,
+      successMessage = "Presence 위치가 갱신되었습니다.",
+    ) => {
+      if (!isValidWorkspaceId(numericWorkspaceId) || isUpdatingPresence) {
+        return;
+      }
+
+      setPresenceMutation({ status: "submitting", message: null });
+      try {
+        await updateWorkspacePresencePosition(resolveAccessToken(), numericWorkspaceId, {
+          position,
+          status: "ACTIVE",
+        });
+        setPresenceMutation({
+          status: "success",
+          message: successMessage,
+        });
+      } catch (error) {
+        setPresenceMutation({
+          status: "error",
+          message: messageFromError(error, "Presence 위치를 갱신하지 못했습니다."),
+        });
+      }
+    },
+    [isUpdatingPresence, numericWorkspaceId],
+  );
+
   const handleUpdatePresencePosition = async () => {
     if (!isValidWorkspaceId(numericWorkspaceId) || isUpdatingPresence) {
       return;
     }
 
-    setPresenceMutation({ status: "submitting", message: null });
-    try {
-      await updateWorkspacePresencePosition(resolveAccessToken(), numericWorkspaceId, {
-        position: {
-          left: "workspace-detail",
-          top: "task-board",
-        },
-        status: "ACTIVE",
-      });
-      setPresenceMutation({
-        status: "success",
-        message: "Presence 위치가 갱신되었습니다.",
-      });
-    } catch (error) {
-      setPresenceMutation({
-        status: "error",
-        message: messageFromError(error, "Presence 위치를 갱신하지 못했습니다."),
-      });
-    }
+    await updatePresencePosition({
+      left: "workspace-detail",
+      top: "task-board",
+    });
   };
 
   const handleCreateInvite = async (event: FormEvent<HTMLFormElement>) => {
@@ -1243,6 +1259,17 @@ export default function WorkspaceDetailPage({
               <strong>{workspace.name}</strong>
               <p>{workspace.description ?? "설명 없음"}</p>
             </div>
+
+            <section className="workspace-2d-section" aria-label="워크스페이스 2D 화면">
+              <Workspace2DCanvas
+                agents={workspaceAgents}
+                members={members}
+                presenceMembers={onlinePresenceMembers}
+                onPresenceMove={(position) =>
+                  updatePresencePosition(position, "2D workspace 위치가 갱신되었습니다.")
+                }
+              />
+            </section>
 
             <section className="workspace-task-section" aria-label="워크스페이스 대시보드 요약">
               <div className="workspace-section-title">
