@@ -24,6 +24,28 @@ export type ArtifactFileContent = {
   content: string;
 };
 
+export type OrchestrationPlanFile = {
+  path: string;
+  name: string;
+  contentType?: string | null;
+  sizeBytes?: number | null;
+  exists: boolean;
+};
+
+export type OrchestrationPlanStep = {
+  stepId: number;
+  stepKey: string;
+  sequenceNo: number;
+  title: string;
+  files: OrchestrationPlanFile[];
+};
+
+export type OrchestrationPlanArtifact = {
+  workspaceId: number;
+  planId: number;
+  steps: OrchestrationPlanStep[];
+};
+
 export type FlattenedArtifactNode = {
   node: ArtifactNode;
   depth: number;
@@ -36,6 +58,10 @@ export function workspaceArtifactTreePath(workspaceId: number): string {
 export function workspaceArtifactFilePath(workspaceId: number, path: string): string {
   const params = new URLSearchParams({ path });
   return `/api/v1/workspaces/${workspaceId}/artifacts/files?${params.toString()}`;
+}
+
+export function workspaceOrchestrationPlanArtifactPath(workspaceId: number, planId: number): string {
+  return `/api/v1/workspaces/${workspaceId}/artifacts/orchestration-plans/${planId}`;
 }
 
 export function normalizeArtifactTree(payload: unknown, workspaceId = 0): ArtifactTree {
