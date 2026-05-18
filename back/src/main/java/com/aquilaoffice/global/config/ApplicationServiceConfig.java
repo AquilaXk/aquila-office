@@ -119,6 +119,7 @@ import com.aquilaoffice.application.port.out.UpdateTaskExecutionPort;
 import com.aquilaoffice.application.port.out.UpdateTaskStatusPort;
 import com.aquilaoffice.application.port.out.UpdateWorkspacePort;
 import com.aquilaoffice.application.port.out.VerifyGoogleIdTokenPort;
+import com.aquilaoffice.application.port.out.WorkspaceExecutionLockPort;
 import com.aquilaoffice.application.service.AcceptWorkspaceInviteService;
 import com.aquilaoffice.application.service.ChangeWorkspaceMemberRoleService;
 import com.aquilaoffice.application.service.CompleteSlackOAuthCallbackService;
@@ -604,7 +605,8 @@ public class ApplicationServiceConfig {
             UpdateTaskExecutionPort updateTaskExecutionPort,
             UpdateTaskStatusPort updateTaskStatusPort,
             SaveTaskExecutionLogPort saveTaskExecutionLogPort,
-            RunWorkspaceAgentPort runWorkspaceAgentPort) {
+            RunWorkspaceAgentPort runWorkspaceAgentPort,
+            WorkspaceExecutionLockPort workspaceExecutionLockPort) {
         return new RunTaskService(
                 loadMemberPort,
                 loadWorkspacePort,
@@ -615,7 +617,8 @@ public class ApplicationServiceConfig {
                 updateTaskExecutionPort,
                 updateTaskStatusPort,
                 saveTaskExecutionLogPort,
-                runWorkspaceAgentPort);
+                runWorkspaceAgentPort,
+                workspaceExecutionLockPort);
     }
 
     @Bean

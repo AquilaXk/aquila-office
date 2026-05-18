@@ -117,6 +117,7 @@ import com.aquilaoffice.application.port.out.UpdateOrchestrationStepPort;
 import com.aquilaoffice.application.port.out.UpdateTaskStatusPort;
 import com.aquilaoffice.application.port.out.UpdateWorkspacePort;
 import com.aquilaoffice.application.port.out.VerifyGoogleIdTokenPort;
+import com.aquilaoffice.application.port.out.WorkspaceExecutionLockPort;
 import com.aquilaoffice.application.service.AcceptWorkspaceInviteService;
 import com.aquilaoffice.application.service.ChangeWorkspaceMemberRoleService;
 import com.aquilaoffice.application.service.CompleteSlackOAuthCallbackService;
@@ -329,6 +330,9 @@ class ApplicationServiceConfigTest {
 
     @MockitoBean
     private RunWorkspaceAgentPort runWorkspaceAgentPort;
+
+    @MockitoBean
+    private WorkspaceExecutionLockPort workspaceExecutionLockPort;
 
     @MockitoBean
     private SaveChatSessionPort saveChatSessionPort;
