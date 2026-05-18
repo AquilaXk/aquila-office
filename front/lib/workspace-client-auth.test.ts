@@ -68,6 +68,15 @@ test("frontend route aliases expose workspace and auth entries", () => {
   assert.match(readSource("app/auth/page.tsx"), /HomePage/);
 });
 
+test("frontend exposes character profile route", () => {
+  const source = readSource("app/auth/character/page.tsx");
+
+  assert.match(source, /CharacterProfilePage/);
+  assert.match(source, /fetchMemberProfile/);
+  assert.match(source, /updateMemberProfile/);
+  assert.match(source, /safeReturnTo/);
+});
+
 test("workspace settings exposes slack integration controls", () => {
   const source = readSource("app/workspaces/[workspaceId]/settings/page.tsx");
 
