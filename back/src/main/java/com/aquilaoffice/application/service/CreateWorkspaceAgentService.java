@@ -19,6 +19,8 @@ import com.aquilaoffice.domain.workspace.WorkspaceMemberRole;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
  * 워크스페이스 관리자만 Agent를 생성할 수 있도록 멤버십을 검증한다.
@@ -62,6 +64,7 @@ public class CreateWorkspaceAgentService implements CreateWorkspaceAgentUseCase 
         CreateWorkspaceAgentGatewayResult gatewayResult =
                 createWorkspaceAgentGatewayPort.create(toGatewayCreateCommand(agent, skillFiles, gatewayBinding));
         applyGatewayCreateResult(agent, gatewayResult);
+        applyGatewaySkillFileResults(skillFiles, gatewayResult);
 
         return WorkspaceAgentResultMapper.toCreateResult(saveWorkspaceAgentPort.save(agent, skillFiles));
     }
@@ -108,12 +111,45 @@ public class CreateWorkspaceAgentService implements CreateWorkspaceAgentUseCase 
     private void applyGatewayCreateResult(
             WorkspaceAgent agent,
             CreateWorkspaceAgentGatewayResult gatewayResult) {
-        if (gatewayResult != null && gatewayResult.success() && gatewayResult.openClawAgentId() != null
+        if (gatewayResult != null && gatewayResult.openClawAgentId() != null
                 && !gatewayResult.openClawAgentId().isBlank()) {
             agent.markReady(gatewayResult.openClawAgentId());
+        }
+        if (gatewayResult != null && gatewayResult.success() && agent.getOpenClawAgentId() != null) {
             return;
         }
         agent.markSyncFailed(resolveGatewayFailure(gatewayResult));
+    }
+
+    private void applyGatewaySkillFileResults(
+            List<WorkspaceAgentSkillFile> skillFiles,
+            CreateWorkspaceAgentGatewayResult gatewayResult) {
+        if (gatewayResult == null || gatewayResult.skillFiles().isEmpty()) {
+            if (gatewayResult != null && gatewayResult.success()) {
+                skillFiles.forEach(WorkspaceAgentSkillFile::markSynced);
+                return;
+            }
+            String failureReason = resolveGatewayFailure(gatewayResult);
+            skillFiles.forEach(skillFile -> skillFile.markFailed(failureReason));
+            return;
+        }
+
+        Map<String, CreateWorkspaceAgentGatewayResult.SkillFileResult> resultsByFileName =
+                gatewayResult.skillFiles().stream()
+                        .collect(Collectors.toMap(
+                                CreateWorkspaceAgentGatewayResult.SkillFileResult::fileName,
+                                Function.identity(),
+                                (first, second) -> second,
+                                LinkedHashMap::new));
+        for (WorkspaceAgentSkillFile skillFile : skillFiles) {
+            CreateWorkspaceAgentGatewayResult.SkillFileResult result = resultsByFileName.get(skillFile.getFileName());
+            if (result != null && result.success()) {
+                skillFile.markSynced();
+                continue;
+            }
+            String failureReason = result == null ? resolveGatewayFailure(gatewayResult) : result.failureReason();
+            skillFile.markFailed(resolveSkillFileFailure(failureReason));
+        }
     }
 
     private String resolveGatewayFailure(CreateWorkspaceAgentGatewayResult gatewayResult) {
@@ -122,6 +158,13 @@ public class CreateWorkspaceAgentService implements CreateWorkspaceAgentUseCase 
             return "gateway agent create failed";
         }
         return gatewayResult.failureReason().trim();
+    }
+
+    private String resolveSkillFileFailure(String failureReason) {
+        if (failureReason == null || failureReason.isBlank()) {
+            return "gateway skill file sync failed";
+        }
+        return failureReason.trim();
     }
 
     private void requireExistingMember(String googleSub) {
