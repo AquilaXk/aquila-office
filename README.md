@@ -36,7 +36,11 @@ Run frontend checks and the local frontend directly:
 
 ```bash
 npm --prefix front install
+npm --prefix front run test:node
+npm --prefix front run lint
 npm --prefix front run build
+npx --prefix front playwright install chromium
+npm --prefix front run test:browser
 npm --prefix front run dev
 ```
 
@@ -110,9 +114,9 @@ All backend responses use the shared `RsData` envelope unless the endpoint is an
 | Artifacts | `GET /api/v1/workspaces/{workspaceId}/artifacts/files?path=...` | Read artifact file content |
 | Integrations | `GET /api/v1/workspaces/{workspaceId}/github/credentials` | List GitHub credentials |
 | Integrations | `GET /api/v1/workspaces/{workspaceId}/slack/integrations` | List Slack integrations |
-| Integrations | `GET /api/v1/workspaces/{workspaceId}/gateway/status` | Read Gateway binding status |
+| Integrations | `GET /api/v1/workspaces/{workspaceId}/gateway` | Read Gateway binding status |
 | Presence | `GET /api/v1/workspaces/{workspaceId}/presence/stream` | Open workspace presence SSE stream |
-| Presence | `POST /api/v1/workspaces/{workspaceId}/presence/position` | Update member position |
+| Presence | `PATCH /api/v1/workspaces/{workspaceId}/presence/me/position` | Update member position |
 
 ## ERD Summary
 
@@ -144,6 +148,8 @@ Local quality gates:
 npm --prefix front run test:node
 npm --prefix front run lint
 npm --prefix front run build
+npx --prefix front playwright install chromium
+npm --prefix front run test:browser
 node tools/readme/validate-readme.mjs
 node tools/perf/validate-k6-smoke.mjs
 ```
@@ -206,6 +212,15 @@ Deployment scripts:
 - `scripts/deploy/oci-backend-hook.sh` is the OCI host hook entrypoint.
 - `scripts/deploy/validate-backend-cd.sh` performs syntax and required-file checks for deployment scripts.
 
+Release preflight:
+
+```bash
+gh issue list --repo AquilaXk/aquila-office --state open --limit 50
+gh run list --repo AquilaXk/aquila-office --branch main --limit 10
+```
+
+Before release, the issue list should be empty after the release-evidence PR is merged, the latest `main` CI run should show only passing jobs, and `COMPLETION_CHECKLIST.md` should have no unresolved release blocker or unchecked final-state item.
+
 Runtime safety notes:
 
 - Replace local defaults for `AQUILA_AUTH_TOKEN_SECRET`, `AQUILA_EXTERNAL_TOKEN_KEY`, database passwords, Slack secrets, and Google credentials before shared environments.
@@ -220,7 +235,7 @@ Runtime safety notes:
 | Frontend cannot reach API | Confirm `NEXT_PUBLIC_API_BASE_URL`, backend CORS patterns, and browser network logs. |
 | Google login fails | Confirm `AQUILA_GOOGLE_OAUTH_CLIENT_IDS`, hosted-domain settings, and that the ID token audience matches the configured client. |
 | Vertex AI calls fail | Confirm `GOOGLE_CLOUD_PROJECT_ID`, `VERTEX_AI_LOCATION`, `VERTEX_AI_MODEL`, and `GOOGLE_APPLICATION_CREDENTIALS`. Do not commit the credential file. |
-| Gateway agent runs fail | Confirm Gateway URL, `/rpc` path, encrypted token, and `/api/v1/workspaces/{workspaceId}/gateway/status`. |
+| Gateway agent runs fail | Confirm Gateway URL, `/rpc` path, encrypted token, and `/api/v1/workspaces/{workspaceId}/gateway`. |
 | Slack events fail | Confirm signing secret, OAuth callback URL, channel mapping, and event deduplication state. |
 | GitHub work fails | Confirm `GithubCredential` exists for the workspace and the token has repository permissions. |
 | k6 smoke fails on health | Check `/actuator/health/liveness`, `/actuator/health/readiness`, and `/actuator/prometheus` individually with `curl -i`. |
