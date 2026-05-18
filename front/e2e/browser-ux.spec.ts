@@ -265,6 +265,16 @@ test.describe("브라우저 UI UX 회귀", () => {
 
   test("Gateway, 통합 설정, 초대 화면을 검증한다", async ({ page }) => {
     await installMockApi(page);
+    await page.addInitScript(() => {
+      Object.defineProperty(window.navigator, "clipboard", {
+        configurable: true,
+        value: {
+          writeText: async (value: string) => {
+            window.localStorage.setItem("aquila-office.clipboard", value);
+          },
+        },
+      });
+    });
 
     await page.goto("/workspaces/gateway");
     await expect(page.getByRole("heading", { name: "Gateway 관리" })).toBeVisible();
@@ -279,14 +289,36 @@ test.describe("브라우저 UI UX 회귀", () => {
 
     await page.goto(`/workspaces/${workspaceId}/settings`);
     await expect(page.locator('section[aria-label="워크스페이스 설정"]')).toBeVisible();
-    await expect(page.locator('section[aria-label="Slack 연동 설정"]')).toBeVisible();
-    await expect(page.locator('section[aria-label="Slack 채널 매핑 설정"]')).toBeVisible();
-    await expect(page.locator('section[aria-label="GitHub 자격 증명 관리"]')).toBeVisible();
-    const settingsGateway = page.locator('section[aria-label="Gateway 설정"]');
-    await settingsGateway.getByLabel("Gateway URL").fill("https://gateway.example.test");
-    await settingsGateway.getByLabel("Token").fill("gateway-secret");
-    await settingsGateway.getByRole("button", { name: "연결 테스트" }).click();
-    await expect(settingsGateway.getByText("연결 가능").first()).toBeVisible();
+    await expect(page.getByRole("button", { name: "워크스페이스 정보" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "멤버 관리" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "초대 생성" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "초대 목록" })).toBeVisible();
+    await expect(page.locator('section[aria-label="Slack 연동 설정"]')).toBeHidden();
+
+    await page.getByRole("button", { name: "멤버 관리" }).click();
+    await expect(page.locator('section[aria-label="멤버 현황"]')).toBeVisible();
+    await expect(page.getByText("aquila@example.com")).toBeVisible();
+
+    await page.getByRole("button", { name: "초대 생성" }).click();
+    const inviteCreate = page.locator('section[aria-label="워크스페이스 초대 생성"]');
+    await expect(inviteCreate).toBeVisible();
+    await inviteCreate.getByRole("button", { name: "Link" }).click();
+    await inviteCreate.getByLabel("이메일").fill("invitee@example.com");
+    await inviteCreate.getByLabel("만료").fill("14");
+    await inviteCreate.getByRole("button", { name: "초대 생성" }).click();
+    await expect(page.getByText("초대가 생성되었습니다.")).toBeVisible();
+    await page.locator(".workspace-invite-created-card").getByRole("button", { name: "복사" }).click();
+    await expect(page.getByText("초대 링크가 복사되었습니다.")).toBeVisible();
+
+    await page.getByRole("button", { name: "초대 목록" }).click();
+    const inviteList = page.locator('section[aria-label="워크스페이스 초대 관리"]');
+    await expect(inviteList).toBeVisible();
+    await inviteList.getByRole("button", { name: "연장" }).click();
+    await expect(inviteList.getByText("초대 만료일이 연장되었습니다.")).toBeVisible();
+    await inviteList.getByRole("button", { name: "복사" }).click();
+    await expect(inviteList.getByText("초대 링크가 복사되었습니다.")).toBeVisible();
+    await inviteList.getByRole("button", { name: "취소/삭제" }).click();
+    await expect(inviteList.getByText("초대가 취소되었습니다.")).toBeVisible();
 
     await page.goto(`/invites/${inviteToken}`);
     await expect(page.getByRole("heading", { name: "워크스페이스 초대" })).toBeVisible();
@@ -488,7 +520,24 @@ async function installMockApi(page: Page, options: MockApiOptions = {}) {
     }
 
     if (method === "POST" && path === `/api/v1/workspaces/${workspaceId}/invites`) {
-      await fulfillJson(route, workspaceInvite());
+      const body = (request.postDataJSON() ?? {}) as Record<string, unknown>;
+      await fulfillJson(route, {
+        ...workspaceInvite(),
+        email: typeof body.email === "string" ? body.email : workspaceInvite().email,
+      });
+      return;
+    }
+
+    if (method === "PATCH" && path === `/api/v1/workspaces/${workspaceId}/invites/901/extend`) {
+      await fulfillJson(route, {
+        ...workspaceInviteManagement(),
+        expiresAt: "2026-05-23T09:00:00Z",
+      });
+      return;
+    }
+
+    if (method === "DELETE" && path === `/api/v1/workspaces/${workspaceId}/invites/901`) {
+      await route.fulfill({ status: 204, body: "" });
       return;
     }
 
@@ -946,6 +995,7 @@ function workspaceInvite() {
     status: "PENDING",
     expiresAt: "2026-05-19T09:00:00Z",
     createdAt: "2026-05-18T09:00:00Z",
+    acceptedAt: null,
   };
 }
 
@@ -953,6 +1003,7 @@ function workspaceInviteManagement() {
   return {
     ...workspaceInvite(),
     createdByGoogleSub: "google-1",
+    revokedAt: null,
   };
 }
 
