@@ -3,6 +3,8 @@
 export {
   acceptWorkspaceInvite,
   createWorkspaceInvite,
+  deleteWorkspaceInvite,
+  extendWorkspaceInvite,
   fetchWorkspaceInvite,
   fetchWorkspaceInvites,
   revokeWorkspaceInvite,
@@ -10,6 +12,7 @@ export {
 export type {
   AcceptedWorkspaceInvite,
   CreateWorkspaceInviteInput,
+  ExtendWorkspaceInviteInput,
   WorkspaceInvite,
   WorkspaceInviteManagement,
   WorkspaceInviteManagementStatus,

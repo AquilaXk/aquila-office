@@ -6,9 +6,11 @@ import {
   Building2,
   CalendarDays,
   CheckCircle2,
+  Copy,
   GitBranch,
   Hash,
   KeyRound,
+  Link2,
   Loader2,
   Mail,
   RefreshCw,
@@ -18,6 +20,7 @@ import {
   UserRound,
   Users,
   WifiOff,
+  X,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -57,8 +60,11 @@ import {
   type IntegrationSettingsAction,
 } from "@/lib/integration-settings";
 import {
+  createWorkspaceInvite,
+  deleteWorkspaceInvite,
+  extendWorkspaceInvite,
   fetchWorkspaceInvites,
-  revokeWorkspaceInvite,
+  type WorkspaceInvite,
   type WorkspaceInviteManagement,
   type WorkspaceInviteManagementStatus,
 } from "@/lib/invites";
@@ -90,6 +96,7 @@ const DESCRIPTION_MAX_LENGTH = 500;
 const EMPTY_GITHUB_CREDENTIALS: GithubCredential[] = [];
 const EMPTY_SLACK_INTEGRATIONS: SlackIntegration[] = [];
 const EMPTY_SLACK_CHANNEL_MAPPINGS: SlackChannelMapping[] = [];
+const SHOW_CONNECTION_SETTINGS = false;
 
 type WorkspaceSettingsState =
   | { status: "loading"; workspace: null; members: []; error: null }
@@ -143,6 +150,8 @@ type GatewayConnectionTestState =
   | { status: "error"; result: null; message: string };
 
 type InviteStatusFilter = WorkspaceInviteManagementStatus | "ALL";
+type WorkspaceSettingsSection = "workspace" | "members" | "invite" | "invites";
+type InviteCreateMode = "email" | "link";
 
 type GithubCredentialAction =
   | { type: "update"; credentialId: number }
@@ -160,6 +169,17 @@ const INVITE_STATUS_FILTERS: { value: InviteStatusFilter; label: string }[] = [
   { value: "ALL", label: "전체" },
 ];
 
+const workspaceSettingsSections: {
+  id: WorkspaceSettingsSection;
+  label: string;
+  ariaLabel: string;
+}[] = [
+  { id: "workspace", label: "Workspace", ariaLabel: "워크스페이스 정보" },
+  { id: "members", label: "Members", ariaLabel: "멤버 관리" },
+  { id: "invite", label: "Invite", ariaLabel: "초대 생성" },
+  { id: "invites", label: "Invites", ariaLabel: "초대 목록" },
+];
+
 export default function WorkspaceSettingsPage({
   params,
 }: {
@@ -174,6 +194,8 @@ export default function WorkspaceSettingsPage({
     members: [],
     error: null,
   });
+  const [activeSettingsSection, setActiveSettingsSection] =
+    useState<WorkspaceSettingsSection>("workspace");
   const [nameInput, setNameInput] = useState("");
   const [descriptionInput, setDescriptionInput] = useState("");
   const [updateState, setUpdateState] = useState<MutationState>({
@@ -181,6 +203,7 @@ export default function WorkspaceSettingsPage({
     message: null,
   });
   const [deleteConfirmation, setDeleteConfirmation] = useState("");
+  const [deleteWorkspaceModalOpen, setDeleteWorkspaceModalOpen] = useState(false);
   const [deleteState, setDeleteState] = useState<MutationState>({
     status: "idle",
     message: null,
@@ -195,6 +218,16 @@ export default function WorkspaceSettingsPage({
     invites: [],
     error: null,
   });
+  const [inviteCreateMode, setInviteCreateMode] = useState<InviteCreateMode>("email");
+  const [inviteEmailInput, setInviteEmailInput] = useState("");
+  const [inviteRole, setInviteRole] = useState<WorkspaceMemberRole>("MEMBER");
+  const [inviteExpiresInDays, setInviteExpiresInDays] = useState("7");
+  const [inviteCreateState, setInviteCreateState] = useState<MutationState>({
+    status: "idle",
+    message: null,
+  });
+  const [createdInvite, setCreatedInvite] = useState<WorkspaceInvite | null>(null);
+  const [copiedInviteToken, setCopiedInviteToken] = useState<string | null>(null);
   const [inviteFilter, setInviteFilter] = useState<InviteStatusFilter>("PENDING");
   const [inviteActionId, setInviteActionId] = useState<number | null>(null);
   const [inviteActionState, setInviteActionState] = useState<MutationState>({
@@ -447,7 +480,7 @@ export default function WorkspaceSettingsPage({
     let ignore = false;
 
     async function loadInitialGithubCredentials() {
-      if (state.status !== "ready" || state.workspace.myRole !== "ADMIN") {
+      if (!SHOW_CONNECTION_SETTINGS || state.status !== "ready" || state.workspace.myRole !== "ADMIN") {
         setGithubCredentialState({ status: "idle", credentials: [], error: null });
         return;
       }
@@ -474,7 +507,7 @@ export default function WorkspaceSettingsPage({
     let ignore = false;
 
     async function loadInitialSlackIntegrations() {
-      if (state.status !== "ready" || state.workspace.myRole !== "ADMIN") {
+      if (!SHOW_CONNECTION_SETTINGS || state.status !== "ready" || state.workspace.myRole !== "ADMIN") {
         setSlackIntegrationState({ status: "idle", integrations: [], error: null });
         return;
       }
@@ -501,7 +534,7 @@ export default function WorkspaceSettingsPage({
     let ignore = false;
 
     async function loadInitialSlackChannelMappings() {
-      if (state.status !== "ready" || state.workspace.myRole !== "ADMIN") {
+      if (!SHOW_CONNECTION_SETTINGS || state.status !== "ready" || state.workspace.myRole !== "ADMIN") {
         setSlackChannelMappingState({ status: "idle", mappings: [], error: null });
         return;
       }
@@ -528,7 +561,7 @@ export default function WorkspaceSettingsPage({
     let ignore = false;
 
     async function loadGatewayStatus() {
-      if (state.status !== "ready" || state.workspace.myRole !== "ADMIN") {
+      if (!SHOW_CONNECTION_SETTINGS || state.status !== "ready" || state.workspace.myRole !== "ADMIN") {
         setGatewayStatusState({ status: "idle", gateway: null, error: null });
         return;
       }
@@ -560,6 +593,8 @@ export default function WorkspaceSettingsPage({
   const adminCount = members.filter((member) => member.role === "ADMIN").length;
   const trimmedName = nameInput.trim();
   const trimmedDescription = descriptionInput.trim();
+  const trimmedInviteEmail = inviteEmailInput.trim();
+  const parsedInviteExpiresInDays = parseInviteExpiresInDays(inviteExpiresInDays);
   const isUpdatingWorkspace = updateState.status === "submitting";
   const isDeletingWorkspace = deleteState.status === "submitting";
   const canManageWorkspace = state.status === "ready" && isAdmin;
@@ -571,7 +606,14 @@ export default function WorkspaceSettingsPage({
     !isDeletingWorkspace;
   const canManageMembers = state.status === "ready" && isAdmin;
   const isInviteLogLoading = inviteLogState.status === "loading";
+  const isCreatingInvite = inviteCreateState.status === "submitting";
   const hasInviteAction = inviteActionId !== null;
+  const canCreateInvite =
+    isAdmin &&
+    trimmedInviteEmail.length > 0 &&
+    parsedInviteExpiresInDays !== null &&
+    !isCreatingInvite &&
+    !hasInviteAction;
   const isGithubCredentialLoading = githubCredentialState.status === "loading";
   const isSlackIntegrationLoading = slackIntegrationState.status === "loading";
   const isGatewayStatusLoading = gatewayStatusState.status === "loading";
@@ -776,7 +818,119 @@ export default function WorkspaceSettingsPage({
     }
   };
 
-  const handleRevokeInvite = async (invite: WorkspaceInviteManagement) => {
+  const handleCreateSettingsInvite = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (!isAdmin) {
+      return;
+    }
+
+    if (!trimmedInviteEmail) {
+      setInviteCreateState({ status: "error", message: "초대 이메일을 입력해 주세요." });
+      return;
+    }
+
+    if (parsedInviteExpiresInDays === null) {
+      setInviteCreateState({ status: "error", message: "만료 기간은 1일부터 30일까지 입력해 주세요." });
+      return;
+    }
+
+    setInviteCreateState({ status: "submitting", message: null });
+    try {
+      const invite = await createWorkspaceInvite(resolveAccessToken(), numericWorkspaceId, {
+        email: trimmedInviteEmail,
+        mode: inviteCreateMode,
+        role: inviteRole,
+        expiresInDays: parsedInviteExpiresInDays,
+      });
+      setCreatedInvite(invite);
+      setCopiedInviteToken(null);
+      setInviteCreateState({ status: "success", message: "초대가 생성되었습니다." });
+      setInviteEmailInput("");
+      setInviteLogState((previous) =>
+        previous.status === "ready"
+          ? {
+              ...previous,
+              invites: mergeInviteLog(previous.invites, {
+                ...invite,
+                revokedAt: null,
+              }),
+            }
+          : previous,
+      );
+    } catch (error) {
+      setInviteCreateState({
+        status: "error",
+        message: messageFromError(error, "초대를 생성하지 못했습니다."),
+      });
+    }
+  };
+
+  const copyCreatedInviteUrl = async () => {
+    if (!createdInvite) {
+      return;
+    }
+
+    try {
+      await writeClipboardText(createInviteUrl(createdInvite));
+      setCopiedInviteToken(createdInvite.token);
+      setInviteCreateState({ status: "success", message: "초대 링크가 복사되었습니다." });
+    } catch {
+      setInviteCreateState({ status: "error", message: "초대 링크를 복사하지 못했습니다." });
+    }
+  };
+
+  const copyInviteManagementUrl = async (invite: WorkspaceInviteManagement) => {
+    try {
+      await writeClipboardText(createInviteUrl(invite));
+      setCopiedInviteToken(invite.token);
+      setInviteActionState({ status: "success", message: "초대 링크가 복사되었습니다." });
+    } catch {
+      setInviteActionState({ status: "error", message: "초대 링크를 복사하지 못했습니다." });
+    }
+  };
+
+  const handleExtendInvite = async (invite: WorkspaceInviteManagement) => {
+    if (!isAdmin || invite.status !== "PENDING" || hasInviteAction) {
+      return;
+    }
+
+    if (parsedInviteExpiresInDays === null) {
+      setInviteActionState({ status: "error", message: "연장 기간은 1일부터 30일까지 입력해 주세요." });
+      return;
+    }
+
+    setInviteActionId(invite.inviteId);
+    setInviteActionState({ status: "submitting", message: null });
+    try {
+      const extendedInvite = await extendWorkspaceInvite(
+        resolveAccessToken(),
+        numericWorkspaceId,
+        invite.inviteId,
+        {
+          additionalDays: parsedInviteExpiresInDays,
+        },
+      );
+      setInviteLogState((previous) =>
+        previous.status === "ready"
+          ? {
+              ...previous,
+              invites: mergeInviteLog(previous.invites, extendedInvite),
+            }
+          : previous,
+      );
+      setInviteActionState({ status: "success", message: "초대 만료일이 연장되었습니다." });
+    } catch (error) {
+      setInviteActionState({
+        status: "error",
+        message: messageFromError(error, "초대 만료일을 연장하지 못했습니다."),
+      });
+    } finally {
+      setInviteActionId(null);
+    }
+  };
+
+  const handleDeleteInvite = async (invite: WorkspaceInviteManagement) => {
     if (!isAdmin || invite.status !== "PENDING" || hasInviteAction) {
       return;
     }
@@ -784,7 +938,7 @@ export default function WorkspaceSettingsPage({
     setInviteActionId(invite.inviteId);
     setInviteActionState({ status: "submitting", message: null });
     try {
-      await revokeWorkspaceInvite(resolveAccessToken(), numericWorkspaceId, invite.inviteId);
+      await deleteWorkspaceInvite(resolveAccessToken(), numericWorkspaceId, invite.inviteId);
       setInviteLogState((previous) =>
         previous.status === "ready"
           ? {
@@ -833,6 +987,16 @@ export default function WorkspaceSettingsPage({
         message: messageFromError(error, "워크스페이스 정보를 저장하지 못했습니다."),
       });
     }
+  };
+
+  const closeDeleteWorkspaceModal = () => {
+    if (isDeletingWorkspace) {
+      return;
+    }
+
+    setDeleteWorkspaceModalOpen(false);
+    setDeleteConfirmation("");
+    setDeleteState({ status: "idle", message: null });
   };
 
   const handleDeleteWorkspace = async () => {
@@ -1461,7 +1625,30 @@ export default function WorkspaceSettingsPage({
               />
             </dl>
 
-            <section className="workspace-integration-overview" aria-label="연동 설정 요약">
+            <nav className="workspace-settings-tabs" aria-label="워크스페이스 설정 섹션">
+              {workspaceSettingsSections.map((section) => (
+                <button
+                  className={
+                    activeSettingsSection === section.id
+                      ? "workspace-settings-tab workspace-settings-tab-active"
+                      : "workspace-settings-tab"
+                  }
+                  type="button"
+                  key={section.id}
+                  aria-label={section.ariaLabel}
+                  aria-pressed={activeSettingsSection === section.id}
+                  onClick={() => setActiveSettingsSection(section.id)}
+                >
+                  {section.label}
+                </button>
+              ))}
+            </nav>
+
+            <section
+              className="workspace-integration-overview"
+              aria-label="연동 설정 요약"
+              hidden={!SHOW_CONNECTION_SETTINGS}
+            >
               <div className="workspace-section-title">
                 <div>
                   <span className="workspace-detail-label">Integrations</span>
@@ -1500,7 +1687,15 @@ export default function WorkspaceSettingsPage({
               </div>
             </section>
 
-            <section className="workspace-settings-section" aria-label="워크스페이스 정보 수정">
+            <section
+              className={
+                activeSettingsSection === "workspace"
+                  ? "workspace-settings-section"
+                  : "workspace-settings-section workspace-settings-section-hidden"
+              }
+              aria-label="워크스페이스 정보 수정"
+              hidden={activeSettingsSection !== "workspace"}
+            >
               <div className="workspace-section-title">
                 <div>
                   <span className="workspace-detail-label">Settings</span>
@@ -1574,7 +1769,15 @@ export default function WorkspaceSettingsPage({
               </form>
             </section>
 
-            <section className="workspace-settings-section workspace-settings-danger" aria-label="워크스페이스 삭제">
+            <section
+              className={
+                activeSettingsSection === "workspace"
+                  ? "workspace-settings-section workspace-settings-danger"
+                  : "workspace-settings-section workspace-settings-danger workspace-settings-section-hidden"
+              }
+              aria-label="워크스페이스 삭제"
+              hidden={activeSettingsSection !== "workspace"}
+            >
               <div className="workspace-section-title">
                 <div>
                   <span className="workspace-detail-label">Delete</span>
@@ -1583,47 +1786,105 @@ export default function WorkspaceSettingsPage({
                 <span className="workspace-lock-badge">ADMIN</span>
               </div>
 
-              <div className="workspace-settings-form">
-                <label className="form-field">
-                  <span>
-                    <strong>삭제 확인</strong>
-                    <small>{workspace.name}</small>
-                  </span>
-                  <input
-                    value={deleteConfirmation}
-                    onChange={(event) => {
-                      setDeleteConfirmation(event.target.value);
-                      setDeleteState({ status: "idle", message: null });
-                    }}
-                    disabled={!canManageWorkspace || isDeletingWorkspace}
-                  />
-                </label>
-
-                {deleteState.status === "error" ? (
-                  <SettingsNotice tone="danger" icon={<AlertCircle aria-hidden="true" />}>
-                    {deleteState.message}
-                  </SettingsNotice>
-                ) : null}
-
-                <div className="workspace-settings-actions">
-                  <button
-                    className="danger-action"
-                    type="button"
-                    onClick={() => void handleDeleteWorkspace()}
-                    disabled={!canDeleteWorkspace}
-                  >
-                    {isDeletingWorkspace ? (
-                      <Loader2 className="spin" aria-hidden="true" />
-                    ) : (
-                      <Trash2 aria-hidden="true" />
-                    )}
-                    <span>{isDeletingWorkspace ? "삭제 중" : "삭제"}</span>
-                  </button>
-                </div>
+              <div className="workspace-settings-actions">
+                <button
+                  className="danger-action"
+                  type="button"
+                  onClick={() => {
+                    setDeleteWorkspaceModalOpen(true);
+                    setDeleteState({ status: "idle", message: null });
+                  }}
+                  disabled={!canManageWorkspace}
+                >
+                  <Trash2 aria-hidden="true" />
+                  <span>삭제 확인</span>
+                </button>
               </div>
             </section>
 
-            <section className="workspace-settings-section" aria-label="멤버 현황">
+            {deleteWorkspaceModalOpen ? (
+              <div className="workspace-settings-modal-backdrop">
+                <div
+                  className="workspace-settings-delete-modal"
+                  role="dialog"
+                  aria-modal="true"
+                  aria-label="워크스페이스 삭제 확인"
+                >
+                  <div className="workspace-section-title">
+                    <div>
+                      <span className="workspace-detail-label">Delete</span>
+                      <h2>워크스페이스 삭제</h2>
+                    </div>
+                    <button
+                      className="icon-button"
+                      type="button"
+                      aria-label="닫기"
+                      onClick={closeDeleteWorkspaceModal}
+                      disabled={isDeletingWorkspace}
+                    >
+                      <X aria-hidden="true" />
+                    </button>
+                  </div>
+
+                  <div className="workspace-settings-form">
+                    <label className="form-field">
+                      <span>
+                        <strong>삭제 확인</strong>
+                        <small>{workspace.name}</small>
+                      </span>
+                      <input
+                        value={deleteConfirmation}
+                        onChange={(event) => {
+                          setDeleteConfirmation(event.target.value);
+                          setDeleteState({ status: "idle", message: null });
+                        }}
+                        disabled={!canManageWorkspace || isDeletingWorkspace}
+                      />
+                    </label>
+
+                    {deleteState.status === "error" ? (
+                      <SettingsNotice tone="danger" icon={<AlertCircle aria-hidden="true" />}>
+                        {deleteState.message}
+                      </SettingsNotice>
+                    ) : null}
+
+                    <div className="workspace-settings-actions workspace-delete-modal-actions">
+                      <button
+                        className="secondary-action"
+                        type="button"
+                        onClick={closeDeleteWorkspaceModal}
+                        disabled={isDeletingWorkspace}
+                      >
+                        취소
+                      </button>
+                      <button
+                        className="danger-action"
+                        type="button"
+                        onClick={() => void handleDeleteWorkspace()}
+                        disabled={!canDeleteWorkspace}
+                      >
+                        {isDeletingWorkspace ? (
+                          <Loader2 className="spin" aria-hidden="true" />
+                        ) : (
+                          <Trash2 aria-hidden="true" />
+                        )}
+                        <span>{isDeletingWorkspace ? "삭제 중" : "삭제"}</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : null}
+
+            <section
+              className={
+                activeSettingsSection === "members"
+                  ? "workspace-settings-section"
+                  : "workspace-settings-section workspace-settings-section-hidden"
+              }
+              aria-label="멤버 현황"
+              hidden={activeSettingsSection !== "members"}
+            >
               <div className="workspace-section-title">
                 <div>
                   <span className="workspace-detail-label">Members</span>
@@ -1700,7 +1961,184 @@ export default function WorkspaceSettingsPage({
               )}
             </section>
 
-            <section className="workspace-settings-section" aria-label="워크스페이스 초대 관리">
+            <section
+              className={
+                activeSettingsSection === "invite"
+                  ? "workspace-settings-section"
+                  : "workspace-settings-section workspace-settings-section-hidden"
+              }
+              aria-label="워크스페이스 초대 생성"
+              hidden={activeSettingsSection !== "invite"}
+            >
+              <div className="workspace-section-title">
+                <div>
+                  <span className="workspace-detail-label">Invite</span>
+                  <h2>초대 생성</h2>
+                </div>
+                <span className={isAdmin ? "workspace-count-badge" : "workspace-lock-badge"}>
+                  {isAdmin ? inviteCreateMode.toUpperCase() : "읽기 전용"}
+                </span>
+              </div>
+
+              {!isAdmin ? (
+                <p className="workspace-invite-help">
+                  관리자 역할만 초대를 생성할 수 있습니다.
+                </p>
+              ) : null}
+
+              {isAdmin ? (
+                <form className="workspace-settings-form" onSubmit={handleCreateSettingsInvite}>
+                  <div className="workspace-invite-create-mode" role="group" aria-label="초대 생성 모드">
+                    <button
+                      className={
+                        inviteCreateMode === "email"
+                          ? "workspace-invite-mode-option workspace-invite-mode-option-active"
+                          : "workspace-invite-mode-option"
+                      }
+                      type="button"
+                      aria-pressed={inviteCreateMode === "email"}
+                      onClick={() => {
+                        setInviteCreateMode("email");
+                        setInviteCreateState({ status: "idle", message: null });
+                      }}
+                    >
+                      <Mail aria-hidden="true" />
+                      <span>Email</span>
+                    </button>
+                    <button
+                      className={
+                        inviteCreateMode === "link"
+                          ? "workspace-invite-mode-option workspace-invite-mode-option-active"
+                          : "workspace-invite-mode-option"
+                      }
+                      type="button"
+                      aria-pressed={inviteCreateMode === "link"}
+                      onClick={() => {
+                        setInviteCreateMode("link");
+                        setInviteCreateState({ status: "idle", message: null });
+                      }}
+                    >
+                      <Link2 aria-hidden="true" />
+                      <span>Link</span>
+                    </button>
+                  </div>
+
+                  <div className="workspace-gateway-form-grid">
+                    <label className="form-field">
+                      <span>
+                        <strong>이메일</strong>
+                        <small>{inviteCreateMode === "email" ? "email" : "link"}</small>
+                      </span>
+                      <input
+                        value={inviteEmailInput}
+                        onChange={(event) => {
+                          setInviteEmailInput(event.target.value);
+                          setInviteCreateState({ status: "idle", message: null });
+                        }}
+                        type="email"
+                        disabled={!isAdmin || isCreatingInvite}
+                      />
+                    </label>
+
+                    <label className="form-field">
+                      <span>
+                        <strong>만료</strong>
+                        <small>1-30 days</small>
+                      </span>
+                      <input
+                        value={inviteExpiresInDays}
+                        onChange={(event) => {
+                          setInviteExpiresInDays(event.target.value);
+                          setInviteCreateState({ status: "idle", message: null });
+                          setInviteActionState({ status: "idle", message: null });
+                        }}
+                        inputMode="numeric"
+                        disabled={!isAdmin || isCreatingInvite}
+                      />
+                    </label>
+                  </div>
+
+                  <div className="workspace-role-control" role="group" aria-label="초대 역할">
+                    {(["ADMIN", "MEMBER"] as WorkspaceMemberRole[]).map((role) => (
+                      <button
+                        className={
+                          inviteRole === role
+                            ? "workspace-role-option workspace-role-option-active"
+                            : "workspace-role-option"
+                        }
+                        type="button"
+                        key={role}
+                        aria-pressed={inviteRole === role}
+                        onClick={() => {
+                          setInviteRole(role);
+                          setInviteCreateState({ status: "idle", message: null });
+                        }}
+                        disabled={isCreatingInvite}
+                      >
+                        {formatRole(role)}
+                      </button>
+                    ))}
+                  </div>
+
+                  {inviteCreateState.status === "error" ? (
+                    <SettingsNotice tone="danger" icon={<AlertCircle aria-hidden="true" />}>
+                      {inviteCreateState.message}
+                    </SettingsNotice>
+                  ) : null}
+
+                  {inviteCreateState.status === "success" ? (
+                    <SettingsNotice tone="success" icon={<CheckCircle2 aria-hidden="true" />}>
+                      {inviteCreateState.message}
+                    </SettingsNotice>
+                  ) : null}
+
+                  <div className="workspace-settings-actions">
+                    <button
+                      className="primary-action primary-action-active"
+                      type="submit"
+                      disabled={!canCreateInvite}
+                    >
+                      {isCreatingInvite ? (
+                        <Loader2 className="spin" aria-hidden="true" />
+                      ) : (
+                        <Mail aria-hidden="true" />
+                      )}
+                      <span>{isCreatingInvite ? "생성 중" : "초대 생성"}</span>
+                    </button>
+                  </div>
+                </form>
+              ) : null}
+
+              {isAdmin && createdInvite ? (
+                <article className="workspace-invite-created-card">
+                  <div className="workspace-member-main">
+                    <strong>{createdInvite.email}</strong>
+                    <p>{createInvitePath(createdInvite)}</p>
+                    <span>만료 {formatDateTime(createdInvite.expiresAt)}</span>
+                  </div>
+                  <button
+                    className="secondary-action workspace-invite-copy"
+                    type="button"
+                    onClick={() => void copyCreatedInviteUrl()}
+                  >
+                    <Copy aria-hidden="true" />
+                    <span>
+                      {copiedInviteToken === createdInvite.token ? "복사됨" : "복사"}
+                    </span>
+                  </button>
+                </article>
+              ) : null}
+            </section>
+
+            <section
+              className={
+                activeSettingsSection === "invites"
+                  ? "workspace-settings-section"
+                  : "workspace-settings-section workspace-settings-section-hidden"
+              }
+              aria-label="워크스페이스 초대 관리"
+              hidden={activeSettingsSection !== "invites"}
+            >
               <div className="workspace-section-title">
                 <div>
                   <span className="workspace-detail-label">Invites</span>
@@ -1797,9 +2235,30 @@ export default function WorkspaceSettingsPage({
                           <span>만료 {formatDateTime(invite.expiresAt)}</span>
                         </div>
                         <button
-                          className="danger-action workspace-invite-revoke"
+                          className="secondary-action workspace-invite-copy"
                           type="button"
-                          onClick={() => void handleRevokeInvite(invite)}
+                          onClick={() => void copyInviteManagementUrl(invite)}
+                        >
+                          <Copy aria-hidden="true" />
+                          <span>{copiedInviteToken === invite.token ? "복사됨" : "복사"}</span>
+                        </button>
+                        <button
+                          className="secondary-action workspace-invite-extend"
+                          type="button"
+                          onClick={() => void handleExtendInvite(invite)}
+                          disabled={!isAdmin || invite.status !== "PENDING" || hasInviteAction}
+                        >
+                          {inviteActionId === invite.inviteId ? (
+                            <Loader2 className="spin" aria-hidden="true" />
+                          ) : (
+                            <CalendarDays aria-hidden="true" />
+                          )}
+                          <span>{inviteActionId === invite.inviteId ? "처리 중" : "연장"}</span>
+                        </button>
+                        <button
+                          className="danger-action workspace-invite-delete"
+                          type="button"
+                          onClick={() => void handleDeleteInvite(invite)}
                           disabled={!isAdmin || invite.status !== "PENDING" || hasInviteAction}
                         >
                           {inviteActionId === invite.inviteId ? (
@@ -1807,7 +2266,7 @@ export default function WorkspaceSettingsPage({
                           ) : (
                             <Trash2 aria-hidden="true" />
                           )}
-                          <span>{inviteActionId === invite.inviteId ? "취소 중" : "취소"}</span>
+                          <span>{inviteActionId === invite.inviteId ? "처리 중" : "취소/삭제"}</span>
                         </button>
                       </div>
                     </article>
@@ -1824,7 +2283,11 @@ export default function WorkspaceSettingsPage({
               ) : null}
             </section>
 
-            <section className="workspace-settings-section" aria-label="Slack 연동 설정">
+            <section
+              className="workspace-settings-section"
+              aria-label="Slack 연동 설정"
+              hidden={!SHOW_CONNECTION_SETTINGS}
+            >
               <div className="workspace-section-title">
                 <div>
                   <span className="workspace-detail-label">Slack</span>
@@ -2177,7 +2640,11 @@ export default function WorkspaceSettingsPage({
               ) : null}
             </section>
 
-            <section className="workspace-settings-section" aria-label="Slack 채널 매핑 설정">
+            <section
+              className="workspace-settings-section"
+              aria-label="Slack 채널 매핑 설정"
+              hidden={!SHOW_CONNECTION_SETTINGS}
+            >
               <div className="workspace-section-title">
                 <div>
                   <span className="workspace-detail-label">Slack</span>
@@ -2366,7 +2833,11 @@ export default function WorkspaceSettingsPage({
               ) : null}
             </section>
 
-            <section className="workspace-settings-section" aria-label="Gateway 설정">
+            <section
+              className="workspace-settings-section"
+              aria-label="Gateway 설정"
+              hidden={!SHOW_CONNECTION_SETTINGS}
+            >
               <div className="workspace-section-title">
                 <div>
                   <span className="workspace-detail-label">Gateway</span>
@@ -2558,7 +3029,11 @@ export default function WorkspaceSettingsPage({
               ) : null}
             </section>
 
-            <section className="workspace-settings-section" aria-label="GitHub 자격 증명 관리">
+            <section
+              className="workspace-settings-section"
+              aria-label="GitHub 자격 증명 관리"
+              hidden={!SHOW_CONNECTION_SETTINGS}
+            >
               <div className="workspace-section-title">
                 <div>
                   <span className="workspace-detail-label">GitHub</span>
@@ -3032,8 +3507,51 @@ function updateInviteLogAfterRevoke(
   return invites.map((invite) =>
     invite.inviteId === inviteId
       ? { ...invite, status: "REVOKED", revokedAt }
-      : invite,
+    : invite,
   );
+}
+
+function mergeInviteLog(
+  invites: WorkspaceInviteManagement[],
+  invite: WorkspaceInviteManagement,
+): WorkspaceInviteManagement[] {
+  const exists = invites.some((currentInvite) => currentInvite.inviteId === invite.inviteId);
+  if (!exists) {
+    return [invite, ...invites];
+  }
+
+  return invites.map((currentInvite) =>
+    currentInvite.inviteId === invite.inviteId ? invite : currentInvite,
+  );
+}
+
+function parseInviteExpiresInDays(value: string): number | null {
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 1 || parsed > 30) {
+    return null;
+  }
+
+  return parsed;
+}
+
+function createInvitePath(invite: Pick<WorkspaceInvite, "token">): string {
+  return `/invites/${invite.token}`;
+}
+
+function createInviteUrl(invite: Pick<WorkspaceInvite, "token">): string {
+  if (typeof window === "undefined") {
+    return createInvitePath(invite);
+  }
+
+  return new URL(createInvitePath(invite), window.location.origin).toString();
+}
+
+async function writeClipboardText(value: string): Promise<void> {
+  if (!navigator.clipboard) {
+    throw new Error("clipboard unavailable");
+  }
+
+  await navigator.clipboard.writeText(value);
 }
 
 function isLastAdmin(

@@ -37,6 +37,13 @@ export type AcceptedWorkspaceInvite = {
 
 export type CreateWorkspaceInviteInput = {
   email: string;
+  mode?: "email" | "link";
+  role?: WorkspaceMemberRole;
+  expiresInDays?: number;
+};
+
+export type ExtendWorkspaceInviteInput = {
+  additionalDays?: number | null;
 };
 
 export async function fetchWorkspaceInvite(token: string): Promise<WorkspaceInvite> {
@@ -81,8 +88,32 @@ export async function revokeWorkspaceInvite(
   workspaceId: number,
   inviteId: number,
 ): Promise<void> {
+  return deleteWorkspaceInvite(accessToken, workspaceId, inviteId);
+}
+
+export async function deleteWorkspaceInvite(
+  accessToken: string,
+  workspaceId: number,
+  inviteId: number,
+): Promise<void> {
   return apiFetch<void>(`/api/v1/workspaces/${workspaceId}/invites/${inviteId}`, {
     method: "DELETE",
     accessToken,
   });
+}
+
+export async function extendWorkspaceInvite(
+  accessToken: string,
+  workspaceId: number,
+  inviteId: number,
+  input: ExtendWorkspaceInviteInput = {},
+): Promise<WorkspaceInviteManagement> {
+  return apiFetch<WorkspaceInviteManagement>(
+    `/api/v1/workspaces/${workspaceId}/invites/${inviteId}/extend`,
+    {
+      method: "PATCH",
+      accessToken,
+      json: input,
+    },
+  );
 }

@@ -3429,6 +3429,29 @@ h2 {
   line-height: 1.35;
 }
 
+.workspace-settings-tabs {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.workspace-settings-tab {
+  min-height: 42px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #ffffff;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.workspace-settings-tab-active {
+  border-color: #bfdbfe;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
 .workspace-settings-section {
   display: grid;
   gap: 14px;
@@ -3436,6 +3459,12 @@ h2 {
   border-radius: 8px;
   background: #fbfcfe;
   padding: 16px;
+}
+
+.workspace-settings-section[hidden],
+.workspace-settings-section-hidden,
+.workspace-integration-overview[hidden] {
+  display: none;
 }
 
 .workspace-settings-danger {
@@ -3481,6 +3510,32 @@ h2 {
   border: 1px solid #f4c7c3;
   background: #fff8f7;
   color: var(--red);
+}
+
+.workspace-settings-modal-backdrop {
+  position: fixed;
+  z-index: 80;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(8, 9, 10, 0.72);
+  padding: 24px;
+}
+
+.workspace-settings-delete-modal {
+  display: grid;
+  width: min(100%, 520px);
+  gap: 16px;
+  border: 1px solid #f4c7c3;
+  border-radius: 8px;
+  background: #fff8f7;
+  color: #2f1a18;
+  box-shadow: var(--shadow);
+  padding: 18px;
+}
+
+.workspace-delete-modal-actions {
+  gap: 8px;
 }
 
 .danger-action {
@@ -3595,6 +3650,58 @@ h2 {
   gap: 8px;
 }
 
+.workspace-invite-create-mode {
+  display: inline-flex;
+  width: fit-content;
+  min-height: 40px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.workspace-invite-mode-option {
+  display: inline-flex;
+  min-width: 92px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 0;
+  border-right: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 900;
+  padding: 0 12px;
+}
+
+.workspace-invite-mode-option:last-child {
+  border-right: 0;
+}
+
+.workspace-invite-mode-option svg {
+  width: 16px;
+  height: 16px;
+}
+
+.workspace-invite-mode-option-active {
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.workspace-invite-created-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid #c6eadc;
+  border-radius: 8px;
+  background: #e8f5ef;
+  color: #063f2d;
+  padding: 12px;
+}
+
 .workspace-invite-filter {
   min-height: 36px;
   border: 1px solid var(--border);
@@ -3659,8 +3766,17 @@ h2 {
   color: var(--red);
 }
 
+.workspace-invite-copy,
+.workspace-invite-extend,
+.workspace-invite-delete,
 .workspace-invite-revoke {
   min-height: 36px;
+}
+
+.workspace-invite-copy svg,
+.workspace-invite-extend svg {
+  width: 16px;
+  height: 16px;
 }
 
 .workspace-github-help {
@@ -4497,6 +4613,10 @@ h2 {
     flex-direction: column;
   }
 
+  .workspace-settings-tabs {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .workspace-settings-actions {
     justify-content: stretch;
   }
@@ -4518,12 +4638,25 @@ h2 {
 
   .workspace-role-control,
   .workspace-member-remove,
+  .workspace-invite-create-mode,
+  .workspace-invite-created-card,
+  .workspace-invite-extend,
+  .workspace-invite-delete,
   .workspace-invite-revoke,
   .workspace-github-row-button {
     width: 100%;
   }
 
+  .workspace-invite-created-card {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
   .workspace-role-option {
+    flex: 1;
+  }
+
+  .workspace-invite-mode-option {
     flex: 1;
   }
 
