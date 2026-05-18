@@ -113,6 +113,15 @@ test("workspace detail exposes task chat surface", () => {
   assert.match(source, /openTaskChat/);
 });
 
+test("workspace detail exposes presence surface", () => {
+  const source = readSource("app/workspaces/[workspaceId]/page.tsx");
+
+  assert.match(source, /createWorkspacePresenceStream/);
+  assert.match(source, /updateWorkspacePresencePosition/);
+  assert.match(source, /aria-label="Workspace presence"/);
+  assert.match(source, /presenceEvents/);
+});
+
 test("workspace detail exposes agent list surface", () => {
   const source = readSource("app/workspaces/[workspaceId]/page.tsx");
 
