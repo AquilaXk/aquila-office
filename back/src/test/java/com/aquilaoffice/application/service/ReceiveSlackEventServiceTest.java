@@ -8,6 +8,7 @@ import com.aquilaoffice.application.port.in.ReceiveSlackEventUseCase;
 import com.aquilaoffice.application.port.in.SendChatMessageCommand;
 import com.aquilaoffice.application.port.in.SendChatMessageResult;
 import com.aquilaoffice.application.port.in.SendChatMessageUseCase;
+import com.aquilaoffice.application.port.out.ClaimSlackEventPort;
 import com.aquilaoffice.application.port.out.LoadSlackChannelMappingPort;
 import com.aquilaoffice.application.port.out.SendSlackReplyPort;
 import com.aquilaoffice.application.port.out.SlackReplyRequest;
@@ -155,6 +156,39 @@ class ReceiveSlackEventServiceTest {
     }
 
     @Test
+    void receiveSlackEventIgnoresDuplicateEventIdBeforeDispatch() {
+        FakeSendChatMessageUseCase sendChatMessageUseCase = new FakeSendChatMessageUseCase();
+        FakeSendSlackReplyPort sendSlackReplyPort = new FakeSendSlackReplyPort();
+        FakeClaimSlackEventPort claimSlackEventPort = new FakeClaimSlackEventPort(false);
+        ReceiveSlackEventUseCase service = newService(
+                sendChatMessageUseCase,
+                new FakeLoadSlackChannelMappingPort(Optional.empty()),
+                sendSlackReplyPort,
+                claimSlackEventPort);
+
+        ReceiveSlackEventResult result = service.receiveSlackEvent(new ReceiveSlackEventCommand(
+                101L,
+                "google-1",
+                "event_callback",
+                null,
+                "T123",
+                "E123",
+                new ReceiveSlackEventCommand.SlackEventPayload(
+                        "app_mention",
+                        "C456",
+                        "U789",
+                        "<@U123ABC> /agent 501 장애를 확인해주세요",
+                        "1715841000.000100",
+                        null)));
+
+        assertThat(claimSlackEventPort.eventId).isEqualTo("E123");
+        assertThat(result.processed()).isFalse();
+        assertThat(result.ignoredReason()).isEqualTo("duplicate event");
+        assertThat(sendChatMessageUseCase.called).isFalse();
+        assertThat(sendSlackReplyPort.request).isNull();
+    }
+
+    @Test
     void receiveSlackEventIgnoresMappedEventWhenChannelMappingIsMissing() {
         FakeSendChatMessageUseCase sendChatMessageUseCase = new FakeSendChatMessageUseCase();
         ReceiveSlackEventUseCase service = newService(
@@ -228,11 +262,24 @@ class ReceiveSlackEventServiceTest {
             SendChatMessageUseCase sendChatMessageUseCase,
             LoadSlackChannelMappingPort loadSlackChannelMappingPort,
             SendSlackReplyPort sendSlackReplyPort) {
+        return newService(
+                sendChatMessageUseCase,
+                loadSlackChannelMappingPort,
+                sendSlackReplyPort,
+                eventId -> true);
+    }
+
+    private static ReceiveSlackEventUseCase newService(
+            SendChatMessageUseCase sendChatMessageUseCase,
+            LoadSlackChannelMappingPort loadSlackChannelMappingPort,
+            SendSlackReplyPort sendSlackReplyPort,
+            ClaimSlackEventPort claimSlackEventPort) {
         return new ReceiveSlackEventService(
                 new SlackAgentCommandParser(),
                 sendChatMessageUseCase,
                 loadSlackChannelMappingPort,
-                sendSlackReplyPort);
+                sendSlackReplyPort,
+                claimSlackEventPort);
     }
 
     private static class FakeLoadSlackChannelMappingPort implements LoadSlackChannelMappingPort {
@@ -299,6 +346,21 @@ class ReceiveSlackEventServiceTest {
         @Override
         public void sendReply(SlackReplyRequest request) {
             this.request = request;
+        }
+    }
+
+    private static class FakeClaimSlackEventPort implements ClaimSlackEventPort {
+        private final boolean claimed;
+        private String eventId;
+
+        private FakeClaimSlackEventPort(boolean claimed) {
+            this.claimed = claimed;
+        }
+
+        @Override
+        public boolean claimEvent(String eventId) {
+            this.eventId = eventId;
+            return claimed;
         }
     }
 }
