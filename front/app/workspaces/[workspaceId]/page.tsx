@@ -35,9 +35,11 @@ import { resolveAccessToken } from "@/lib/auth";
 import {
   fetchArtifactFile,
   fetchArtifactTree,
+  fetchOrchestrationPlanArtifact,
   type ArtifactFileContent,
   type ArtifactNode,
   type ArtifactTree,
+  type OrchestrationPlanArtifact,
 } from "@/lib/artifacts";
 import {
   fetchTaskChatMessages,
@@ -295,6 +297,12 @@ export default function WorkspaceDetailPage({
   const [artifactFile, setArtifactFile] = useState<ArtifactFileContent | null>(null);
   const [artifactFilePath, setArtifactFilePath] = useState<string | null>(null);
   const [artifactFileState, setArtifactFileState] = useState<ModalLoadState>({
+    status: "idle",
+    error: null,
+  });
+  const [orchestrationPlan, setOrchestrationPlan] =
+    useState<OrchestrationPlanArtifact | null>(null);
+  const [orchestrationPlanState, setOrchestrationPlanState] = useState<ModalLoadState>({
     status: "idle",
     error: null,
   });
@@ -692,6 +700,27 @@ export default function WorkspaceDetailPage({
         status: "success",
         message: `Task #${result.taskId} chat 메시지가 전송되었습니다.`,
       });
+      if (result.orchestrationPlanId) {
+        setOrchestrationPlan(null);
+        setOrchestrationPlanState({ status: "loading", error: null });
+        try {
+          const plan = await fetchOrchestrationPlanArtifact(
+            resolveAccessToken(),
+            numericWorkspaceId,
+            result.orchestrationPlanId,
+          );
+          setOrchestrationPlan(plan);
+          setOrchestrationPlanState({ status: "ready", error: null });
+        } catch (planError) {
+          setOrchestrationPlanState({
+            status: "error",
+            error: messageFromError(planError, "Orchestration plan artifact를 불러오지 못했습니다."),
+          });
+        }
+      } else {
+        setOrchestrationPlan(null);
+        setOrchestrationPlanState({ status: "idle", error: null });
+      }
       await refreshTaskData();
     } catch (error) {
       setTaskChatMutation({
@@ -1939,6 +1968,15 @@ export default function WorkspaceDetailPage({
           setTaskChatMutation({ status: "idle", message: null });
         }}
       />
+      <OrchestrationPlanModal
+        plan={orchestrationPlan}
+        state={orchestrationPlanState}
+        onClose={() => {
+          setOrchestrationPlan(null);
+          setOrchestrationPlanState({ status: "idle", error: null });
+        }}
+        onOpenFile={(path) => void openArtifactFile(path)}
+      />
       <WorkspaceFilesModal
         open={filesOpen}
         tree={artifactTree}
@@ -2287,6 +2325,93 @@ function TaskChatModal({
               <span>{mutation.status === "submitting" ? "전송 중" : "메시지 전송"}</span>
             </button>
           </form>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function OrchestrationPlanModal({
+  plan,
+  state,
+  onClose,
+  onOpenFile,
+}: {
+  plan: OrchestrationPlanArtifact | null;
+  state: ModalLoadState;
+  onClose: () => void;
+  onOpenFile: (path: string) => void;
+}) {
+  if (!plan && state.status === "idle") {
+    return null;
+  }
+
+  return (
+    <div className="workspace-modal-backdrop" role="presentation">
+      <section
+        className="workspace-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Orchestration plan artifact"
+      >
+        <header className="workspace-modal-header">
+          <div>
+            <span className="workspace-detail-label">
+              Plan {plan ? `#${plan.planId}` : ""}
+            </span>
+            <h2>Orchestration Plan</h2>
+          </div>
+          <button className="icon-button workspace-modal-close" type="button" onClick={onClose} aria-label="닫기">
+            <X aria-hidden="true" />
+          </button>
+        </header>
+
+        <div className="workspace-modal-body">
+          {state.status === "loading" ? (
+            <ModalState
+              icon={<Loader2 className="spin" aria-hidden="true" />}
+              text="Orchestration plan artifact를 불러오고 있습니다."
+            />
+          ) : null}
+          {state.status === "error" ? (
+            <ModalState icon={<AlertCircle aria-hidden="true" />} text={state.error} tone="danger" />
+          ) : null}
+          {state.status === "ready" && plan && plan.steps.length === 0 ? (
+            <ModalState icon={<FileText aria-hidden="true" />} text="표시할 plan step이 없습니다." />
+          ) : null}
+
+          {plan && plan.steps.length > 0 ? (
+            <div className="workspace-report-list">
+              {plan.steps.map((step) => (
+                <article className="workspace-report-card" key={step.stepId}>
+                  <div className="workspace-report-card-header">
+                    <strong>
+                      {step.sequenceNo}. {step.title}
+                    </strong>
+                    <span>{step.stepKey}</span>
+                  </div>
+                  {step.files.length > 0 ? (
+                    <div className="workspace-report-artifacts">
+                      {step.files.map((file) => (
+                        <button
+                          className="secondary-action workspace-report-artifact"
+                          type="button"
+                          key={file.path}
+                          onClick={() => onOpenFile(file.path)}
+                          disabled={!file.exists}
+                        >
+                          <FileText aria-hidden="true" />
+                          <span>{file.name}</span>
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <p>연결된 파일이 없습니다.</p>
+                  )}
+                </article>
+              ))}
+            </div>
+          ) : null}
         </div>
       </section>
     </div>
