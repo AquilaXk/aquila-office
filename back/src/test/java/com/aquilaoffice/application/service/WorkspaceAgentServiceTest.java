@@ -11,9 +11,13 @@ import com.aquilaoffice.application.port.in.GetWorkspaceAgentResult;
 import com.aquilaoffice.application.port.in.ListWorkspaceAgentsQuery;
 import com.aquilaoffice.application.port.in.ListWorkspaceAgentsResult;
 import com.aquilaoffice.application.port.in.WorkspaceAgentSkillFileCommand;
+import com.aquilaoffice.application.port.out.CreateWorkspaceAgentGatewayCommand;
+import com.aquilaoffice.application.port.out.CreateWorkspaceAgentGatewayPort;
+import com.aquilaoffice.application.port.out.CreateWorkspaceAgentGatewayResult;
 import com.aquilaoffice.application.port.out.DeleteWorkspaceAgentPort;
 import com.aquilaoffice.application.port.out.LoadMemberPort;
 import com.aquilaoffice.application.port.out.LoadWorkspaceAgentPort;
+import com.aquilaoffice.application.port.out.LoadWorkspaceGatewayBindingPort;
 import com.aquilaoffice.application.port.out.LoadWorkspacePort;
 import com.aquilaoffice.application.port.out.SaveWorkspaceAgentPort;
 import com.aquilaoffice.application.port.out.SavedWorkspaceAgent;
@@ -23,6 +27,7 @@ import com.aquilaoffice.domain.agent.WorkspaceAgentCategory;
 import com.aquilaoffice.domain.agent.WorkspaceAgentSkillFile;
 import com.aquilaoffice.domain.agent.WorkspaceAgentSkillFileSyncStatus;
 import com.aquilaoffice.domain.agent.WorkspaceAgentStatus;
+import com.aquilaoffice.domain.gateway.WorkspaceGatewayBinding;
 import com.aquilaoffice.domain.member.Member;
 import com.aquilaoffice.domain.workspace.WorkspaceMemberRole;
 import com.aquilaoffice.application.port.in.GetWorkspaceDetailResult;
@@ -42,10 +47,7 @@ class WorkspaceAgentServiceTest {
     @Test
     void createWorkspaceAgentRequiresAdminAndSavesSkillFiles() {
         FakeSaveWorkspaceAgentPort savePort = new FakeSaveWorkspaceAgentPort(savedAgent());
-        CreateWorkspaceAgentService service = new CreateWorkspaceAgentService(
-                new FakeLoadMemberPort(Optional.of(Member.createUser("google-1", "admin@example.com", "Admin"))),
-                new FakeLoadWorkspacePort(Optional.of(workspaceDetail(WorkspaceMemberRole.ADMIN))),
-                savePort);
+        CreateWorkspaceAgentService service = createAgentService(savePort, WorkspaceMemberRole.ADMIN);
 
         CreateWorkspaceAgentResult result = service.createWorkspaceAgent(new CreateWorkspaceAgentCommand(
                 101L,
@@ -73,10 +75,7 @@ class WorkspaceAgentServiceTest {
     @Test
     void createWorkspaceAgentAddsRoleTemplatesWhenSkillFilesAreEmpty() {
         FakeSaveWorkspaceAgentPort savePort = new FakeSaveWorkspaceAgentPort(savedAgent());
-        CreateWorkspaceAgentService service = new CreateWorkspaceAgentService(
-                new FakeLoadMemberPort(Optional.of(Member.createUser("google-1", "admin@example.com", "Admin"))),
-                new FakeLoadWorkspacePort(Optional.of(workspaceDetail(WorkspaceMemberRole.ADMIN))),
-                savePort);
+        CreateWorkspaceAgentService service = createAgentService(savePort, WorkspaceMemberRole.ADMIN);
 
         service.createWorkspaceAgent(new CreateWorkspaceAgentCommand(
                 101L,
@@ -96,10 +95,7 @@ class WorkspaceAgentServiceTest {
     @Test
     void createWorkspaceAgentKeepsRequestedSkillFileWhenItOverridesDefault() {
         FakeSaveWorkspaceAgentPort savePort = new FakeSaveWorkspaceAgentPort(savedAgent());
-        CreateWorkspaceAgentService service = new CreateWorkspaceAgentService(
-                new FakeLoadMemberPort(Optional.of(Member.createUser("google-1", "admin@example.com", "Admin"))),
-                new FakeLoadWorkspacePort(Optional.of(workspaceDetail(WorkspaceMemberRole.ADMIN))),
-                savePort);
+        CreateWorkspaceAgentService service = createAgentService(savePort, WorkspaceMemberRole.ADMIN);
 
         service.createWorkspaceAgent(new CreateWorkspaceAgentCommand(
                 101L,
@@ -131,12 +127,99 @@ class WorkspaceAgentServiceTest {
     }
 
     @Test
+    void createWorkspaceAgentRequiresActiveGatewayBindingBeforeSave() {
+        FakeSaveWorkspaceAgentPort savePort = new FakeSaveWorkspaceAgentPort(null);
+        FakeCreateWorkspaceAgentGatewayPort gatewayPort =
+                new FakeCreateWorkspaceAgentGatewayPort(gatewayCreateSuccess());
+        CreateWorkspaceAgentService service = new CreateWorkspaceAgentService(
+                new FakeLoadMemberPort(Optional.of(Member.createUser("google-1", "admin@example.com", "Admin"))),
+                new FakeLoadWorkspacePort(Optional.of(workspaceDetail(WorkspaceMemberRole.ADMIN))),
+                savePort,
+                new FakeLoadWorkspaceGatewayBindingPort(Optional.empty()),
+                gatewayPort);
+
+        assertThatThrownBy(() -> service.createWorkspaceAgent(new CreateWorkspaceAgentCommand(
+                        101L,
+                        "google-1",
+                        "Backend Agent",
+                        WorkspaceAgentCategory.BACKEND,
+                        ".aquila/workspaces/101",
+                        List.of())))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("workspace gateway binding required");
+        assertThat(savePort.called).isFalse();
+        assertThat(gatewayPort.called).isFalse();
+    }
+
+    @Test
+    void createWorkspaceAgentMarksReadyWithGatewayAgentId() {
+        FakeSaveWorkspaceAgentPort savePort = new FakeSaveWorkspaceAgentPort(null);
+        FakeCreateWorkspaceAgentGatewayPort gatewayPort =
+                new FakeCreateWorkspaceAgentGatewayPort(gatewayCreateSuccess());
+        CreateWorkspaceAgentService service = new CreateWorkspaceAgentService(
+                new FakeLoadMemberPort(Optional.of(Member.createUser("google-1", "admin@example.com", "Admin"))),
+                new FakeLoadWorkspacePort(Optional.of(workspaceDetail(WorkspaceMemberRole.ADMIN))),
+                savePort,
+                new FakeLoadWorkspaceGatewayBindingPort(Optional.of(gatewayBinding())),
+                gatewayPort);
+
+        CreateWorkspaceAgentResult result = service.createWorkspaceAgent(new CreateWorkspaceAgentCommand(
+                101L,
+                "google-1",
+                "Backend Agent",
+                WorkspaceAgentCategory.BACKEND,
+                ".aquila/workspaces/101",
+                List.of()));
+
+        assertThat(gatewayPort.command.workspaceId()).isEqualTo(101L);
+        assertThat(gatewayPort.command.gatewayUrl()).isEqualTo("https://gateway.example.com");
+        assertThat(gatewayPort.command.gatewayToken()).isEqualTo("gate_1234567890abcdef");
+        assertThat(gatewayPort.command.skillFiles())
+                .extracting(CreateWorkspaceAgentGatewayCommand.SkillFile::fileName)
+                .containsExactly("AGENTS.md", "backend-guide.md");
+        assertThat(savePort.savedAgent.getStatus()).isEqualTo(WorkspaceAgentStatus.READY);
+        assertThat(savePort.savedAgent.getOpenClawAgentId()).isEqualTo("oc-agent-1");
+        assertThat(result.status()).isEqualTo(WorkspaceAgentStatus.READY);
+        assertThat(result.openClawAgentId()).isEqualTo("oc-agent-1");
+    }
+
+    @Test
+    void createWorkspaceAgentMarksSyncFailedWhenGatewayCreateFails() {
+        FakeSaveWorkspaceAgentPort savePort = new FakeSaveWorkspaceAgentPort(null);
+        CreateWorkspaceAgentService service = new CreateWorkspaceAgentService(
+                new FakeLoadMemberPort(Optional.of(Member.createUser("google-1", "admin@example.com", "Admin"))),
+                new FakeLoadWorkspacePort(Optional.of(workspaceDetail(WorkspaceMemberRole.ADMIN))),
+                savePort,
+                new FakeLoadWorkspaceGatewayBindingPort(Optional.of(gatewayBinding())),
+                new FakeCreateWorkspaceAgentGatewayPort(
+                        new CreateWorkspaceAgentGatewayResult(false, null, "gateway unavailable")));
+
+        CreateWorkspaceAgentResult result = service.createWorkspaceAgent(new CreateWorkspaceAgentCommand(
+                101L,
+                "google-1",
+                "Backend Agent",
+                WorkspaceAgentCategory.BACKEND,
+                ".aquila/workspaces/101",
+                List.of()));
+
+        assertThat(savePort.savedAgent.getStatus()).isEqualTo(WorkspaceAgentStatus.SYNC_FAILED);
+        assertThat(savePort.savedAgent.getOpenClawAgentId()).isNull();
+        assertThat(savePort.savedAgent.getSyncError()).isEqualTo("gateway unavailable");
+        assertThat(result.status()).isEqualTo(WorkspaceAgentStatus.SYNC_FAILED);
+        assertThat(result.syncError()).isEqualTo("gateway unavailable");
+    }
+
+    @Test
     void createWorkspaceAgentRejectsNonAdmin() {
         FakeSaveWorkspaceAgentPort savePort = new FakeSaveWorkspaceAgentPort(savedAgent());
+        FakeCreateWorkspaceAgentGatewayPort gatewayPort =
+                new FakeCreateWorkspaceAgentGatewayPort(gatewayCreateSuccess());
         CreateWorkspaceAgentService service = new CreateWorkspaceAgentService(
                 new FakeLoadMemberPort(Optional.of(Member.createUser("google-1", "member@example.com", "Member"))),
                 new FakeLoadWorkspacePort(Optional.of(workspaceDetail(WorkspaceMemberRole.MEMBER))),
-                savePort);
+                savePort,
+                new FakeLoadWorkspaceGatewayBindingPort(Optional.of(gatewayBinding())),
+                gatewayPort);
 
         assertThatThrownBy(() -> service.createWorkspaceAgent(new CreateWorkspaceAgentCommand(
                         101L,
@@ -148,6 +231,7 @@ class WorkspaceAgentServiceTest {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("workspace admin membership required");
         assertThat(savePort.called).isFalse();
+        assertThat(gatewayPort.called).isFalse();
     }
 
     @Test
@@ -203,6 +287,17 @@ class WorkspaceAgentServiceTest {
                 LocalDateTime.of(2026, 5, 15, 10, 0));
     }
 
+    private static CreateWorkspaceAgentService createAgentService(
+            FakeSaveWorkspaceAgentPort savePort,
+            WorkspaceMemberRole role) {
+        return new CreateWorkspaceAgentService(
+                new FakeLoadMemberPort(Optional.of(Member.createUser("google-1", "admin@example.com", "Admin"))),
+                new FakeLoadWorkspacePort(Optional.of(workspaceDetail(role))),
+                savePort,
+                new FakeLoadWorkspaceGatewayBindingPort(Optional.of(gatewayBinding())),
+                new FakeCreateWorkspaceAgentGatewayPort(gatewayCreateSuccess()));
+    }
+
     private static SavedWorkspaceAgent savedAgent() {
         return new SavedWorkspaceAgent(
                 501L,
@@ -221,6 +316,19 @@ class WorkspaceAgentServiceTest {
                         "AGENTS.md",
                         WorkspaceAgentSkillFileSyncStatus.SYNCED,
                         null)));
+    }
+
+    private static WorkspaceGatewayBinding gatewayBinding() {
+        return WorkspaceGatewayBinding.restore(
+                701L,
+                101L,
+                "https://gateway.example.com",
+                "gate_1234567890abcdef",
+                "google-1");
+    }
+
+    private static CreateWorkspaceAgentGatewayResult gatewayCreateSuccess() {
+        return new CreateWorkspaceAgentGatewayResult(true, "oc-agent-1", null);
     }
 
     private static class FakeLoadMemberPort implements LoadMemberPort {
@@ -271,6 +379,57 @@ class WorkspaceAgentServiceTest {
             this.called = true;
             this.savedAgent = agent;
             this.savedSkillFiles = skillFiles;
+            if (result != null) {
+                return result;
+            }
+            return new SavedWorkspaceAgent(
+                    501L,
+                    agent.getWorkspaceId(),
+                    agent.getName(),
+                    agent.getCategory(),
+                    agent.getOpenClawAgentId(),
+                    agent.getWorkspacePath(),
+                    agent.getStatus(),
+                    agent.getSyncError(),
+                    agent.getCreatedByGoogleSub(),
+                    LocalDateTime.of(2026, 5, 16, 10, 0),
+                    LocalDateTime.of(2026, 5, 16, 10, 0),
+                    skillFiles.stream()
+                            .map(skillFile -> new SavedWorkspaceAgentSkillFile(
+                                    601L,
+                                    skillFile.getFileName(),
+                                    skillFile.getSyncStatus(),
+                                    skillFile.getSyncError()))
+                            .toList());
+        }
+    }
+
+    private static class FakeLoadWorkspaceGatewayBindingPort implements LoadWorkspaceGatewayBindingPort {
+        private final Optional<WorkspaceGatewayBinding> binding;
+
+        private FakeLoadWorkspaceGatewayBindingPort(Optional<WorkspaceGatewayBinding> binding) {
+            this.binding = binding;
+        }
+
+        @Override
+        public Optional<WorkspaceGatewayBinding> findActiveByWorkspaceId(Long workspaceId) {
+            return binding;
+        }
+    }
+
+    private static class FakeCreateWorkspaceAgentGatewayPort implements CreateWorkspaceAgentGatewayPort {
+        private final CreateWorkspaceAgentGatewayResult result;
+        private CreateWorkspaceAgentGatewayCommand command;
+        private boolean called;
+
+        private FakeCreateWorkspaceAgentGatewayPort(CreateWorkspaceAgentGatewayResult result) {
+            this.result = result;
+        }
+
+        @Override
+        public CreateWorkspaceAgentGatewayResult create(CreateWorkspaceAgentGatewayCommand command) {
+            this.called = true;
+            this.command = command;
             return result;
         }
     }

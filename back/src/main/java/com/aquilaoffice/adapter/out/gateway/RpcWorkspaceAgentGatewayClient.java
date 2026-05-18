@@ -7,6 +7,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.net.URI;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
@@ -26,6 +28,9 @@ import org.springframework.stereotype.Component;
 final class RpcWorkspaceAgentGatewayClient implements WorkspaceAgentGatewayClient {
 
     private static final String METHOD_AGENT_RUN = "agent.run";
+    private static final String METHOD_AGENT_CREATE = "agent.create";
+    private static final String METHOD_AGENT_LIST = "agent.list";
+    private static final String METHOD_AGENT_DELETE = "agent.delete";
     private static final String METHOD_GATEWAY_CHALLENGE = "gateway.challenge";
     private static final String METHOD_GATEWAY_CONNECT = "gateway.connect";
     private static final String TIMEOUT_FAILURE_REASON = "gateway rpc request timed out";
@@ -50,6 +55,87 @@ final class RpcWorkspaceAgentGatewayClient implements WorkspaceAgentGatewayClien
         this.transport = Objects.requireNonNull(transport, "transport must not be null");
         this.objectMapper = Objects.requireNonNull(objectMapper, "objectMapper must not be null");
         this.properties = Objects.requireNonNull(properties, "properties must not be null");
+    }
+
+    @Override
+    public WorkspaceAgentCreateGatewayResponse create(WorkspaceAgentCreateGatewayRequest request) {
+        Objects.requireNonNull(request, "request must not be null");
+        GatewayWebSocketSession session = null;
+        try {
+            URI rpcUri = GatewayRpcUrlNormalizer.normalize(request.gatewayUrl(), properties.path());
+            session = transport.connect(rpcUri, new RpcGatewayListener());
+            JsonNode response = exchange(
+                    session,
+                    METHOD_AGENT_CREATE,
+                    request.gatewayToken(),
+                    agentCreateParams(request));
+            return toAgentCreateResponse(response);
+        } catch (TimeoutException exception) {
+            return createFailure(TIMEOUT_FAILURE_REASON);
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            return createFailure(INTERRUPTED_FAILURE_REASON);
+        } catch (ExecutionException exception) {
+            return createFailure(resolveFailureReason(exception.getCause()));
+        } catch (RuntimeException exception) {
+            return createFailure(resolveFailureReason(exception));
+        } finally {
+            closeQuietly(session);
+        }
+    }
+
+    @Override
+    public WorkspaceAgentListGatewayResponse list(WorkspaceAgentListGatewayRequest request) {
+        Objects.requireNonNull(request, "request must not be null");
+        GatewayWebSocketSession session = null;
+        try {
+            URI rpcUri = GatewayRpcUrlNormalizer.normalize(request.gatewayUrl(), properties.path());
+            session = transport.connect(rpcUri, new RpcGatewayListener());
+            JsonNode response = exchange(
+                    session,
+                    METHOD_AGENT_LIST,
+                    request.gatewayToken(),
+                    workspaceParams(request.workspaceId()));
+            return toAgentListResponse(response);
+        } catch (TimeoutException exception) {
+            return listFailure(TIMEOUT_FAILURE_REASON);
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            return listFailure(INTERRUPTED_FAILURE_REASON);
+        } catch (ExecutionException exception) {
+            return listFailure(resolveFailureReason(exception.getCause()));
+        } catch (RuntimeException exception) {
+            return listFailure(resolveFailureReason(exception));
+        } finally {
+            closeQuietly(session);
+        }
+    }
+
+    @Override
+    public WorkspaceAgentDeleteGatewayResponse delete(WorkspaceAgentDeleteGatewayRequest request) {
+        Objects.requireNonNull(request, "request must not be null");
+        GatewayWebSocketSession session = null;
+        try {
+            URI rpcUri = GatewayRpcUrlNormalizer.normalize(request.gatewayUrl(), properties.path());
+            session = transport.connect(rpcUri, new RpcGatewayListener());
+            JsonNode response = exchange(
+                    session,
+                    METHOD_AGENT_DELETE,
+                    request.gatewayToken(),
+                    agentDeleteParams(request));
+            return toAgentDeleteResponse(response);
+        } catch (TimeoutException exception) {
+            return deleteFailure(TIMEOUT_FAILURE_REASON);
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            return deleteFailure(INTERRUPTED_FAILURE_REASON);
+        } catch (ExecutionException exception) {
+            return deleteFailure(resolveFailureReason(exception.getCause()));
+        } catch (RuntimeException exception) {
+            return deleteFailure(resolveFailureReason(exception));
+        } finally {
+            closeQuietly(session);
+        }
     }
 
     @Override
@@ -174,6 +260,27 @@ final class RpcWorkspaceAgentGatewayClient implements WorkspaceAgentGatewayClien
         return params;
     }
 
+    private ObjectNode agentCreateParams(WorkspaceAgentCreateGatewayRequest request) {
+        ObjectNode params = objectMapper.createObjectNode();
+        params.put("workspaceId", request.workspaceId());
+        params.put("name", request.name());
+        params.put("category", request.category().name());
+        params.put("workspacePath", request.workspacePath());
+        var skillFiles = params.putArray("skillFiles");
+        for (WorkspaceAgentCreateGatewayRequest.SkillFile skillFile : request.skillFiles()) {
+            ObjectNode skillFileNode = skillFiles.addObject();
+            skillFileNode.put("fileName", skillFile.fileName());
+            skillFileNode.put("content", skillFile.content());
+        }
+        return params;
+    }
+
+    private ObjectNode agentDeleteParams(WorkspaceAgentDeleteGatewayRequest request) {
+        ObjectNode params = workspaceParams(request.workspaceId());
+        params.put("openClawAgentId", request.openClawAgentId());
+        return params;
+    }
+
     private ObjectNode workspaceParams(Long workspaceId) {
         ObjectNode params = objectMapper.createObjectNode();
         params.put("workspaceId", workspaceId);
@@ -223,6 +330,76 @@ final class RpcWorkspaceAgentGatewayClient implements WorkspaceAgentGatewayClien
                 result.path("success").asBoolean(false),
                 textOrNull(result, "finalText"),
                 textOrNull(result, "failureReason"));
+    }
+
+    private WorkspaceAgentCreateGatewayResponse toAgentCreateResponse(JsonNode root) {
+        JsonNode error = root.path("error");
+        if (!error.isMissingNode() && !error.isNull()) {
+            return createFailure(resolveGatewayErrorMessage(error));
+        }
+        JsonNode result = root.path("result");
+        if (result.isMissingNode() || result.isNull()) {
+            return createFailure("gateway agent create result is missing");
+        }
+        boolean success = result.path("success").asBoolean(false);
+        String openClawAgentId = textOrNull(result, "openClawAgentId");
+        String failureReason = textOrNull(result, "failureReason");
+        if (!success) {
+            return createFailure(firstNonBlank(failureReason, "gateway agent create failed"));
+        }
+        if (openClawAgentId == null) {
+            return createFailure("gateway agent id is missing");
+        }
+        return new WorkspaceAgentCreateGatewayResponse(true, openClawAgentId, null);
+    }
+
+    private WorkspaceAgentListGatewayResponse toAgentListResponse(JsonNode root) {
+        JsonNode error = root.path("error");
+        if (!error.isMissingNode() && !error.isNull()) {
+            return listFailure(resolveGatewayErrorMessage(error));
+        }
+        JsonNode result = root.path("result");
+        if (result.isMissingNode() || result.isNull()) {
+            return listFailure("gateway agent list result is missing");
+        }
+        boolean success = result.path("success").asBoolean(false);
+        String failureReason = textOrNull(result, "failureReason");
+        if (!success) {
+            return listFailure(firstNonBlank(failureReason, "gateway agent list failed"));
+        }
+        return new WorkspaceAgentListGatewayResponse(true, toAgentList(result.path("agents")), null);
+    }
+
+    private WorkspaceAgentDeleteGatewayResponse toAgentDeleteResponse(JsonNode root) {
+        JsonNode error = root.path("error");
+        if (!error.isMissingNode() && !error.isNull()) {
+            return deleteFailure(resolveGatewayErrorMessage(error));
+        }
+        JsonNode result = root.path("result");
+        if (result.isMissingNode() || result.isNull()) {
+            return deleteFailure("gateway agent delete result is missing");
+        }
+        boolean success = result.path("success").asBoolean(false);
+        String failureReason = textOrNull(result, "failureReason");
+        if (!success) {
+            return deleteFailure(firstNonBlank(failureReason, "gateway agent delete failed"));
+        }
+        return new WorkspaceAgentDeleteGatewayResponse(true, null);
+    }
+
+    private List<WorkspaceAgentListGatewayResponse.Agent> toAgentList(JsonNode agents) {
+        if (!agents.isArray()) {
+            return List.of();
+        }
+        List<WorkspaceAgentListGatewayResponse.Agent> mappedAgents = new ArrayList<>();
+        for (JsonNode agent : agents) {
+            mappedAgents.add(new WorkspaceAgentListGatewayResponse.Agent(
+                    textOrNull(agent, "openClawAgentId"),
+                    textOrNull(agent, "name"),
+                    textOrNull(agent, "category"),
+                    textOrNull(agent, "status")));
+        }
+        return mappedAgents;
     }
 
     private WorkspaceGatewayAuthenticationResponse toChallengeFailureIfPresent(
@@ -346,6 +523,18 @@ final class RpcWorkspaceAgentGatewayClient implements WorkspaceAgentGatewayClien
 
     private WorkspaceAgentGatewayResponse failure(String failureReason) {
         return new WorkspaceAgentGatewayResponse(false, null, failureReason);
+    }
+
+    private WorkspaceAgentCreateGatewayResponse createFailure(String failureReason) {
+        return new WorkspaceAgentCreateGatewayResponse(false, null, failureReason);
+    }
+
+    private WorkspaceAgentListGatewayResponse listFailure(String failureReason) {
+        return new WorkspaceAgentListGatewayResponse(false, List.of(), failureReason);
+    }
+
+    private WorkspaceAgentDeleteGatewayResponse deleteFailure(String failureReason) {
+        return new WorkspaceAgentDeleteGatewayResponse(false, failureReason);
     }
 
     private WorkspaceGatewayAuthenticationResponse authenticationFailure(
