@@ -188,6 +188,23 @@ test("workspace detail exposes orchestration plan artifact surface", () => {
   assert.match(source, /orchestrationPlan/);
 });
 
+test("frontend exposes markdown artifact renderer contract", () => {
+  const source = readSource("components/ui/MarkdownContent.tsx");
+
+  assert.match(source, /ReactMarkdown/);
+  assert.match(source, /remarkGfm/);
+  assert.match(source, /copyMarkdownCodeBlock/);
+  assert.match(source, /markdown-artifact-content/);
+});
+
+test("workspace detail renders markdown artifact files", () => {
+  const source = readSource("app/workspaces/[workspaceId]/page.tsx");
+
+  assert.match(source, /MarkdownContent/);
+  assert.match(source, /isMarkdownArtifactFile/);
+  assert.match(source, /workspace-file-markdown/);
+});
+
 test("workspace detail exposes agent list surface", () => {
   const source = readSource("app/workspaces/[workspaceId]/page.tsx");
 

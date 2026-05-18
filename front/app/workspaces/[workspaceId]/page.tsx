@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { use, useCallback, useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
+import { MarkdownContent } from "@/components/ui";
 import { ApiError } from "@/lib/api-client";
 import {
   createWorkspaceAgent,
@@ -2652,7 +2653,14 @@ function ArtifactFileModal({
           {state.status === "error" ? (
             <ModalState icon={<AlertCircle aria-hidden="true" />} text={state.error} tone="danger" />
           ) : null}
-          {file ? <pre className="workspace-file-content">{file.content}</pre> : null}
+          {file && isMarkdownArtifactFile(path, file) ? (
+            <div className="workspace-file-markdown">
+              <MarkdownContent content={file.content} />
+            </div>
+          ) : null}
+          {file && !isMarkdownArtifactFile(path, file) ? (
+            <pre className="workspace-file-content">{file.content}</pre>
+          ) : null}
         </div>
       </section>
     </div>
@@ -2919,6 +2927,20 @@ function artifactPath(artifact: TaskArtifact): string | null {
   }
 
   return null;
+}
+
+function isMarkdownArtifactFile(
+  path: string | null,
+  file: ArtifactFileContent | null,
+): boolean {
+  const contentType = file?.contentType?.toLowerCase() ?? "";
+  const filePath = (path ?? file?.path ?? file?.name ?? "").toLowerCase();
+
+  return (
+    contentType.includes("markdown") ||
+    filePath.endsWith(".md") ||
+    filePath.endsWith(".markdown")
+  );
 }
 
 function formatFileSize(bytes: number): string {
