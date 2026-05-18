@@ -10,6 +10,8 @@ import com.aquilaoffice.application.port.out.LoadWorkspacePort;
 import com.aquilaoffice.domain.gateway.GatewayBindingStatus;
 import com.aquilaoffice.domain.gateway.WorkspaceGatewayBinding;
 import com.aquilaoffice.domain.member.Member;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Objects;
 
 /**
@@ -18,6 +20,8 @@ import java.util.Objects;
 public class GetWorkspaceGatewayStatusService implements GetWorkspaceGatewayStatusUseCase {
 
     private static final String EXTERNAL_MODE = "EXTERNAL";
+    private static final DateTimeFormatter RESPONSE_DATE_TIME_FORMAT =
+            DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
 
     private final LoadMemberPort loadMemberPort;
     private final LoadWorkspacePort loadWorkspacePort;
@@ -64,9 +68,12 @@ public class GetWorkspaceGatewayStatusService implements GetWorkspaceGatewayStat
                 EXTERNAL_MODE,
                 binding.getGatewayUrl(),
                 binding.maskedToken(),
-                null,
-                null,
-                null,
+                binding.getDeviceId(),
+                binding.getDeviceName(),
+                formatDateTime(binding.getAuthenticatedAt()),
+                binding.getLastStatus(),
+                formatDateTime(binding.getLastCheckedAt()),
+                binding.getLastError(),
                 null);
     }
 
@@ -81,6 +88,16 @@ public class GetWorkspaceGatewayStatusService implements GetWorkspaceGatewayStat
                 null,
                 null,
                 null,
+                null,
+                null,
+                null,
                 null);
+    }
+
+    private String formatDateTime(LocalDateTime value) {
+        if (value == null) {
+            return null;
+        }
+        return value.format(RESPONSE_DATE_TIME_FORMAT);
     }
 }

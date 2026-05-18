@@ -1,5 +1,7 @@
 package com.aquilaoffice.domain.gateway;
 
+import java.time.LocalDateTime;
+
 /**
  * 워크스페이스에 연결할 gateway URL/token 정보를 관리하는 순수 도메인 모델이다.
  */
@@ -15,18 +17,36 @@ public class WorkspaceGatewayBinding {
     private final String gatewayUrl;
     private final String token;
     private final String createdByGoogleSub;
+    private final String deviceId;
+    private final String deviceName;
+    private final LocalDateTime authenticatedAt;
+    private final GatewayConnectionStatus lastStatus;
+    private final LocalDateTime lastCheckedAt;
+    private final String lastError;
 
     private WorkspaceGatewayBinding(
             Long id,
             Long workspaceId,
             String gatewayUrl,
             String token,
-            String createdByGoogleSub) {
+            String createdByGoogleSub,
+            String deviceId,
+            String deviceName,
+            LocalDateTime authenticatedAt,
+            GatewayConnectionStatus lastStatus,
+            LocalDateTime lastCheckedAt,
+            String lastError) {
         this.id = id;
         this.workspaceId = requirePositive(workspaceId, "workspaceId");
         this.gatewayUrl = requireHttpUrl(gatewayUrl);
         this.token = requireNotBlank(token, "token");
         this.createdByGoogleSub = requireNotBlank(createdByGoogleSub, "createdByGoogleSub");
+        this.deviceId = nullableTrim(deviceId);
+        this.deviceName = nullableTrim(deviceName);
+        this.authenticatedAt = authenticatedAt;
+        this.lastStatus = lastStatus;
+        this.lastCheckedAt = lastCheckedAt;
+        this.lastError = nullableTrim(lastError);
     }
 
     public static WorkspaceGatewayBinding create(
@@ -34,7 +54,43 @@ public class WorkspaceGatewayBinding {
             String gatewayUrl,
             String token,
             String createdByGoogleSub) {
-        return new WorkspaceGatewayBinding(null, workspaceId, gatewayUrl, token, createdByGoogleSub);
+        return new WorkspaceGatewayBinding(
+                null,
+                workspaceId,
+                gatewayUrl,
+                token,
+                createdByGoogleSub,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null);
+    }
+
+    public static WorkspaceGatewayBinding createAuthenticated(
+            Long workspaceId,
+            String gatewayUrl,
+            String token,
+            String createdByGoogleSub,
+            String deviceId,
+            String deviceName,
+            LocalDateTime authenticatedAt,
+            GatewayConnectionStatus lastStatus,
+            LocalDateTime lastCheckedAt,
+            String lastError) {
+        return new WorkspaceGatewayBinding(
+                null,
+                workspaceId,
+                gatewayUrl,
+                token,
+                createdByGoogleSub,
+                requireNotBlank(deviceId, "deviceId"),
+                requireNotBlank(deviceName, "deviceName"),
+                requireNotNull(authenticatedAt, "authenticatedAt"),
+                requireNotNull(lastStatus, "lastStatus"),
+                requireNotNull(lastCheckedAt, "lastCheckedAt"),
+                lastError);
     }
 
     public static WorkspaceGatewayBinding restore(
@@ -43,7 +99,33 @@ public class WorkspaceGatewayBinding {
             String gatewayUrl,
             String token,
             String createdByGoogleSub) {
-        return new WorkspaceGatewayBinding(id, workspaceId, gatewayUrl, token, createdByGoogleSub);
+        return restore(id, workspaceId, gatewayUrl, token, createdByGoogleSub, null, null, null, null, null, null);
+    }
+
+    public static WorkspaceGatewayBinding restore(
+            Long id,
+            Long workspaceId,
+            String gatewayUrl,
+            String token,
+            String createdByGoogleSub,
+            String deviceId,
+            String deviceName,
+            LocalDateTime authenticatedAt,
+            GatewayConnectionStatus lastStatus,
+            LocalDateTime lastCheckedAt,
+            String lastError) {
+        return new WorkspaceGatewayBinding(
+                id,
+                workspaceId,
+                gatewayUrl,
+                token,
+                createdByGoogleSub,
+                deviceId,
+                deviceName,
+                authenticatedAt,
+                lastStatus,
+                lastCheckedAt,
+                lastError);
     }
 
     public String maskedToken() {
@@ -75,6 +157,30 @@ public class WorkspaceGatewayBinding {
         return createdByGoogleSub;
     }
 
+    public String getDeviceId() {
+        return deviceId;
+    }
+
+    public String getDeviceName() {
+        return deviceName;
+    }
+
+    public LocalDateTime getAuthenticatedAt() {
+        return authenticatedAt;
+    }
+
+    public GatewayConnectionStatus getLastStatus() {
+        return lastStatus;
+    }
+
+    public LocalDateTime getLastCheckedAt() {
+        return lastCheckedAt;
+    }
+
+    public String getLastError() {
+        return lastError;
+    }
+
     private static Long requirePositive(Long value, String fieldName) {
         if (value == null || value <= 0) {
             throw new IllegalArgumentException(fieldName + " must be positive");
@@ -93,6 +199,20 @@ public class WorkspaceGatewayBinding {
     private static String requireNotBlank(String value, String fieldName) {
         if (value == null || value.isBlank()) {
             throw new IllegalArgumentException(fieldName + " must not be blank");
+        }
+        return value.trim();
+    }
+
+    private static <T> T requireNotNull(T value, String fieldName) {
+        if (value == null) {
+            throw new IllegalArgumentException(fieldName + " must not be null");
+        }
+        return value;
+    }
+
+    private static String nullableTrim(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
         }
         return value.trim();
     }

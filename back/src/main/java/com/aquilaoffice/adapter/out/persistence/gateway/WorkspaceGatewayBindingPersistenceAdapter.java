@@ -67,6 +67,12 @@ public class WorkspaceGatewayBindingPersistenceAdapter
                 entity.getWorkspace().getId(),
                 entity.getGatewayUrl(),
                 externalTokenCipher.decrypt(entity.getToken()),
-                entity.getCreatedByGoogleSub());
+                entity.getCreatedByGoogleSub(),
+                entity.getDeviceId(),
+                entity.getDeviceName(),
+                entity.getAuthenticatedAt(),
+                entity.getLastStatus(),
+                entity.getLastCheckedAt(),
+                entity.getLastError());
     }
 }

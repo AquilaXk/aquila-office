@@ -72,6 +72,9 @@ class WorkspaceGatewayControllerTest {
                         null,
                         null,
                         null,
+                        null,
+                        null,
+                        null,
                         null));
 
         mockMvc.perform(get("/api/v1/workspaces/101/gateway")
