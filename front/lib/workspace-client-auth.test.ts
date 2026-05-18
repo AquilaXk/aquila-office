@@ -122,6 +122,14 @@ test("workspace detail exposes presence surface", () => {
   assert.match(source, /presenceEvents/);
 });
 
+test("workspace detail exposes orchestration plan artifact surface", () => {
+  const source = readSource("app/workspaces/[workspaceId]/page.tsx");
+
+  assert.match(source, /fetchOrchestrationPlanArtifact/);
+  assert.match(source, /aria-label="Orchestration plan artifact"/);
+  assert.match(source, /orchestrationPlan/);
+});
+
 test("workspace detail exposes agent list surface", () => {
   const source = readSource("app/workspaces/[workspaceId]/page.tsx");
 
