@@ -13,11 +13,14 @@ import com.aquilaoffice.application.port.out.LoadWorkspaceAgentPort;
 import com.aquilaoffice.application.port.out.LoadWorkspaceGatewayBindingPort;
 import com.aquilaoffice.application.port.out.LoadWorkspacePort;
 import com.aquilaoffice.application.port.out.RunWorkspaceAgentPort;
+import com.aquilaoffice.application.port.out.SaveTaskExecutionLogPort;
 import com.aquilaoffice.application.port.out.SaveTaskExecutionPort;
 import com.aquilaoffice.application.port.out.SavedTaskExecution;
+import com.aquilaoffice.application.port.out.SavedTaskExecutionLog;
 import com.aquilaoffice.application.port.out.SavedWorkspaceAgent;
 import com.aquilaoffice.application.port.out.SavedWorkspaceAgentSkillFile;
 import com.aquilaoffice.application.port.out.TaskDetail;
+import com.aquilaoffice.application.port.out.TaskExecutionLogCommand;
 import com.aquilaoffice.application.port.out.TaskExecutionStatusUpdate;
 import com.aquilaoffice.application.port.out.TaskStatusUpdate;
 import com.aquilaoffice.application.port.out.UpdateTaskExecutionPort;
@@ -49,6 +52,7 @@ class RunTaskServiceTest {
     void runTaskExecutesAssignedReadyAgentAndCompletesTask() {
         FakeUpdateTaskExecutionPort updateExecutionPort = new FakeUpdateTaskExecutionPort();
         FakeUpdateTaskStatusPort updateTaskStatusPort = new FakeUpdateTaskStatusPort();
+        FakeSaveTaskExecutionLogPort saveLogPort = new FakeSaveTaskExecutionLogPort();
         FakeRunWorkspaceAgentPort runPort = new FakeRunWorkspaceAgentPort(
                 new WorkspaceAgentRunResult(true, "실행 완료", null));
         RunTaskService service = newService(
@@ -59,6 +63,7 @@ class RunTaskServiceTest {
                 new FakeSaveTaskExecutionPort(),
                 updateExecutionPort,
                 updateTaskStatusPort,
+                saveLogPort,
                 WorkspaceMemberRole.MEMBER);
 
         RunTaskResult result = service.runTask(new RunTaskCommand(101L, 301L, " google-1 ", false));
@@ -69,6 +74,13 @@ class RunTaskServiceTest {
                 .containsExactly(TaskExecutionStatus.RUNNING, TaskExecutionStatus.SUCCEEDED);
         assertThat(updateTaskStatusPort.updates).extracting(TaskStatusUpdate::status)
                 .containsExactly(TaskStatus.IN_PROGRESS, TaskStatus.COMPLETED);
+        assertThat(saveLogPort.logs).extracting(TaskExecutionLogCommand::level)
+                .containsExactly("INFO", "INFO", "INFO");
+        assertThat(saveLogPort.logs).extracting(TaskExecutionLogCommand::message)
+                .containsExactly(
+                        "Task execution queued",
+                        "Task execution running",
+                        "Task execution succeeded");
         assertThat(result.taskStatus()).isEqualTo(TaskStatus.COMPLETED);
         assertThat(result.executionStatus()).isEqualTo(TaskExecutionStatus.SUCCEEDED);
         assertThat(result.finalText()).isEqualTo("실행 완료");
@@ -99,6 +111,56 @@ class RunTaskServiceTest {
                 .containsExactly(TaskStatus.FAILED);
         assertThat(result.taskStatus()).isEqualTo(TaskStatus.FAILED);
         assertThat(result.failureReason()).isEqualTo("workspace gateway binding not found");
+    }
+
+    @Test
+    void runTaskStoresFailureLogWhenGatewayReturnsFailure() {
+        FakeUpdateTaskExecutionPort updateExecutionPort = new FakeUpdateTaskExecutionPort();
+        FakeUpdateTaskStatusPort updateTaskStatusPort = new FakeUpdateTaskStatusPort();
+        FakeSaveTaskExecutionLogPort saveLogPort = new FakeSaveTaskExecutionLogPort();
+        RunTaskService service = newService(
+                taskDetail(TaskStatus.ASSIGNED, 501L),
+                List.of(savedAgent(501L, WorkspaceAgentStatus.READY, "gateway-agent-1")),
+                Optional.of(gatewayBinding()),
+                new FakeRunWorkspaceAgentPort(new WorkspaceAgentRunResult(false, null, "agent rejected")),
+                new FakeSaveTaskExecutionPort(),
+                updateExecutionPort,
+                updateTaskStatusPort,
+                saveLogPort,
+                WorkspaceMemberRole.MEMBER);
+
+        RunTaskResult result = service.runTask(new RunTaskCommand(101L, 301L, "google-1", false));
+
+        assertThat(updateExecutionPort.updates).extracting(TaskExecutionStatusUpdate::status)
+                .containsExactly(TaskExecutionStatus.RUNNING, TaskExecutionStatus.FAILED);
+        assertThat(saveLogPort.logs).extracting(TaskExecutionLogCommand::level)
+                .containsExactly("INFO", "INFO", "ERROR");
+        assertThat(saveLogPort.logs.getLast().message()).isEqualTo("agent rejected");
+        assertThat(result.taskStatus()).isEqualTo(TaskStatus.FAILED);
+        assertThat(result.executionStatus()).isEqualTo(TaskExecutionStatus.FAILED);
+        assertThat(result.failureReason()).isEqualTo("agent rejected");
+    }
+
+    @Test
+    void runTaskStoresFailureLogWhenGatewayThrowsException() {
+        FakeSaveTaskExecutionLogPort saveLogPort = new FakeSaveTaskExecutionLogPort();
+        RunTaskService service = newService(
+                taskDetail(TaskStatus.ASSIGNED, 501L),
+                List.of(savedAgent(501L, WorkspaceAgentStatus.READY, "gateway-agent-1")),
+                Optional.of(gatewayBinding()),
+                new FakeRunWorkspaceAgentPort(new IllegalStateException("gateway timeout")),
+                new FakeSaveTaskExecutionPort(),
+                new FakeUpdateTaskExecutionPort(),
+                new FakeUpdateTaskStatusPort(),
+                saveLogPort,
+                WorkspaceMemberRole.MEMBER);
+
+        RunTaskResult result = service.runTask(new RunTaskCommand(101L, 301L, "google-1", false));
+
+        assertThat(saveLogPort.logs).extracting(TaskExecutionLogCommand::level)
+                .containsExactly("INFO", "INFO", "ERROR");
+        assertThat(saveLogPort.logs.getLast().message()).isEqualTo("gateway timeout");
+        assertThat(result.failureReason()).isEqualTo("gateway timeout");
     }
 
     @Test
@@ -151,6 +213,28 @@ class RunTaskServiceTest {
             UpdateTaskExecutionPort updateExecutionPort,
             UpdateTaskStatusPort updateTaskStatusPort,
             WorkspaceMemberRole role) {
+        return newService(
+                task,
+                agents,
+                binding,
+                runPort,
+                saveExecutionPort,
+                updateExecutionPort,
+                updateTaskStatusPort,
+                new FakeSaveTaskExecutionLogPort(),
+                role);
+    }
+
+    private static RunTaskService newService(
+            TaskDetail task,
+            List<SavedWorkspaceAgent> agents,
+            Optional<WorkspaceGatewayBinding> binding,
+            RunWorkspaceAgentPort runPort,
+            SaveTaskExecutionPort saveExecutionPort,
+            UpdateTaskExecutionPort updateExecutionPort,
+            UpdateTaskStatusPort updateTaskStatusPort,
+            SaveTaskExecutionLogPort saveLogPort,
+            WorkspaceMemberRole role) {
         return new RunTaskService(
                 new FakeLoadMemberPort(Optional.of(Member.createUser("google-1", "user@example.com", "User"))),
                 new FakeLoadWorkspacePort(Optional.of(workspaceDetail(role))),
@@ -160,6 +244,7 @@ class RunTaskServiceTest {
                 saveExecutionPort,
                 updateExecutionPort,
                 updateTaskStatusPort,
+                saveLogPort,
                 runPort);
     }
 
@@ -341,19 +426,47 @@ class RunTaskServiceTest {
         }
     }
 
+    private static class FakeSaveTaskExecutionLogPort implements SaveTaskExecutionLogPort {
+        private final List<TaskExecutionLogCommand> logs = new java.util.ArrayList<>();
+
+        @Override
+        public SavedTaskExecutionLog save(TaskExecutionLogCommand command) {
+            logs.add(command);
+            return new SavedTaskExecutionLog(
+                    (long) logs.size(),
+                    command.workspaceId(),
+                    command.taskId(),
+                    command.executionId(),
+                    command.agentId(),
+                    command.level(),
+                    command.message(),
+                    LocalDateTime.of(2026, 5, 16, 10, logs.size()));
+        }
+    }
+
     private static class FakeRunWorkspaceAgentPort implements RunWorkspaceAgentPort {
         private final WorkspaceAgentRunResult result;
+        private final RuntimeException exception;
         private WorkspaceAgentRunCommand command;
         private boolean called;
 
         private FakeRunWorkspaceAgentPort(WorkspaceAgentRunResult result) {
             this.result = result;
+            this.exception = null;
+        }
+
+        private FakeRunWorkspaceAgentPort(RuntimeException exception) {
+            this.result = null;
+            this.exception = exception;
         }
 
         @Override
         public WorkspaceAgentRunResult run(WorkspaceAgentRunCommand command) {
             this.called = true;
             this.command = command;
+            if (exception != null) {
+                throw exception;
+            }
             return result;
         }
     }
