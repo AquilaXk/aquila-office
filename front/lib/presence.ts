@@ -1,4 +1,4 @@
-import { API_BASE_URL, apiFetch } from "@/lib/api-client";
+import { API_BASE_URL, apiFetch } from "@/lib/api";
 
 export type WorkspacePresencePosition = {
   left: string;
@@ -64,10 +64,7 @@ export async function updateWorkspacePresencePosition(
   await apiFetch<void>(workspacePresencePositionPath(workspaceId), {
     method: "PATCH",
     accessToken,
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(input),
+    json: input,
   });
 }
 

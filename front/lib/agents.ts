@@ -1,4 +1,4 @@
-import { apiFetch } from "@/lib/api-client";
+import { apiFetch } from "@/lib/api";
 import {
   normalizeWorkspaceAgents,
   workspaceAgentPath,
@@ -54,10 +54,7 @@ export async function createWorkspaceAgent(
   return apiFetch<WorkspaceAgent>(workspaceAgentsPath(workspaceId), {
     method: "POST",
     accessToken,
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(input),
+    json: input,
   });
 }
 

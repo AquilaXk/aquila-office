@@ -1,4 +1,4 @@
-import { apiFetch } from "@/lib/api-client";
+import { apiFetch } from "@/lib/api";
 import {
   normalizeTaskReports,
   normalizeWorkspaceTasks,
@@ -73,10 +73,7 @@ export async function createWorkspaceTask(
   return apiFetch<WorkspaceTask>(workspaceTasksPath(workspaceId), {
     method: "POST",
     accessToken,
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(input),
+    json: input,
   });
 }
 
@@ -88,10 +85,7 @@ export async function createAndRunWorkspaceTask(
   return apiFetch<RunWorkspaceTaskResult>(workspaceTasksRunPath(workspaceId), {
     method: "POST",
     accessToken,
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(input),
+    json: input,
   });
 }
 
@@ -114,10 +108,7 @@ export async function updateWorkspaceTaskStatus(
   return apiFetch<WorkspaceTask>(workspaceTaskStatusPath(workspaceId, taskId), {
     method: "PATCH",
     accessToken,
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(input),
+    json: input,
   });
 }
 
@@ -130,10 +121,7 @@ export async function runWorkspaceTask(
   return apiFetch<RunWorkspaceTaskResult>(workspaceTaskRunPath(workspaceId, taskId), {
     method: "POST",
     accessToken,
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(input),
+    json: input,
   });
 }
 

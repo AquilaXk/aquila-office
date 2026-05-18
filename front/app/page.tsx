@@ -17,7 +17,7 @@ import {
 import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import { API_BASE_URL, ApiError, apiFetch } from "@/lib/api-client";
+import { API_BASE_URL, ApiError, apiFetch } from "@/lib/api";
 import {
   clearAuthTokens,
   loginWithGoogle,

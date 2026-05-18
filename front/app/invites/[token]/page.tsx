@@ -12,7 +12,7 @@ import {
   WifiOff,
 } from "lucide-react";
 import { use, useCallback, useEffect, useMemo, useState } from "react";
-import { ApiError } from "@/lib/api-client";
+import { ApiError } from "@/lib/api";
 import { resolveAccessToken } from "@/lib/auth";
 import {
   acceptWorkspaceInvite,

@@ -1,4 +1,4 @@
-import { apiFetch } from "@/lib/api-client";
+import { apiFetch } from "@/lib/api";
 
 export type MemberAvatarColors = {
   skin: string;
@@ -36,9 +36,6 @@ export async function updateMemberProfile(
   return apiFetch<MemberProfile>(memberProfilePath(), {
     method: "PATCH",
     accessToken,
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(input),
+    json: input,
   });
 }

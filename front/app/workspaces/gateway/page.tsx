@@ -3,7 +3,7 @@
 import { AlertCircle, ArrowLeft, CheckCircle2, KeyRound, Loader2, RefreshCw, ServerCog } from "lucide-react";
 import Link from "next/link";
 import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
-import { ApiError } from "@/lib/api-client";
+import { ApiError } from "@/lib/api";
 import { resolveAccessToken } from "@/lib/auth";
 import {
   createWorkspaceGatewayBinding,

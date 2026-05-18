@@ -24,7 +24,7 @@ import {
 import Link from "next/link";
 import { use, useCallback, useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
 import { MarkdownContent } from "@/components/ui";
-import { ApiError } from "@/lib/api-client";
+import { ApiError } from "@/lib/api";
 import {
   createWorkspaceAgent,
   deleteWorkspaceAgent,

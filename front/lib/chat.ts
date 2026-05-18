@@ -1,4 +1,4 @@
-import { apiFetch } from "@/lib/api-client";
+import { apiFetch } from "@/lib/api";
 import type {
   TaskExecutionStatus,
   TaskPriority,
@@ -101,10 +101,7 @@ export async function sendWorkspaceChatMessage(
   return apiFetch<SendChatMessageResult>(workspaceChatMessagesPath(workspaceId), {
     method: "POST",
     accessToken,
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(input),
+    json: input,
   });
 }
 
