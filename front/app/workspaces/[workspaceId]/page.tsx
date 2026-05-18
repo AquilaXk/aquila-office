@@ -72,6 +72,11 @@ import {
   type WorkspaceTask,
 } from "@/lib/tasks";
 import {
+  createWorkspaceDetailActionItems,
+  createWorkspaceDetailOverview,
+  type WorkspaceDetailActionItem,
+} from "@/lib/workspace-detail";
+import {
   fetchWorkspaceDashboardSummary,
   fetchWorkspaceDetail,
   fetchWorkspaceMemberTaskStats,
@@ -208,6 +213,9 @@ const AGENT_CATEGORY_OPTIONS: WorkspaceAgentCategory[] = [
   "QA",
   "CUSTOM",
 ];
+
+const EMPTY_WORKSPACE_MEMBERS: WorkspaceMember[] = [];
+const EMPTY_PRESENCE_MEMBERS: WorkspacePresenceMessage["members"] = [];
 
 export default function WorkspaceDetailPage({
   params,
@@ -1042,7 +1050,7 @@ export default function WorkspaceDetailPage({
   }, [numericWorkspaceId, state.status]);
 
   const workspace = state.workspace;
-  const members = state.status === "ready" ? state.members : [];
+  const members = state.status === "ready" ? state.members : EMPTY_WORKSPACE_MEMBERS;
   const adminCount = members.filter((member) => member.role === "ADMIN").length;
   const groupedTasks = useMemo(
     () =>
@@ -1072,11 +1080,34 @@ export default function WorkspaceDetailPage({
   const latestPresenceSnapshot = presenceEvents.find(
     (event) => event.type === "presence.snapshot",
   );
-  const onlinePresenceMembers = latestPresenceSnapshot?.members ?? [];
+  const onlinePresenceMembers = latestPresenceSnapshot?.members ?? EMPTY_PRESENCE_MEMBERS;
   const isUpdatingPresence = presenceMutation.status === "submitting";
   const canCreateInvite = workspace?.myRole === "ADMIN";
   const isCreatingInvite = inviteState.status === "submitting";
   const canSubmitInvite = canCreateInvite && inviteEmail.trim().length > 0 && !isCreatingInvite;
+  const detailOverview = useMemo(
+    () =>
+      createWorkspaceDetailOverview({
+        dashboardSummary: summary,
+        agents: workspaceAgents,
+        tasks,
+        members,
+        presenceMembers: onlinePresenceMembers,
+      }),
+    [members, onlinePresenceMembers, summary, tasks, workspaceAgents],
+  );
+  const detailActionItems = useMemo(
+    () =>
+      createWorkspaceDetailActionItems({
+        agentCount: detailOverview.agentSummary.total,
+        taskCount: detailOverview.taskSummary.total,
+        memberCount: detailOverview.memberSummary.total,
+        canCreateInvite,
+        hasArtifactTree: artifactTree !== null,
+        hasOrchestrationPlan: orchestrationPlan !== null,
+      }),
+    [artifactTree, canCreateInvite, detailOverview, orchestrationPlan],
+  );
 
   const updatePresencePosition = useCallback(
     async (
@@ -1259,6 +1290,27 @@ export default function WorkspaceDetailPage({
               <strong>{workspace.name}</strong>
               <p>{workspace.description ?? "설명 없음"}</p>
             </div>
+
+            <section className="workspace-detail-action-rail" aria-label="워크스페이스 상세 작업">
+              <div className={`workspace-detail-readiness workspace-detail-readiness-${detailOverview.readiness}`}>
+                <ShieldCheck aria-hidden="true" />
+                <span>{formatWorkspaceDetailReadiness(detailOverview.readiness)}</span>
+              </div>
+              {detailActionItems.map((item) => (
+                <WorkspaceDetailActionCard
+                  item={item}
+                  key={item.id}
+                  onClick={() => {
+                    if (item.id === "files") {
+                      void openWorkspaceFiles();
+                    }
+                    if (item.id === "chat" && tasks[0]) {
+                      void openTaskChat(tasks[0]);
+                    }
+                  }}
+                />
+              ))}
+            </section>
 
             <section className="workspace-2d-section" aria-label="워크스페이스 2D 화면">
               <Workspace2DCanvas
@@ -2078,7 +2130,7 @@ export default function WorkspaceDetailPage({
         }}
         onOpenFile={(path) => void openArtifactFile(path)}
       />
-      <WorkspaceFilesModal
+      <ArtifactTreeModal
         open={filesOpen}
         tree={artifactTree}
         state={artifactTreeState}
@@ -2101,6 +2153,29 @@ export default function WorkspaceDetailPage({
         }}
       />
     </main>
+  );
+}
+
+function WorkspaceDetailActionCard({
+  item,
+  onClick,
+}: {
+  item: WorkspaceDetailActionItem;
+  onClick: () => void;
+}) {
+  const clickable = item.id === "files" || (item.id === "chat" && item.state === "ready");
+
+  return (
+    <button
+      className={`workspace-detail-action-card workspace-detail-action-card-${item.tone}`}
+      type="button"
+      onClick={onClick}
+      disabled={!clickable || item.state === "locked"}
+    >
+      <span>{item.label}</span>
+      <strong>{item.value}</strong>
+      <small>{formatWorkspaceDetailActionState(item.state)}</small>
+    </button>
   );
 }
 
@@ -2547,7 +2622,7 @@ function OrchestrationPlanModal({
   );
 }
 
-function WorkspaceFilesModal({
+function ArtifactTreeModal({
   open,
   tree,
   state,
@@ -2929,6 +3004,28 @@ function formatPresenceEventType(type: WorkspacePresenceMessage["type"]): string
       return "position";
     case "presence.error":
       return "error";
+  }
+}
+
+function formatWorkspaceDetailReadiness(readiness: "empty" | "ready" | "attention"): string {
+  switch (readiness) {
+    case "attention":
+      return "주의 필요";
+    case "empty":
+      return "준비 중";
+    case "ready":
+      return "운영 가능";
+  }
+}
+
+function formatWorkspaceDetailActionState(state: "ready" | "empty" | "locked"): string {
+  switch (state) {
+    case "empty":
+      return "대기";
+    case "locked":
+      return "잠김";
+    case "ready":
+      return "준비";
   }
 }
 
