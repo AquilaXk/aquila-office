@@ -12,6 +12,9 @@ import com.aquilaoffice.global.exception.CommonErrorCode;
 import com.aquilaoffice.global.exception.ServiceException;
 import com.aquilaoffice.global.response.RsData;
 import com.aquilaoffice.global.security.AuthenticatedMember;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -25,6 +28,8 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @RestController
 @RequestMapping("/api/v1/workspaces/{workspaceId}/artifacts")
+@Tag(name = "Artifact", description = "작업 산출물 파일과 오케스트레이션 plan 산출물 API")
+@SecurityRequirement(name = "bearerAuth")
 public class ArtifactController {
 
     private final GetArtifactTreeUseCase getArtifactTreeUseCase;
@@ -44,6 +49,7 @@ public class ArtifactController {
     }
 
     @GetMapping("/tree")
+    @Operation(summary = "워크스페이스 산출물 파일 트리를 조회한다")
     public ResponseEntity<RsData<ArtifactTreeResponse>> getArtifactTree(
             @PathVariable Long workspaceId,
             Authentication authentication) {
