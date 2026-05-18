@@ -134,3 +134,70 @@ The backend keeps domain logic in Java objects and persists the current state th
 | `SlackChannelMapping` | Maps a Slack team/channel to a workspace with encrypted bot token material. |
 | `GithubCredential` | Stores encrypted GitHub token material for repository work. |
 | `OrchestrationSession` | Tracks multi-agent plan execution and has many `OrchestrationStep` rows. |
+
+## Operations
+
+Local quality gates:
+
+```bash
+./back/gradlew -p back check
+npm --prefix front run test:node
+npm --prefix front run lint
+npm --prefix front run build
+node tools/readme/validate-readme.mjs
+node tools/perf/validate-k6-smoke.mjs
+```
+
+Run a local smoke test after the backend is listening on `8080`:
+
+```bash
+tools/test/run-k6-smoke.sh
+```
+
+The k6 smoke covers:
+
+- `GET /api/health`
+- `GET /actuator/health/liveness`
+- `GET /actuator/health/readiness`
+- `GET /actuator/prometheus`
+
+Prometheus scrape settings:
+
+- Scrape path: `/actuator/prometheus`
+- Default target: `backend:8080` in Docker networks, or `localhost:8080` for local runs
+- Recommended alert inputs: `http_server_requests_seconds`, `http_req_failed`, JVM memory, HikariCP connection gauges, and process CPU usage
+
+Deployment scripts:
+
+- `scripts/deploy/backend-blue-green.sh` builds a backend image and switches traffic after health confirmation.
+- `scripts/deploy/oci-backend-hook.sh` is the OCI host hook entrypoint.
+- `scripts/deploy/validate-backend-cd.sh` performs syntax and required-file checks for deployment scripts.
+
+Runtime safety notes:
+
+- Replace local defaults for `AQUILA_AUTH_TOKEN_SECRET`, `AQUILA_EXTERNAL_TOKEN_KEY`, database passwords, Slack secrets, and Google credentials before shared environments.
+- Keep `vertex-key.json` outside git. Use `VERTEX_AI_CREDENTIALS_HOST_PATH` if the credential file is not at the repository root.
+- Root `/actuator/health` can aggregate probe groups and return non-200 while liveness/readiness probes are healthy. Use the explicit probe endpoints for traffic checks.
+
+## Troubleshooting
+
+| Symptom | Check |
+| --- | --- |
+| Backend does not start | Confirm Java 21, port `8080`, and database availability. Run `./back/gradlew -p back bootRun` from the repository root. |
+| Frontend cannot reach API | Confirm `NEXT_PUBLIC_API_BASE_URL`, backend CORS patterns, and browser network logs. |
+| Google login fails | Confirm `AQUILA_GOOGLE_OAUTH_CLIENT_IDS`, hosted-domain settings, and that the ID token audience matches the configured client. |
+| Vertex AI calls fail | Confirm `GOOGLE_CLOUD_PROJECT_ID`, `VERTEX_AI_LOCATION`, `VERTEX_AI_MODEL`, and `GOOGLE_APPLICATION_CREDENTIALS`. Do not commit the credential file. |
+| Gateway agent runs fail | Confirm Gateway URL, `/rpc` path, encrypted token, and `/api/v1/workspaces/{workspaceId}/gateway/status`. |
+| Slack events fail | Confirm signing secret, OAuth callback URL, channel mapping, and event deduplication state. |
+| GitHub work fails | Confirm `GithubCredential` exists for the workspace and the token has repository permissions. |
+| k6 smoke fails on health | Check `/actuator/health/liveness`, `/actuator/health/readiness`, and `/actuator/prometheus` individually with `curl -i`. |
+
+## Workflow
+
+1. Create or select the issue for the work item.
+2. Create a focused branch from `main`.
+3. Implement with focused commits and local verification.
+4. Open a pull request that links the issue.
+5. Merge after checks pass and confirm the main branch CI run.
+
+Local agent files such as `AGENTS.md`, `docs/`, and `.codex/` are intentionally ignored and are not part of runtime documentation.
