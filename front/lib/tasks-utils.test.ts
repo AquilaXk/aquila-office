@@ -4,6 +4,8 @@ import { readFileSync } from "node:fs";
 import {
   normalizeTaskReports,
   normalizeWorkspaceTasks,
+  workspaceTaskLogsPath,
+  workspaceTaskMessagesPath,
   workspaceTaskReportsPath,
   workspaceTasksPath,
   workspaceTasksRunPath,
@@ -52,6 +54,14 @@ test("workspace task paths target a single workspace", () => {
     workspaceTaskReportsPath(101, 301),
     "/api/v1/workspaces/101/tasks/301/reports",
   );
+  assert.equal(
+    workspaceTaskLogsPath(101, 301),
+    "/api/v1/workspaces/101/tasks/301/logs",
+  );
+  assert.equal(
+    workspaceTaskMessagesPath(101, 301),
+    "/api/v1/workspaces/101/tasks/301/messages",
+  );
 });
 
 test("task mutation clients expose write and run contracts", () => {
@@ -69,6 +79,8 @@ test("task mutation clients expose write and run contracts", () => {
   assert.match(clientSource, /createAndRunWorkspaceTask/);
   assert.match(clientSource, /updateWorkspaceTaskStatus/);
   assert.match(clientSource, /runWorkspaceTask/);
+  assert.match(clientSource, /fetchTaskExecutionLogs/);
+  assert.match(clientSource, /fetchTaskMessages/);
   assert.match(clientSource, /createPr/);
 });
 

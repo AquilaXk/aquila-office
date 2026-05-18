@@ -1,5 +1,10 @@
 package com.aquilaoffice.adapter.in.web.task;
 
+import com.aquilaoffice.adapter.in.web.chat.ChatMessageResponse;
+import com.aquilaoffice.application.port.in.ListChatTaskMessagesQuery;
+import com.aquilaoffice.application.port.in.ListChatTaskMessagesUseCase;
+import com.aquilaoffice.application.port.in.ListTaskExecutionLogsQuery;
+import com.aquilaoffice.application.port.in.ListTaskExecutionLogsUseCase;
 import com.aquilaoffice.application.port.in.CreateTaskResult;
 import com.aquilaoffice.application.port.in.CreateTaskUseCase;
 import com.aquilaoffice.application.port.in.GetTaskDetailQuery;
@@ -42,18 +47,24 @@ public class TaskController {
     private final GetTaskDetailUseCase getTaskDetailUseCase;
     private final UpdateTaskStatusUseCase updateTaskStatusUseCase;
     private final RunTaskUseCase runTaskUseCase;
+    private final ListTaskExecutionLogsUseCase listTaskExecutionLogsUseCase;
+    private final ListChatTaskMessagesUseCase listChatTaskMessagesUseCase;
 
     public TaskController(
             CreateTaskUseCase createTaskUseCase,
             ListTasksUseCase listTasksUseCase,
             GetTaskDetailUseCase getTaskDetailUseCase,
             UpdateTaskStatusUseCase updateTaskStatusUseCase,
-            RunTaskUseCase runTaskUseCase) {
+            RunTaskUseCase runTaskUseCase,
+            ListTaskExecutionLogsUseCase listTaskExecutionLogsUseCase,
+            ListChatTaskMessagesUseCase listChatTaskMessagesUseCase) {
         this.createTaskUseCase = createTaskUseCase;
         this.listTasksUseCase = listTasksUseCase;
         this.getTaskDetailUseCase = getTaskDetailUseCase;
         this.updateTaskStatusUseCase = updateTaskStatusUseCase;
         this.runTaskUseCase = runTaskUseCase;
+        this.listTaskExecutionLogsUseCase = listTaskExecutionLogsUseCase;
+        this.listChatTaskMessagesUseCase = listChatTaskMessagesUseCase;
     }
 
     @PostMapping
@@ -158,6 +169,44 @@ public class TaskController {
                     request.toCommand(workspaceId, taskId, normalizedRequesterGoogleSub)))));
         } catch (IllegalArgumentException | IllegalStateException exception) {
             // 실행 가능 여부와 권한 실패는 Task 상태 정책 노출을 피하기 위해 같은 404로 응답한다.
+            throw new ServiceException(CommonErrorCode.NOT_FOUND);
+        }
+    }
+
+    @GetMapping("/{taskId}/logs")
+    public ResponseEntity<RsData<List<TaskExecutionLogResponse>>> listTaskLogs(
+            @PathVariable Long workspaceId,
+            @PathVariable Long taskId,
+            Authentication authentication) {
+        String normalizedRequesterGoogleSub = requireAuthenticatedRequesterGoogleSub(authentication);
+
+        try {
+            return ResponseEntity.ok(RsData.ok(listTaskExecutionLogsUseCase
+                    .listTaskExecutionLogs(
+                            new ListTaskExecutionLogsQuery(workspaceId, taskId, normalizedRequesterGoogleSub))
+                    .stream()
+                    .map(TaskExecutionLogResponse::from)
+                    .toList()));
+        } catch (IllegalArgumentException | IllegalStateException exception) {
+            throw new ServiceException(CommonErrorCode.NOT_FOUND);
+        }
+    }
+
+    @GetMapping("/{taskId}/messages")
+    public ResponseEntity<RsData<List<ChatMessageResponse>>> listTaskMessages(
+            @PathVariable Long workspaceId,
+            @PathVariable Long taskId,
+            Authentication authentication) {
+        String normalizedRequesterGoogleSub = requireAuthenticatedRequesterGoogleSub(authentication);
+
+        try {
+            return ResponseEntity.ok(RsData.ok(listChatTaskMessagesUseCase
+                    .listChatTaskMessages(
+                            new ListChatTaskMessagesQuery(workspaceId, taskId, normalizedRequesterGoogleSub))
+                    .stream()
+                    .map(ChatMessageResponse::from)
+                    .toList()));
+        } catch (IllegalArgumentException | IllegalStateException exception) {
             throw new ServiceException(CommonErrorCode.NOT_FOUND);
         }
     }

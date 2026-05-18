@@ -63,6 +63,17 @@ export type AgentReport = {
   createdAt?: string;
 };
 
+export type TaskExecutionLog = {
+  logId: number;
+  workspaceId?: number;
+  taskId: number;
+  taskExecutionId: number;
+  agentId?: number | null;
+  level: "INFO" | "WARN" | "ERROR" | string;
+  message: string;
+  createdAt?: string;
+};
+
 export type RunWorkspaceTaskResult = {
   workspaceId: number;
   taskId: number;
@@ -90,6 +101,14 @@ export function workspaceTaskReportsPath(workspaceId: number, taskId: number): s
   return `${workspaceTaskPath(workspaceId, taskId)}/reports`;
 }
 
+export function workspaceTaskLogsPath(workspaceId: number, taskId: number): string {
+  return `${workspaceTaskPath(workspaceId, taskId)}/logs`;
+}
+
+export function workspaceTaskMessagesPath(workspaceId: number, taskId: number): string {
+  return `${workspaceTaskPath(workspaceId, taskId)}/messages`;
+}
+
 export function workspaceTaskStatusPath(workspaceId: number, taskId: number): string {
   return `${workspaceTaskPath(workspaceId, taskId)}/status`;
 }
@@ -104,6 +123,10 @@ export function normalizeWorkspaceTasks(payload: unknown): WorkspaceTask[] {
 
 export function normalizeTaskReports(payload: unknown): AgentReport[] {
   return normalizeList<AgentReport>(payload);
+}
+
+export function normalizeTaskExecutionLogs(payload: unknown): TaskExecutionLog[] {
+  return normalizeList<TaskExecutionLog>(payload);
 }
 
 function normalizeList<T>(payload: unknown): T[] {

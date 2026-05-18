@@ -21,4 +21,19 @@ public interface TaskExecutionLogJpaRepository extends JpaRepository<TaskExecuti
     List<TaskExecutionLogJpaEntity> findRecentByWorkspaceId(
             @Param("workspaceId") Long workspaceId,
             Pageable pageable);
+
+    @Query("""
+            select l
+            from TaskExecutionLogJpaEntity l
+            join fetch l.execution e
+            join fetch e.task t
+            join e.workspace w
+            where w.id = :workspaceId
+              and t.id = :taskId
+              and w.deletedAt is null
+            order by l.createdAt asc, l.id asc
+            """)
+    List<TaskExecutionLogJpaEntity> findByWorkspaceIdAndTaskIdOrderByCreatedAtAsc(
+            @Param("workspaceId") Long workspaceId,
+            @Param("taskId") Long taskId);
 }
