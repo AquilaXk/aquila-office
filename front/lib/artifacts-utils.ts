@@ -64,6 +64,14 @@ export function workspaceOrchestrationPlanArtifactPath(workspaceId: number, plan
   return `/api/v1/workspaces/${workspaceId}/artifacts/orchestration-plans/${planId}`;
 }
 
+export function workspaceOrchestrationPlanStepArtifactPath(
+  workspaceId: number,
+  planId: number,
+  stepId: number,
+): string {
+  return `/api/v1/workspaces/${workspaceId}/artifacts/orchestration-plans/${planId}/steps/${stepId}`;
+}
+
 export function normalizeArtifactTree(payload: unknown, workspaceId = 0): ArtifactTree {
   if (payload && typeof payload === "object") {
     const record = payload as Partial<ArtifactTree>;
