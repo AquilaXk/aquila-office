@@ -53,6 +53,7 @@ import com.aquilaoffice.application.port.in.UpdateTaskStatusUseCase;
 import com.aquilaoffice.application.port.in.UpdateWorkspaceUseCase;
 import com.aquilaoffice.application.port.in.RevokeWorkspaceInviteUseCase;
 import com.aquilaoffice.application.port.out.AcceptWorkspaceInvitePort;
+import com.aquilaoffice.application.port.out.AuthenticateWorkspaceGatewayPort;
 import com.aquilaoffice.application.port.out.ChangeWorkspaceMemberRolePort;
 import com.aquilaoffice.application.port.out.DeleteRefreshTokenPort;
 import com.aquilaoffice.application.port.out.DeleteWorkspacePort;
@@ -245,6 +246,9 @@ class ApplicationServiceConfigTest {
 
     @MockitoBean
     private SaveWorkspaceGatewayBindingPort saveWorkspaceGatewayBindingPort;
+
+    @MockitoBean
+    private AuthenticateWorkspaceGatewayPort authenticateWorkspaceGatewayPort;
 
     @MockitoBean
     private LoadSlackChannelMappingPort loadSlackChannelMappingPort;

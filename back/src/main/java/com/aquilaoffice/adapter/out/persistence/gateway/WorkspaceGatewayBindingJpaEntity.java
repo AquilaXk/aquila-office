@@ -1,10 +1,13 @@
 package com.aquilaoffice.adapter.out.persistence.gateway;
 
 import com.aquilaoffice.adapter.out.persistence.workspace.WorkspaceJpaEntity;
+import com.aquilaoffice.domain.gateway.GatewayConnectionStatus;
 import com.aquilaoffice.domain.gateway.WorkspaceGatewayBinding;
 import com.aquilaoffice.global.jpa.entity.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
@@ -31,6 +34,25 @@ public class WorkspaceGatewayBindingJpaEntity extends BaseEntity {
     @Column(name = "created_by_google_sub", nullable = false, length = 120)
     private String createdByGoogleSub;
 
+    @Column(name = "device_id", length = 120)
+    private String deviceId;
+
+    @Column(name = "device_name", length = 120)
+    private String deviceName;
+
+    @Column(name = "authenticated_at")
+    private LocalDateTime authenticatedAt;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "last_status", length = 40)
+    private GatewayConnectionStatus lastStatus;
+
+    @Column(name = "last_checked_at")
+    private LocalDateTime lastCheckedAt;
+
+    @Column(name = "last_error", columnDefinition = "TEXT")
+    private String lastError;
+
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
 
@@ -41,11 +63,23 @@ public class WorkspaceGatewayBindingJpaEntity extends BaseEntity {
             String gatewayUrl,
             String token,
             String createdByGoogleSub,
+            String deviceId,
+            String deviceName,
+            LocalDateTime authenticatedAt,
+            GatewayConnectionStatus lastStatus,
+            LocalDateTime lastCheckedAt,
+            String lastError,
             LocalDateTime deletedAt) {
         this.workspace = requireWorkspaceEntity(workspace);
         this.gatewayUrl = gatewayUrl;
         this.token = token;
         this.createdByGoogleSub = createdByGoogleSub;
+        this.deviceId = deviceId;
+        this.deviceName = deviceName;
+        this.authenticatedAt = authenticatedAt;
+        this.lastStatus = lastStatus;
+        this.lastCheckedAt = lastCheckedAt;
+        this.lastError = lastError;
         this.deletedAt = deletedAt;
     }
 
@@ -59,6 +93,12 @@ public class WorkspaceGatewayBindingJpaEntity extends BaseEntity {
                 binding.getGatewayUrl(),
                 encryptedToken,
                 binding.getCreatedByGoogleSub(),
+                binding.getDeviceId(),
+                binding.getDeviceName(),
+                binding.getAuthenticatedAt(),
+                binding.getLastStatus(),
+                binding.getLastCheckedAt(),
+                binding.getLastError(),
                 null);
     }
 
@@ -85,6 +125,30 @@ public class WorkspaceGatewayBindingJpaEntity extends BaseEntity {
 
     public String getCreatedByGoogleSub() {
         return createdByGoogleSub;
+    }
+
+    public String getDeviceId() {
+        return deviceId;
+    }
+
+    public String getDeviceName() {
+        return deviceName;
+    }
+
+    public LocalDateTime getAuthenticatedAt() {
+        return authenticatedAt;
+    }
+
+    public GatewayConnectionStatus getLastStatus() {
+        return lastStatus;
+    }
+
+    public LocalDateTime getLastCheckedAt() {
+        return lastCheckedAt;
+    }
+
+    public String getLastError() {
+        return lastError;
     }
 
     public LocalDateTime getDeletedAt() {

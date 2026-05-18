@@ -9,12 +9,14 @@ import com.aquilaoffice.adapter.out.persistence.workspace.WorkspaceJpaEntity;
 import com.aquilaoffice.adapter.out.persistence.workspace.WorkspaceJpaRepository;
 import com.aquilaoffice.application.port.out.LoadWorkspaceGatewayBindingPort;
 import com.aquilaoffice.application.port.out.SaveWorkspaceGatewayBindingPort;
+import com.aquilaoffice.domain.gateway.GatewayConnectionStatus;
 import com.aquilaoffice.domain.gateway.WorkspaceGatewayBinding;
 import com.aquilaoffice.domain.member.Member;
 import com.aquilaoffice.domain.member.MemberRole;
 import com.aquilaoffice.domain.workspace.Workspace;
 import com.aquilaoffice.global.config.properties.ExternalTokenEncryptionProperties;
 import com.aquilaoffice.global.security.AesGcmExternalTokenCipher;
+import java.time.LocalDateTime;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -67,6 +69,44 @@ class WorkspaceGatewayBindingPersistenceAdapterTest {
                     assertThat(found.getId()).isEqualTo(savedBinding.getId());
                     assertThat(found.getWorkspaceId()).isEqualTo(workspaceEntity.getId());
                     assertThat(found.maskedToken()).isEqualTo("gate****cdef");
+                });
+    }
+
+    @Test
+    void savePersistsAuthenticatedDeviceIdentityAndLastConnectionStatus() {
+        WorkspaceJpaEntity workspaceEntity = saveWorkspaceEntity("creator-google");
+        LocalDateTime authenticatedAt = LocalDateTime.of(2026, 5, 18, 10, 30);
+        LocalDateTime lastCheckedAt = LocalDateTime.of(2026, 5, 18, 10, 31);
+
+        WorkspaceGatewayBinding savedBinding = saveWorkspaceGatewayBindingPort.save(WorkspaceGatewayBinding.createAuthenticated(
+                workspaceEntity.getId(),
+                "https://gateway.example.com",
+                "gate_1234567890abcdef",
+                "creator-google",
+                "gw-device-1",
+                "Seoul Office Gateway",
+                authenticatedAt,
+                GatewayConnectionStatus.CONNECTED,
+                lastCheckedAt,
+                null));
+
+        assertThat(workspaceGatewayBindingJpaRepository.findById(savedBinding.getId()))
+                .hasValueSatisfying(entity -> {
+                    assertThat(entity.getDeviceId()).isEqualTo("gw-device-1");
+                    assertThat(entity.getDeviceName()).isEqualTo("Seoul Office Gateway");
+                    assertThat(entity.getAuthenticatedAt()).isEqualTo(authenticatedAt);
+                    assertThat(entity.getLastStatus()).isEqualTo(GatewayConnectionStatus.CONNECTED);
+                    assertThat(entity.getLastCheckedAt()).isEqualTo(lastCheckedAt);
+                    assertThat(entity.getLastError()).isNull();
+                });
+        assertThat(loadWorkspaceGatewayBindingPort.findActiveByWorkspaceId(workspaceEntity.getId()))
+                .hasValueSatisfying(found -> {
+                    assertThat(found.getDeviceId()).isEqualTo("gw-device-1");
+                    assertThat(found.getDeviceName()).isEqualTo("Seoul Office Gateway");
+                    assertThat(found.getAuthenticatedAt()).isEqualTo(authenticatedAt);
+                    assertThat(found.getLastStatus()).isEqualTo(GatewayConnectionStatus.CONNECTED);
+                    assertThat(found.getLastCheckedAt()).isEqualTo(lastCheckedAt);
+                    assertThat(found.getLastError()).isNull();
                 });
     }
 
