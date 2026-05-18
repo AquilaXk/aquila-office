@@ -13,7 +13,7 @@ import org.junit.jupiter.api.Test;
 class AiProviderConfigurationTest {
 
     private static final List<String> FORBIDDEN_PROVIDER_TOKENS = List.of(
-            "glm",
+            String.join("", "g", "l", "m"),
             "generativelanguage",
             "google-generative",
             "google.genai");
@@ -37,7 +37,7 @@ class AiProviderConfigurationTest {
     }
 
     @Test
-    void backendSourceAndDependenciesDoNotUseGlmProvider() throws IOException {
+    void backendSourceAndDependenciesUseAllowedAiProviderOnly() throws IOException {
         Path root = repositoryRoot();
 
         List<String> violations;

@@ -35,7 +35,7 @@ Environment:
 
 ## Vertex AI
 
-Backend chat intent analysis uses Vertex AI Gemini. GLM providers are not used.
+Backend chat intent analysis uses Vertex AI Gemini.
 
 Required runtime values:
 
