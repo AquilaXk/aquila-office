@@ -75,7 +75,7 @@ export default function NewWorkspacePage() {
     <main className="workspace-create-shell">
       <section className="workspace-create-panel" aria-label="워크스페이스 생성">
         <div className="workspace-create-header">
-          <Link className="secondary-action" href="/">
+          <Link className="secondary-action" href="/workspaces">
             <ArrowLeft aria-hidden="true" />
             <span>목록으로</span>
           </Link>
@@ -135,7 +135,7 @@ export default function NewWorkspacePage() {
           ) : null}
 
           <div className="form-actions">
-            <Link className="secondary-action" href="/">
+            <Link className="secondary-action" href="/workspaces">
               취소
             </Link>
             {createdWorkspaceHref ? (

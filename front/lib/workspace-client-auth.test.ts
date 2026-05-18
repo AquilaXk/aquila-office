@@ -17,7 +17,7 @@ const protectedClientFiles = [
 ] as const;
 
 const pageFiles = [
-  "app/page.tsx",
+  "app/workspaces/page.tsx",
   "app/invites/[token]/page.tsx",
   "app/workspaces/new/page.tsx",
   "app/workspaces/[workspaceId]/page.tsx",
@@ -53,18 +53,19 @@ test("workspace client exposes dashboard summary and member task stats contracts
   assert.match(source, /\/members\/task-stats/);
 });
 
-test("home dashboard exposes auth token session actions", () => {
-  const source = readSource("app/page.tsx");
+test("workspace list exposes auth token session actions", () => {
+  const source = readSource("app/workspaces/page.tsx");
 
-  assert.match(source, /loginWithGoogle/);
-  assert.match(source, /refreshAuthToken/);
   assert.match(source, /logoutAuth/);
-  assert.match(source, /saveAuthTokens/);
   assert.match(source, /clearAuthTokens/);
+  assert.match(source, /readAuthTokens/);
+  assert.match(source, /AUTH_STORAGE_KEY/);
 });
 
 test("frontend route aliases expose workspace and auth entries", () => {
-  assert.match(readSource("app/workspaces/page.tsx"), /HomePage/);
+  assert.match(readSource("app/page.tsx"), /MENU/);
+  assert.match(readSource("app/workspaces/page.tsx"), /WorkspacesPage/);
+  assert.doesNotMatch(readSource("app/workspaces/page.tsx"), /HomePage/);
   assert.match(readSource("app/auth/page.tsx"), /GoogleLogin/);
   assert.match(readSource("app/auth/page.tsx"), /safeReturnTo/);
 });
@@ -227,12 +228,12 @@ test("workspace detail exposes agent management controls", () => {
   assert.match(source, /handleDeleteAgent/);
 });
 
-test("home dashboard exposes member profile settings", () => {
-  const source = readSource("app/page.tsx");
+test("character profile screen exposes member profile settings", () => {
+  const source = readSource("app/auth/character/page.tsx");
 
   assert.match(source, /fetchMemberProfile/);
   assert.match(source, /updateMemberProfile/);
-  assert.match(source, /aria-label="회원 프로필 설정"/);
+  assert.match(source, /aria-label="캐릭터 프로필 설정"/);
   assert.match(source, /avatarColors/);
 });
 
