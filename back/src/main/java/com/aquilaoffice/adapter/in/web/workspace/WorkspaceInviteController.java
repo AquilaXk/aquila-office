@@ -10,6 +10,9 @@ import com.aquilaoffice.global.exception.CommonErrorCode;
 import com.aquilaoffice.global.exception.ServiceException;
 import com.aquilaoffice.global.response.RsData;
 import com.aquilaoffice.global.security.AuthenticatedMember;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -23,6 +26,7 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @RestController
 @RequestMapping({"/api/v1/workspace-invites", "/api/v1/invites"})
+@Tag(name = "Invite", description = "초대 token 조회와 수락 API")
 public class WorkspaceInviteController {
 
     private final GetWorkspaceInviteUseCase getWorkspaceInviteUseCase;
@@ -36,6 +40,7 @@ public class WorkspaceInviteController {
     }
 
     @GetMapping("/{token}")
+    @Operation(summary = "초대 token으로 초대 정보를 조회한다")
     public ResponseEntity<RsData<WorkspaceInviteResponse>> getWorkspaceInvite(@PathVariable String token) {
         try {
             GetWorkspaceInviteResult result =
@@ -48,6 +53,8 @@ public class WorkspaceInviteController {
     }
 
     @PostMapping("/{token}/accept")
+    @Operation(summary = "인증된 멤버가 초대를 수락한다")
+    @SecurityRequirement(name = "bearerAuth")
     public ResponseEntity<RsData<AcceptWorkspaceInviteResponse>> acceptWorkspaceInvite(
             @PathVariable String token,
             Authentication authentication) {

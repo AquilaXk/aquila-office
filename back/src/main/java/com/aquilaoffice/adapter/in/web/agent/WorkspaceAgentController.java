@@ -12,6 +12,9 @@ import com.aquilaoffice.global.exception.CommonErrorCode;
 import com.aquilaoffice.global.exception.ServiceException;
 import com.aquilaoffice.global.response.RsData;
 import com.aquilaoffice.global.security.AuthenticatedMember;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.net.URI;
 import java.util.List;
@@ -30,6 +33,8 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @RestController
 @RequestMapping("/api/v1/workspaces/{workspaceId}/agents")
+@Tag(name = "Agent", description = "워크스페이스 Agent 생성, 조회, 삭제 API")
+@SecurityRequirement(name = "bearerAuth")
 public class WorkspaceAgentController {
 
     private final CreateWorkspaceAgentUseCase createWorkspaceAgentUseCase;
@@ -49,6 +54,7 @@ public class WorkspaceAgentController {
     }
 
     @PostMapping
+    @Operation(summary = "워크스페이스 Agent를 생성하고 gateway에 동기화한다")
     public ResponseEntity<RsData<WorkspaceAgentResponse>> createWorkspaceAgent(
             @PathVariable Long workspaceId,
             Authentication authentication,

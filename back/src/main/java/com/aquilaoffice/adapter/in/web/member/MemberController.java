@@ -8,6 +8,9 @@ import com.aquilaoffice.global.exception.CommonErrorCode;
 import com.aquilaoffice.global.exception.ServiceException;
 import com.aquilaoffice.global.response.RsData;
 import com.aquilaoffice.global.security.AuthenticatedMember;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -21,6 +24,8 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @RestController
 @RequestMapping("/api/v1/members")
+@Tag(name = "Member", description = "내 프로필 조회와 수정 API")
+@SecurityRequirement(name = "bearerAuth")
 public class MemberController {
 
     private final GetMemberProfileUseCase getMemberProfileUseCase;
@@ -34,6 +39,7 @@ public class MemberController {
     }
 
     @GetMapping("/me/profile")
+    @Operation(summary = "내 멤버 프로필을 조회한다")
     public ResponseEntity<RsData<MemberProfileResponse>> getMyProfile(
             Authentication authentication) {
         String normalizedMemberGoogleSub = requireAuthenticatedMemberGoogleSub(authentication);

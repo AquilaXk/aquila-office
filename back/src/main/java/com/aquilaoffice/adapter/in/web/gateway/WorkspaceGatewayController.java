@@ -11,6 +11,9 @@ import com.aquilaoffice.global.exception.CommonErrorCode;
 import com.aquilaoffice.global.exception.ServiceException;
 import com.aquilaoffice.global.response.RsData;
 import com.aquilaoffice.global.security.AuthenticatedMember;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.net.URI;
 import org.springframework.http.ResponseEntity;
@@ -27,6 +30,8 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @RestController
 @RequestMapping("/api/v1/workspaces/{workspaceId}/gateway")
+@Tag(name = "Gateway", description = "워크스페이스 gateway 연결 상태와 binding API")
+@SecurityRequirement(name = "bearerAuth")
 public class WorkspaceGatewayController {
 
     private final GetWorkspaceGatewayStatusUseCase getWorkspaceGatewayStatusUseCase;
@@ -43,6 +48,7 @@ public class WorkspaceGatewayController {
     }
 
     @GetMapping
+    @Operation(summary = "워크스페이스 gateway 연결 상태를 조회한다")
     public ResponseEntity<RsData<WorkspaceGatewayStatusResponse>> getWorkspaceGatewayStatus(
             @PathVariable Long workspaceId,
             Authentication authentication) {

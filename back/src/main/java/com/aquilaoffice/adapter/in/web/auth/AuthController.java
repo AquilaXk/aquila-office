@@ -8,6 +8,8 @@ import com.aquilaoffice.application.port.in.RefreshAuthTokenUseCase;
 import com.aquilaoffice.global.exception.CommonErrorCode;
 import com.aquilaoffice.global.exception.ServiceException;
 import com.aquilaoffice.global.response.RsData;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -20,6 +22,7 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @RestController
 @RequestMapping("/api/v1/auth")
+@Tag(name = "Auth", description = "Google OAuth 로그인과 토큰 세션 API")
 public class AuthController {
 
     private final GoogleLoginUseCase googleLoginUseCase;
@@ -36,6 +39,7 @@ public class AuthController {
     }
 
     @PostMapping("/google/login")
+    @Operation(summary = "Google id token으로 로그인하고 서비스 토큰을 발급한다")
     public ResponseEntity<RsData<GoogleLoginResponse>> loginWithGoogle(
             @Valid @RequestBody GoogleLoginRequest request) {
         try {
