@@ -25,6 +25,8 @@ repositories {
 }
 
 dependencies {
+    implementation("com.google.api-client:google-api-client:2.9.0")
+    implementation("com.google.http-client:google-http-client-gson:2.1.0")
     implementation("org.springframework.boot:spring-boot-starter-actuator")
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
     implementation("org.springframework.boot:spring-boot-starter-security")

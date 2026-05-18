@@ -21,3 +21,9 @@ aquila:
     secret: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
     access-token-ttl: 15m
     refresh-token-ttl: 14d
+  google-oauth:
+    client-ids:
+      - test-client.apps.googleusercontent.com
+    allowed-hosted-domains: []
+    require-email-verified: true
+    application-name: aquila-office-test

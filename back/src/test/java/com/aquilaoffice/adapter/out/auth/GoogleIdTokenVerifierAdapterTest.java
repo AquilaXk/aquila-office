@@ -15,17 +15,19 @@ class GoogleIdTokenVerifierAdapterTest {
 
     @Test
     void verifiesGoogleIdTokenAndReturnsUserProfile() {
+        FakeGoogleIdTokenVerifierGateway gateway = new FakeGoogleIdTokenVerifierGateway(payload(
+                "google-1",
+                "user@example.com",
+                "User One",
+                true,
+                "example.com"));
         GoogleIdTokenVerifierAdapter adapter = new GoogleIdTokenVerifierAdapter(
-                new FakeGoogleIdTokenVerifierGateway(payload(
-                        "google-1",
-                        "user@example.com",
-                        "User One",
-                        true,
-                        "example.com")),
+                gateway,
                 properties(List.of("example.com"), true));
 
         VerifiedGoogleUser user = adapter.verify(" id-token ");
 
+        assertThat(gateway.requestedIdToken).isEqualTo("id-token");
         assertThat(user.googleSub()).isEqualTo("google-1");
         assertThat(user.email()).isEqualTo("user@example.com");
         assertThat(user.name()).isEqualTo("User One");
@@ -94,6 +96,7 @@ class GoogleIdTokenVerifierAdapterTest {
     private static class FakeGoogleIdTokenVerifierGateway implements GoogleIdTokenVerifierGateway {
 
         private final GoogleIdTokenPayload payload;
+        private String requestedIdToken;
 
         private FakeGoogleIdTokenVerifierGateway(GoogleIdTokenPayload payload) {
             this.payload = payload;
@@ -101,7 +104,7 @@ class GoogleIdTokenVerifierAdapterTest {
 
         @Override
         public GoogleIdTokenPayload verify(String idToken) {
-            assertThat(idToken).isEqualTo("id-token");
+            this.requestedIdToken = idToken;
             return payload;
         }
     }
