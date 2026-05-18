@@ -2,9 +2,12 @@ package com.aquilaoffice.adapter.out.persistence.workspace;
 
 import com.aquilaoffice.adapter.out.persistence.agent.WorkspaceAgentJpaRepository;
 import com.aquilaoffice.adapter.out.persistence.execution.TaskExecutionJpaEntity;
+import com.aquilaoffice.adapter.out.persistence.execution.TaskExecutionLogJpaEntity;
+import com.aquilaoffice.adapter.out.persistence.execution.TaskExecutionLogJpaRepository;
 import com.aquilaoffice.adapter.out.persistence.execution.TaskExecutionJpaRepository;
 import com.aquilaoffice.adapter.out.persistence.task.TaskJpaRepository;
 import com.aquilaoffice.application.port.out.LoadWorkspaceDashboardSummaryPort;
+import com.aquilaoffice.application.port.out.WorkspaceDashboardRecentLogData;
 import com.aquilaoffice.application.port.out.WorkspaceDashboardRecentReportData;
 import com.aquilaoffice.application.port.out.WorkspaceDashboardSummaryData;
 import com.aquilaoffice.domain.agent.WorkspaceAgentStatus;
@@ -23,6 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class WorkspaceDashboardPersistenceAdapter implements LoadWorkspaceDashboardSummaryPort {
 
     private static final int RECENT_REPORT_LIMIT = 5;
+    private static final int RECENT_LOG_LIMIT = 10;
     private static final List<TaskStatus> RUNNING_TASK_STATUSES =
             List.of(TaskStatus.ASSIGNED, TaskStatus.IN_PROGRESS, TaskStatus.WAITING_USER);
     private static final List<WorkspaceAgentStatus> ERROR_AGENT_STATUSES =
@@ -31,16 +35,20 @@ public class WorkspaceDashboardPersistenceAdapter implements LoadWorkspaceDashbo
     private final WorkspaceAgentJpaRepository workspaceAgentJpaRepository;
     private final TaskJpaRepository taskJpaRepository;
     private final TaskExecutionJpaRepository taskExecutionJpaRepository;
+    private final TaskExecutionLogJpaRepository taskExecutionLogJpaRepository;
 
     public WorkspaceDashboardPersistenceAdapter(
             WorkspaceAgentJpaRepository workspaceAgentJpaRepository,
             TaskJpaRepository taskJpaRepository,
-            TaskExecutionJpaRepository taskExecutionJpaRepository) {
+            TaskExecutionJpaRepository taskExecutionJpaRepository,
+            TaskExecutionLogJpaRepository taskExecutionLogJpaRepository) {
         this.workspaceAgentJpaRepository =
                 Objects.requireNonNull(workspaceAgentJpaRepository, "workspaceAgentJpaRepository must not be null");
         this.taskJpaRepository = Objects.requireNonNull(taskJpaRepository, "taskJpaRepository must not be null");
         this.taskExecutionJpaRepository =
                 Objects.requireNonNull(taskExecutionJpaRepository, "taskExecutionJpaRepository must not be null");
+        this.taskExecutionLogJpaRepository =
+                Objects.requireNonNull(taskExecutionLogJpaRepository, "taskExecutionLogJpaRepository must not be null");
     }
 
     @Override
@@ -77,7 +85,7 @@ public class WorkspaceDashboardPersistenceAdapter implements LoadWorkspaceDashbo
                 completedTaskCount,
                 failedTaskCount,
                 recentReports(workspaceId),
-                List.of());
+                recentLogs(workspaceId));
     }
 
     private List<WorkspaceDashboardRecentReportData> recentReports(Long workspaceId) {
@@ -85,6 +93,14 @@ public class WorkspaceDashboardPersistenceAdapter implements LoadWorkspaceDashbo
                 .findRecentByWorkspaceId(workspaceId, PageRequest.of(0, RECENT_REPORT_LIMIT))
                 .stream()
                 .map(this::toRecentReport)
+                .toList();
+    }
+
+    private List<WorkspaceDashboardRecentLogData> recentLogs(Long workspaceId) {
+        return taskExecutionLogJpaRepository
+                .findRecentByWorkspaceId(workspaceId, PageRequest.of(0, RECENT_LOG_LIMIT))
+                .stream()
+                .map(this::toRecentLog)
                 .toList();
     }
 
@@ -97,6 +113,17 @@ public class WorkspaceDashboardPersistenceAdapter implements LoadWorkspaceDashbo
                 summaryOf(execution),
                 execution.getFailureReason(),
                 execution.getCreatedAt());
+    }
+
+    private WorkspaceDashboardRecentLogData toRecentLog(TaskExecutionLogJpaEntity log) {
+        TaskExecutionJpaEntity execution = log.getExecution();
+        return new WorkspaceDashboardRecentLogData(
+                execution.getId(),
+                execution.getTask().getId(),
+                log.getAgentId(),
+                log.getLevel(),
+                log.getMessage(),
+                log.getCreatedAt());
     }
 
     private static String summaryOf(TaskExecutionJpaEntity execution) {

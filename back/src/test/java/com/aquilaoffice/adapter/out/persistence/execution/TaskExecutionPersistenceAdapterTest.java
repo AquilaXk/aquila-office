@@ -10,7 +10,9 @@ import com.aquilaoffice.adapter.out.persistence.workspace.WorkspaceJpaEntity;
 import com.aquilaoffice.adapter.out.persistence.workspace.WorkspaceJpaRepository;
 import com.aquilaoffice.application.port.out.SaveTaskExecutionPort;
 import com.aquilaoffice.application.port.out.SaveTaskPort;
+import com.aquilaoffice.application.port.out.SaveTaskExecutionLogPort;
 import com.aquilaoffice.application.port.out.LoadTaskExecutionReportsPort;
+import com.aquilaoffice.application.port.out.TaskExecutionLogCommand;
 import com.aquilaoffice.application.port.out.TaskExecutionStatusUpdate;
 import com.aquilaoffice.application.port.out.UpdateTaskExecutionPort;
 import com.aquilaoffice.domain.execution.TaskExecution;
@@ -46,10 +48,16 @@ class TaskExecutionPersistenceAdapterTest {
     private TaskExecutionJpaRepository taskExecutionJpaRepository;
 
     @Autowired
+    private TaskExecutionLogJpaRepository taskExecutionLogJpaRepository;
+
+    @Autowired
     private SaveTaskPort saveTaskPort;
 
     @Autowired
     private SaveTaskExecutionPort saveTaskExecutionPort;
+
+    @Autowired
+    private SaveTaskExecutionLogPort saveTaskExecutionLogPort;
 
     @Autowired
     private UpdateTaskExecutionPort updateTaskExecutionPort;
@@ -173,6 +181,43 @@ class TaskExecutionPersistenceAdapterTest {
                 .containsExactly(newerExecution.executionId(), olderExecution.executionId());
         assertThat(reports.get(0).failureReason()).isEqualTo("최근 실행 실패");
         assertThat(reports.get(1).resultSummary()).isEqualTo("오래된 실행 완료");
+    }
+
+    @Test
+    void saveLogPersistsTaskExecutionLog() {
+        WorkspaceJpaEntity workspaceEntity = saveWorkspaceEntity("creator-google");
+        var task = saveTaskPort.save(Task.create(
+                workspaceEntity.getId(),
+                "creator-google",
+                "테스트 작성",
+                null,
+                TaskType.TEST_CREATION,
+                TaskPriority.HIGH,
+                501L));
+        var execution = saveTaskExecutionPort.save(
+                TaskExecution.create(workspaceEntity.getId(), task.taskId(), 501L));
+
+        var savedLog = saveTaskExecutionLogPort.save(new TaskExecutionLogCommand(
+                workspaceEntity.getId(),
+                task.taskId(),
+                execution.executionId(),
+                501L,
+                "ERROR",
+                "gateway timeout"));
+
+        assertThat(savedLog.logId()).isNotNull();
+        assertThat(savedLog.workspaceId()).isEqualTo(workspaceEntity.getId());
+        assertThat(savedLog.taskId()).isEqualTo(task.taskId());
+        assertThat(savedLog.executionId()).isEqualTo(execution.executionId());
+        assertThat(savedLog.level()).isEqualTo("ERROR");
+        assertThat(savedLog.message()).isEqualTo("gateway timeout");
+        assertThat(taskExecutionLogJpaRepository.count()).isEqualTo(1);
+        assertThat(taskExecutionLogJpaRepository.findById(savedLog.logId()))
+                .hasValueSatisfying(entity -> {
+                    assertThat(entity.getExecution().getId()).isEqualTo(execution.executionId());
+                    assertThat(entity.getLevel()).isEqualTo("ERROR");
+                    assertThat(entity.getMessage()).isEqualTo("gateway timeout");
+                });
     }
 
     private WorkspaceJpaEntity saveWorkspaceEntity(String googleSub) {

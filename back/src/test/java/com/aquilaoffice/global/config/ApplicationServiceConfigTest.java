@@ -96,6 +96,7 @@ import com.aquilaoffice.application.port.out.SaveChatSessionPort;
 import com.aquilaoffice.application.port.out.SaveGoogleLoginMemberPort;
 import com.aquilaoffice.application.port.out.SaveRefreshTokenPort;
 import com.aquilaoffice.application.port.out.SaveSlackChannelMappingPort;
+import com.aquilaoffice.application.port.out.SaveTaskExecutionLogPort;
 import com.aquilaoffice.application.port.out.SaveTaskPort;
 import com.aquilaoffice.application.port.out.SaveTaskExecutionPort;
 import com.aquilaoffice.application.port.out.SaveWorkspaceAgentPort;
@@ -286,6 +287,9 @@ class ApplicationServiceConfigTest {
 
     @MockitoBean
     private UpdateTaskStatusPort updateTaskStatusPort;
+
+    @MockitoBean
+    private SaveTaskExecutionLogPort saveTaskExecutionLogPort;
 
     @MockitoBean
     private SaveTaskExecutionPort saveTaskExecutionPort;

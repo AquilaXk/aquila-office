@@ -5,8 +5,11 @@ import com.aquilaoffice.adapter.out.persistence.task.TaskJpaRepository;
 import com.aquilaoffice.adapter.out.persistence.workspace.WorkspaceJpaEntity;
 import com.aquilaoffice.adapter.out.persistence.workspace.WorkspaceJpaRepository;
 import com.aquilaoffice.application.port.out.LoadTaskExecutionReportsPort;
+import com.aquilaoffice.application.port.out.SaveTaskExecutionLogPort;
 import com.aquilaoffice.application.port.out.SaveTaskExecutionPort;
+import com.aquilaoffice.application.port.out.SavedTaskExecutionLog;
 import com.aquilaoffice.application.port.out.SavedTaskExecution;
+import com.aquilaoffice.application.port.out.TaskExecutionLogCommand;
 import com.aquilaoffice.application.port.out.TaskExecutionStatusUpdate;
 import com.aquilaoffice.application.port.out.UpdateTaskExecutionPort;
 import com.aquilaoffice.domain.execution.TaskExecution;
@@ -20,19 +23,25 @@ import org.springframework.transaction.annotation.Transactional;
  */
 @Repository
 public class TaskExecutionPersistenceAdapter
-        implements SaveTaskExecutionPort, UpdateTaskExecutionPort, LoadTaskExecutionReportsPort {
+        implements SaveTaskExecutionPort,
+                SaveTaskExecutionLogPort,
+                UpdateTaskExecutionPort,
+                LoadTaskExecutionReportsPort {
 
     private final WorkspaceJpaRepository workspaceJpaRepository;
     private final TaskJpaRepository taskJpaRepository;
     private final TaskExecutionJpaRepository taskExecutionJpaRepository;
+    private final TaskExecutionLogJpaRepository taskExecutionLogJpaRepository;
 
     public TaskExecutionPersistenceAdapter(
             WorkspaceJpaRepository workspaceJpaRepository,
             TaskJpaRepository taskJpaRepository,
-            TaskExecutionJpaRepository taskExecutionJpaRepository) {
+            TaskExecutionJpaRepository taskExecutionJpaRepository,
+            TaskExecutionLogJpaRepository taskExecutionLogJpaRepository) {
         this.workspaceJpaRepository = workspaceJpaRepository;
         this.taskJpaRepository = taskJpaRepository;
         this.taskExecutionJpaRepository = taskExecutionJpaRepository;
+        this.taskExecutionLogJpaRepository = taskExecutionLogJpaRepository;
     }
 
     @Override
@@ -47,6 +56,19 @@ public class TaskExecutionPersistenceAdapter
                 .orElseThrow(() -> new IllegalArgumentException("task entity not found"));
         return toSavedTaskExecution(taskExecutionJpaRepository.save(
                 TaskExecutionJpaEntity.from(execution, workspaceEntity, taskEntity)));
+    }
+
+    @Override
+    @Transactional
+    public SavedTaskExecutionLog save(TaskExecutionLogCommand command) {
+        Objects.requireNonNull(command, "command must not be null");
+        TaskExecutionJpaEntity executionEntity = taskExecutionJpaRepository
+                .findById(command.executionId())
+                .filter(entity -> entity.getWorkspace().getId().equals(command.workspaceId()))
+                .filter(entity -> entity.getTask().getId().equals(command.taskId()))
+                .orElseThrow(() -> new IllegalArgumentException("task execution entity not found"));
+        return toSavedTaskExecutionLog(taskExecutionLogJpaRepository.save(
+                TaskExecutionLogJpaEntity.from(command, executionEntity)));
     }
 
     @Override
@@ -81,5 +103,18 @@ public class TaskExecutionPersistenceAdapter
                 execution.getFailureReason(),
                 execution.getCreatedAt(),
                 execution.getUpdatedAt());
+    }
+
+    private SavedTaskExecutionLog toSavedTaskExecutionLog(TaskExecutionLogJpaEntity log) {
+        TaskExecutionJpaEntity execution = log.getExecution();
+        return new SavedTaskExecutionLog(
+                log.getId(),
+                execution.getWorkspace().getId(),
+                execution.getTask().getId(),
+                execution.getId(),
+                log.getAgentId(),
+                log.getLevel(),
+                log.getMessage(),
+                log.getCreatedAt());
     }
 }

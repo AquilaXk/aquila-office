@@ -98,6 +98,7 @@ import com.aquilaoffice.application.port.out.SaveChatSessionPort;
 import com.aquilaoffice.application.port.out.SaveGoogleLoginMemberPort;
 import com.aquilaoffice.application.port.out.SaveRefreshTokenPort;
 import com.aquilaoffice.application.port.out.SaveSlackChannelMappingPort;
+import com.aquilaoffice.application.port.out.SaveTaskExecutionLogPort;
 import com.aquilaoffice.application.port.out.SaveTaskPort;
 import com.aquilaoffice.application.port.out.SaveTaskExecutionPort;
 import com.aquilaoffice.application.port.out.SaveWorkspaceAgentPort;
@@ -593,6 +594,7 @@ public class ApplicationServiceConfig {
             SaveTaskExecutionPort saveTaskExecutionPort,
             UpdateTaskExecutionPort updateTaskExecutionPort,
             UpdateTaskStatusPort updateTaskStatusPort,
+            SaveTaskExecutionLogPort saveTaskExecutionLogPort,
             RunWorkspaceAgentPort runWorkspaceAgentPort) {
         return new RunTaskService(
                 loadMemberPort,
@@ -603,6 +605,7 @@ public class ApplicationServiceConfig {
                 saveTaskExecutionPort,
                 updateTaskExecutionPort,
                 updateTaskStatusPort,
+                saveTaskExecutionLogPort,
                 runWorkspaceAgentPort);
     }
 
