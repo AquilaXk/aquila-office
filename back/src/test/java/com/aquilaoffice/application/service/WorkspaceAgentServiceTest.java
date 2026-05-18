@@ -119,11 +119,14 @@ class WorkspaceAgentServiceTest {
         assertThat(Files.readString(root.resolve(".env.example")))
                 .contains("GOOGLE_CLOUD_PROJECT_ID=grepp-ai-project")
                 .contains("VERTEX_AI_LOCATION=us-central1")
-                .contains("VERTEX_AI_MODEL=gemini-2.5-flash");
+                .contains("VERTEX_AI_MODEL=gemini-2.5-flash")
+                .contains("VERTEX_AI_CREDENTIALS_HOST_PATH=./vertex-key.json")
+                .contains("GOOGLE_APPLICATION_CREDENTIALS=/run/secrets/vertex-key.json");
         assertThat(Files.readString(root.resolve("back/.env.example")))
                 .contains("GOOGLE_CLOUD_PROJECT_ID=grepp-ai-project")
                 .contains("VERTEX_AI_LOCATION=us-central1")
-                .contains("VERTEX_AI_MODEL=gemini-2.5-flash");
+                .contains("VERTEX_AI_MODEL=gemini-2.5-flash")
+                .contains("GOOGLE_APPLICATION_CREDENTIALS=/absolute/path/to/aquila-office/vertex-key.json");
     }
 
     @Test
