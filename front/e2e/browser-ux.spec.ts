@@ -73,7 +73,7 @@ test.describe("브라우저 UI UX 회귀", () => {
     const gate = deferred();
     await installMockApi(page, { workspaceList: "empty", workspaceListGate: gate.promise });
 
-    await page.goto("/");
+    await page.goto("/workspaces");
 
     await expect(page.getByText("목록 확인 중")).toBeVisible();
     gate.resolve();
@@ -83,21 +83,23 @@ test.describe("브라우저 UI UX 회귀", () => {
   test("워크스페이스 목록 오류 상태를 표시한다", async ({ page }) => {
     await installMockApi(page, { workspaceList: "error" });
 
-    await page.goto("/");
+    await page.goto("/workspaces");
 
     await expect(page.getByText("목록을 불러오지 못했습니다")).toBeVisible();
     await expect(page.getByText("워크스페이스 fixture 오류").first()).toBeVisible();
   });
 
-  test("인증 후 워크스페이스를 생성한다", async ({ page }) => {
+  test("title screen에서 워크스페이스 목록으로 이동하고 워크스페이스를 생성한다", async ({ page }) => {
     await installMockApi(page);
+    await seedAuthTokens(page);
 
     await page.goto("/");
-    await page.getByPlaceholder("google-1|aquila@example.com|Aquila User").fill("google-1|aquila@example.com|Aquila User");
-    await page.getByRole("button", { name: "로그인" }).click();
-    await expect(page.getByText("인증 세션이 저장되었습니다.")).toBeVisible();
+    await expect(page.getByRole("menuitem", { name: /CONTINUE/ })).toBeVisible();
+    await page.keyboard.press("ArrowDown");
+    await page.keyboard.press("Enter");
+    await expect(page).toHaveURL(/\/workspaces$/);
 
-    await page.getByRole("link", { name: "생성" }).click();
+    await page.getByRole("link", { name: "새 Workspace" }).click();
     await page.getByPlaceholder("예: Product Engineering").fill("Platform Ops");
     await page.getByPlaceholder("워크스페이스 목적이나 팀 설명을 입력하세요.").fill("운영 자동화 점검");
     await page.getByRole("button", { name: "생성" }).click();
@@ -424,6 +426,12 @@ async function fulfillJson(route: Route, body: unknown, status = 200) {
     contentType: "application/json",
     body: JSON.stringify(body),
   });
+}
+
+async function seedAuthTokens(page: Page) {
+  await page.addInitScript((tokens) => {
+    window.localStorage.setItem("aquila-office.auth", JSON.stringify(tokens));
+  }, authTokens);
 }
 
 function deferred() {
