@@ -2433,6 +2433,98 @@ h2 {
   font-weight: 800;
 }
 
+.workspace-detail-side .workspace-presence-panel {
+  display: grid;
+  gap: 12px;
+  border-color: rgba(227, 198, 130, 0.36);
+  background:
+    linear-gradient(180deg, rgba(194, 163, 91, 0.1), rgba(31, 35, 39, 0.68)),
+    var(--surface);
+}
+
+.workspace-presence-header {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+  align-items: start;
+  gap: 10px;
+  border: 0;
+  background: transparent;
+  padding: 0;
+}
+
+.workspace-presence-status-grid,
+.workspace-presence-member-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.workspace-presence-metric,
+.workspace-presence-member-card,
+.workspace-presence-empty {
+  display: grid;
+  min-width: 0;
+  gap: 6px;
+  border: 1px solid rgba(227, 198, 130, 0.22);
+  border-radius: 8px;
+  background: rgba(16, 18, 20, 0.48);
+  padding: 10px;
+}
+
+.workspace-presence-metric span,
+.workspace-presence-member-card span,
+.workspace-presence-event-list span,
+.workspace-presence-empty span {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.workspace-presence-metric strong,
+.workspace-presence-member-card strong {
+  overflow-wrap: anywhere;
+  font-size: 13px;
+  line-height: 1.25;
+}
+
+.workspace-presence-member-card p {
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.workspace-presence-event-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  border: 0;
+  background: transparent;
+  padding: 0;
+}
+
+.workspace-presence-event-list span,
+.workspace-presence-message {
+  display: inline-flex;
+  width: fit-content;
+  min-height: 24px;
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0 8px;
+}
+
+.workspace-presence-message-error {
+  border-color: rgba(208, 106, 94, 0.58);
+  color: var(--red);
+}
+
+.workspace-presence-message-success {
+  border-color: rgba(111, 159, 121, 0.58);
+  color: var(--green);
+}
+
 .workspace-settings-shell {
   display: grid;
   grid-template-columns: minmax(0, 820px) minmax(220px, 300px);
@@ -3572,6 +3664,11 @@ h2 {
   .workspace-detail-actions,
   .workspace-settings-nav {
     flex-direction: column;
+  }
+
+  .workspace-presence-status-grid,
+  .workspace-presence-member-grid {
+    grid-template-columns: 1fr;
   }
 
   .workspace-detail-back,

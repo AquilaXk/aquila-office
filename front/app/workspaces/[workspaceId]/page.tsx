@@ -59,6 +59,11 @@ import {
   type WorkspacePresencePosition,
 } from "@/lib/presence";
 import {
+  createPresenceLiveState,
+  type PresenceConnectionState,
+  type PresenceLiveState,
+} from "@/lib/presence-summary";
+import {
   createWorkspaceTask,
   fetchTaskReports,
   fetchWorkspaceTasks,
@@ -1076,11 +1081,16 @@ export default function WorkspaceDetailPage({
     taskChatMessageInput.trim().length > 0 &&
     taskChatAgentIdInput.trim().length > 0 &&
     !isSendingTaskChat;
-  const latestPresenceEvent = presenceEvents[0] ?? null;
-  const latestPresenceSnapshot = presenceEvents.find(
-    (event) => event.type === "presence.snapshot",
+  const presenceLiveState = useMemo(
+    () =>
+      createPresenceLiveState({
+        streamStatus: presenceStreamStatus,
+        workspaceMemberCount: members.length,
+        events: presenceEvents,
+      }),
+    [members.length, presenceEvents, presenceStreamStatus],
   );
-  const onlinePresenceMembers = latestPresenceSnapshot?.members ?? EMPTY_PRESENCE_MEMBERS;
+  const onlinePresenceMembers = presenceLiveState.members ?? EMPTY_PRESENCE_MEMBERS;
   const isUpdatingPresence = presenceMutation.status === "submitting";
   const canCreateInvite = workspace?.myRole === "ADMIN";
   const isCreatingInvite = inviteState.status === "submitting";
@@ -2046,33 +2056,14 @@ export default function WorkspaceDetailPage({
           <strong>{tasks.length}개</strong>
           <span>Task board 표시 항목</span>
         </div>
-        <div aria-label="Workspace presence">
-          <Users aria-hidden="true" />
-          <strong>{formatPresenceStatus(presenceStreamStatus)}</strong>
-          <span>
-            online {onlinePresenceMembers.length}명 · 최근{" "}
-            {latestPresenceEvent ? formatPresenceEventType(latestPresenceEvent.type) : "없음"}
-          </span>
-          <button
-            className="secondary-action workspace-task-refresh"
-            type="button"
-            onClick={() => void handleUpdatePresencePosition()}
-            disabled={isUpdatingPresence || state.status !== "ready"}
-          >
-            {isUpdatingPresence ? (
-              <Loader2 className="spin" aria-hidden="true" />
-            ) : (
-              <RefreshCw aria-hidden="true" />
-            )}
-            <span>{isUpdatingPresence ? "갱신 중" : "위치 갱신"}</span>
-          </button>
-          {presenceMutation.status === "error" && presenceMutation.message ? (
-            <span>{presenceMutation.message}</span>
-          ) : null}
-          {presenceMutation.status === "success" && presenceMutation.message ? (
-            <span>{presenceMutation.message}</span>
-          ) : null}
-        </div>
+        <WorkspacePresencePanel
+          liveState={presenceLiveState}
+          events={presenceEvents}
+          mutation={presenceMutation}
+          isUpdating={isUpdatingPresence}
+          disabled={state.status !== "ready"}
+          onUpdate={() => void handleUpdatePresencePosition()}
+        />
       </aside>
 
       <TaskReportsModal
@@ -2176,6 +2167,109 @@ function WorkspaceDetailActionCard({
       <strong>{item.value}</strong>
       <small>{formatWorkspaceDetailActionState(item.state)}</small>
     </button>
+  );
+}
+
+function WorkspacePresencePanel({
+  liveState,
+  events,
+  mutation,
+  isUpdating,
+  disabled,
+  onUpdate,
+}: {
+  liveState: PresenceLiveState;
+  events: WorkspacePresenceMessage[];
+  mutation: PresenceMutationState;
+  isUpdating: boolean;
+  disabled: boolean;
+  onUpdate: () => void;
+}) {
+  const recentEvents = events.slice(0, 4);
+
+  return (
+    <div className="workspace-presence-panel" aria-label="실시간 Presence">
+      <span aria-label="Workspace presence" hidden />
+      <div className="workspace-presence-header">
+        <Users aria-hidden="true" />
+        <div>
+          <strong>{formatPresenceConnectionState(liveState.connectionState)}</strong>
+          <span>{liveState.summary}</span>
+        </div>
+      </div>
+
+      <div className="workspace-presence-status-grid">
+        <PresenceMetric label="Stream" value={formatPresenceConnectionState(liveState.connectionState)} />
+        <PresenceMetric label="Online" value={`${liveState.onlineCount}명`} />
+        <PresenceMetric
+          label="Latest"
+          value={liveState.lastEventType ? formatPresenceEventType(liveState.lastEventType) : "없음"}
+        />
+      </div>
+
+      <div className="workspace-presence-member-grid" aria-label="Presence member positions">
+        {liveState.members.length > 0 ? (
+          liveState.members.slice(0, 4).map((member) => (
+            <div className="workspace-presence-member-card" key={member.memberId}>
+              <strong>{`Member #${member.memberId}`}</strong>
+              <span>{member.status ?? "UNKNOWN"}</span>
+              <p>{formatPresencePosition(member.position)}</p>
+            </div>
+          ))
+        ) : (
+          <div className="workspace-presence-empty">
+            <span>online member 없음</span>
+          </div>
+        )}
+      </div>
+
+      <div className="workspace-presence-event-list" aria-label="Presence event log">
+        {recentEvents.length > 0 ? (
+          recentEvents.map((event, index) => (
+            <span key={`${event.type}-${event.memberId ?? "workspace"}-${index}`}>
+              {formatPresenceEventType(event.type)}
+              {event.memberId ? ` · #${event.memberId}` : ""}
+            </span>
+          ))
+        ) : (
+          <span>event 없음</span>
+        )}
+      </div>
+
+      <button
+        className="secondary-action workspace-task-refresh"
+        type="button"
+        onClick={onUpdate}
+        disabled={isUpdating || disabled}
+      >
+        {isUpdating ? (
+          <Loader2 className="spin" aria-hidden="true" />
+        ) : (
+          <RefreshCw aria-hidden="true" />
+        )}
+        <span>{isUpdating ? "갱신 중" : "위치 갱신"}</span>
+      </button>
+
+      {mutation.status === "error" && mutation.message ? (
+        <span className="workspace-presence-message workspace-presence-message-error">
+          {mutation.message}
+        </span>
+      ) : null}
+      {mutation.status === "success" && mutation.message ? (
+        <span className="workspace-presence-message workspace-presence-message-success">
+          {mutation.message}
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
+function PresenceMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="workspace-presence-metric">
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
   );
 }
 
@@ -2979,17 +3073,24 @@ function formatChatRole(role: ChatMessage["role"]): string {
   return "System";
 }
 
-function formatPresenceStatus(status: PresenceStreamStatus): string {
-  if (status === "open") {
+function formatPresenceConnectionState(state: PresenceConnectionState): string {
+  if (state === "online") {
     return "연결됨";
   }
-  if (status === "connecting") {
+  if (state === "connecting") {
     return "연결 중";
   }
-  if (status === "error") {
+  if (state === "error") {
     return "오류";
   }
   return "대기";
+}
+
+function formatPresencePosition(position: WorkspacePresencePosition | null): string {
+  if (!position) {
+    return "좌표 없음";
+  }
+  return `${position.left} · ${position.top}`;
 }
 
 function formatPresenceEventType(type: WorkspacePresenceMessage["type"]): string {
