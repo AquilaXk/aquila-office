@@ -27,6 +27,8 @@ import com.aquilaoffice.domain.member.Member;
 import com.aquilaoffice.domain.workspace.WorkspaceMemberRole;
 import com.aquilaoffice.application.port.in.GetWorkspaceDetailResult;
 import com.aquilaoffice.application.port.in.ListWorkspacesResult;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -63,6 +65,66 @@ class WorkspaceAgentServiceTest {
         assertThat(result.workspaceId()).isEqualTo(101L);
         assertThat(result.status()).isEqualTo(WorkspaceAgentStatus.READY);
         assertThat(result.skillFiles()).hasSize(1);
+    }
+
+    @Test
+    void createWorkspaceAgentAddsRoleTemplatesWhenSkillFilesAreEmpty() {
+        FakeSaveWorkspaceAgentPort savePort = new FakeSaveWorkspaceAgentPort(savedAgent());
+        CreateWorkspaceAgentService service = new CreateWorkspaceAgentService(
+                new FakeLoadMemberPort(Optional.of(Member.createUser("google-1", "admin@example.com", "Admin"))),
+                new FakeLoadWorkspacePort(Optional.of(workspaceDetail(WorkspaceMemberRole.ADMIN))),
+                savePort);
+
+        service.createWorkspaceAgent(new CreateWorkspaceAgentCommand(
+                101L,
+                "google-1",
+                "Backend Agent",
+                WorkspaceAgentCategory.BACKEND,
+                ".aquila/workspaces/101",
+                List.of()));
+
+        assertThat(savePort.savedSkillFiles)
+                .extracting(WorkspaceAgentSkillFile::getFileName)
+                .containsExactly("AGENTS.md", "backend-guide.md");
+        assertThat(savePort.savedSkillFiles.getFirst().getContent())
+                .contains("aquila office", "작업 범위", "검증");
+    }
+
+    @Test
+    void createWorkspaceAgentKeepsRequestedSkillFileWhenItOverridesDefault() {
+        FakeSaveWorkspaceAgentPort savePort = new FakeSaveWorkspaceAgentPort(savedAgent());
+        CreateWorkspaceAgentService service = new CreateWorkspaceAgentService(
+                new FakeLoadMemberPort(Optional.of(Member.createUser("google-1", "admin@example.com", "Admin"))),
+                new FakeLoadWorkspacePort(Optional.of(workspaceDetail(WorkspaceMemberRole.ADMIN))),
+                savePort);
+
+        service.createWorkspaceAgent(new CreateWorkspaceAgentCommand(
+                101L,
+                "google-1",
+                "Frontend Agent",
+                WorkspaceAgentCategory.FRONTEND,
+                ".aquila/workspaces/101",
+                List.of(new WorkspaceAgentSkillFileCommand(" AGENTS.md ", "custom agents"))));
+
+        assertThat(savePort.savedSkillFiles)
+                .extracting(WorkspaceAgentSkillFile::getFileName)
+                .containsExactly("AGENTS.md", "frontend-guide.md");
+        assertThat(savePort.savedSkillFiles.getFirst().getContent()).isEqualTo("custom agents");
+    }
+
+    @Test
+    void vertexLocalKeyIsIgnoredAndEnvSamplesExposeModelSettings() throws Exception {
+        Path root = Path.of(System.getProperty("user.dir")).getParent();
+
+        assertThat(Files.readString(root.resolve(".gitignore"))).contains("vertex-key.json");
+        assertThat(Files.readString(root.resolve(".env.example")))
+                .contains("GOOGLE_CLOUD_PROJECT_ID=grepp-ai-project")
+                .contains("VERTEX_AI_LOCATION=us-central1")
+                .contains("VERTEX_AI_MODEL=gemini-2.5-flash");
+        assertThat(Files.readString(root.resolve("back/.env.example")))
+                .contains("GOOGLE_CLOUD_PROJECT_ID=grepp-ai-project")
+                .contains("VERTEX_AI_LOCATION=us-central1")
+                .contains("VERTEX_AI_MODEL=gemini-2.5-flash");
     }
 
     @Test
