@@ -159,6 +159,155 @@ h2 {
   height: 20px;
 }
 
+.ao-button {
+  display: inline-flex;
+  min-height: 40px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0 14px;
+  color: var(--text);
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.ao-button:disabled,
+.ao-icon-button:disabled {
+  opacity: 0.54;
+  cursor: not-allowed;
+}
+
+.ao-button-primary {
+  border-color: rgba(227, 198, 130, 0.62);
+  background: linear-gradient(180deg, #4b3b1b, #21190d);
+}
+
+.ao-button-secondary {
+  background: var(--surface-raised);
+}
+
+.ao-button-danger {
+  border-color: rgba(208, 106, 94, 0.62);
+  background: #3b1815;
+}
+
+.ao-button-ghost {
+  background: transparent;
+}
+
+.ao-button-sm {
+  min-height: 34px;
+  padding: 0 10px;
+  font-size: 13px;
+}
+
+.ao-button-md {
+  min-height: 40px;
+}
+
+.ao-icon-button {
+  display: inline-grid;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.ao-icon-button svg {
+  width: 18px;
+  height: 18px;
+}
+
+.ao-badge {
+  display: inline-flex;
+  min-height: 24px;
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0 8px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.ao-badge-neutral {
+  color: var(--text-muted);
+}
+
+.ao-badge-success {
+  border-color: rgba(111, 159, 121, 0.58);
+  color: var(--green);
+}
+
+.ao-badge-warning {
+  border-color: rgba(194, 163, 91, 0.58);
+  color: var(--yellow);
+}
+
+.ao-badge-danger {
+  border-color: rgba(208, 106, 94, 0.58);
+  color: var(--red);
+}
+
+.ao-panel {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  padding: 18px;
+}
+
+.ao-panel-accent {
+  border-top: 4px solid var(--blue);
+}
+
+.ao-panel-danger {
+  border-top: 4px solid var(--red);
+}
+
+.ao-field {
+  display: grid;
+  gap: 7px;
+}
+
+.ao-field-label {
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.ao-input {
+  min-height: 40px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  padding: 0 11px;
+}
+
+.ao-input:focus {
+  outline: 2px solid rgba(194, 163, 91, 0.34);
+  outline-offset: 2px;
+}
+
+.ao-field-hint,
+.ao-field-error {
+  font-size: 12px;
+}
+
+.ao-field-hint {
+  color: var(--text-muted);
+}
+
+.ao-field-error {
+  color: var(--red);
+}
+
 .spin {
   animation: spin 900ms linear infinite;
 }
