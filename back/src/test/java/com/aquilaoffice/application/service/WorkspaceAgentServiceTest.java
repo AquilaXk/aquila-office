@@ -59,8 +59,11 @@ class WorkspaceAgentServiceTest {
         assertThat(savePort.savedAgent.getName()).isEqualTo("Backend Agent");
         assertThat(savePort.savedAgent.getCategory()).isEqualTo(WorkspaceAgentCategory.BACKEND);
         assertThat(savePort.savedAgent.getWorkspacePath()).isEqualTo(".aquila/workspaces/101");
-        assertThat(savePort.savedSkillFiles).hasSize(1);
+        assertThat(savePort.savedSkillFiles)
+                .extracting(WorkspaceAgentSkillFile::getFileName)
+                .containsExactly("AGENTS.md", "backend-guide.md");
         assertThat(savePort.savedSkillFiles.getFirst().getFileName()).isEqualTo("AGENTS.md");
+        assertThat(savePort.savedSkillFiles.getFirst().getContent()).isEqualTo("skill");
         assertThat(result.agentId()).isEqualTo(501L);
         assertThat(result.workspaceId()).isEqualTo(101L);
         assertThat(result.status()).isEqualTo(WorkspaceAgentStatus.READY);

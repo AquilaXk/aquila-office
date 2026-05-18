@@ -8,8 +8,12 @@ import com.aquilaoffice.application.port.out.LoadWorkspacePort;
 import com.aquilaoffice.application.port.out.SaveWorkspaceAgentPort;
 import com.aquilaoffice.domain.agent.WorkspaceAgent;
 import com.aquilaoffice.domain.agent.WorkspaceAgentSkillFile;
+import com.aquilaoffice.domain.agent.WorkspaceAgentTemplate;
+import com.aquilaoffice.domain.agent.WorkspaceAgentTemplateCatalog;
 import com.aquilaoffice.domain.workspace.WorkspaceMemberRole;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 워크스페이스 관리자만 Agent를 생성할 수 있도록 멤버십을 검증한다.
@@ -19,6 +23,7 @@ public class CreateWorkspaceAgentService implements CreateWorkspaceAgentUseCase 
     private final LoadMemberPort loadMemberPort;
     private final LoadWorkspacePort loadWorkspacePort;
     private final SaveWorkspaceAgentPort saveWorkspaceAgentPort;
+    private final WorkspaceAgentTemplateCatalog templateCatalog;
 
     public CreateWorkspaceAgentService(
             LoadMemberPort loadMemberPort,
@@ -27,6 +32,7 @@ public class CreateWorkspaceAgentService implements CreateWorkspaceAgentUseCase 
         this.loadMemberPort = loadMemberPort;
         this.loadWorkspacePort = loadWorkspacePort;
         this.saveWorkspaceAgentPort = saveWorkspaceAgentPort;
+        this.templateCatalog = new WorkspaceAgentTemplateCatalog();
     }
 
     @Override
@@ -40,11 +46,25 @@ public class CreateWorkspaceAgentService implements CreateWorkspaceAgentUseCase 
                 command.category(),
                 command.workspacePath(),
                 command.requesterGoogleSub());
-        List<WorkspaceAgentSkillFile> skillFiles = command.skillFiles().stream()
-                .map(skillFile -> WorkspaceAgentSkillFile.create(skillFile.fileName(), skillFile.content()))
-                .toList();
+        List<WorkspaceAgentSkillFile> skillFiles = mergeSkillFiles(command);
 
         return WorkspaceAgentResultMapper.toCreateResult(saveWorkspaceAgentPort.save(agent, skillFiles));
+    }
+
+    private List<WorkspaceAgentSkillFile> mergeSkillFiles(CreateWorkspaceAgentCommand command) {
+        Map<String, WorkspaceAgentSkillFile> mergedSkillFiles = new LinkedHashMap<>();
+        for (WorkspaceAgentTemplate template : templateCatalog.defaultsFor(command.category())) {
+            mergedSkillFiles.put(
+                    template.fileName(),
+                    WorkspaceAgentSkillFile.create(template.fileName(), template.content()));
+        }
+        for (var requestedSkillFile : command.skillFiles()) {
+            WorkspaceAgentSkillFile skillFile = WorkspaceAgentSkillFile.create(
+                    requestedSkillFile.fileName(),
+                    requestedSkillFile.content());
+            mergedSkillFiles.put(skillFile.getFileName(), skillFile);
+        }
+        return List.copyOf(mergedSkillFiles.values());
     }
 
     private void requireExistingMember(String googleSub) {
