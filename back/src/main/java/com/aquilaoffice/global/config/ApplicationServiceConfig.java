@@ -289,11 +289,13 @@ public class ApplicationServiceConfig {
     public RefreshAuthTokenUseCase refreshAuthTokenUseCase(
             ResolveRefreshTokenPort resolveRefreshTokenPort,
             IssueAuthTokenPort issueAuthTokenPort,
-            RotateRefreshTokenPort rotateRefreshTokenPort) {
+            RotateRefreshTokenPort rotateRefreshTokenPort,
+            Clock applicationClock) {
         return new RefreshAuthTokenService(
                 resolveRefreshTokenPort,
                 issueAuthTokenPort,
-                rotateRefreshTokenPort);
+                rotateRefreshTokenPort,
+                applicationClock);
     }
 
     @Bean

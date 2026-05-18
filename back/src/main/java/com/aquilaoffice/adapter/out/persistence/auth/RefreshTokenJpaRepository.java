@@ -1,5 +1,6 @@
 package com.aquilaoffice.adapter.out.persistence.auth;
 
+import java.time.Instant;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
@@ -17,13 +18,17 @@ public interface RefreshTokenJpaRepository extends JpaRepository<RefreshTokenJpa
     @Query("""
             update RefreshTokenJpaEntity rt
             set rt.token = :newToken
+              , rt.expiresAt = :newExpiresAt
             where rt.memberId = :memberId
               and rt.token = :currentToken
+              and rt.expiresAt > :now
             """)
     int rotateIfMatch(
             @Param("memberId") Long memberId,
             @Param("currentToken") String currentToken,
-            @Param("newToken") String newToken);
+            @Param("newToken") String newToken,
+            @Param("newExpiresAt") Instant newExpiresAt,
+            @Param("now") Instant now);
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("""

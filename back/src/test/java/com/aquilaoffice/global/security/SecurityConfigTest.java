@@ -6,10 +6,15 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.aquilaoffice.adapter.out.auth.JwtAuthTokenIssuer;
 import com.aquilaoffice.application.port.out.IssueAuthTokenPort;
 import com.aquilaoffice.application.port.out.SaveGoogleLoginMemberPort;
 import com.aquilaoffice.application.port.out.SavedGoogleLoginMember;
 import com.aquilaoffice.domain.member.MemberRole;
+import com.aquilaoffice.global.config.properties.AuthTokenProperties;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneOffset;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -40,6 +45,9 @@ class SecurityConfigTest {
     @Autowired
     private SaveGoogleLoginMemberPort saveGoogleLoginMemberPort;
 
+    @Autowired
+    private AuthTokenProperties authTokenProperties;
+
     @Test
     void healthEndpointDoesNotRequireAuthentication() throws Exception {
         mockMvc.perform(get("/api/health"))
@@ -67,6 +75,18 @@ class SecurityConfigTest {
     @Test
     void bearerAccessTokenForMissingMemberReturnsUnauthorized() throws Exception {
         String accessToken = issueAuthTokenPort.issue(999L, "missing@example.com", MemberRole.USER).accessToken();
+
+        mockMvc.perform(get("/api/private")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void expiredBearerAccessTokenReturnsUnauthorized() throws Exception {
+        JwtAuthTokenIssuer expiredTokenIssuer = new JwtAuthTokenIssuer(
+                Clock.fixed(Instant.EPOCH, ZoneOffset.UTC),
+                authTokenProperties);
+        String accessToken = expiredTokenIssuer.issue(999L, "expired@example.com", MemberRole.USER).accessToken();
 
         mockMvc.perform(get("/api/private")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken))

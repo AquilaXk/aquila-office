@@ -8,6 +8,7 @@ import com.aquilaoffice.application.port.out.IssuedAuthTokens;
 import com.aquilaoffice.application.port.out.ResolveRefreshTokenPort;
 import com.aquilaoffice.application.port.out.ResolvedRefreshToken;
 import com.aquilaoffice.application.port.out.RotateRefreshTokenPort;
+import java.time.Clock;
 import java.util.Objects;
 
 /**
@@ -18,16 +19,19 @@ public class RefreshAuthTokenService implements RefreshAuthTokenUseCase {
     private final ResolveRefreshTokenPort resolveRefreshTokenPort;
     private final IssueAuthTokenPort issueAuthTokenPort;
     private final RotateRefreshTokenPort rotateRefreshTokenPort;
+    private final Clock clock;
 
     public RefreshAuthTokenService(
             ResolveRefreshTokenPort resolveRefreshTokenPort,
             IssueAuthTokenPort issueAuthTokenPort,
-            RotateRefreshTokenPort rotateRefreshTokenPort) {
+            RotateRefreshTokenPort rotateRefreshTokenPort,
+            Clock clock) {
         this.resolveRefreshTokenPort =
                 Objects.requireNonNull(resolveRefreshTokenPort, "resolveRefreshTokenPort must not be null");
         this.issueAuthTokenPort = Objects.requireNonNull(issueAuthTokenPort, "issueAuthTokenPort must not be null");
         this.rotateRefreshTokenPort =
                 Objects.requireNonNull(rotateRefreshTokenPort, "rotateRefreshTokenPort must not be null");
+        this.clock = Objects.requireNonNull(clock, "clock must not be null");
     }
 
     @Override
@@ -42,7 +46,9 @@ public class RefreshAuthTokenService implements RefreshAuthTokenUseCase {
         boolean rotated = rotateRefreshTokenPort.rotateIfMatch(
                 resolvedRefreshToken.memberId(),
                 command.refreshToken(),
-                issuedAuthTokens.refreshToken());
+                issuedAuthTokens.refreshToken(),
+                issuedAuthTokens.refreshTokenExpiresAt(),
+                clock.instant());
         if (!rotated) {
             throw new IllegalArgumentException("refreshToken is invalid");
         }

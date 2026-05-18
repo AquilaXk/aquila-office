@@ -53,7 +53,10 @@ public class GoogleLoginService implements GoogleLoginUseCase {
                 googleUser.name(),
                 requestedRole);
         IssuedAuthTokens tokens = issueAuthTokenPort.issue(member.memberId(), member.email(), member.role());
-        saveRefreshTokenPort.saveOrRotate(member.memberId(), tokens.refreshToken());
+        saveRefreshTokenPort.saveOrRotate(
+                member.memberId(),
+                tokens.refreshToken(),
+                tokens.refreshTokenExpiresAt());
 
         return new GoogleLoginResult(
                 member.memberId(),

@@ -14,3 +14,10 @@ spring:
   sql:
     init:
       mode: never
+
+aquila:
+  auth-token:
+    issuer: aquila-office-test
+    secret: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+    access-token-ttl: 15m
+    refresh-token-ttl: 14d
