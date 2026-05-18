@@ -35,6 +35,9 @@ aquila:
   external-token:
     key: ${AQUILA_EXTERNAL_TOKEN_KEY:local-development-external-token-key-change-before-production-0123456789abcdef}
     key-id: ${AQUILA_EXTERNAL_TOKEN_KEY_ID:local}
+  gateway-rpc:
+    request-timeout: ${AQUILA_GATEWAY_RPC_REQUEST_TIMEOUT:30s}
+    path: ${AQUILA_GATEWAY_RPC_PATH:/rpc}
 
 springdoc:
   api-docs:
