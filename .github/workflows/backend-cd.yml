@@ -48,7 +48,7 @@ jobs:
           fi
 
       - name: Build backend image
-        run: docker build -f back/Dockerfile -t "$IMAGE_REF" .
+        run: docker build -f docker/Dockerfile -t "$IMAGE_REF" .
 
       - name: Save backend image
         run: docker save "$IMAGE_REF" -o backend-image.tar
@@ -90,6 +90,7 @@ jobs:
           ssh -o StrictHostKeyChecking=accept-new "$remote" "install -d /tmp/aquila-office-deploy"
           scp -o StrictHostKeyChecking=accept-new \
             backend-image.tar \
+            scripts/deploy-bluegreen.sh \
             scripts/deploy/backend-blue-green.sh \
             scripts/deploy/oci-backend-hook.sh \
             "$remote:/tmp/aquila-office-deploy/"
