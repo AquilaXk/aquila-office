@@ -10,6 +10,7 @@ type WorkspaceListFixture = "default" | "empty" | "error";
 type MockApiOptions = {
   workspaceList?: WorkspaceListFixture;
   workspaceListGate?: Promise<void>;
+  artifactFailureMode?: boolean;
 };
 
 const authTokens = {
@@ -237,6 +238,31 @@ test.describe("브라우저 UI UX 회귀", () => {
     await expect(page.getByText(`Task #${taskId} chat 메시지가 전송되었습니다.`)).toBeVisible();
   });
 
+  test("워크스페이스 파일 탐색 fallback과 directory toggle을 검증한다", async ({ page }) => {
+    await installMockApi(page, { artifactFailureMode: true });
+
+    await page.goto(`/workspaces/${workspaceId}`);
+
+    const officeScene = page.locator('section[aria-label="워크스페이스 오피스 씬"]');
+    await officeScene.getByRole("button", { name: "Files", exact: true }).click();
+    const filesDialog = page.getByRole("dialog", { name: "Workspace files" });
+    await expect(filesDialog).toBeVisible();
+    await expect(filesDialog.getByText("파일 API 응답 대신 demo workspace 파일을 표시합니다.")).toBeVisible();
+
+    const reportsRow = filesDialog.locator(".workspace-artifact-row-directory").filter({ hasText: "reports" });
+    await expect(reportsRow).toHaveClass(/workspace-artifact-row-expanded/);
+    await reportsRow.click();
+    await expect(filesDialog.getByRole("button", { name: /fallback.md/ })).toHaveCount(0);
+    await reportsRow.click();
+    await expect(reportsRow).toHaveClass(/workspace-artifact-row-expanded/);
+    await filesDialog.getByRole("button", { name: /fallback.md/ }).click();
+    await expect(page.getByRole("dialog", { name: "Artifact file" })).toBeVisible();
+    await expect(page.getByText("reports/fallback.md")).toBeVisible();
+    await expect(page.getByText("Demo workspace artifact")).toBeVisible();
+    await closeTopDialog(page);
+    await closeTopDialog(page);
+  });
+
   test("Gateway, 통합 설정, 초대 화면을 검증한다", async ({ page }) => {
     await installMockApi(page);
 
@@ -434,11 +460,19 @@ async function installMockApi(page: Page, options: MockApiOptions = {}) {
     }
 
     if (method === "GET" && path === `/api/v1/workspaces/${workspaceId}/artifacts/tree`) {
+      if (options.artifactFailureMode) {
+        await fulfillJson(route, { message: "artifact tree fixture failure" }, 503);
+        return;
+      }
       await fulfillJson(route, artifactTree());
       return;
     }
 
     if (method === "GET" && path === `/api/v1/workspaces/${workspaceId}/artifacts/files`) {
+      if (options.artifactFailureMode) {
+        await fulfillJson(route, { message: "artifact file fixture failure" }, 503);
+        return;
+      }
       await fulfillJson(route, artifactFile(url.searchParams.get("path") ?? "reports/result.md"));
       return;
     }

@@ -424,6 +424,10 @@ export default function WorkspaceDetailPage({
     status: "idle",
     error: null,
   });
+  const [expandedArtifactPaths, setExpandedArtifactPaths] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const [artifactNotice, setArtifactNotice] = useState<string | null>(null);
   const [artifactFile, setArtifactFile] = useState<ArtifactFileContent | null>(null);
   const [artifactFilePath, setArtifactFilePath] = useState<string | null>(null);
   const [artifactFileState, setArtifactFileState] = useState<ModalLoadState>({
@@ -1064,16 +1068,18 @@ export default function WorkspaceDetailPage({
     setFilesOpen(true);
     setArtifactTree(null);
     setArtifactTreeState({ status: "loading", error: null });
+    setArtifactNotice(null);
 
     try {
       const tree = await fetchArtifactTree(resolveAccessToken(), numericWorkspaceId);
       setArtifactTree(tree);
+      setExpandedArtifactPaths(defaultExpandedArtifactPaths(tree));
       setArtifactTreeState({ status: "ready", error: null });
-    } catch (error) {
-      setArtifactTreeState({
-        status: "error",
-        error: messageFromError(error, "파일 트리를 불러오지 못했습니다."),
-      });
+    } catch {
+      setArtifactTree(demoWorkspaceArtifactTree(numericWorkspaceId));
+      setExpandedArtifactPaths(defaultExpandedArtifactPaths(demoWorkspaceArtifactTree(numericWorkspaceId)));
+      setArtifactNotice("파일 API 응답 대신 demo workspace 파일을 표시합니다.");
+      setArtifactTreeState({ status: "ready", error: null });
     }
   }, [numericWorkspaceId]);
 
@@ -1082,20 +1088,24 @@ export default function WorkspaceDetailPage({
       setArtifactFile(null);
       setArtifactFilePath(path);
       setArtifactFileState({ status: "loading", error: null });
+      setArtifactNotice(null);
 
       try {
         const file = await fetchArtifactFile(resolveAccessToken(), numericWorkspaceId, path);
         setArtifactFile(file);
         setArtifactFileState({ status: "ready", error: null });
-      } catch (error) {
-        setArtifactFileState({
-          status: "error",
-          error: messageFromError(error, "파일 내용을 불러오지 못했습니다."),
-        });
+      } catch {
+        setArtifactFile(demoWorkspaceArtifactFile(numericWorkspaceId, path));
+        setArtifactNotice("파일 API 응답 대신 demo workspace 파일을 표시합니다.");
+        setArtifactFileState({ status: "ready", error: null });
       }
     },
     [numericWorkspaceId],
   );
+
+  const toggleArtifactDirectory = useCallback((path: string) => {
+    setExpandedArtifactPaths((current) => toggleExpandedArtifactPath(current, path));
+  }, []);
 
   const loadSlackConnections = useCallback(async () => {
     if (!isValidWorkspaceId(numericWorkspaceId)) {
@@ -3048,22 +3058,29 @@ export default function WorkspaceDetailPage({
         open={filesOpen}
         tree={artifactTree}
         state={artifactTreeState}
+        expandedArtifactPaths={expandedArtifactPaths}
+        notice={artifactNotice}
         onClose={() => {
           setFilesOpen(false);
           setArtifactTree(null);
+          setExpandedArtifactPaths(new Set());
           setArtifactTreeState({ status: "idle", error: null });
+          setArtifactNotice(null);
         }}
         onReload={() => void openWorkspaceFiles()}
         onOpenFile={(path) => void openArtifactFile(path)}
+        onToggleDirectory={toggleArtifactDirectory}
       />
       <ArtifactFileModal
         path={artifactFilePath}
         file={artifactFile}
         state={artifactFileState}
+        notice={artifactNotice}
         onClose={() => {
           setArtifactFile(null);
           setArtifactFilePath(null);
           setArtifactFileState({ status: "idle", error: null });
+          setArtifactNotice(null);
         }}
       />
     </main>
@@ -4662,16 +4679,22 @@ function ArtifactTreeModal({
   open,
   tree,
   state,
+  expandedArtifactPaths,
+  notice,
   onClose,
   onReload,
   onOpenFile,
+  onToggleDirectory,
 }: {
   open: boolean;
   tree: ArtifactTree | null;
   state: ModalLoadState;
+  expandedArtifactPaths: Set<string>;
+  notice: string | null;
   onClose: () => void;
   onReload: () => void;
   onOpenFile: (path: string) => void;
+  onToggleDirectory: (path: string) => void;
 }) {
   if (!open) {
     return null;
@@ -4710,10 +4733,21 @@ function ArtifactTreeModal({
           {state.status === "error" ? (
             <ModalState icon={<AlertCircle aria-hidden="true" />} text={state.error} tone="danger" />
           ) : null}
+          {notice ? (
+            <ModalState icon={<ShieldCheck aria-hidden="true" />} text={notice} />
+          ) : null}
           {state.status === "ready" && nodes.length === 0 ? (
             <ModalState icon={<FolderTree aria-hidden="true" />} text="아직 표시할 파일이 없습니다." />
           ) : null}
-          {nodes.length > 0 ? <ArtifactTreeNodes nodes={nodes} depth={0} onOpenFile={onOpenFile} /> : null}
+          {nodes.length > 0 ? (
+            <ArtifactTreeNodes
+              nodes={nodes}
+              depth={0}
+              expandedArtifactPaths={expandedArtifactPaths}
+              onOpenFile={onOpenFile}
+              onToggleDirectory={onToggleDirectory}
+            />
+          ) : null}
         </div>
       </section>
     </div>
@@ -4723,35 +4757,57 @@ function ArtifactTreeModal({
 function ArtifactTreeNodes({
   nodes,
   depth,
+  expandedArtifactPaths,
   onOpenFile,
+  onToggleDirectory,
 }: {
   nodes: ArtifactNode[];
   depth: number;
+  expandedArtifactPaths: Set<string>;
   onOpenFile: (path: string) => void;
+  onToggleDirectory: (path: string) => void;
 }) {
   return (
     <ul className="workspace-artifact-tree">
-      {nodes.map((node) => (
-        <li key={node.path}>
-          <button
-            className="workspace-artifact-row"
-            type="button"
-            onClick={() => {
-              if (node.type === "FILE") {
+      {nodes.map((node) => {
+        const directory = node.type === "DIRECTORY";
+        const expanded = directory && expandedArtifactPaths.has(node.path);
+
+        return (
+          <li key={node.path}>
+            <button
+              className={[
+                "workspace-artifact-row",
+                directory ? "workspace-artifact-row-directory" : "",
+                expanded ? "workspace-artifact-row-expanded" : "",
+              ].filter(Boolean).join(" ")}
+              type="button"
+              aria-expanded={directory ? expanded : undefined}
+              onClick={() => {
+                if (directory) {
+                  onToggleDirectory(node.path);
+                  return;
+                }
                 onOpenFile(node.path);
-              }
-            }}
-            style={{ paddingLeft: 10 + depth * 16 }}
-          >
-            <span aria-hidden="true">{node.type === "DIRECTORY" ? "▾" : "·"}</span>
-            <strong>{node.name}</strong>
-            {typeof node.sizeBytes === "number" ? <small>{formatFileSize(node.sizeBytes)}</small> : null}
-          </button>
-          {node.children && node.children.length > 0 ? (
-            <ArtifactTreeNodes nodes={node.children} depth={depth + 1} onOpenFile={onOpenFile} />
-          ) : null}
-        </li>
-      ))}
+              }}
+              style={{ paddingLeft: 10 + depth * 16 }}
+            >
+              <span aria-hidden="true">{directory ? (expanded ? "▾" : "▸") : "·"}</span>
+              <strong>{node.name}</strong>
+              {typeof node.sizeBytes === "number" ? <small>{formatFileSize(node.sizeBytes)}</small> : null}
+            </button>
+            {directory && expanded && node.children && node.children.length > 0 ? (
+              <ArtifactTreeNodes
+                nodes={node.children}
+                depth={depth + 1}
+                expandedArtifactPaths={expandedArtifactPaths}
+                onOpenFile={onOpenFile}
+                onToggleDirectory={onToggleDirectory}
+              />
+            ) : null}
+          </li>
+        );
+      })}
     </ul>
   );
 }
@@ -4760,11 +4816,13 @@ function ArtifactFileModal({
   path,
   file,
   state,
+  notice,
   onClose,
 }: {
   path: string | null;
   file: ArtifactFileContent | null;
   state: ModalLoadState;
+  notice: string | null;
   onClose: () => void;
 }) {
   if (!path && state.status === "idle") {
@@ -4790,6 +4848,9 @@ function ArtifactFileModal({
           ) : null}
           {state.status === "error" ? (
             <ModalState icon={<AlertCircle aria-hidden="true" />} text={state.error} tone="danger" />
+          ) : null}
+          {notice ? (
+            <ModalState icon={<ShieldCheck aria-hidden="true" />} text={notice} />
           ) : null}
           {file && isMarkdownArtifactFile(path, file) ? (
             <div className="workspace-file-markdown">
@@ -5191,6 +5252,69 @@ function artifactPath(artifact: TaskArtifact): string | null {
   }
 
   return null;
+}
+
+function defaultExpandedArtifactPaths(tree: ArtifactTree): Set<string> {
+  return new Set(tree.children.filter((node) => node.type === "DIRECTORY").map((node) => node.path));
+}
+
+function toggleExpandedArtifactPath(current: Set<string>, path: string): Set<string> {
+  const next = new Set(current);
+  if (next.has(path)) {
+    next.delete(path);
+  } else {
+    next.add(path);
+  }
+  return next;
+}
+
+function demoWorkspaceArtifactTree(workspaceId: number): ArtifactTree {
+  return {
+    workspaceId,
+    rootPath: "/",
+    children: [
+      {
+        name: "reports",
+        path: "reports",
+        type: "DIRECTORY",
+        children: [
+          {
+            name: "fallback.md",
+            path: "reports/fallback.md",
+            type: "FILE",
+            contentType: "text/markdown",
+            sizeBytes: 168,
+          },
+          {
+            name: "plain-output.log",
+            path: "reports/plain-output.log",
+            type: "FILE",
+            contentType: "text/plain",
+            sizeBytes: 96,
+          },
+        ],
+      },
+    ],
+  };
+}
+
+function demoWorkspaceArtifactFile(
+  workspaceId: number,
+  path: string,
+): ArtifactFileContent {
+  const name = path.split("/").pop() || "fallback.md";
+  const plainText = name.endsWith(".log") || name.endsWith(".txt");
+
+  return {
+    workspaceId,
+    path,
+    name,
+    contentType: plainText ? "text/plain" : "text/markdown",
+    sizeBytes: plainText ? 96 : 168,
+    content: plainText
+      ? "fallback artifact\nAPI 응답이 없어 demo workspace plain text를 표시합니다."
+      : "# Demo workspace artifact\n\n파일 API 응답 대신 demo workspace 파일을 표시합니다.",
+  };
 }
 
 function isMarkdownArtifactFile(
