@@ -6,6 +6,8 @@ import com.aquilaoffice.application.port.in.GetArtifactTreeQuery;
 import com.aquilaoffice.application.port.in.GetArtifactTreeUseCase;
 import com.aquilaoffice.application.port.in.GetOrchestrationPlanArtifactQuery;
 import com.aquilaoffice.application.port.in.GetOrchestrationPlanArtifactUseCase;
+import com.aquilaoffice.application.port.in.GetOrchestrationPlanFileQuery;
+import com.aquilaoffice.application.port.in.GetOrchestrationPlanFileUseCase;
 import com.aquilaoffice.global.exception.CommonErrorCode;
 import com.aquilaoffice.global.exception.ServiceException;
 import com.aquilaoffice.global.response.RsData;
@@ -28,14 +30,17 @@ public class ArtifactController {
     private final GetArtifactTreeUseCase getArtifactTreeUseCase;
     private final GetArtifactFileUseCase getArtifactFileUseCase;
     private final GetOrchestrationPlanArtifactUseCase getOrchestrationPlanArtifactUseCase;
+    private final GetOrchestrationPlanFileUseCase getOrchestrationPlanFileUseCase;
 
     public ArtifactController(
             GetArtifactTreeUseCase getArtifactTreeUseCase,
             GetArtifactFileUseCase getArtifactFileUseCase,
-            GetOrchestrationPlanArtifactUseCase getOrchestrationPlanArtifactUseCase) {
+            GetOrchestrationPlanArtifactUseCase getOrchestrationPlanArtifactUseCase,
+            GetOrchestrationPlanFileUseCase getOrchestrationPlanFileUseCase) {
         this.getArtifactTreeUseCase = getArtifactTreeUseCase;
         this.getArtifactFileUseCase = getArtifactFileUseCase;
         this.getOrchestrationPlanArtifactUseCase = getOrchestrationPlanArtifactUseCase;
+        this.getOrchestrationPlanFileUseCase = getOrchestrationPlanFileUseCase;
     }
 
     @GetMapping("/tree")
@@ -86,6 +91,28 @@ public class ArtifactController {
                                     normalizedRequesterGoogleSub)))));
         } catch (IllegalArgumentException exception) {
             // plan artifact도 워크스페이스 멤버에게만 노출하므로 실패 사유를 숨긴다.
+            throw new ServiceException(CommonErrorCode.NOT_FOUND);
+        }
+    }
+
+    @GetMapping("/orchestration-plans/{planId}/files")
+    public ResponseEntity<RsData<ArtifactFileContentResponse>> getOrchestrationPlanFile(
+            @PathVariable Long workspaceId,
+            @PathVariable Long planId,
+            @RequestParam(name = "path", required = false) String path,
+            Authentication authentication) {
+        String normalizedRequesterGoogleSub = requireAuthenticatedRequesterGoogleSub(authentication);
+        String normalizedPath = requirePath(path);
+
+        try {
+            return ResponseEntity.ok(RsData.ok(ArtifactFileContentResponse.from(
+                    getOrchestrationPlanFileUseCase.getOrchestrationPlanFile(new GetOrchestrationPlanFileQuery(
+                            workspaceId,
+                            planId,
+                            normalizedPath,
+                            normalizedRequesterGoogleSub)))));
+        } catch (IllegalArgumentException exception) {
+            // plan file도 존재 여부와 권한 실패, 안전하지 않은 경로를 동일하게 숨긴다.
             throw new ServiceException(CommonErrorCode.NOT_FOUND);
         }
     }

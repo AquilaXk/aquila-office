@@ -20,6 +20,7 @@ import com.aquilaoffice.application.port.in.ExtendWorkspaceInviteUseCase;
 import com.aquilaoffice.application.port.in.GetArtifactFileUseCase;
 import com.aquilaoffice.application.port.in.GetArtifactTreeUseCase;
 import com.aquilaoffice.application.port.in.GetOrchestrationPlanArtifactUseCase;
+import com.aquilaoffice.application.port.in.GetOrchestrationPlanFileUseCase;
 import com.aquilaoffice.application.port.in.GetWorkspaceAgentUseCase;
 import com.aquilaoffice.application.port.in.GetWorkspaceGatewayStatusUseCase;
 import com.aquilaoffice.application.port.in.GetWorkspaceDetailUseCase;
@@ -140,6 +141,7 @@ import com.aquilaoffice.application.service.ExtendWorkspaceInviteService;
 import com.aquilaoffice.application.service.GetArtifactFileService;
 import com.aquilaoffice.application.service.GetArtifactTreeService;
 import com.aquilaoffice.application.service.GetOrchestrationPlanArtifactService;
+import com.aquilaoffice.application.service.GetOrchestrationPlanFileService;
 import com.aquilaoffice.application.service.GetWorkspaceAgentService;
 import com.aquilaoffice.application.service.GetWorkspaceGatewayStatusService;
 import com.aquilaoffice.application.service.GetWorkspaceDetailService;
@@ -690,6 +692,17 @@ public class ApplicationServiceConfig {
                 loadMemberPort,
                 loadWorkspacePort,
                 loadOrchestrationPlanArtifactPort);
+    }
+
+    @Bean
+    public GetOrchestrationPlanFileUseCase getOrchestrationPlanFileUseCase(
+            LoadMemberPort loadMemberPort,
+            LoadWorkspacePort loadWorkspacePort,
+            LoadWorkspaceArtifactsPort loadWorkspaceArtifactsPort) {
+        return new GetOrchestrationPlanFileService(
+                loadMemberPort,
+                loadWorkspacePort,
+                loadWorkspaceArtifactsPort);
     }
 
     @Bean
