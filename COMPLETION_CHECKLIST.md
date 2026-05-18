@@ -31,6 +31,31 @@ Aquila Office는 다음 조건을 모두 만족할 때 100% 완료로 본다.
 - 주요 화면에서 서비스명, favicon, 대표 이미지, tone, spacing이 서로 다르다.
 - 로컬 실행 절차와 CI/CD 절차가 문서와 다르다.
 
+## 최종 출시 검증 근거
+
+2026-05-18 기준 완료 판정은 아래 근거를 함께 확인한다. 이 문서는 민감값, 로컬 전용 상태 파일, 개인 credential을 포함하지 않는다.
+
+| 영역 | 최종 상태 | 검증 근거 |
+| --- | --- | --- |
+| Backend API | 완료 | `./back/gradlew -p back check`, PR CI `Backend Quality Gate` |
+| Frontend UI UX | 완료 | `npm --prefix front run test:node`, `npm --prefix front run lint`, `npm --prefix front run build`, PR CI `Frontend Quality Gate` |
+| Browser UI UX | 완료 | `npm --prefix front run test:browser`, desktop/mobile Playwright mock API 회귀 검증 |
+| 2D workspace | 완료 | canvas nonblank 확인, pan/zoom/context menu browser regression |
+| Smoke journey | 완료 | `tools/test/run-k6-smoke.sh`, `node tools/perf/validate-k6-smoke.mjs`, PR CI `Smoke Definition Gate` |
+| Infra/CI | 완료 | Terraform format/init/validate, PR CI `Terraform Infra Gate` |
+| Docs/release | 완료 | `node tools/readme/validate-readme.mjs`, open issue/failed CI/checklist scan 절차 |
+
+출시 직전 preflight는 다음 순서로 실행한다.
+
+```bash
+node tools/readme/validate-readme.mjs
+node tools/perf/validate-k6-smoke.mjs
+gh issue list --repo AquilaXk/aquila-office --state open --limit 50
+gh run list --repo AquilaXk/aquila-office --branch main --limit 10
+```
+
+완료 판정은 release evidence PR merge 이후 open issue가 없고, 최신 `main` CI run에 failed/cancelled job이 없고, 이 문서의 출시 차단 조건과 최종 출시 검증 근거 표에 미해결 항목이 없을 때만 내린다.
+
 ## Backend API checklist
 
 Backend는 실제 업무 흐름을 HTTP API, domain rule, persistence, 외부 연동 adapter까지 닫아야 완료로 본다.
