@@ -81,6 +81,11 @@ class WorkspaceAgentGatewayAdapterTest {
         }
 
         @Override
+        public WorkspaceAgentCreateGatewayResponse create(WorkspaceAgentCreateGatewayRequest request) {
+            throw new UnsupportedOperationException("not used in run mapping test");
+        }
+
+        @Override
         public WorkspaceAgentGatewayResponse run(WorkspaceAgentGatewayRequest request) {
             this.request = request;
             return response;

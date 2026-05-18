@@ -1,6 +1,9 @@
 package com.aquilaoffice.adapter.out.gateway;
 
 import com.aquilaoffice.application.port.out.AuthenticateWorkspaceGatewayPort;
+import com.aquilaoffice.application.port.out.CreateWorkspaceAgentGatewayCommand;
+import com.aquilaoffice.application.port.out.CreateWorkspaceAgentGatewayPort;
+import com.aquilaoffice.application.port.out.CreateWorkspaceAgentGatewayResult;
 import com.aquilaoffice.application.port.out.RunWorkspaceAgentPort;
 import com.aquilaoffice.application.port.out.WorkspaceAgentRunCommand;
 import com.aquilaoffice.application.port.out.WorkspaceAgentRunResult;
@@ -14,7 +17,8 @@ import org.springframework.stereotype.Repository;
  * Task 실행 요청을 Gateway client boundary로 전달하는 outbound adapter다.
  */
 @Repository
-public class WorkspaceAgentGatewayAdapter implements RunWorkspaceAgentPort, AuthenticateWorkspaceGatewayPort {
+public class WorkspaceAgentGatewayAdapter
+        implements RunWorkspaceAgentPort, AuthenticateWorkspaceGatewayPort, CreateWorkspaceAgentGatewayPort {
 
     private final WorkspaceAgentGatewayClient gatewayClient;
 
@@ -25,6 +29,16 @@ public class WorkspaceAgentGatewayAdapter implements RunWorkspaceAgentPort, Auth
 
     WorkspaceAgentGatewayAdapter() {
         this(new UnconfiguredWorkspaceAgentGatewayClient());
+    }
+
+    @Override
+    public CreateWorkspaceAgentGatewayResult create(CreateWorkspaceAgentGatewayCommand command) {
+        Objects.requireNonNull(command, "command must not be null");
+        WorkspaceAgentCreateGatewayResponse response = gatewayClient.create(toCreateRequest(command));
+        return new CreateWorkspaceAgentGatewayResult(
+                response.success(),
+                response.openClawAgentId(),
+                response.failureReason());
     }
 
     @Override
@@ -62,6 +76,21 @@ public class WorkspaceAgentGatewayAdapter implements RunWorkspaceAgentPort, Auth
                 command.sessionKey(),
                 command.prompt(),
                 command.createPr());
+    }
+
+    private WorkspaceAgentCreateGatewayRequest toCreateRequest(CreateWorkspaceAgentGatewayCommand command) {
+        return new WorkspaceAgentCreateGatewayRequest(
+                command.workspaceId(),
+                command.gatewayUrl(),
+                command.gatewayToken(),
+                command.name(),
+                command.category(),
+                command.workspacePath(),
+                command.skillFiles().stream()
+                        .map(skillFile -> new WorkspaceAgentCreateGatewayRequest.SkillFile(
+                                skillFile.fileName(),
+                                skillFile.content()))
+                        .toList());
     }
 
     private WorkspaceGatewayAuthenticationRequest toAuthenticationRequest(

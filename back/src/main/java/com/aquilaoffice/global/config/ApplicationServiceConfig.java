@@ -57,6 +57,7 @@ import com.aquilaoffice.application.port.in.UpdateWorkspaceUseCase;
 import com.aquilaoffice.application.port.out.AcceptWorkspaceInvitePort;
 import com.aquilaoffice.application.port.out.AuthenticateWorkspaceGatewayPort;
 import com.aquilaoffice.application.port.out.ChangeWorkspaceMemberRolePort;
+import com.aquilaoffice.application.port.out.CreateWorkspaceAgentGatewayPort;
 import com.aquilaoffice.application.port.out.DeleteRefreshTokenPort;
 import com.aquilaoffice.application.port.out.DeleteGithubCredentialPort;
 import com.aquilaoffice.application.port.out.DeleteWorkspaceAgentPort;
@@ -512,8 +513,15 @@ public class ApplicationServiceConfig {
     public CreateWorkspaceAgentUseCase createWorkspaceAgentUseCase(
             LoadMemberPort loadMemberPort,
             LoadWorkspacePort loadWorkspacePort,
-            SaveWorkspaceAgentPort saveWorkspaceAgentPort) {
-        return new CreateWorkspaceAgentService(loadMemberPort, loadWorkspacePort, saveWorkspaceAgentPort);
+            SaveWorkspaceAgentPort saveWorkspaceAgentPort,
+            LoadWorkspaceGatewayBindingPort loadWorkspaceGatewayBindingPort,
+            CreateWorkspaceAgentGatewayPort createWorkspaceAgentGatewayPort) {
+        return new CreateWorkspaceAgentService(
+                loadMemberPort,
+                loadWorkspacePort,
+                saveWorkspaceAgentPort,
+                loadWorkspaceGatewayBindingPort,
+                createWorkspaceAgentGatewayPort);
     }
 
     @Bean

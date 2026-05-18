@@ -55,6 +55,7 @@ import com.aquilaoffice.application.port.in.RevokeWorkspaceInviteUseCase;
 import com.aquilaoffice.application.port.out.AcceptWorkspaceInvitePort;
 import com.aquilaoffice.application.port.out.AuthenticateWorkspaceGatewayPort;
 import com.aquilaoffice.application.port.out.ChangeWorkspaceMemberRolePort;
+import com.aquilaoffice.application.port.out.CreateWorkspaceAgentGatewayPort;
 import com.aquilaoffice.application.port.out.DeleteRefreshTokenPort;
 import com.aquilaoffice.application.port.out.DeleteWorkspacePort;
 import com.aquilaoffice.application.port.out.DeleteWorkspaceAgentPort;
@@ -264,6 +265,9 @@ class ApplicationServiceConfigTest {
 
     @MockitoBean
     private SaveWorkspaceAgentPort saveWorkspaceAgentPort;
+
+    @MockitoBean
+    private CreateWorkspaceAgentGatewayPort createWorkspaceAgentGatewayPort;
 
     @MockitoBean
     private LoadWorkspaceAgentPort loadWorkspaceAgentPort;

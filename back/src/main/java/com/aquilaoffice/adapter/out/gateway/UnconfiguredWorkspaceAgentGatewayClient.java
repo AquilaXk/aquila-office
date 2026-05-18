@@ -7,6 +7,11 @@ final class UnconfiguredWorkspaceAgentGatewayClient implements WorkspaceAgentGat
     private static final String FAILURE_REASON = "workspace agent gateway client is not configured";
 
     @Override
+    public WorkspaceAgentCreateGatewayResponse create(WorkspaceAgentCreateGatewayRequest request) {
+        return new WorkspaceAgentCreateGatewayResponse(false, null, FAILURE_REASON);
+    }
+
+    @Override
     public WorkspaceAgentGatewayResponse run(WorkspaceAgentGatewayRequest request) {
         return new WorkspaceAgentGatewayResponse(false, null, FAILURE_REASON);
     }

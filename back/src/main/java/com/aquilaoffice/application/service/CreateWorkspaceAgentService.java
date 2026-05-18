@@ -3,13 +3,18 @@ package com.aquilaoffice.application.service;
 import com.aquilaoffice.application.port.in.CreateWorkspaceAgentCommand;
 import com.aquilaoffice.application.port.in.CreateWorkspaceAgentResult;
 import com.aquilaoffice.application.port.in.CreateWorkspaceAgentUseCase;
+import com.aquilaoffice.application.port.out.CreateWorkspaceAgentGatewayCommand;
+import com.aquilaoffice.application.port.out.CreateWorkspaceAgentGatewayPort;
+import com.aquilaoffice.application.port.out.CreateWorkspaceAgentGatewayResult;
 import com.aquilaoffice.application.port.out.LoadMemberPort;
 import com.aquilaoffice.application.port.out.LoadWorkspacePort;
+import com.aquilaoffice.application.port.out.LoadWorkspaceGatewayBindingPort;
 import com.aquilaoffice.application.port.out.SaveWorkspaceAgentPort;
 import com.aquilaoffice.domain.agent.WorkspaceAgent;
 import com.aquilaoffice.domain.agent.WorkspaceAgentSkillFile;
 import com.aquilaoffice.domain.agent.WorkspaceAgentTemplate;
 import com.aquilaoffice.domain.agent.WorkspaceAgentTemplateCatalog;
+import com.aquilaoffice.domain.gateway.WorkspaceGatewayBinding;
 import com.aquilaoffice.domain.workspace.WorkspaceMemberRole;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -23,15 +28,21 @@ public class CreateWorkspaceAgentService implements CreateWorkspaceAgentUseCase 
     private final LoadMemberPort loadMemberPort;
     private final LoadWorkspacePort loadWorkspacePort;
     private final SaveWorkspaceAgentPort saveWorkspaceAgentPort;
+    private final LoadWorkspaceGatewayBindingPort loadWorkspaceGatewayBindingPort;
+    private final CreateWorkspaceAgentGatewayPort createWorkspaceAgentGatewayPort;
     private final WorkspaceAgentTemplateCatalog templateCatalog;
 
     public CreateWorkspaceAgentService(
             LoadMemberPort loadMemberPort,
             LoadWorkspacePort loadWorkspacePort,
-            SaveWorkspaceAgentPort saveWorkspaceAgentPort) {
+            SaveWorkspaceAgentPort saveWorkspaceAgentPort,
+            LoadWorkspaceGatewayBindingPort loadWorkspaceGatewayBindingPort,
+            CreateWorkspaceAgentGatewayPort createWorkspaceAgentGatewayPort) {
         this.loadMemberPort = loadMemberPort;
         this.loadWorkspacePort = loadWorkspacePort;
         this.saveWorkspaceAgentPort = saveWorkspaceAgentPort;
+        this.loadWorkspaceGatewayBindingPort = loadWorkspaceGatewayBindingPort;
+        this.createWorkspaceAgentGatewayPort = createWorkspaceAgentGatewayPort;
         this.templateCatalog = new WorkspaceAgentTemplateCatalog();
     }
 
@@ -47,6 +58,10 @@ public class CreateWorkspaceAgentService implements CreateWorkspaceAgentUseCase 
                 command.workspacePath(),
                 command.requesterGoogleSub());
         List<WorkspaceAgentSkillFile> skillFiles = mergeSkillFiles(command);
+        WorkspaceGatewayBinding gatewayBinding = loadGatewayBinding(command.workspaceId());
+        CreateWorkspaceAgentGatewayResult gatewayResult =
+                createWorkspaceAgentGatewayPort.create(toGatewayCreateCommand(agent, skillFiles, gatewayBinding));
+        applyGatewayCreateResult(agent, gatewayResult);
 
         return WorkspaceAgentResultMapper.toCreateResult(saveWorkspaceAgentPort.save(agent, skillFiles));
     }
@@ -65,6 +80,48 @@ public class CreateWorkspaceAgentService implements CreateWorkspaceAgentUseCase 
             mergedSkillFiles.put(skillFile.getFileName(), skillFile);
         }
         return List.copyOf(mergedSkillFiles.values());
+    }
+
+    private WorkspaceGatewayBinding loadGatewayBinding(Long workspaceId) {
+        return loadWorkspaceGatewayBindingPort.findActiveByWorkspaceId(workspaceId)
+                .orElseThrow(() -> new IllegalStateException("workspace gateway binding required"));
+    }
+
+    private CreateWorkspaceAgentGatewayCommand toGatewayCreateCommand(
+            WorkspaceAgent agent,
+            List<WorkspaceAgentSkillFile> skillFiles,
+            WorkspaceGatewayBinding gatewayBinding) {
+        return new CreateWorkspaceAgentGatewayCommand(
+                agent.getWorkspaceId(),
+                gatewayBinding.getGatewayUrl(),
+                gatewayBinding.getToken(),
+                agent.getName(),
+                agent.getCategory(),
+                agent.getWorkspacePath(),
+                skillFiles.stream()
+                        .map(skillFile -> new CreateWorkspaceAgentGatewayCommand.SkillFile(
+                                skillFile.getFileName(),
+                                skillFile.getContent()))
+                        .toList());
+    }
+
+    private void applyGatewayCreateResult(
+            WorkspaceAgent agent,
+            CreateWorkspaceAgentGatewayResult gatewayResult) {
+        if (gatewayResult != null && gatewayResult.success() && gatewayResult.openClawAgentId() != null
+                && !gatewayResult.openClawAgentId().isBlank()) {
+            agent.markReady(gatewayResult.openClawAgentId());
+            return;
+        }
+        agent.markSyncFailed(resolveGatewayFailure(gatewayResult));
+    }
+
+    private String resolveGatewayFailure(CreateWorkspaceAgentGatewayResult gatewayResult) {
+        if (gatewayResult == null || gatewayResult.failureReason() == null
+                || gatewayResult.failureReason().isBlank()) {
+            return "gateway agent create failed";
+        }
+        return gatewayResult.failureReason().trim();
     }
 
     private void requireExistingMember(String googleSub) {
