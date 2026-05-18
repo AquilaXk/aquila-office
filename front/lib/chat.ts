@@ -56,6 +56,17 @@ export type FetchChatSessionMessagesInput = {
   limit?: number | null;
 };
 
+export const CHAT_SESSION_MESSAGE_PAGE_SIZE = 30;
+
+export function chatSessionMessagePageInput(
+  afterMessageId?: number | null,
+): FetchChatSessionMessagesInput {
+  return {
+    afterMessageId,
+    limit: CHAT_SESSION_MESSAGE_PAGE_SIZE,
+  };
+}
+
 export function workspaceChatMessagesPath(workspaceId: number): string {
   return `/api/v1/workspaces/${workspaceId}/chat/messages`;
 }

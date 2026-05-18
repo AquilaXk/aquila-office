@@ -13,6 +13,9 @@ test("workspace chat client exposes message API contracts", () => {
   assert.match(source, /workspaceChatMessagesPath/);
   assert.match(source, /workspaceTaskChatMessagesPath/);
   assert.match(source, /workspaceChatSessionMessagesPath/);
+  assert.match(source, /CHAT_SESSION_MESSAGE_PAGE_SIZE/);
+  assert.match(source, /chatSessionMessagePageInput/);
+  assert.match(source, /limit: CHAT_SESSION_MESSAGE_PAGE_SIZE/);
   assert.match(source, /sendWorkspaceChatMessage/);
   assert.match(source, /fetchTaskChatMessages/);
   assert.match(source, /fetchChatSessionMessages/);

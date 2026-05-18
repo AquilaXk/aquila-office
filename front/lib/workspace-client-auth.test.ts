@@ -108,9 +108,14 @@ test("workspace detail exposes task chat surface", () => {
   const source = readSource("app/workspaces/[workspaceId]/page.tsx");
 
   assert.match(source, /fetchTaskChatMessages/);
+  assert.match(source, /fetchChatSessionMessages/);
+  assert.match(source, /chatSessionMessagePageInput/);
   assert.match(source, /sendWorkspaceChatMessage/);
   assert.match(source, /aria-label="Task chat 메시지"/);
   assert.match(source, /openTaskChat/);
+  assert.match(source, /taskChatCursor/);
+  assert.match(source, /onLoadMoreMessages/);
+  assert.match(source, /다음 메시지 더 보기/);
 });
 
 test("workspace detail exposes presence surface", () => {
