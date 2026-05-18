@@ -33,6 +33,22 @@ test("icon button requires an accessible label contract", () => {
   assert.match(source, /label: string/);
 });
 
+test("arcade index exports gothic operation controls", () => {
+  const source = readSource("components/arcade/index.ts");
+
+  assert.match(source, /ArcadeFrame/);
+  assert.match(source, /CommandBar/);
+  assert.match(source, /MetricTile/);
+  assert.match(source, /StatusPip/);
+});
+
+test("arcade controls use shared UI and gothic class contracts", () => {
+  assert.match(readSource("components/arcade/ArcadeFrame.tsx"), /ao-arcade-frame/);
+  assert.match(readSource("components/arcade/CommandBar.tsx"), /ao-command-bar/);
+  assert.match(readSource("components/arcade/MetricTile.tsx"), /ao-metric-tile/);
+  assert.match(readSource("components/arcade/StatusPip.tsx"), /ao-status-pip/);
+});
+
 function readSource(filePath: string): string {
   return readFileSync(path.join(appRoot, filePath), "utf8");
 }
