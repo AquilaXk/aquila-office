@@ -55,6 +55,7 @@ import com.aquilaoffice.application.port.in.UpdateTaskStatusUseCase;
 import com.aquilaoffice.application.port.in.UpdateWorkspacePresencePositionUseCase;
 import com.aquilaoffice.application.port.in.UpdateWorkspaceUseCase;
 import com.aquilaoffice.application.port.out.AcceptWorkspaceInvitePort;
+import com.aquilaoffice.application.port.out.AnalyzeChatIntentPort;
 import com.aquilaoffice.application.port.out.AuthenticateWorkspaceGatewayPort;
 import com.aquilaoffice.application.port.out.ChangeWorkspaceMemberRolePort;
 import com.aquilaoffice.application.port.out.CreateWorkspaceAgentGatewayPort;
@@ -655,6 +656,7 @@ public class ApplicationServiceConfig {
             LoadChatSessionPort loadChatSessionPort,
             SaveTaskPort saveTaskPort,
             SaveChatMessagePort saveChatMessagePort,
+            AnalyzeChatIntentPort analyzeChatIntentPort,
             RunTaskUseCase runTaskUseCase) {
         return new SendChatMessageService(
                 loadMemberPort,
@@ -664,6 +666,7 @@ public class ApplicationServiceConfig {
                 loadChatSessionPort,
                 saveTaskPort,
                 saveChatMessagePort,
+                analyzeChatIntentPort,
                 runTaskUseCase);
     }
 

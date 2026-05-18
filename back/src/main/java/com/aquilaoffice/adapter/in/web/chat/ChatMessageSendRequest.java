@@ -29,7 +29,7 @@ public record ChatMessageSendRequest(
                 taskType,
                 priority,
                 title,
-                Boolean.TRUE.equals(createPr),
+                createPr,
                 chatSessionId,
                 null);
     }

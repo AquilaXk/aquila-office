@@ -14,6 +14,9 @@ import com.aquilaoffice.application.port.out.LoadChatSessionPort;
 import com.aquilaoffice.application.port.out.LoadMemberPort;
 import com.aquilaoffice.application.port.out.LoadWorkspaceAgentPort;
 import com.aquilaoffice.application.port.out.LoadWorkspacePort;
+import com.aquilaoffice.application.port.out.AnalyzeChatIntentCommand;
+import com.aquilaoffice.application.port.out.AnalyzeChatIntentPort;
+import com.aquilaoffice.application.port.out.ChatIntentAnalysisResult;
 import com.aquilaoffice.application.port.out.SaveChatMessagePort;
 import com.aquilaoffice.application.port.out.SaveChatSessionPort;
 import com.aquilaoffice.application.port.out.SaveTaskPort;
@@ -135,6 +138,131 @@ class SendChatMessageServiceTest {
     }
 
     @Test
+    void sendMessageUsesAiIntentForMissingTaskFields() {
+        FakeAnalyzeChatIntentPort analyzeChatIntentPort = new FakeAnalyzeChatIntentPort(new ChatIntentAnalysisResult(
+                "테스트 자동화",
+                TaskType.TEST_CREATION,
+                TaskPriority.URGENT,
+                true));
+        FakeSaveTaskPort saveTaskPort = new FakeSaveTaskPort(savedTask(303L));
+        FakeRunTaskUseCase runTaskUseCase = new FakeRunTaskUseCase(new RunTaskResult(
+                101L,
+                303L,
+                703L,
+                501L,
+                TaskStatus.COMPLETED,
+                TaskExecutionStatus.SUCCEEDED,
+                "테스트 자동화 완료",
+                null));
+        SendChatMessageService service = newService(
+                new FakeSaveChatSessionPort(savedSession(903L)),
+                new FakeLoadChatSessionPort(Optional.empty()),
+                saveTaskPort,
+                new FakeSaveChatMessagePort(),
+                runTaskUseCase,
+                analyzeChatIntentPort);
+
+        service.sendChatMessage(new SendChatMessageCommand(
+                101L,
+                "google-1",
+                "긴급하게 테스트를 만들고 PR까지 올려줘",
+                501L,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null));
+
+        assertThat(analyzeChatIntentPort.command.message()).isEqualTo("긴급하게 테스트를 만들고 PR까지 올려줘");
+        assertThat(saveTaskPort.savedTask.getTitle()).isEqualTo("테스트 자동화");
+        assertThat(saveTaskPort.savedTask.getType()).isEqualTo(TaskType.TEST_CREATION);
+        assertThat(saveTaskPort.savedTask.getPriority()).isEqualTo(TaskPriority.URGENT);
+        assertThat(runTaskUseCase.command.createPr()).isTrue();
+    }
+
+    @Test
+    void explicitTaskFieldsOverrideAiIntentSuggestions() {
+        FakeAnalyzeChatIntentPort analyzeChatIntentPort = new FakeAnalyzeChatIntentPort(new ChatIntentAnalysisResult(
+                "AI 제목",
+                TaskType.TEST_CREATION,
+                TaskPriority.URGENT,
+                true));
+        FakeSaveTaskPort saveTaskPort = new FakeSaveTaskPort(savedTask(304L));
+        FakeRunTaskUseCase runTaskUseCase = new FakeRunTaskUseCase(new RunTaskResult(
+                101L,
+                304L,
+                704L,
+                501L,
+                TaskStatus.COMPLETED,
+                TaskExecutionStatus.SUCCEEDED,
+                "문서 정리 완료",
+                null));
+        SendChatMessageService service = newService(
+                new FakeSaveChatSessionPort(savedSession(904L)),
+                new FakeLoadChatSessionPort(Optional.empty()),
+                saveTaskPort,
+                new FakeSaveChatMessagePort(),
+                runTaskUseCase,
+                analyzeChatIntentPort);
+
+        service.sendChatMessage(new SendChatMessageCommand(
+                101L,
+                "google-1",
+                "문서를 정리해줘",
+                501L,
+                null,
+                TaskType.DOCUMENTATION,
+                TaskPriority.LOW,
+                "명시 제목",
+                false,
+                null));
+
+        assertThat(saveTaskPort.savedTask.getTitle()).isEqualTo("명시 제목");
+        assertThat(saveTaskPort.savedTask.getType()).isEqualTo(TaskType.DOCUMENTATION);
+        assertThat(saveTaskPort.savedTask.getPriority()).isEqualTo(TaskPriority.LOW);
+        assertThat(runTaskUseCase.command.createPr()).isFalse();
+    }
+
+    @Test
+    void intentAnalyzerFailureFallsBackToExistingDefaults() {
+        FakeSaveTaskPort saveTaskPort = new FakeSaveTaskPort(savedTask(305L));
+        FakeRunTaskUseCase runTaskUseCase = new FakeRunTaskUseCase(new RunTaskResult(
+                101L,
+                305L,
+                705L,
+                501L,
+                TaskStatus.COMPLETED,
+                TaskExecutionStatus.SUCCEEDED,
+                "기본 실행 완료",
+                null));
+        SendChatMessageService service = newService(
+                new FakeSaveChatSessionPort(savedSession(905L)),
+                new FakeLoadChatSessionPort(Optional.empty()),
+                saveTaskPort,
+                new FakeSaveChatMessagePort(),
+                runTaskUseCase,
+                new FakeAnalyzeChatIntentPort(new IllegalStateException("vertex unavailable")));
+
+        service.sendChatMessage(new SendChatMessageCommand(
+                101L,
+                "google-1",
+                "기능을 구현해 주세요.",
+                501L,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null));
+
+        assertThat(saveTaskPort.savedTask.getTitle()).isEqualTo("기능을 구현해 주세요.");
+        assertThat(saveTaskPort.savedTask.getType()).isEqualTo(TaskType.OTHER);
+        assertThat(saveTaskPort.savedTask.getPriority()).isEqualTo(TaskPriority.MEDIUM);
+        assertThat(runTaskUseCase.command.createPr()).isFalse();
+    }
+
+    @Test
     void sendMessageRejectsBlankMessage() {
         SendChatMessageService service = newService(
                 new FakeSaveChatSessionPort(savedSession(901L)),
@@ -188,6 +316,22 @@ class SendChatMessageServiceTest {
             SaveTaskPort saveTaskPort,
             SaveChatMessagePort saveChatMessagePort,
             RunTaskUseCase runTaskUseCase) {
+        return newService(
+                saveChatSessionPort,
+                loadChatSessionPort,
+                saveTaskPort,
+                saveChatMessagePort,
+                runTaskUseCase,
+                new FakeAnalyzeChatIntentPort(ChatIntentAnalysisResult.empty()));
+    }
+
+    private static SendChatMessageService newService(
+            SaveChatSessionPort saveChatSessionPort,
+            LoadChatSessionPort loadChatSessionPort,
+            SaveTaskPort saveTaskPort,
+            SaveChatMessagePort saveChatMessagePort,
+            RunTaskUseCase runTaskUseCase,
+            AnalyzeChatIntentPort analyzeChatIntentPort) {
         return new SendChatMessageService(
                 new FakeLoadMemberPort(Optional.of(Member.createUser("google-1", "user@example.com", "User"))),
                 new FakeLoadWorkspacePort(Optional.of(workspaceDetail())),
@@ -196,6 +340,7 @@ class SendChatMessageServiceTest {
                 loadChatSessionPort,
                 saveTaskPort,
                 saveChatMessagePort,
+                analyzeChatIntentPort,
                 runTaskUseCase);
     }
 
@@ -360,6 +505,31 @@ class SendChatMessageServiceTest {
                     message.getContent(),
                     LocalDateTime.of(2026, 5, 16, 10, savedMessages.size()),
                     LocalDateTime.of(2026, 5, 16, 10, savedMessages.size()));
+        }
+    }
+
+    private static class FakeAnalyzeChatIntentPort implements AnalyzeChatIntentPort {
+        private final ChatIntentAnalysisResult result;
+        private final RuntimeException exception;
+        private AnalyzeChatIntentCommand command;
+
+        private FakeAnalyzeChatIntentPort(ChatIntentAnalysisResult result) {
+            this.result = result;
+            this.exception = null;
+        }
+
+        private FakeAnalyzeChatIntentPort(RuntimeException exception) {
+            this.result = null;
+            this.exception = exception;
+        }
+
+        @Override
+        public ChatIntentAnalysisResult analyze(AnalyzeChatIntentCommand command) {
+            this.command = command;
+            if (exception != null) {
+                throw exception;
+            }
+            return result;
         }
     }
 

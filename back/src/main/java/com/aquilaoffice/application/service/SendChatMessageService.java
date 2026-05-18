@@ -6,6 +6,9 @@ import com.aquilaoffice.application.port.in.RunTaskUseCase;
 import com.aquilaoffice.application.port.in.SendChatMessageCommand;
 import com.aquilaoffice.application.port.in.SendChatMessageResult;
 import com.aquilaoffice.application.port.in.SendChatMessageUseCase;
+import com.aquilaoffice.application.port.out.AnalyzeChatIntentCommand;
+import com.aquilaoffice.application.port.out.AnalyzeChatIntentPort;
+import com.aquilaoffice.application.port.out.ChatIntentAnalysisResult;
 import com.aquilaoffice.application.port.out.LoadChatSessionPort;
 import com.aquilaoffice.application.port.out.LoadMemberPort;
 import com.aquilaoffice.application.port.out.LoadWorkspaceAgentPort;
@@ -22,6 +25,8 @@ import com.aquilaoffice.domain.chat.ChatMessageRole;
 import com.aquilaoffice.domain.chat.ChatSession;
 import com.aquilaoffice.domain.member.Member;
 import com.aquilaoffice.domain.task.Task;
+import com.aquilaoffice.domain.task.TaskPriority;
+import com.aquilaoffice.domain.task.TaskType;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -40,6 +45,7 @@ public class SendChatMessageService implements SendChatMessageUseCase {
     private final LoadChatSessionPort loadChatSessionPort;
     private final SaveTaskPort saveTaskPort;
     private final SaveChatMessagePort saveChatMessagePort;
+    private final AnalyzeChatIntentPort analyzeChatIntentPort;
     private final RunTaskUseCase runTaskUseCase;
 
     public SendChatMessageService(
@@ -50,6 +56,7 @@ public class SendChatMessageService implements SendChatMessageUseCase {
             LoadChatSessionPort loadChatSessionPort,
             SaveTaskPort saveTaskPort,
             SaveChatMessagePort saveChatMessagePort,
+            AnalyzeChatIntentPort analyzeChatIntentPort,
             RunTaskUseCase runTaskUseCase) {
         this.loadMemberPort = Objects.requireNonNull(loadMemberPort, "loadMemberPort must not be null");
         this.loadWorkspacePort = Objects.requireNonNull(loadWorkspacePort, "loadWorkspacePort must not be null");
@@ -62,6 +69,8 @@ public class SendChatMessageService implements SendChatMessageUseCase {
         this.saveTaskPort = Objects.requireNonNull(saveTaskPort, "saveTaskPort must not be null");
         this.saveChatMessagePort =
                 Objects.requireNonNull(saveChatMessagePort, "saveChatMessagePort must not be null");
+        this.analyzeChatIntentPort =
+                Objects.requireNonNull(analyzeChatIntentPort, "analyzeChatIntentPort must not be null");
         this.runTaskUseCase = Objects.requireNonNull(runTaskUseCase, "runTaskUseCase must not be null");
     }
 
@@ -74,15 +83,16 @@ public class SendChatMessageService implements SendChatMessageUseCase {
         Member requester = requireExistingMember(requesterGoogleSub);
         requireJoinedWorkspace(command.workspaceId(), requester.getGoogleSub());
         requireReadyAgent(command.workspaceId(), agentId);
+        ChatIntentAnalysisResult intent = analyzeIntent(command, message);
 
         SavedChatSession session = resolveSession(command.workspaceId(), requester.getGoogleSub(), command.chatSessionId());
         SavedTask task = saveTaskPort.save(Task.create(
                 command.workspaceId(),
                 requester.getGoogleSub(),
-                resolveTitle(command.title(), message),
+                resolveTitle(command.title(), intent.title(), message),
                 message,
-                command.taskType(),
-                command.priority(),
+                resolveTaskType(command.taskType(), intent.taskType()),
+                resolvePriority(command.priority(), intent.priority()),
                 agentId,
                 command.sourceRef()));
         List<SavedChatMessage> savedMessages = new ArrayList<>();
@@ -98,7 +108,7 @@ public class SendChatMessageService implements SendChatMessageUseCase {
                 command.workspaceId(),
                 task.taskId(),
                 requester.getGoogleSub(),
-                command.createPr()));
+                resolveCreatePr(command.createPr(), intent.createPr())));
         saveAssistantMessageIfPresent(command.workspaceId(), session.chatSessionId(), task.taskId(), runResult)
                 .ifPresent(savedMessages::add);
 
@@ -184,10 +194,51 @@ public class SendChatMessageService implements SendChatMessageUseCase {
         return agentId;
     }
 
-    private String resolveTitle(String title, String message) {
+    private ChatIntentAnalysisResult analyzeIntent(SendChatMessageCommand command, String message) {
+        try {
+            ChatIntentAnalysisResult result = analyzeChatIntentPort.analyze(new AnalyzeChatIntentCommand(
+                    command.workspaceId(),
+                    message,
+                    command.agentId(),
+                    command.repositoryId(),
+                    command.taskType(),
+                    command.priority(),
+                    command.title(),
+                    command.createPr()));
+            return result == null ? ChatIntentAnalysisResult.empty() : result;
+        } catch (RuntimeException exception) {
+            return ChatIntentAnalysisResult.empty();
+        }
+    }
+
+    private String resolveTitle(String title, String intentTitle, String message) {
         if (title != null && !title.isBlank()) {
             return title.trim();
         }
+        if (intentTitle != null && !intentTitle.isBlank()) {
+            return intentTitle.trim();
+        }
         return message.length() <= DEFAULT_TITLE_LIMIT ? message : message.substring(0, DEFAULT_TITLE_LIMIT);
+    }
+
+    private TaskType resolveTaskType(TaskType taskType, TaskType intentTaskType) {
+        if (taskType != null) {
+            return taskType;
+        }
+        return intentTaskType == null ? TaskType.OTHER : intentTaskType;
+    }
+
+    private TaskPriority resolvePriority(TaskPriority priority, TaskPriority intentPriority) {
+        if (priority != null) {
+            return priority;
+        }
+        return intentPriority == null ? TaskPriority.MEDIUM : intentPriority;
+    }
+
+    private boolean resolveCreatePr(Boolean createPr, Boolean intentCreatePr) {
+        if (createPr != null) {
+            return createPr;
+        }
+        return Boolean.TRUE.equals(intentCreatePr);
     }
 }
