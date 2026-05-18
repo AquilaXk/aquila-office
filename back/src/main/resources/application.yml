@@ -32,6 +32,9 @@ aquila:
     allowed-hosted-domains: ${AQUILA_GOOGLE_ALLOWED_HOSTED_DOMAINS:}
     require-email-verified: ${AQUILA_GOOGLE_REQUIRE_EMAIL_VERIFIED:true}
     application-name: ${AQUILA_GOOGLE_APPLICATION_NAME:aquila-office}
+  external-token:
+    key: ${AQUILA_EXTERNAL_TOKEN_KEY:local-development-external-token-key-change-before-production-0123456789abcdef}
+    key-id: ${AQUILA_EXTERNAL_TOKEN_KEY_ID:local}
 
 springdoc:
   api-docs:

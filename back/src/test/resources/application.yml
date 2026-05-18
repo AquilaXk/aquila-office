@@ -27,3 +27,6 @@ aquila:
     allowed-hosted-domains: []
     require-email-verified: true
     application-name: aquila-office-test
+  external-token:
+    key: test-external-token-key-0123456789abcdef
+    key-id: test-key
