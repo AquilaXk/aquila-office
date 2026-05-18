@@ -28,11 +28,12 @@ import org.springframework.stereotype.Component;
 final class RpcWorkspaceAgentGatewayClient implements WorkspaceAgentGatewayClient {
 
     private static final String METHOD_CHAT_SEND = "chat.send";
-    private static final String METHOD_AGENT_CREATE = "agent.create";
-    private static final String METHOD_AGENT_LIST = "agent.list";
-    private static final String METHOD_AGENT_DELETE = "agent.delete";
-    private static final String METHOD_GATEWAY_CHALLENGE = "gateway.challenge";
-    private static final String METHOD_GATEWAY_CONNECT = "gateway.connect";
+    private static final String METHOD_AGENT_CREATE = "agents.create";
+    private static final String METHOD_AGENT_LIST = "agents.list";
+    private static final String METHOD_AGENT_DELETE = "agents.delete";
+    private static final String METHOD_CONNECT = "connect";
+    private static final String PROTOCOL_VERSION = "2026-05";
+    private static final String OPERATOR_SCOPE = "workspace:operator";
     private static final String TIMEOUT_FAILURE_REASON = "gateway rpc request timed out";
     private static final String INTERRUPTED_FAILURE_REASON = "gateway rpc request interrupted";
 
@@ -172,31 +173,11 @@ final class RpcWorkspaceAgentGatewayClient implements WorkspaceAgentGatewayClien
         try {
             URI rpcUri = GatewayRpcUrlNormalizer.normalize(request.gatewayUrl(), properties.path());
             session = transport.connect(rpcUri, new RpcGatewayListener());
-            JsonNode challengeResponse = exchange(
-                    session,
-                    METHOD_GATEWAY_CHALLENGE,
-                    request.gatewayToken(),
-                    workspaceParams(request.workspaceId()));
-            WorkspaceGatewayAuthenticationResponse challengeFailure =
-                    toChallengeFailureIfPresent(challengeResponse, request.gatewayUrl());
-            if (challengeFailure != null) {
-                return challengeFailure;
-            }
-            String challenge = textOrNull(challengeResponse.path("result"), "challenge");
-            if (challenge == null) {
-                return authenticationFailure(
-                        GatewayConnectionStatus.FAILED,
-                        request.gatewayUrl(),
-                        "gateway challenge is missing");
-            }
-
-            ObjectNode connectParams = workspaceParams(request.workspaceId());
-            connectParams.put("challenge", challenge);
             JsonNode connectResponse = exchange(
                     session,
-                    METHOD_GATEWAY_CONNECT,
+                    METHOD_CONNECT,
                     request.gatewayToken(),
-                    connectParams);
+                    connectParams(request.workspaceId()));
             return toAuthenticationResponse(connectResponse, request.gatewayUrl());
         } catch (TimeoutException exception) {
             return authenticationFailure(
@@ -285,6 +266,13 @@ final class RpcWorkspaceAgentGatewayClient implements WorkspaceAgentGatewayClien
     private ObjectNode workspaceParams(Long workspaceId) {
         ObjectNode params = objectMapper.createObjectNode();
         params.put("workspaceId", workspaceId);
+        return params;
+    }
+
+    private ObjectNode connectParams(Long workspaceId) {
+        ObjectNode params = workspaceParams(workspaceId);
+        params.put("protocolVersion", PROTOCOL_VERSION);
+        params.put("scope", OPERATOR_SCOPE);
         return params;
     }
 
@@ -401,24 +389,6 @@ final class RpcWorkspaceAgentGatewayClient implements WorkspaceAgentGatewayClien
                     textOrNull(agent, "status")));
         }
         return mappedAgents;
-    }
-
-    private WorkspaceGatewayAuthenticationResponse toChallengeFailureIfPresent(
-            JsonNode root,
-            String gatewayUrl) {
-        JsonNode error = root.path("error");
-        if (!error.isMissingNode() && !error.isNull()) {
-            String message = resolveGatewayErrorMessage(error);
-            return authenticationFailure(resolveConnectionStatus(error, message), gatewayUrl, message);
-        }
-        JsonNode result = root.path("result");
-        if (result.isMissingNode() || result.isNull()) {
-            return authenticationFailure(
-                    GatewayConnectionStatus.FAILED,
-                    gatewayUrl,
-                    "gateway challenge result is missing");
-        }
-        return null;
     }
 
     private WorkspaceGatewayAuthenticationResponse toAuthenticationResponse(

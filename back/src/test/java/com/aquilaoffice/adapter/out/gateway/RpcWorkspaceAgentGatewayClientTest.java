@@ -103,11 +103,6 @@ class RpcWorkspaceAgentGatewayClientTest {
                 objectMapper,
                 (requestId, message) -> {
                     JsonNode request = readJson(message);
-                    if ("gateway.challenge".equals(request.path("method").asText())) {
-                        return """
-                                {"id":"%s","result":{"challenge":"challenge-1"}}
-                                """.formatted(requestId);
-                    }
                     return """
                             {"id":"%s","result":{
                               "connected":true,
@@ -140,16 +135,13 @@ class RpcWorkspaceAgentGatewayClientTest {
         assertThat(transport.connectedUri()).isEqualTo(URI.create("wss://gateway.example.com/base/rpc"));
         assertThat(transport.closed()).isTrue();
 
-        assertThat(transport.sentMessages()).hasSize(2);
-        JsonNode challengeMessage = objectMapper.readTree(transport.sentMessages().get(0));
-        assertThat(challengeMessage.path("method").asText()).isEqualTo("gateway.challenge");
-        assertThat(challengeMessage.path("token").asText()).isEqualTo("secret-token");
-        assertThat(challengeMessage.path("params").path("workspaceId").asLong()).isEqualTo(101L);
-        JsonNode connectMessage = objectMapper.readTree(transport.sentMessages().get(1));
-        assertThat(connectMessage.path("method").asText()).isEqualTo("gateway.connect");
+        assertThat(transport.sentMessages()).hasSize(1);
+        JsonNode connectMessage = objectMapper.readTree(transport.sentMessages().getFirst());
+        assertThat(connectMessage.path("method").asText()).isEqualTo("connect");
         assertThat(connectMessage.path("token").asText()).isEqualTo("secret-token");
         assertThat(connectMessage.path("params").path("workspaceId").asLong()).isEqualTo(101L);
-        assertThat(connectMessage.path("params").path("challenge").asText()).isEqualTo("challenge-1");
+        assertThat(connectMessage.path("params").path("protocolVersion").asText()).isEqualTo("2026-05");
+        assertThat(connectMessage.path("params").path("scope").asText()).isEqualTo("workspace:operator");
     }
 
     @Test
@@ -185,9 +177,38 @@ class RpcWorkspaceAgentGatewayClientTest {
         assertThat(transport.closed()).isTrue();
 
         JsonNode message = objectMapper.readTree(transport.sentMessage());
-        assertThat(message.path("method").asText()).isEqualTo("agent.list");
+        assertThat(message.path("method").asText()).isEqualTo("agents.list");
         assertThat(message.path("token").asText()).isEqualTo("secret-token");
         assertThat(message.path("params").path("workspaceId").asLong()).isEqualTo(101L);
+    }
+
+    @Test
+    void sendsAgentCreateRequestWithCompatibleMethodName() throws Exception {
+        RespondingTransport transport = new RespondingTransport(
+                objectMapper,
+                requestId -> """
+                        {"id":"%s","result":{"success":true,"openClawAgentId":"oc-agent-1","failureReason":null}}
+                        """.formatted(requestId));
+        RpcWorkspaceAgentGatewayClient client = new RpcWorkspaceAgentGatewayClient(
+                transport,
+                objectMapper,
+                new GatewayRpcProperties(Duration.ofMillis(200), "/rpc"));
+
+        WorkspaceAgentCreateGatewayResponse response = client.create(new WorkspaceAgentCreateGatewayRequest(
+                101L,
+                "https://gateway.example.com/base/",
+                "secret-token",
+                "Backend Agent",
+                com.aquilaoffice.domain.agent.WorkspaceAgentCategory.BACKEND,
+                "/workspace/project",
+                List.of(new WorkspaceAgentCreateGatewayRequest.SkillFile("AGENTS.md", "rules"))));
+
+        assertThat(response.success()).isTrue();
+        assertThat(response.openClawAgentId()).isEqualTo("oc-agent-1");
+
+        JsonNode message = objectMapper.readTree(transport.sentMessage());
+        assertThat(message.path("method").asText()).isEqualTo("agents.create");
+        assertThat(message.path("params").path("skillFiles").get(0).path("fileName").asText()).isEqualTo("AGENTS.md");
     }
 
     @Test
@@ -215,7 +236,7 @@ class RpcWorkspaceAgentGatewayClientTest {
         assertThat(transport.closed()).isTrue();
 
         JsonNode message = objectMapper.readTree(transport.sentMessage());
-        assertThat(message.path("method").asText()).isEqualTo("agent.delete");
+        assertThat(message.path("method").asText()).isEqualTo("agents.delete");
         assertThat(message.path("token").asText()).isEqualTo("secret-token");
         JsonNode params = message.path("params");
         assertThat(params.path("workspaceId").asLong()).isEqualTo(101L);
