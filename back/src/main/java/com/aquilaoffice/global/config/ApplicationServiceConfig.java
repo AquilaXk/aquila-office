@@ -93,10 +93,12 @@ import com.aquilaoffice.application.port.out.LoadWorkspacePort;
 import com.aquilaoffice.application.port.out.LoadWorkspaceInvitePort;
 import com.aquilaoffice.application.port.out.LoadWorkspaceInvitesPort;
 import com.aquilaoffice.application.port.out.LoadWorkspaceMemberPort;
+import com.aquilaoffice.application.port.out.RecordWorkspaceInviteEmailFailurePort;
 import com.aquilaoffice.application.port.out.RemoveWorkspaceMemberPort;
 import com.aquilaoffice.application.port.out.ResolveRefreshTokenPort;
 import com.aquilaoffice.application.port.out.RevokeWorkspaceInvitePort;
 import com.aquilaoffice.application.port.out.RotateRefreshTokenPort;
+import com.aquilaoffice.application.port.out.RunAfterCommitPort;
 import com.aquilaoffice.application.port.out.RunWorkspaceAgentPort;
 import com.aquilaoffice.application.port.out.SaveGithubCredentialPort;
 import com.aquilaoffice.application.port.out.SaveChatMessagePort;
@@ -113,6 +115,7 @@ import com.aquilaoffice.application.port.out.SaveWorkspaceGatewayBindingPort;
 import com.aquilaoffice.application.port.out.SaveWorkspaceInvitePort;
 import com.aquilaoffice.application.port.out.SaveWorkspacePort;
 import com.aquilaoffice.application.port.out.SendSlackReplyPort;
+import com.aquilaoffice.application.port.out.SendWorkspaceInviteEmailPort;
 import com.aquilaoffice.application.port.out.UpdateGithubCredentialPort;
 import com.aquilaoffice.application.port.out.UpdateMemberProfilePort;
 import com.aquilaoffice.application.port.out.UpdateOrchestrationSessionStatusPort;
@@ -183,6 +186,7 @@ import com.aquilaoffice.adapter.in.web.slack.SlackSignatureVerifier;
 import java.time.Clock;
 import java.time.Duration;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -195,6 +199,12 @@ public class ApplicationServiceConfig {
     @Bean
     public Clock applicationClock() {
         return Clock.systemDefaultZone();
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(SendWorkspaceInviteEmailPort.class)
+    public SendWorkspaceInviteEmailPort sendWorkspaceInviteEmailPort() {
+        return SendWorkspaceInviteEmailPort.noop();
     }
 
     // application service는 Spring 애노테이션 없이 유지하고, 조립만 설정 클래스에서 담당한다.
@@ -212,13 +222,19 @@ public class ApplicationServiceConfig {
             LoadWorkspacePort loadWorkspacePort,
             SaveWorkspaceInvitePort saveWorkspaceInvitePort,
             GenerateWorkspaceInviteTokenPort generateWorkspaceInviteTokenPort,
-            Clock applicationClock) {
+            Clock applicationClock,
+            RunAfterCommitPort runAfterCommitPort,
+            SendWorkspaceInviteEmailPort sendWorkspaceInviteEmailPort,
+            RecordWorkspaceInviteEmailFailurePort recordWorkspaceInviteEmailFailurePort) {
         return new CreateWorkspaceInviteService(
                 loadMemberPort,
                 loadWorkspacePort,
                 saveWorkspaceInvitePort,
                 generateWorkspaceInviteTokenPort,
-                applicationClock);
+                applicationClock,
+                runAfterCommitPort,
+                sendWorkspaceInviteEmailPort,
+                recordWorkspaceInviteEmailFailurePort);
     }
 
     @Bean

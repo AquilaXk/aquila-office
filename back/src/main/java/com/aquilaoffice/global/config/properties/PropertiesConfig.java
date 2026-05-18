@@ -13,6 +13,7 @@ import org.springframework.context.annotation.Configuration;
     ExternalTokenEncryptionProperties.class,
     GatewayRpcProperties.class,
     GoogleOAuthProperties.class,
-    VertexAiProperties.class
+    VertexAiProperties.class,
+    WorkspaceInviteEmailProperties.class
 })
 public class PropertiesConfig {}
