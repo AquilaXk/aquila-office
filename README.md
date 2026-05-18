@@ -1,58 +1,82 @@
 # Aquila Office
 
-Aquila Office is a Java 21 + Spring Boot project.
+Aquila Office is a Java 21 + Spring Boot backend and Next.js frontend for running AI-assisted workspace, agent, task, artifact, and integration workflows.
 
 Completion criteria are tracked in [COMPLETION_CHECKLIST.md](COMPLETION_CHECKLIST.md).
 
-## Backend
+## Quick Start
+
+Prerequisites:
+
+- Java 21
+- Node.js 20 or later
+- Docker Desktop
+- k6 for local smoke checks
+
+Create a local environment file from the tracked sample, then keep private values local:
 
 ```bash
-cd back
-./gradlew test
-./gradlew bootRun
+cp .env.example .env
 ```
 
-Default local API:
-
-- `GET http://localhost:8080/api/health`
-- `GET http://localhost:8080/actuator/health`
-
-## Frontend
+Run the full local stack with PostgreSQL, backend, frontend, and the nginx entrypoint:
 
 ```bash
-cd front
-npm install
-npm run dev
+docker compose --env-file .env.example -f compose.dev.yml up --build
 ```
 
-Default local app:
+Run backend checks and the local backend directly:
 
-- `http://localhost:3000`
+```bash
+./back/gradlew -p back check
+./back/gradlew -p back bootRun
+```
 
-Environment:
+Run frontend checks and the local frontend directly:
 
-- `NEXT_PUBLIC_API_BASE_URL=http://localhost:8080`
+```bash
+npm --prefix front install
+npm --prefix front run build
+npm --prefix front run dev
+```
 
-## Vertex AI
+Default local endpoints:
 
-Backend chat intent analysis uses Vertex AI Gemini.
+- Backend API: `http://localhost:8080`
+- Frontend app: `http://localhost:3000`
+- Health: `GET /api/health`
+- Actuator liveness: `GET /actuator/health/liveness`
+- Actuator readiness: `GET /actuator/health/readiness`
+- Prometheus metrics: `GET /actuator/prometheus`
 
-Required runtime values:
+## Environment Variables
 
-- `GOOGLE_CLOUD_PROJECT_ID=grepp-ai-project`
-- `VERTEX_AI_LOCATION=us-central1`
-- `VERTEX_AI_MODEL=gemini-2.5-flash`
-- `GOOGLE_APPLICATION_CREDENTIALS`
+Keep sensitive values out of git. `vertex-key.json` is intentionally ignored and can be mounted by Docker Compose through `VERTEX_AI_CREDENTIALS_HOST_PATH`.
 
-For Docker Compose, keep the ignored service account key at `vertex-key.json` or set `VERTEX_AI_CREDENTIALS_HOST_PATH` to another local path. Compose mounts that file read-only at `/run/secrets/vertex-key.json`, which is the default `GOOGLE_APPLICATION_CREDENTIALS` value in `.env.example`.
-
-For direct backend runs outside Docker, set `GOOGLE_APPLICATION_CREDENTIALS` to the absolute local path of `vertex-key.json`. The key file is intentionally ignored by git.
-
-## Workflow
-
-1. Create an issue for the work item.
-2. Create a focused branch.
-3. Implement and verify locally.
-4. Open a pull request that links the issue.
-
-Local agent documents such as `AGENTS.md`, `docs/`, and `.codex/` are intentionally ignored.
+| Name | Default | Purpose |
+| --- | --- | --- |
+| `POSTGRES_DB` | `aquila_office` | Local PostgreSQL database name |
+| `POSTGRES_USER` | `aquila` | Local PostgreSQL user |
+| `POSTGRES_PASSWORD` | `aquila_dev_password` | Local PostgreSQL password |
+| `BACKEND_PORT` | `8080` | Host port for the backend container |
+| `FRONTEND_PORT` | `3000` | Host port for the frontend container |
+| `NEXT_PUBLIC_API_BASE_URL` | `http://localhost:8080` | Frontend API base URL |
+| `CUSTOM_CORS_ALLOWED_ORIGIN_PATTERNS` | `http://localhost:3000,http://localhost` | Browser origins allowed by the backend |
+| `AQUILA_AUTH_TOKEN_ISSUER` | `aquila-office` | JWT issuer |
+| `AQUILA_AUTH_TOKEN_SECRET` | local development secret | JWT signing secret; replace outside local runs |
+| `AQUILA_AUTH_ACCESS_TOKEN_TTL` | `15m` | Access token lifetime |
+| `AQUILA_AUTH_REFRESH_TOKEN_TTL` | `14d` | Refresh token lifetime |
+| `AQUILA_EXTERNAL_TOKEN_KEY` | local development key | AES-GCM key for external tokens; replace outside local runs |
+| `AQUILA_EXTERNAL_TOKEN_KEY_ID` | `local` | External token key identifier |
+| `AQUILA_GOOGLE_OAUTH_CLIENT_IDS` | development client ID | Accepted Google OAuth client IDs |
+| `AQUILA_GOOGLE_ALLOWED_HOSTED_DOMAINS` | empty | Optional Google hosted-domain allow list |
+| `AQUILA_GOOGLE_REQUIRE_EMAIL_VERIFIED` | `true` | Require verified Google email claims |
+| `GOOGLE_CLOUD_PROJECT_ID` | `grepp-ai-project` | Vertex AI project ID |
+| `VERTEX_AI_LOCATION` | `us-central1` | Vertex AI region |
+| `VERTEX_AI_MODEL` | `gemini-2.5-flash` | Vertex AI model |
+| `GOOGLE_APPLICATION_CREDENTIALS` | `/run/secrets/vertex-key.json` | Runtime credential file path |
+| `VERTEX_AI_CREDENTIALS_HOST_PATH` | `./vertex-key.json` | Local service account key path mounted into Compose |
+| `AQUILA_SLACK_CLIENT_ID` | empty | Slack OAuth client ID |
+| `AQUILA_SLACK_CLIENT_SECRET` | empty | Slack OAuth client secret |
+| `AQUILA_SLACK_SIGNING_SECRET` | empty | Slack event signature secret |
+| `AQUILA_INVITE_EMAIL_ENABLED` | `false` | Enable SMTP invite delivery |
