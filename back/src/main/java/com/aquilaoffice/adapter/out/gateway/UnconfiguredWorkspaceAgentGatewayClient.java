@@ -1,6 +1,7 @@
 package com.aquilaoffice.adapter.out.gateway;
 
 import com.aquilaoffice.domain.gateway.GatewayConnectionStatus;
+import java.util.List;
 
 final class UnconfiguredWorkspaceAgentGatewayClient implements WorkspaceAgentGatewayClient {
 
@@ -9,6 +10,16 @@ final class UnconfiguredWorkspaceAgentGatewayClient implements WorkspaceAgentGat
     @Override
     public WorkspaceAgentCreateGatewayResponse create(WorkspaceAgentCreateGatewayRequest request) {
         return new WorkspaceAgentCreateGatewayResponse(false, null, FAILURE_REASON);
+    }
+
+    @Override
+    public WorkspaceAgentListGatewayResponse list(WorkspaceAgentListGatewayRequest request) {
+        return new WorkspaceAgentListGatewayResponse(false, List.of(), FAILURE_REASON);
+    }
+
+    @Override
+    public WorkspaceAgentDeleteGatewayResponse delete(WorkspaceAgentDeleteGatewayRequest request) {
+        return new WorkspaceAgentDeleteGatewayResponse(false, FAILURE_REASON);
     }
 
     @Override
