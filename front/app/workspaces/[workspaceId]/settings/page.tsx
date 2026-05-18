@@ -52,6 +52,11 @@ import {
   type GithubCredential,
 } from "@/lib/github";
 import {
+  createIntegrationSettingsActions,
+  createIntegrationSettingsOverview,
+  type IntegrationSettingsAction,
+} from "@/lib/integration-settings";
+import {
   fetchWorkspaceInvites,
   revokeWorkspaceInvite,
   type WorkspaceInviteManagement,
@@ -82,6 +87,9 @@ import {
 
 const NAME_MAX_LENGTH = 100;
 const DESCRIPTION_MAX_LENGTH = 500;
+const EMPTY_GITHUB_CREDENTIALS: GithubCredential[] = [];
+const EMPTY_SLACK_INTEGRATIONS: SlackIntegration[] = [];
+const EMPTY_SLACK_CHANNEL_MAPPINGS: SlackChannelMapping[] = [];
 
 type WorkspaceSettingsState =
   | { status: "loading"; workspace: null; members: []; error: null }
@@ -567,6 +575,32 @@ export default function WorkspaceSettingsPage({
   const isGithubCredentialLoading = githubCredentialState.status === "loading";
   const isSlackIntegrationLoading = slackIntegrationState.status === "loading";
   const isGatewayStatusLoading = gatewayStatusState.status === "loading";
+  const githubCredentials =
+    githubCredentialState.status === "ready"
+      ? githubCredentialState.credentials
+      : EMPTY_GITHUB_CREDENTIALS;
+  const slackIntegrations =
+    slackIntegrationState.status === "ready"
+      ? slackIntegrationState.integrations
+      : EMPTY_SLACK_INTEGRATIONS;
+  const slackChannelMappings =
+    slackChannelMappingState.status === "ready"
+      ? slackChannelMappingState.mappings
+      : EMPTY_SLACK_CHANNEL_MAPPINGS;
+  const gatewayStatus =
+    gatewayStatusState.status === "ready" ? gatewayStatusState.gateway : null;
+  const integrationSettingsOverview = createIntegrationSettingsOverview({
+    githubCredentials,
+    slackIntegrations,
+    slackChannelMappings,
+    gatewayStatus,
+  });
+  const integrationSettingsActions = createIntegrationSettingsActions({
+    githubCredentials,
+    slackIntegrations,
+    slackChannelMappings,
+    gatewayStatus,
+  });
   const normalizedGatewayForm = useMemo(
     () =>
       normalizeGatewayForm({
@@ -598,8 +632,6 @@ export default function WorkspaceSettingsPage({
   const isCreatingSlackIntegration = slackCreateState.status === "submitting";
   const hasSlackIntegrationAction = slackAction !== null;
   const isSlackChannelMappingLoading = slackChannelMappingState.status === "loading";
-  const slackChannelMappings =
-    slackChannelMappingState.status === "ready" ? slackChannelMappingState.mappings : [];
   const trimmedSlackMappingTeamId = slackMappingTeamIdInput.trim();
   const trimmedSlackMappingChannelId = slackMappingChannelIdInput.trim();
   const trimmedSlackMappingChannelName = slackMappingChannelNameInput.trim();
@@ -1428,6 +1460,45 @@ export default function WorkspaceSettingsPage({
                 value={workspace.workspaceId}
               />
             </dl>
+
+            <section className="workspace-integration-overview" aria-label="연동 설정 요약">
+              <div className="workspace-section-title">
+                <div>
+                  <span className="workspace-detail-label">Integrations</span>
+                  <h2>연동 준비도</h2>
+                </div>
+                <span className="workspace-count-badge">
+                  {formatIntegrationSettingsReadiness(integrationSettingsOverview.readiness)}
+                </span>
+              </div>
+
+              <div className="workspace-integration-score">
+                <strong>{integrationSettingsOverview.summary}</strong>
+                <span>
+                  {integrationSettingsOverview.connectedCount}개 활성 ·{" "}
+                  {integrationSettingsOverview.totalCount}개 항목
+                </span>
+              </div>
+
+              <div className="workspace-integration-section-grid">
+                {integrationSettingsOverview.sections.map((section) => (
+                  <article
+                    className={`workspace-integration-section workspace-integration-section-${section.state}`}
+                    key={section.id}
+                  >
+                    <span>{section.label}</span>
+                    <strong>{section.count}</strong>
+                    <p>{section.detail}</p>
+                  </article>
+                ))}
+              </div>
+
+              <div className="workspace-integration-action-grid">
+                {integrationSettingsActions.map((action) => (
+                  <IntegrationSettingsActionCard action={action} key={action.id} />
+                ))}
+              </div>
+            </section>
 
             <section className="workspace-settings-section" aria-label="워크스페이스 정보 수정">
               <div className="workspace-section-title">
@@ -2815,6 +2886,22 @@ function SettingsNotice({
   );
 }
 
+function IntegrationSettingsActionCard({ action }: { action: IntegrationSettingsAction }) {
+  return (
+    <article className="workspace-integration-action-card">
+      <div>
+        <strong>{action.label}</strong>
+        <p>{action.detail}</p>
+      </div>
+      <span
+        className={`workspace-integration-action-state workspace-integration-action-state-${action.state}`}
+      >
+        {formatIntegrationSettingsActionState(action)}
+      </span>
+    </article>
+  );
+}
+
 function RoleSegmentedControl({
   role,
   busy,
@@ -2854,6 +2941,29 @@ function RoleSegmentedControl({
       })}
     </div>
   );
+}
+
+function formatIntegrationSettingsReadiness(readiness: string): string {
+  switch (readiness) {
+    case "ready":
+      return "준비 완료";
+    case "partial":
+      return "일부 준비";
+    case "empty":
+      return "설정 필요";
+    default:
+      return "확인 필요";
+  }
+}
+
+function formatIntegrationSettingsActionState(action: IntegrationSettingsAction): string {
+  if (action.state === "ready") {
+    return action.target === "oauth" ? "연결됨" : "준비됨";
+  }
+  if (action.state === "attention") {
+    return "확인 필요";
+  }
+  return "대기";
 }
 
 function toFailureState(error: unknown, fallback: string): WorkspaceSettingsState {
