@@ -63,6 +63,11 @@ test("home dashboard exposes auth token session actions", () => {
   assert.match(source, /clearAuthTokens/);
 });
 
+test("frontend route aliases expose workspace and auth entries", () => {
+  assert.match(readSource("app/workspaces/page.tsx"), /HomePage/);
+  assert.match(readSource("app/auth/page.tsx"), /HomePage/);
+});
+
 test("workspace settings exposes slack integration controls", () => {
   const source = readSource("app/workspaces/[workspaceId]/settings/page.tsx");
 
