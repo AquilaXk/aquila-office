@@ -7,8 +7,12 @@ on:
       - ".github/workflows/ci.yml"
       - ".github/workflows/backend-cd.yml"
       - "back/**"
+      - "docker/**"
       - "front/**"
+      - "perf/**"
       - "scripts/deploy/**"
+      - "tools/perf/**"
+      - "tools/test/run-k6-smoke.sh"
       - "README.md"
   push:
     branches: ["main"]
@@ -16,8 +20,12 @@ on:
       - ".github/workflows/ci.yml"
       - ".github/workflows/backend-cd.yml"
       - "back/**"
+      - "docker/**"
       - "front/**"
+      - "perf/**"
       - "scripts/deploy/**"
+      - "tools/perf/**"
+      - "tools/test/run-k6-smoke.sh"
       - "README.md"
   workflow_dispatch:
 
