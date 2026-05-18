@@ -24,6 +24,8 @@ temp/
 .env.*
 !.env.example
 compose.override.yml
+vertex-key.json
+**/vertex-key.json
 
 # Backend local files
 /back/.gradle/
