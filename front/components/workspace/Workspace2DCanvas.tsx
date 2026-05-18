@@ -39,12 +39,6 @@ type DragState = {
   clientY: number;
 };
 
-type PhaserPointer = {
-  x: number;
-  y: number;
-  rightButtonDown(): boolean;
-};
-
 const SCENE_WIDTH = 960;
 const SCENE_HEIGHT = 520;
 const WORLD_WIDTH = 1600;
@@ -104,80 +98,22 @@ export default function Workspace2DCanvas({
     container.replaceChildren();
 
     async function mountScene() {
-      // Phaser는 browser API에 의존하므로 client effect 내부에서만 로드한다.
-      const Phaser = await import("phaser");
+      // Phaser scene factory는 browser API에 의존하므로 client effect 내부에서만 로드한다.
+      const { createWorkspace2DGame } = await import("@/game/office/main");
       if (disposed || !container) {
         return;
       }
-
-      class WorkspaceScene extends Phaser.Scene {
-        constructor() {
-          super({ key: "Workspace2DScene" });
-        }
-
-        create() {
-          this.cameras.main.setBounds(0, 0, viewport.worldWidth, viewport.worldHeight);
-          this.cameras.main.setZoom(viewport.zoom);
-          this.cameras.main.scrollX = viewport.x;
-          this.cameras.main.scrollY = viewport.y;
-
-          drawGrid(this, viewport);
-          nodes.forEach((node) => {
-            const fillColor = node.kind === "agent" ? 0xc2a35b : 0x6f9f79;
-            const strokeColor = node.id === selectedNodeId ? 0xf1e6cc : 0x2b3035;
-            const avatar = this.add.circle(node.x, node.y, 28, fillColor, 0.92);
-            avatar.setStrokeStyle(3, strokeColor, 0.95);
-            avatar.setInteractive({ useHandCursor: true });
-            avatar.on("pointerdown", (pointer: PhaserPointer) => {
-              if (pointer.rightButtonDown()) {
-                setContextMenu(
-                  createWorkspaceContextMenuState({
-                    nodeId: node.id,
-                    kind: node.kind,
-                    screenX: pointer.x,
-                    screenY: pointer.y,
-                  }),
-                );
-                return;
-              }
-
-              setSelectedNodeId(node.id);
-              setContextMenu(null);
-              if (node.kind === "agent") {
-                eventBus.emit({
-                  type: "avatar.select",
-                  agentId: Number(node.id.replace("agent-", "")),
-                });
-              }
-            });
-
-            this.add
-              .text(node.x, node.y - 5, node.kind === "agent" ? "A" : "M", {
-                color: "#101214",
-                fontFamily: "Arial, Helvetica, sans-serif",
-                fontSize: "18px",
-                fontStyle: "700",
-              })
-              .setOrigin(0.5);
-            this.add
-              .text(node.x, node.y + 40, node.label, {
-                color: "#f1e6cc",
-                fontFamily: "Arial, Helvetica, sans-serif",
-                fontSize: "13px",
-                fontStyle: "700",
-              })
-              .setOrigin(0.5, 0);
-          });
-        }
-      }
-
-      game = new Phaser.Game({
-        type: Phaser.CANVAS,
+      game = createWorkspace2DGame({
         parent: container,
-        width: viewport.width,
-        height: viewport.height,
-        backgroundColor: "#101214",
-        scene: WorkspaceScene,
+        viewport,
+        nodes,
+        selectedNodeId,
+        eventBus,
+        onSelectNode: (node) => {
+          setSelectedNodeId(node.id);
+          setContextMenu(null);
+        },
+        onContextMenu: setContextMenu,
       });
     }
 
@@ -395,22 +331,6 @@ function WorkspaceContextMenu({ menu }: { menu: WorkspaceContextMenuState }) {
       ))}
     </div>
   );
-}
-
-function drawGrid(scene: Phaser.Scene, viewport: WorkspaceViewport) {
-  const grid = scene.add.graphics();
-  grid.lineStyle(1, 0xc2a35b, 0.16);
-  for (let x = 0; x <= viewport.worldWidth; x += 80) {
-    grid.moveTo(x, 0);
-    grid.lineTo(x, viewport.worldHeight);
-  }
-  for (let y = 0; y <= viewport.worldHeight; y += 80) {
-    grid.moveTo(0, y);
-    grid.lineTo(viewport.worldWidth, y);
-  }
-  grid.strokePath();
-  grid.lineStyle(2, 0xc2a35b, 0.34);
-  grid.strokeRect(24, 24, viewport.worldWidth - 48, viewport.worldHeight - 48);
 }
 
 function labelForContextAction(action: WorkspaceContextMenuAction): string {
