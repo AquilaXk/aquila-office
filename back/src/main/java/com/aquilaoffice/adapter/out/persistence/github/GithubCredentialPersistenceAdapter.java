@@ -9,6 +9,7 @@ import com.aquilaoffice.application.port.out.LoadGithubCredentialsPort;
 import com.aquilaoffice.application.port.out.SaveGithubCredentialPort;
 import com.aquilaoffice.application.port.out.UpdateGithubCredentialPort;
 import com.aquilaoffice.domain.github.GithubCredential;
+import com.aquilaoffice.global.security.ExternalTokenCipher;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Objects;
@@ -30,12 +31,15 @@ public class GithubCredentialPersistenceAdapter
 
     private final WorkspaceJpaRepository workspaceJpaRepository;
     private final GithubCredentialJpaRepository githubCredentialJpaRepository;
+    private final ExternalTokenCipher externalTokenCipher;
 
     public GithubCredentialPersistenceAdapter(
             WorkspaceJpaRepository workspaceJpaRepository,
-            GithubCredentialJpaRepository githubCredentialJpaRepository) {
+            GithubCredentialJpaRepository githubCredentialJpaRepository,
+            ExternalTokenCipher externalTokenCipher) {
         this.workspaceJpaRepository = workspaceJpaRepository;
         this.githubCredentialJpaRepository = githubCredentialJpaRepository;
+        this.externalTokenCipher = externalTokenCipher;
     }
 
     @Override
@@ -47,7 +51,10 @@ public class GithubCredentialPersistenceAdapter
                 .orElseThrow(() -> new IllegalArgumentException("workspace entity not found"));
 
         GithubCredentialJpaEntity savedEntity =
-                githubCredentialJpaRepository.save(GithubCredentialJpaEntity.from(credential, workspaceEntity));
+                githubCredentialJpaRepository.save(GithubCredentialJpaEntity.from(
+                        credential,
+                        workspaceEntity,
+                        externalTokenCipher.encrypt(credential.getToken())));
         return toDomain(savedEntity);
     }
 
@@ -88,7 +95,9 @@ public class GithubCredentialPersistenceAdapter
                 .findActiveByIdAndWorkspaceId(credential.getId(), credential.getWorkspaceId())
                 .orElseThrow(() -> new IllegalArgumentException("github credential entity not found"));
 
-        credentialEntity.update(credential);
+        credentialEntity.update(
+                credential.getDisplayName(),
+                externalTokenCipher.encrypt(credential.getToken()));
         return toDomain(credentialEntity);
     }
 
@@ -109,7 +118,7 @@ public class GithubCredentialPersistenceAdapter
                 entity.getId(),
                 entity.getWorkspace().getId(),
                 entity.getDisplayName(),
-                entity.getToken(),
+                externalTokenCipher.decrypt(entity.getToken()),
                 entity.getCreatedByGoogleSub());
     }
 }

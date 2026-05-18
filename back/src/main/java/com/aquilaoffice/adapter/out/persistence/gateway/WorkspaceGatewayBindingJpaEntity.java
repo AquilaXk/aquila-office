@@ -51,12 +51,13 @@ public class WorkspaceGatewayBindingJpaEntity extends BaseEntity {
 
     public static WorkspaceGatewayBindingJpaEntity from(
             WorkspaceGatewayBinding binding,
-            WorkspaceJpaEntity workspace) {
-        // token은 adapter 내부 저장값으로만 유지하고 web/API 응답은 maskedToken으로 제한한다.
+            WorkspaceJpaEntity workspace,
+            String encryptedToken) {
+        // token column에는 암호화된 저장값만 남기고 web/API 응답은 기존처럼 maskedToken으로 제한한다.
         return new WorkspaceGatewayBindingJpaEntity(
                 workspace,
                 binding.getGatewayUrl(),
-                binding.getToken(),
+                encryptedToken,
                 binding.getCreatedByGoogleSub(),
                 null);
     }

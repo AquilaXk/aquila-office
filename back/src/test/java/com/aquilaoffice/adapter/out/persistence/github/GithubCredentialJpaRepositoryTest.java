@@ -35,14 +35,13 @@ class GithubCredentialJpaRepositoryTest {
         WorkspaceJpaEntity workspaceEntity = saveWorkspaceEntity("creator-google");
         WorkspaceJpaEntity otherWorkspaceEntity = saveWorkspaceEntity("other-google");
         GithubCredentialJpaEntity older = githubCredentialJpaRepository.save(
-                GithubCredentialJpaEntity.from(credential(workspaceEntity.getId(), "Older"), workspaceEntity));
+                githubCredentialEntity(workspaceEntity, "Older"));
         GithubCredentialJpaEntity newer = githubCredentialJpaRepository.save(
-                GithubCredentialJpaEntity.from(credential(workspaceEntity.getId(), "Newer"), workspaceEntity));
+                githubCredentialEntity(workspaceEntity, "Newer"));
         GithubCredentialJpaEntity deleted = githubCredentialJpaRepository.save(
-                GithubCredentialJpaEntity.from(credential(workspaceEntity.getId(), "Deleted"), workspaceEntity));
+                githubCredentialEntity(workspaceEntity, "Deleted"));
         deleted.softDelete(LocalDateTime.of(2026, 5, 16, 10, 0));
-        githubCredentialJpaRepository.save(
-                GithubCredentialJpaEntity.from(credential(otherWorkspaceEntity.getId(), "Other"), otherWorkspaceEntity));
+        githubCredentialJpaRepository.save(githubCredentialEntity(otherWorkspaceEntity, "Other"));
 
         assertThat(githubCredentialJpaRepository.findActiveByWorkspaceIdOrderByIdDesc(workspaceEntity.getId()))
                 .extracting(GithubCredentialJpaEntity::getId)
@@ -55,6 +54,13 @@ class GithubCredentialJpaRepositoryTest {
 
     private GithubCredential credential(Long workspaceId, String displayName) {
         return GithubCredential.create(workspaceId, displayName, "ghp_1234567890abcdef", "creator-google");
+    }
+
+    private GithubCredentialJpaEntity githubCredentialEntity(WorkspaceJpaEntity workspaceEntity, String displayName) {
+        return GithubCredentialJpaEntity.from(
+                credential(workspaceEntity.getId(), displayName),
+                workspaceEntity,
+                "stored-token-" + displayName);
     }
 
     private WorkspaceJpaEntity saveWorkspaceEntity(String googleSub) {

@@ -49,19 +49,22 @@ public class GithubCredentialJpaEntity extends BaseEntity {
         this.deletedAt = deletedAt;
     }
 
-    public static GithubCredentialJpaEntity from(GithubCredential credential, WorkspaceJpaEntity workspace) {
-        // token은 다음 인증/암호화 PR 전까지 persistence adapter 경계 안에서만 원문으로 보관하고 API 응답에는 노출하지 않는다.
+    public static GithubCredentialJpaEntity from(
+            GithubCredential credential,
+            WorkspaceJpaEntity workspace,
+            String encryptedToken) {
+        // token column에는 암호화된 저장값만 남기고 원문은 persistence adapter에서 domain 복원 시에만 사용한다.
         return new GithubCredentialJpaEntity(
                 workspace,
                 credential.getDisplayName(),
-                credential.getToken(),
+                encryptedToken,
                 credential.getCreatedByGoogleSub(),
                 null);
     }
 
-    public void update(GithubCredential credential) {
-        this.displayName = credential.getDisplayName();
-        this.token = credential.getToken();
+    public void update(String displayName, String encryptedToken) {
+        this.displayName = displayName;
+        this.token = encryptedToken;
     }
 
     public void softDelete(LocalDateTime deletedAt) {
