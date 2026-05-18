@@ -56,6 +56,35 @@ export type WorkspaceDetailOverview = {
   };
 };
 
+export type WorkspaceDetailActionItemId =
+  | "agents"
+  | "tasks"
+  | "files"
+  | "chat"
+  | "invite"
+  | "plan";
+
+export type WorkspaceDetailActionItemState = "ready" | "empty" | "locked";
+
+export type WorkspaceDetailActionItemTone = "neutral" | "success" | "warning";
+
+export type WorkspaceDetailActionItemsInput = {
+  agentCount: number;
+  taskCount: number;
+  memberCount: number;
+  canCreateInvite: boolean;
+  hasArtifactTree: boolean;
+  hasOrchestrationPlan: boolean;
+};
+
+export type WorkspaceDetailActionItem = {
+  id: WorkspaceDetailActionItemId;
+  label: string;
+  value: string;
+  state: WorkspaceDetailActionItemState;
+  tone: WorkspaceDetailActionItemTone;
+};
+
 const ACTIVE_TASK_STATUSES = new Set(["REQUESTED", "ASSIGNED", "IN_PROGRESS", "WAITING_USER"]);
 const ATTENTION_AGENT_STATUSES = new Set(["CREATING", "SYNC_FAILED", "ERROR"]);
 
@@ -99,6 +128,55 @@ export function createWorkspaceDetailOverview(
       online: onlineMembers,
     },
   };
+}
+
+export function createWorkspaceDetailActionItems(
+  input: WorkspaceDetailActionItemsInput,
+): WorkspaceDetailActionItem[] {
+  return [
+    {
+      id: "agents",
+      label: "Agents",
+      value: String(input.agentCount),
+      state: input.agentCount > 0 ? "ready" : "empty",
+      tone: input.agentCount > 0 ? "success" : "neutral",
+    },
+    {
+      id: "tasks",
+      label: "Tasks",
+      value: String(input.taskCount),
+      state: input.taskCount > 0 ? "ready" : "empty",
+      tone: input.taskCount > 0 ? "warning" : "neutral",
+    },
+    {
+      id: "files",
+      label: "Files",
+      value: input.hasArtifactTree ? "ready" : "empty",
+      state: input.hasArtifactTree ? "ready" : "empty",
+      tone: "neutral",
+    },
+    {
+      id: "chat",
+      label: "Task Chat",
+      value: `${input.taskCount} tasks`,
+      state: input.taskCount > 0 ? "ready" : "empty",
+      tone: "neutral",
+    },
+    {
+      id: "invite",
+      label: "Invite",
+      value: `${input.memberCount} members`,
+      state: input.canCreateInvite ? "ready" : "locked",
+      tone: input.canCreateInvite ? "success" : "neutral",
+    },
+    {
+      id: "plan",
+      label: "Plan",
+      value: input.hasOrchestrationPlan ? "ready" : "empty",
+      state: input.hasOrchestrationPlan ? "ready" : "empty",
+      tone: "neutral",
+    },
+  ];
 }
 
 function readinessFor(
