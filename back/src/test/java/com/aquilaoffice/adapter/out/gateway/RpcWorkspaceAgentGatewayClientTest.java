@@ -7,7 +7,10 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.net.URI;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 import org.junit.jupiter.api.Test;
 
@@ -93,6 +96,61 @@ class RpcWorkspaceAgentGatewayClientTest {
         assertThat(transport.closed()).isTrue();
     }
 
+    @Test
+    void authenticatesGatewayDeviceWithChallengeThenConnect() throws Exception {
+        RespondingTransport transport = new RespondingTransport(
+                objectMapper,
+                (requestId, message) -> {
+                    JsonNode request = readJson(message);
+                    if ("gateway.challenge".equals(request.path("method").asText())) {
+                        return """
+                                {"id":"%s","result":{"challenge":"challenge-1"}}
+                                """.formatted(requestId);
+                    }
+                    return """
+                            {"id":"%s","result":{
+                              "connected":true,
+                              "deviceId":"gw-device-1",
+                              "deviceName":"Seoul Office Gateway",
+                              "message":"gateway connected",
+                              "agentCount":2
+                            }}
+                            """.formatted(requestId);
+                });
+        RpcWorkspaceAgentGatewayClient client = new RpcWorkspaceAgentGatewayClient(
+                transport,
+                objectMapper,
+                new GatewayRpcProperties(Duration.ofMillis(200), "/rpc"));
+
+        WorkspaceGatewayAuthenticationResponse response = client.authenticate(
+                new WorkspaceGatewayAuthenticationRequest(
+                        101L,
+                        "https://gateway.example.com/base/",
+                        "secret-token"));
+
+        assertThat(response.connected()).isTrue();
+        assertThat(response.gatewayUrl()).isEqualTo("https://gateway.example.com/base/");
+        assertThat(response.deviceId()).isEqualTo("gw-device-1");
+        assertThat(response.deviceName()).isEqualTo("Seoul Office Gateway");
+        assertThat(response.message()).isEqualTo("gateway connected");
+        assertThat(response.agentCount()).isEqualTo(2);
+        assertThat(response.failureReason()).isNull();
+        assertThat(client.pendingRequestCount()).isZero();
+        assertThat(transport.connectedUri()).isEqualTo(URI.create("wss://gateway.example.com/base/rpc"));
+        assertThat(transport.closed()).isTrue();
+
+        assertThat(transport.sentMessages()).hasSize(2);
+        JsonNode challengeMessage = objectMapper.readTree(transport.sentMessages().get(0));
+        assertThat(challengeMessage.path("method").asText()).isEqualTo("gateway.challenge");
+        assertThat(challengeMessage.path("token").asText()).isEqualTo("secret-token");
+        assertThat(challengeMessage.path("params").path("workspaceId").asLong()).isEqualTo(101L);
+        JsonNode connectMessage = objectMapper.readTree(transport.sentMessages().get(1));
+        assertThat(connectMessage.path("method").asText()).isEqualTo("gateway.connect");
+        assertThat(connectMessage.path("token").asText()).isEqualTo("secret-token");
+        assertThat(connectMessage.path("params").path("workspaceId").asLong()).isEqualTo(101L);
+        assertThat(connectMessage.path("params").path("challenge").asText()).isEqualTo("challenge-1");
+    }
+
     private static WorkspaceAgentGatewayRequest request(String gatewayUrl) {
         return new WorkspaceAgentGatewayRequest(
                 101L,
@@ -108,15 +166,27 @@ class RpcWorkspaceAgentGatewayClientTest {
                 true);
     }
 
+    private JsonNode readJson(String message) {
+        try {
+            return objectMapper.readTree(message);
+        } catch (Exception exception) {
+            throw new IllegalArgumentException("request json is invalid", exception);
+        }
+    }
+
     private static final class RespondingTransport implements GatewayWebSocketTransport {
 
         private final ObjectMapper objectMapper;
-        private final Function<String, String> responseFactory;
+        private final BiFunction<String, String, String> responseFactory;
         private URI connectedUri;
-        private String sentMessage;
+        private final List<String> sentMessages = new ArrayList<>();
         private boolean closed;
 
         private RespondingTransport(ObjectMapper objectMapper, Function<String, String> responseFactory) {
+            this(objectMapper, (requestId, message) -> responseFactory.apply(requestId));
+        }
+
+        private RespondingTransport(ObjectMapper objectMapper, BiFunction<String, String, String> responseFactory) {
             this.objectMapper = objectMapper;
             this.responseFactory = responseFactory;
         }
@@ -127,8 +197,8 @@ class RpcWorkspaceAgentGatewayClientTest {
             return new GatewayWebSocketSession() {
                 @Override
                 public CompletableFuture<Void> sendText(String message) {
-                    sentMessage = message;
-                    listener.onText(responseFactory.apply(readRequestId(message)));
+                    sentMessages.add(message);
+                    listener.onText(responseFactory.apply(readRequestId(message), message));
                     return CompletableFuture.completedFuture(null);
                 }
 
@@ -153,7 +223,11 @@ class RpcWorkspaceAgentGatewayClientTest {
         }
 
         private String sentMessage() {
-            return sentMessage;
+            return sentMessages.getLast();
+        }
+
+        private List<String> sentMessages() {
+            return sentMessages;
         }
 
         private boolean closed() {
