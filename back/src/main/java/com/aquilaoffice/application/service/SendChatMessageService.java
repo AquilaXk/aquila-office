@@ -22,8 +22,6 @@ import com.aquilaoffice.domain.chat.ChatMessageRole;
 import com.aquilaoffice.domain.chat.ChatSession;
 import com.aquilaoffice.domain.member.Member;
 import com.aquilaoffice.domain.task.Task;
-import com.aquilaoffice.domain.task.TaskPriority;
-import com.aquilaoffice.domain.task.TaskType;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;

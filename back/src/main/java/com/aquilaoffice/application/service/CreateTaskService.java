@@ -8,7 +8,6 @@ import com.aquilaoffice.application.port.out.LoadWorkspaceAgentPort;
 import com.aquilaoffice.application.port.out.LoadWorkspacePort;
 import com.aquilaoffice.application.port.out.SaveTaskPort;
 import com.aquilaoffice.domain.agent.WorkspaceAgentStatus;
-import com.aquilaoffice.domain.member.Member;
 import com.aquilaoffice.domain.task.Task;
 import java.util.Objects;
 
