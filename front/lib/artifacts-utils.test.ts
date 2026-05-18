@@ -8,6 +8,7 @@ import {
   workspaceArtifactFilePath,
   workspaceArtifactTreePath,
   workspaceOrchestrationPlanArtifactPath,
+  workspaceOrchestrationPlanStepArtifactPath,
   type ArtifactTree,
 } from "./artifacts-utils.ts";
 
@@ -43,6 +44,10 @@ test("workspace artifact paths target a single workspace", () => {
   assert.equal(
     workspaceOrchestrationPlanArtifactPath(101, 701),
     "/api/v1/workspaces/101/artifacts/orchestration-plans/701",
+  );
+  assert.equal(
+    workspaceOrchestrationPlanStepArtifactPath(101, 701, 11),
+    "/api/v1/workspaces/101/artifacts/orchestration-plans/701/steps/11",
   );
 });
 

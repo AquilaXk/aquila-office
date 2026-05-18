@@ -6,6 +6,7 @@ import {
   SERVICE_DESCRIPTION,
   SERVICE_NAME,
 } from "@/lib/branding";
+import Providers from "./providers";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -37,7 +38,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ko">
-      <body>{children}</body>
+      <body>
+        <Providers>{children}</Providers>
+      </body>
     </html>
   );
 }

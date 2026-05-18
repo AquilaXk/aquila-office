@@ -101,6 +101,31 @@ public class ArtifactController {
         }
     }
 
+    @GetMapping("/orchestration-plans/{planId}/steps/{stepId}")
+    public ResponseEntity<RsData<OrchestrationPlanStepResponse>> getOrchestrationPlanStepArtifact(
+            @PathVariable Long workspaceId,
+            @PathVariable Long planId,
+            @PathVariable Long stepId,
+            Authentication authentication) {
+        String normalizedRequesterGoogleSub = requireAuthenticatedRequesterGoogleSub(authentication);
+
+        try {
+            var artifact = getOrchestrationPlanArtifactUseCase.getOrchestrationPlanArtifact(
+                    new GetOrchestrationPlanArtifactQuery(
+                            workspaceId,
+                            planId,
+                            normalizedRequesterGoogleSub));
+            return artifact.steps().stream()
+                    .filter(step -> step.stepId().equals(stepId))
+                    .findFirst()
+                    .map(step -> ResponseEntity.ok(RsData.ok(OrchestrationPlanStepResponse.from(step))))
+                    .orElseThrow(() -> new ServiceException(CommonErrorCode.NOT_FOUND));
+        } catch (IllegalArgumentException exception) {
+            // step artifact도 워크스페이스 멤버에게만 노출하므로 실패 사유를 숨긴다.
+            throw new ServiceException(CommonErrorCode.NOT_FOUND);
+        }
+    }
+
     @GetMapping("/orchestration-plans/{planId}/files")
     public ResponseEntity<RsData<ArtifactFileContentResponse>> getOrchestrationPlanFile(
             @PathVariable Long workspaceId,

@@ -180,10 +180,54 @@ class WorkspaceAgentServiceTest {
         assertThat(gatewayPort.command.skillFiles())
                 .extracting(CreateWorkspaceAgentGatewayCommand.SkillFile::fileName)
                 .containsExactly("AGENTS.md", "backend-guide.md");
+        assertThat(savePort.savedSkillFiles)
+                .extracting(WorkspaceAgentSkillFile::getSyncStatus)
+                .containsExactly(
+                        WorkspaceAgentSkillFileSyncStatus.SYNCED,
+                        WorkspaceAgentSkillFileSyncStatus.SYNCED);
         assertThat(savePort.savedAgent.getStatus()).isEqualTo(WorkspaceAgentStatus.READY);
         assertThat(savePort.savedAgent.getOpenClawAgentId()).isEqualTo("oc-agent-1");
         assertThat(result.status()).isEqualTo(WorkspaceAgentStatus.READY);
         assertThat(result.openClawAgentId()).isEqualTo("oc-agent-1");
+    }
+
+    @Test
+    void createWorkspaceAgentRecordsFailedSkillFileSync() {
+        FakeSaveWorkspaceAgentPort savePort = new FakeSaveWorkspaceAgentPort(null);
+        CreateWorkspaceAgentService service = new CreateWorkspaceAgentService(
+                new FakeLoadMemberPort(Optional.of(Member.createUser("google-1", "admin@example.com", "Admin"))),
+                new FakeLoadWorkspacePort(Optional.of(workspaceDetail(WorkspaceMemberRole.ADMIN))),
+                savePort,
+                new FakeLoadWorkspaceGatewayBindingPort(Optional.of(gatewayBinding())),
+                new FakeCreateWorkspaceAgentGatewayPort(new CreateWorkspaceAgentGatewayResult(
+                        false,
+                        "oc-agent-1",
+                        "gateway skill file sync failed",
+                        List.of(
+                                new CreateWorkspaceAgentGatewayResult.SkillFileResult("AGENTS.md", true, null),
+                                new CreateWorkspaceAgentGatewayResult.SkillFileResult(
+                                        "backend-guide.md",
+                                        false,
+                                        "write denied")))));
+
+        CreateWorkspaceAgentResult result = service.createWorkspaceAgent(new CreateWorkspaceAgentCommand(
+                101L,
+                "google-1",
+                "Backend Agent",
+                WorkspaceAgentCategory.BACKEND,
+                ".aquila/workspaces/101",
+                List.of()));
+
+        assertThat(savePort.savedAgent.getStatus()).isEqualTo(WorkspaceAgentStatus.SYNC_FAILED);
+        assertThat(savePort.savedAgent.getOpenClawAgentId()).isEqualTo("oc-agent-1");
+        assertThat(savePort.savedAgent.getSyncError()).isEqualTo("gateway skill file sync failed");
+        assertThat(savePort.savedSkillFiles)
+                .extracting(WorkspaceAgentSkillFile::getSyncStatus)
+                .containsExactly(
+                        WorkspaceAgentSkillFileSyncStatus.SYNCED,
+                        WorkspaceAgentSkillFileSyncStatus.FAILED);
+        assertThat(savePort.savedSkillFiles.get(1).getSyncError()).isEqualTo("write denied");
+        assertThat(result.status()).isEqualTo(WorkspaceAgentStatus.SYNC_FAILED);
     }
 
     @Test
