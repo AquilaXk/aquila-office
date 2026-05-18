@@ -5,15 +5,19 @@ on:
     branches: ["main"]
     paths:
       - ".github/workflows/ci.yml"
+      - ".github/workflows/backend-cd.yml"
       - "back/**"
       - "front/**"
+      - "scripts/deploy/**"
       - "README.md"
   push:
     branches: ["main"]
     paths:
       - ".github/workflows/ci.yml"
+      - ".github/workflows/backend-cd.yml"
       - "back/**"
       - "front/**"
+      - "scripts/deploy/**"
       - "README.md"
   workflow_dispatch:
 

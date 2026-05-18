@@ -1,0 +1,107 @@
+name: Backend CD
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Run deployment steps without changing the OCI host
+        required: true
+        type: boolean
+        default: true
+      target_slot:
+        description: Optional blue/green slot override
+        required: true
+        type: choice
+        default: auto
+        options:
+          - auto
+          - blue
+          - green
+  push:
+    tags:
+      - "backend-v*"
+
+permissions:
+  contents: read
+
+jobs:
+  backend-cd:
+    name: Backend CD
+    runs-on: ubuntu-latest
+    env:
+      IMAGE_REF: aquila-office-back:${{ github.sha }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Resolve deployment mode
+        id: mode
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "dry_run=${{ inputs.dry_run }}" >> "$GITHUB_OUTPUT"
+            echo "target_slot=${{ inputs.target_slot }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "dry_run=false" >> "$GITHUB_OUTPUT"
+            echo "target_slot=auto" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build backend image
+        run: docker build -f back/Dockerfile -t "$IMAGE_REF" .
+
+      - name: Save backend image
+        run: docker save "$IMAGE_REF" -o backend-image.tar
+
+      - name: Upload backend image artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-image
+          path: backend-image.tar
+          retention-days: 7
+
+      - name: Dry-run deployment hook
+        if: steps.mode.outputs.dry_run == 'true'
+        shell: bash
+        run: |
+          slot_arg=()
+          if [[ "${{ steps.mode.outputs.target_slot }}" != "auto" ]]; then
+            slot_arg=(--slot "${{ steps.mode.outputs.target_slot }}")
+          fi
+          scripts/deploy/oci-backend-hook.sh \
+            --dry-run \
+            --image "$IMAGE_REF" \
+            --image-tar backend-image.tar \
+            "${slot_arg[@]}"
+
+      - name: Prepare SSH key
+        if: steps.mode.outputs.dry_run != 'true'
+        shell: bash
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "${{ secrets.OCI_SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+
+      - name: Upload deployment payload
+        if: steps.mode.outputs.dry_run != 'true'
+        shell: bash
+        run: |
+          remote="${{ secrets.OCI_BACKEND_USER }}@${{ secrets.OCI_BACKEND_HOST }}"
+          ssh -o StrictHostKeyChecking=accept-new "$remote" "install -d /tmp/aquila-office-deploy"
+          scp -o StrictHostKeyChecking=accept-new \
+            backend-image.tar \
+            scripts/deploy/backend-blue-green.sh \
+            scripts/deploy/oci-backend-hook.sh \
+            "$remote:/tmp/aquila-office-deploy/"
+
+      - name: Run OCI deployment hook
+        if: steps.mode.outputs.dry_run != 'true'
+        shell: bash
+        run: |
+          remote="${{ secrets.OCI_BACKEND_USER }}@${{ secrets.OCI_BACKEND_HOST }}"
+          slot_arg=""
+          if [[ "${{ steps.mode.outputs.target_slot }}" != "auto" ]]; then
+            slot_arg="--slot ${{ steps.mode.outputs.target_slot }}"
+          fi
+          ssh -o StrictHostKeyChecking=accept-new "$remote" \
+            "cd /tmp/aquila-office-deploy && chmod +x *.sh && ./oci-backend-hook.sh --image '$IMAGE_REF' --image-tar backend-image.tar $slot_arg"
