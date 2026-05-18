@@ -167,6 +167,29 @@ Prometheus scrape settings:
 - Default target: `backend:8080` in Docker networks, or `localhost:8080` for local runs
 - Recommended alert inputs: `http_server_requests_seconds`, `http_req_failed`, JVM memory, HikariCP connection gauges, and process CPU usage
 
+Workflow metrics:
+
+| Metric | Labels | Purpose |
+| --- | --- | --- |
+| `aquila_task_execution_started_total` | 없음 | Task execution start count |
+| `aquila_task_execution_completed_total` | `status=succeeded\|failed` | Task execution outcome count |
+| `aquila_task_execution_duration_seconds` | `status=succeeded\|failed` | Task execution latency |
+| `aquila_gateway_rpc_requests_total` | `method` | Gateway RPC request count |
+| `aquila_gateway_rpc_completed_total` | `method`, `outcome=success\|failure\|timeout` | Gateway RPC result count |
+| `aquila_gateway_rpc_latency_seconds` | `method`, `outcome=success\|failure\|timeout` | Gateway RPC latency |
+| `aquila_slack_events_received_total` | `route=global\|workspace` | Slack event receive count |
+| `aquila_slack_events_signature_failures_total` | `route=global\|workspace` | Slack signature verification failures |
+| `aquila_slack_events_dedupe_hits_total` | 없음 | Slack duplicate event skips |
+| `aquila_slack_events_processing_failures_total` | `stage=payload_parse\|signature_config\|use_case` | Slack processing failures |
+
+Metric labels are fixed low-cardinality values. Workspace IDs, user IDs, URLs, tokens, prompts, and failure text are never used as labels.
+
+Alert examples:
+
+- Task failure ratio: `sum(rate(aquila_task_execution_completed_total{status="failed"}[5m])) / sum(rate(aquila_task_execution_completed_total[5m])) > 0.2`
+- Gateway timeout spike: `sum(rate(aquila_gateway_rpc_completed_total{outcome="timeout"}[5m])) > 0`
+- Slack signature failures: `sum(rate(aquila_slack_events_signature_failures_total[5m])) > 0`
+
 Deployment scripts:
 
 - `scripts/deploy/backend-blue-green.sh` builds a backend image and switches traffic after health confirmation.

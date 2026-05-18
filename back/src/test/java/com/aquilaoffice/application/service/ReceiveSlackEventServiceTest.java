@@ -160,11 +160,13 @@ class ReceiveSlackEventServiceTest {
         FakeSendChatMessageUseCase sendChatMessageUseCase = new FakeSendChatMessageUseCase();
         FakeSendSlackReplyPort sendSlackReplyPort = new FakeSendSlackReplyPort();
         FakeClaimSlackEventPort claimSlackEventPort = new FakeClaimSlackEventPort(false);
+        RecordingWorkflowMetrics workflowMetrics = new RecordingWorkflowMetrics();
         ReceiveSlackEventUseCase service = newService(
                 sendChatMessageUseCase,
                 new FakeLoadSlackChannelMappingPort(Optional.empty()),
                 sendSlackReplyPort,
-                claimSlackEventPort);
+                claimSlackEventPort,
+                workflowMetrics);
 
         ReceiveSlackEventResult result = service.receiveSlackEvent(new ReceiveSlackEventCommand(
                 101L,
@@ -186,6 +188,7 @@ class ReceiveSlackEventServiceTest {
         assertThat(result.ignoredReason()).isEqualTo("duplicate event");
         assertThat(sendChatMessageUseCase.called).isFalse();
         assertThat(sendSlackReplyPort.request).isNull();
+        assertThat(workflowMetrics.slackDedupeHits).isEqualTo(1);
     }
 
     @Test
@@ -306,12 +309,27 @@ class ReceiveSlackEventServiceTest {
             LoadSlackChannelMappingPort loadSlackChannelMappingPort,
             SendSlackReplyPort sendSlackReplyPort,
             ClaimSlackEventPort claimSlackEventPort) {
+        return newService(
+                sendChatMessageUseCase,
+                loadSlackChannelMappingPort,
+                sendSlackReplyPort,
+                claimSlackEventPort,
+                WorkflowMetrics.noop());
+    }
+
+    private static ReceiveSlackEventUseCase newService(
+            SendChatMessageUseCase sendChatMessageUseCase,
+            LoadSlackChannelMappingPort loadSlackChannelMappingPort,
+            SendSlackReplyPort sendSlackReplyPort,
+            ClaimSlackEventPort claimSlackEventPort,
+            WorkflowMetrics workflowMetrics) {
         return new ReceiveSlackEventService(
                 new SlackAgentCommandParser(),
                 sendChatMessageUseCase,
                 loadSlackChannelMappingPort,
                 sendSlackReplyPort,
-                claimSlackEventPort);
+                claimSlackEventPort,
+                workflowMetrics);
     }
 
     private static class FakeLoadSlackChannelMappingPort implements LoadSlackChannelMappingPort {
@@ -393,6 +411,37 @@ class ReceiveSlackEventServiceTest {
         public boolean claimEvent(String eventId) {
             this.eventId = eventId;
             return claimed;
+        }
+    }
+
+    private static class RecordingWorkflowMetrics implements WorkflowMetrics {
+        private int slackDedupeHits;
+
+        @Override
+        public OperationSample startTaskExecution() {
+            return OperationSample.noop();
+        }
+
+        @Override
+        public OperationSample startGatewayRpc(String method) {
+            return OperationSample.noop();
+        }
+
+        @Override
+        public void recordSlackEventReceived(String route) {
+        }
+
+        @Override
+        public void recordSlackSignatureFailure(String route) {
+        }
+
+        @Override
+        public void recordSlackDedupeHit() {
+            slackDedupeHits++;
+        }
+
+        @Override
+        public void recordSlackProcessingFailure(String stage) {
         }
     }
 }

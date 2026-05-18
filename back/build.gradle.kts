@@ -43,6 +43,7 @@ dependencies {
     testImplementation("org.springframework.boot:spring-boot-data-jpa-test")
     testImplementation("org.springframework.boot:spring-boot-starter-webmvc-test")
     testImplementation("com.tngtech.archunit:archunit-junit5:1.4.2")
+    testImplementation("io.micrometer:micrometer-registry-prometheus")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 

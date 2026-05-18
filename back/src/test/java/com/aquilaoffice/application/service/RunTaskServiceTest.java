@@ -56,6 +56,7 @@ class RunTaskServiceTest {
         FakeUpdateTaskExecutionPort updateExecutionPort = new FakeUpdateTaskExecutionPort();
         FakeUpdateTaskStatusPort updateTaskStatusPort = new FakeUpdateTaskStatusPort();
         FakeSaveTaskExecutionLogPort saveLogPort = new FakeSaveTaskExecutionLogPort();
+        RecordingWorkflowMetrics workflowMetrics = new RecordingWorkflowMetrics();
         FakeRunWorkspaceAgentPort runPort = new FakeRunWorkspaceAgentPort(
                 new WorkspaceAgentRunResult(true, "실행 완료", null));
         RunTaskService service = newService(
@@ -67,6 +68,7 @@ class RunTaskServiceTest {
                 updateExecutionPort,
                 updateTaskStatusPort,
                 saveLogPort,
+                workflowMetrics,
                 WorkspaceMemberRole.MEMBER);
 
         RunTaskResult result = service.runTask(new RunTaskCommand(101L, 301L, " google-1 ", false));
@@ -87,12 +89,16 @@ class RunTaskServiceTest {
         assertThat(result.taskStatus()).isEqualTo(TaskStatus.COMPLETED);
         assertThat(result.executionStatus()).isEqualTo(TaskExecutionStatus.SUCCEEDED);
         assertThat(result.finalText()).isEqualTo("실행 완료");
+        assertThat(workflowMetrics.taskStarted).isEqualTo(1);
+        assertThat(workflowMetrics.taskSuccess).isEqualTo(1);
+        assertThat(workflowMetrics.taskFailure).isZero();
     }
 
     @Test
     void runTaskFailsExecutionWhenGatewayBindingIsMissing() {
         FakeUpdateTaskExecutionPort updateExecutionPort = new FakeUpdateTaskExecutionPort();
         FakeUpdateTaskStatusPort updateTaskStatusPort = new FakeUpdateTaskStatusPort();
+        RecordingWorkflowMetrics workflowMetrics = new RecordingWorkflowMetrics();
         FakeRunWorkspaceAgentPort runPort = new FakeRunWorkspaceAgentPort(
                 new WorkspaceAgentRunResult(true, "unused", null));
         RunTaskService service = newService(
@@ -103,6 +109,8 @@ class RunTaskServiceTest {
                 new FakeSaveTaskExecutionPort(),
                 updateExecutionPort,
                 updateTaskStatusPort,
+                new FakeSaveTaskExecutionLogPort(),
+                workflowMetrics,
                 WorkspaceMemberRole.MEMBER);
 
         RunTaskResult result = service.runTask(new RunTaskCommand(101L, 301L, "google-1", false));
@@ -114,6 +122,9 @@ class RunTaskServiceTest {
                 .containsExactly(TaskStatus.FAILED);
         assertThat(result.taskStatus()).isEqualTo(TaskStatus.FAILED);
         assertThat(result.failureReason()).isEqualTo("workspace gateway binding not found");
+        assertThat(workflowMetrics.taskStarted).isEqualTo(1);
+        assertThat(workflowMetrics.taskSuccess).isZero();
+        assertThat(workflowMetrics.taskFailure).isEqualTo(1);
     }
 
     @Test
@@ -291,7 +302,32 @@ class RunTaskServiceTest {
                 updateExecutionPort,
                 updateTaskStatusPort,
                 saveLogPort,
+                WorkflowMetrics.noop(),
+                role);
+    }
+
+    private static RunTaskService newService(
+            TaskDetail task,
+            List<SavedWorkspaceAgent> agents,
+            Optional<WorkspaceGatewayBinding> binding,
+            RunWorkspaceAgentPort runPort,
+            SaveTaskExecutionPort saveExecutionPort,
+            UpdateTaskExecutionPort updateExecutionPort,
+            UpdateTaskStatusPort updateTaskStatusPort,
+            SaveTaskExecutionLogPort saveLogPort,
+            WorkflowMetrics workflowMetrics,
+            WorkspaceMemberRole role) {
+        return newService(
+                task,
+                agents,
+                binding,
+                runPort,
+                saveExecutionPort,
+                updateExecutionPort,
+                updateTaskStatusPort,
+                saveLogPort,
                 new FakeWorkspaceExecutionLockPort(true),
+                workflowMetrics,
                 role);
     }
 
@@ -329,6 +365,32 @@ class RunTaskServiceTest {
             SaveTaskExecutionLogPort saveLogPort,
             WorkspaceExecutionLockPort lockPort,
             WorkspaceMemberRole role) {
+        return newService(
+                task,
+                agents,
+                binding,
+                runPort,
+                saveExecutionPort,
+                updateExecutionPort,
+                updateTaskStatusPort,
+                saveLogPort,
+                lockPort,
+                WorkflowMetrics.noop(),
+                role);
+    }
+
+    private static RunTaskService newService(
+            TaskDetail task,
+            List<SavedWorkspaceAgent> agents,
+            Optional<WorkspaceGatewayBinding> binding,
+            RunWorkspaceAgentPort runPort,
+            SaveTaskExecutionPort saveExecutionPort,
+            UpdateTaskExecutionPort updateExecutionPort,
+            UpdateTaskStatusPort updateTaskStatusPort,
+            SaveTaskExecutionLogPort saveLogPort,
+            WorkspaceExecutionLockPort lockPort,
+            WorkflowMetrics workflowMetrics,
+            WorkspaceMemberRole role) {
         return new RunTaskService(
                 new FakeLoadMemberPort(Optional.of(Member.createUser("google-1", "user@example.com", "User"))),
                 new FakeLoadWorkspacePort(Optional.of(workspaceDetail(role))),
@@ -340,7 +402,8 @@ class RunTaskServiceTest {
                 updateTaskStatusPort,
                 saveLogPort,
                 runPort,
-                lockPort);
+                lockPort,
+                workflowMetrics);
     }
 
     private static GetWorkspaceDetailResult workspaceDetail(WorkspaceMemberRole role) {
@@ -396,6 +459,53 @@ class RunTaskServiceTest {
                 "https://gateway.example.com",
                 "gateway-token-secret",
                 "google-1");
+    }
+
+    private static class RecordingWorkflowMetrics implements WorkflowMetrics {
+        private int taskStarted;
+        private int taskSuccess;
+        private int taskFailure;
+
+        @Override
+        public OperationSample startTaskExecution() {
+            taskStarted++;
+            return new OperationSample() {
+                @Override
+                public void recordSuccess() {
+                    taskSuccess++;
+                }
+
+                @Override
+                public void recordFailure() {
+                    taskFailure++;
+                }
+
+                @Override
+                public void recordTimeout() {
+                }
+            };
+        }
+
+        @Override
+        public OperationSample startGatewayRpc(String method) {
+            return OperationSample.noop();
+        }
+
+        @Override
+        public void recordSlackEventReceived(String route) {
+        }
+
+        @Override
+        public void recordSlackSignatureFailure(String route) {
+        }
+
+        @Override
+        public void recordSlackDedupeHit() {
+        }
+
+        @Override
+        public void recordSlackProcessingFailure(String stage) {
+        }
     }
 
     private static class FakeLoadMemberPort implements LoadMemberPort {

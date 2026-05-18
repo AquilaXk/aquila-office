@@ -33,6 +33,7 @@ public class ReceiveSlackEventService implements ReceiveSlackEventUseCase {
     private final LoadSlackChannelMappingPort loadSlackChannelMappingPort;
     private final SendSlackReplyPort sendSlackReplyPort;
     private final ClaimSlackEventPort claimSlackEventPort;
+    private final WorkflowMetrics workflowMetrics;
 
     public ReceiveSlackEventService(
             SlackAgentCommandParser slackAgentCommandParser,
@@ -62,7 +63,8 @@ public class ReceiveSlackEventService implements ReceiveSlackEventUseCase {
                 sendChatMessageUseCase,
                 loadSlackChannelMappingPort,
                 sendSlackReplyPort,
-                CLAIM_ALL_SLACK_EVENT_PORT);
+                CLAIM_ALL_SLACK_EVENT_PORT,
+                WorkflowMetrics.noop());
     }
 
     public ReceiveSlackEventService(
@@ -71,6 +73,22 @@ public class ReceiveSlackEventService implements ReceiveSlackEventUseCase {
             LoadSlackChannelMappingPort loadSlackChannelMappingPort,
             SendSlackReplyPort sendSlackReplyPort,
             ClaimSlackEventPort claimSlackEventPort) {
+        this(
+                slackAgentCommandParser,
+                sendChatMessageUseCase,
+                loadSlackChannelMappingPort,
+                sendSlackReplyPort,
+                claimSlackEventPort,
+                WorkflowMetrics.noop());
+    }
+
+    public ReceiveSlackEventService(
+            SlackAgentCommandParser slackAgentCommandParser,
+            SendChatMessageUseCase sendChatMessageUseCase,
+            LoadSlackChannelMappingPort loadSlackChannelMappingPort,
+            SendSlackReplyPort sendSlackReplyPort,
+            ClaimSlackEventPort claimSlackEventPort,
+            WorkflowMetrics workflowMetrics) {
         this.slackAgentCommandParser =
                 Objects.requireNonNull(slackAgentCommandParser, "slackAgentCommandParser must not be null");
         this.sendChatMessageUseCase =
@@ -81,6 +99,7 @@ public class ReceiveSlackEventService implements ReceiveSlackEventUseCase {
                 Objects.requireNonNull(sendSlackReplyPort, "sendSlackReplyPort must not be null");
         this.claimSlackEventPort =
                 Objects.requireNonNull(claimSlackEventPort, "claimSlackEventPort must not be null");
+        this.workflowMetrics = Objects.requireNonNull(workflowMetrics, "workflowMetrics must not be null");
     }
 
     @Override
@@ -188,7 +207,11 @@ public class ReceiveSlackEventService implements ReceiveSlackEventUseCase {
 
     private boolean isDuplicateEvent(String eventId) {
         String normalizedEventId = normalize(eventId);
-        return !normalizedEventId.isBlank() && !claimSlackEventPort.claimEvent(normalizedEventId);
+        boolean duplicate = !normalizedEventId.isBlank() && !claimSlackEventPort.claimEvent(normalizedEventId);
+        if (duplicate) {
+            workflowMetrics.recordSlackDedupeHit();
+        }
+        return duplicate;
     }
 
     private boolean isBotEvent(ReceiveSlackEventCommand.SlackEventPayload event) {

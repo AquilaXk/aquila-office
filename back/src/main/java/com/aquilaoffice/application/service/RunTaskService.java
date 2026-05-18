@@ -51,6 +51,7 @@ public class RunTaskService implements RunTaskUseCase {
     private final SaveTaskExecutionLogPort saveTaskExecutionLogPort;
     private final RunWorkspaceAgentPort runWorkspaceAgentPort;
     private final WorkspaceExecutionLockPort workspaceExecutionLockPort;
+    private final WorkflowMetrics workflowMetrics;
 
     public RunTaskService(
             LoadMemberPort loadMemberPort,
@@ -74,7 +75,8 @@ public class RunTaskService implements RunTaskUseCase {
                 updateTaskStatusPort,
                 saveTaskExecutionLogPort,
                 runWorkspaceAgentPort,
-                WorkspaceExecutionLockPort.alwaysAvailable());
+                WorkspaceExecutionLockPort.alwaysAvailable(),
+                WorkflowMetrics.noop());
     }
 
     public RunTaskService(
@@ -89,6 +91,34 @@ public class RunTaskService implements RunTaskUseCase {
             SaveTaskExecutionLogPort saveTaskExecutionLogPort,
             RunWorkspaceAgentPort runWorkspaceAgentPort,
             WorkspaceExecutionLockPort workspaceExecutionLockPort) {
+        this(
+                loadMemberPort,
+                loadWorkspacePort,
+                loadTaskPort,
+                loadWorkspaceAgentPort,
+                loadWorkspaceGatewayBindingPort,
+                saveTaskExecutionPort,
+                updateTaskExecutionPort,
+                updateTaskStatusPort,
+                saveTaskExecutionLogPort,
+                runWorkspaceAgentPort,
+                workspaceExecutionLockPort,
+                WorkflowMetrics.noop());
+    }
+
+    public RunTaskService(
+            LoadMemberPort loadMemberPort,
+            LoadWorkspacePort loadWorkspacePort,
+            LoadTaskPort loadTaskPort,
+            LoadWorkspaceAgentPort loadWorkspaceAgentPort,
+            LoadWorkspaceGatewayBindingPort loadWorkspaceGatewayBindingPort,
+            SaveTaskExecutionPort saveTaskExecutionPort,
+            UpdateTaskExecutionPort updateTaskExecutionPort,
+            UpdateTaskStatusPort updateTaskStatusPort,
+            SaveTaskExecutionLogPort saveTaskExecutionLogPort,
+            RunWorkspaceAgentPort runWorkspaceAgentPort,
+            WorkspaceExecutionLockPort workspaceExecutionLockPort,
+            WorkflowMetrics workflowMetrics) {
         this.loadMemberPort = Objects.requireNonNull(loadMemberPort, "loadMemberPort must not be null");
         this.loadWorkspacePort = Objects.requireNonNull(loadWorkspacePort, "loadWorkspacePort must not be null");
         this.loadTaskPort = Objects.requireNonNull(loadTaskPort, "loadTaskPort must not be null");
@@ -108,6 +138,7 @@ public class RunTaskService implements RunTaskUseCase {
                 Objects.requireNonNull(runWorkspaceAgentPort, "runWorkspaceAgentPort must not be null");
         this.workspaceExecutionLockPort =
                 Objects.requireNonNull(workspaceExecutionLockPort, "workspaceExecutionLockPort must not be null");
+        this.workflowMetrics = Objects.requireNonNull(workflowMetrics, "workflowMetrics must not be null");
     }
 
     @Override
@@ -120,15 +151,25 @@ public class RunTaskService implements RunTaskUseCase {
         requireRunnableTask(task);
         SavedWorkspaceAgent agent = resolveReadyAgent(task);
         WorkspaceExecutionLock lock = acquireWorkspaceLock(task, agent);
+        WorkflowMetrics.OperationSample metricsSample = WorkflowMetrics.OperationSample.noop();
         try {
+            metricsSample = workflowMetrics.startTaskExecution();
+            WorkflowMetrics.OperationSample taskMetricsSample = metricsSample;
             SavedTaskExecution execution = saveTaskExecutionPort.save(
                     TaskExecution.create(command.workspaceId(), command.taskId(), agent.agentId()));
             saveExecutionLog(execution, "INFO", "Task execution queued");
 
             return loadWorkspaceGatewayBindingPort
                     .findActiveByWorkspaceId(command.workspaceId())
-                    .map(binding -> runWithBinding(command, task, agent, execution, binding))
-                    .orElseGet(() -> failBeforeGateway(task, execution, GATEWAY_BINDING_NOT_FOUND));
+                    .map(binding -> runWithBinding(command, task, agent, execution, binding, taskMetricsSample))
+                    .orElseGet(() -> failBeforeGateway(
+                            task,
+                            execution,
+                            GATEWAY_BINDING_NOT_FOUND,
+                            taskMetricsSample));
+        } catch (RuntimeException exception) {
+            metricsSample.recordFailure();
+            throw exception;
         } finally {
             lock.close();
         }
@@ -149,7 +190,8 @@ public class RunTaskService implements RunTaskUseCase {
             TaskDetail task,
             SavedWorkspaceAgent agent,
             SavedTaskExecution execution,
-            WorkspaceGatewayBinding binding) {
+            WorkspaceGatewayBinding binding,
+            WorkflowMetrics.OperationSample metricsSample) {
         updateTaskStatus(task.workspaceId(), task.taskId(), TaskStatus.IN_PROGRESS);
         SavedTaskExecution runningExecution = updateExecutionStatus(
                 task.workspaceId(), task.taskId(), execution.executionId(), TaskExecutionStatus.RUNNING, null, null);
@@ -169,11 +211,11 @@ public class RunTaskService implements RunTaskUseCase {
                     resolvePrompt(task),
                     command.createPr()));
             if (runResult.success()) {
-                return completeTask(task, execution, agent, runResult.finalText());
+                return completeTask(task, execution, agent, runResult.finalText(), metricsSample);
             }
-            return failAfterGateway(task, execution, agent, resolveFailureReason(runResult.failureReason()));
+            return failAfterGateway(task, execution, agent, resolveFailureReason(runResult.failureReason()), metricsSample);
         } catch (RuntimeException exception) {
-            return failAfterGateway(task, execution, agent, resolveFailureReason(exception.getMessage()));
+            return failAfterGateway(task, execution, agent, resolveFailureReason(exception.getMessage()), metricsSample);
         }
     }
 
@@ -181,7 +223,8 @@ public class RunTaskService implements RunTaskUseCase {
             TaskDetail task,
             SavedTaskExecution execution,
             SavedWorkspaceAgent agent,
-            String finalText) {
+            String finalText,
+            WorkflowMetrics.OperationSample metricsSample) {
         SavedTaskExecution updatedExecution = updateExecutionStatus(
                 task.workspaceId(),
                 task.taskId(),
@@ -191,10 +234,15 @@ public class RunTaskService implements RunTaskUseCase {
                 null);
         saveExecutionLog(updatedExecution, "INFO", "Task execution succeeded");
         updateTaskStatus(task.workspaceId(), task.taskId(), TaskStatus.COMPLETED);
+        metricsSample.recordSuccess();
         return toResult(task.workspaceId(), task.taskId(), updatedExecution, agent.agentId(), TaskStatus.COMPLETED);
     }
 
-    private RunTaskResult failBeforeGateway(TaskDetail task, SavedTaskExecution execution, String failureReason) {
+    private RunTaskResult failBeforeGateway(
+            TaskDetail task,
+            SavedTaskExecution execution,
+            String failureReason,
+            WorkflowMetrics.OperationSample metricsSample) {
         SavedTaskExecution updatedExecution = updateExecutionStatus(
                 task.workspaceId(),
                 task.taskId(),
@@ -204,6 +252,7 @@ public class RunTaskService implements RunTaskUseCase {
                 failureReason);
         saveExecutionLog(updatedExecution, "ERROR", failureReason);
         updateTaskStatus(task.workspaceId(), task.taskId(), TaskStatus.FAILED);
+        metricsSample.recordFailure();
         return toResult(task.workspaceId(), task.taskId(), updatedExecution, execution.agentId(), TaskStatus.FAILED);
     }
 
@@ -211,7 +260,8 @@ public class RunTaskService implements RunTaskUseCase {
             TaskDetail task,
             SavedTaskExecution execution,
             SavedWorkspaceAgent agent,
-            String failureReason) {
+            String failureReason,
+            WorkflowMetrics.OperationSample metricsSample) {
         SavedTaskExecution updatedExecution = updateExecutionStatus(
                 task.workspaceId(),
                 task.taskId(),
@@ -221,6 +271,7 @@ public class RunTaskService implements RunTaskUseCase {
                 failureReason);
         saveExecutionLog(updatedExecution, "ERROR", failureReason);
         updateTaskStatus(task.workspaceId(), task.taskId(), TaskStatus.FAILED);
+        metricsSample.recordFailure();
         return toResult(task.workspaceId(), task.taskId(), updatedExecution, agent.agentId(), TaskStatus.FAILED);
     }
 
