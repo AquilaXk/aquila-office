@@ -34,6 +34,57 @@ export type WorkspaceZoomInput = {
   originY: number;
 };
 
+export type WorkspaceSceneNodeKind = "agent" | "member";
+
+export type WorkspaceSceneNode = {
+  id: string;
+  kind: WorkspaceSceneNodeKind;
+  label: string;
+  detail: string;
+  status: string;
+  x: number;
+  y: number;
+};
+
+export type WorkspaceAvatarAgent = {
+  agentId: number;
+  name: string;
+  category: string;
+  status: string;
+};
+
+export type WorkspaceAvatarMember = {
+  memberId: number;
+  name: string;
+  email: string;
+  role: string;
+};
+
+export type WorkspaceAvatarPresenceMember = {
+  memberId: number;
+  position: { left: string; top: string } | null;
+  status: string | null;
+};
+
+export type WorkspaceAvatarNodesInput = {
+  agents: WorkspaceAvatarAgent[];
+  members: WorkspaceAvatarMember[];
+  presenceMembers: WorkspaceAvatarPresenceMember[];
+};
+
+export type WorkspaceContextMenuAction = "open-profile" | "focus-node" | "start-chat";
+
+export type WorkspaceContextMenuInput = {
+  nodeId: string;
+  kind: WorkspaceSceneNodeKind;
+  screenX: number;
+  screenY: number;
+};
+
+export type WorkspaceContextMenuState = WorkspaceContextMenuInput & {
+  actions: WorkspaceContextMenuAction[];
+};
+
 export type WorkspaceSceneEvent =
   | { type: "avatar.select"; agentId: number }
   | { type: "avatar.context"; agentId: number; x: number; y: number }
@@ -128,6 +179,49 @@ export function zoomWorkspaceViewport(
   });
 }
 
+export function createWorkspaceAvatarNodes(
+  input: WorkspaceAvatarNodesInput,
+): WorkspaceSceneNode[] {
+  const presenceByMemberId = new Map(
+    input.presenceMembers.map((member) => [member.memberId, member]),
+  );
+  const agentNodes = input.agents.map<WorkspaceSceneNode>((agent, index) => ({
+    id: `agent-${agent.agentId}`,
+    kind: "agent",
+    label: agent.name,
+    detail: `${agent.category} · ${agent.status}`,
+    status: agent.status,
+    x: 180 + (index % 4) * 180,
+    y: 150 + Math.floor(index / 4) * 130,
+  }));
+  const memberNodes = input.members.map<WorkspaceSceneNode>((member, index) => {
+    const presence = presenceByMemberId.get(member.memberId);
+    return {
+      id: `member-${member.memberId}`,
+      kind: "member",
+      label: member.name,
+      detail: `${member.email} · ${member.role}`,
+      status: presence?.status ?? "OFFLINE",
+      x: parseSceneCoordinate(presence?.position?.left, 220 + (index % 4) * 180),
+      y: parseSceneCoordinate(presence?.position?.top, 420 + Math.floor(index / 4) * 130),
+    };
+  });
+
+  return [...agentNodes, ...memberNodes];
+}
+
+export function createWorkspaceContextMenuState(
+  input: WorkspaceContextMenuInput,
+): WorkspaceContextMenuState {
+  return {
+    ...input,
+    actions:
+      input.kind === "agent"
+        ? ["open-profile", "focus-node", "start-chat"]
+        : ["open-profile", "focus-node"],
+  };
+}
+
 function clampViewport(viewport: WorkspaceViewport): WorkspaceViewport {
   const zoom = clampNumber(viewport.zoom, MIN_ZOOM, MAX_ZOOM);
   const maxX = Math.max(0, viewport.worldWidth - viewport.width / zoom);
@@ -143,6 +237,15 @@ function clampViewport(viewport: WorkspaceViewport): WorkspaceViewport {
 
 function positiveOrFallback(value: number, fallback: number): number {
   return Number.isFinite(value) && value > 0 ? value : fallback;
+}
+
+function parseSceneCoordinate(value: string | undefined, fallback: number): number {
+  if (!value) {
+    return fallback;
+  }
+
+  const parsed = Number.parseFloat(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
 }
 
 function clampNumber(value: number, min: number, max: number): number {
