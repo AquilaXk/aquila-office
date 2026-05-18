@@ -154,12 +154,22 @@ Run a local smoke test after the backend is listening on `8080`:
 tools/test/run-k6-smoke.sh
 ```
 
+The service journey smoke requires the backend to run with
+`SPRING_PROFILES_ACTIVE=smoke` and `AQUILA_SMOKE_FIXTURE_ENABLED=true` so Google login and Gateway execution use deterministic fixture adapters.
+
 The k6 smoke covers:
 
 - `GET /api/health`
 - `GET /actuator/health/liveness`
 - `GET /actuator/health/readiness`
 - `GET /actuator/prometheus`
+- `POST /api/v1/auth/google/login`
+- `POST /api/v1/workspaces`
+- `POST /api/v1/workspaces/{workspaceId}/gateway/binding`
+- `POST /api/v1/workspaces/{workspaceId}/agents`
+- `POST /api/v1/workspaces/{workspaceId}/tasks`
+- `POST /api/v1/workspaces/{workspaceId}/tasks/{taskId}/run`
+- `GET /api/v1/workspaces/{workspaceId}/tasks/{taskId}/reports`
 
 Prometheus scrape settings:
 

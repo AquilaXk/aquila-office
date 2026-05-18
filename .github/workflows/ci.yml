@@ -101,6 +101,22 @@ jobs:
         working-directory: front
         run: npm audit --audit-level=moderate
 
+  smoke:
+    name: Smoke Definition Gate
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Validate service journey smoke definition
+        run: node tools/perf/validate-k6-smoke.mjs
+
   infra:
     name: Terraform Infra Gate
     runs-on: ubuntu-latest
