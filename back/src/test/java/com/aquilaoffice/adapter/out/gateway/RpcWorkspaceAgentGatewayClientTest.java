@@ -42,7 +42,7 @@ class RpcWorkspaceAgentGatewayClientTest {
         assertThat(transport.connectedUri()).isEqualTo(URI.create("wss://gateway.example.com/base/rpc"));
         assertThat(transport.closed()).isTrue();
 
-        JsonNode message = objectMapper.readTree(transport.sentMessage());
+        JsonNode message = objectMapper.readTree(transport.sentMessages().getFirst());
         assertThat(message.path("id").asText()).isNotBlank();
         assertThat(message.path("method").asText()).isEqualTo("chat.send");
         assertThat(message.path("token").asText()).isEqualTo("secret-token");
@@ -206,9 +206,9 @@ class RpcWorkspaceAgentGatewayClientTest {
         assertThat(response.success()).isTrue();
         assertThat(response.openClawAgentId()).isEqualTo("oc-agent-1");
 
-        JsonNode message = objectMapper.readTree(transport.sentMessage());
+        JsonNode message = objectMapper.readTree(transport.sentMessages().getFirst());
         assertThat(message.path("method").asText()).isEqualTo("agents.create");
-        assertThat(message.path("params").path("skillFiles").get(0).path("fileName").asText()).isEqualTo("AGENTS.md");
+        assertThat(message.path("params").has("skillFiles")).isFalse();
     }
 
     @Test
@@ -241,6 +241,54 @@ class RpcWorkspaceAgentGatewayClientTest {
         JsonNode params = message.path("params");
         assertThat(params.path("workspaceId").asLong()).isEqualTo(101L);
         assertThat(params.path("openClawAgentId").asText()).isEqualTo("oc-agent-1");
+    }
+
+    @Test
+    void createAgentSendsAgentCreateThenFileSetForEachSkillFile() throws Exception {
+        RespondingTransport transport = new RespondingTransport(
+                objectMapper,
+                (requestId, message) -> {
+                    JsonNode request = readJson(message);
+                    String method = request.path("method").asText();
+                    if ("agents.create".equals(method)) {
+                        return """
+                                {"id":"%s","result":{"success":true,"openClawAgentId":"oc-agent-1","failureReason":null}}
+                                """.formatted(requestId);
+                    }
+                    return """
+                            {"id":"%s","result":{"success":true,"failureReason":null}}
+                            """.formatted(requestId);
+                });
+        RpcWorkspaceAgentGatewayClient client = new RpcWorkspaceAgentGatewayClient(
+                transport,
+                objectMapper,
+                new GatewayRpcProperties(Duration.ofMillis(200), "/rpc"));
+
+        WorkspaceAgentCreateGatewayResponse response = client.create(new WorkspaceAgentCreateGatewayRequest(
+                101L,
+                "https://gateway.example.com/base/",
+                "secret-token",
+                "Backend Agent",
+                com.aquilaoffice.domain.agent.WorkspaceAgentCategory.BACKEND,
+                "/workspace/project",
+                List.of(
+                        new WorkspaceAgentCreateGatewayRequest.SkillFile("AGENTS.md", "rules"),
+                        new WorkspaceAgentCreateGatewayRequest.SkillFile("backend-guide.md", "guide"))));
+
+        assertThat(response.success()).isTrue();
+        assertThat(response.openClawAgentId()).isEqualTo("oc-agent-1");
+        assertThat(response.skillFiles())
+                .extracting(WorkspaceAgentCreateGatewayResponse.SkillFileResult::fileName)
+                .containsExactly("AGENTS.md", "backend-guide.md");
+        assertThat(transport.sentMessages()).hasSize(3);
+        JsonNode createMessage = objectMapper.readTree(transport.sentMessages().get(0));
+        assertThat(createMessage.path("method").asText()).isEqualTo("agents.create");
+        assertThat(createMessage.path("params").has("skillFiles")).isFalse();
+        JsonNode firstFileMessage = objectMapper.readTree(transport.sentMessages().get(1));
+        assertThat(firstFileMessage.path("method").asText()).isEqualTo("agents.files.set");
+        assertThat(firstFileMessage.path("params").path("openClawAgentId").asText()).isEqualTo("oc-agent-1");
+        assertThat(firstFileMessage.path("params").path("fileName").asText()).isEqualTo("AGENTS.md");
+        assertThat(firstFileMessage.path("params").path("content").asText()).isEqualTo("rules");
     }
 
     private static WorkspaceAgentGatewayRequest request(String gatewayUrl) {

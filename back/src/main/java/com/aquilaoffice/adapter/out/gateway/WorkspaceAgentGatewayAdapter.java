@@ -49,7 +49,13 @@ public class WorkspaceAgentGatewayAdapter
         return new CreateWorkspaceAgentGatewayResult(
                 response.success(),
                 response.openClawAgentId(),
-                response.failureReason());
+                response.failureReason(),
+                response.skillFiles().stream()
+                        .map(skillFile -> new CreateWorkspaceAgentGatewayResult.SkillFileResult(
+                                skillFile.fileName(),
+                                skillFile.success(),
+                                skillFile.failureReason()))
+                        .toList());
     }
 
     @Override
