@@ -154,6 +154,7 @@ import com.aquilaoffice.application.service.UpdateTaskStatusService;
 import com.aquilaoffice.application.service.UpdateWorkspacePresencePositionService;
 import com.aquilaoffice.application.service.UpdateWorkspaceService;
 import com.aquilaoffice.application.service.WorkspacePresenceRegistry;
+import java.time.Clock;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -327,6 +328,9 @@ class ApplicationServiceConfigTest {
 
     @MockitoBean
     private DeleteRefreshTokenPort deleteRefreshTokenPort;
+
+    @Autowired
+    private Clock applicationClock;
 
     @Autowired
     private AcceptWorkspaceInviteUseCase acceptWorkspaceInviteUseCase;
@@ -528,6 +532,8 @@ class ApplicationServiceConfigTest {
                 .isSameAs(issueAuthTokenPort);
         assertThat(ReflectionTestUtils.getField(refreshAuthTokenUseCase, "rotateRefreshTokenPort"))
                 .isSameAs(rotateRefreshTokenPort);
+        assertThat(ReflectionTestUtils.getField(refreshAuthTokenUseCase, "clock"))
+                .isSameAs(applicationClock);
     }
 
     @Test

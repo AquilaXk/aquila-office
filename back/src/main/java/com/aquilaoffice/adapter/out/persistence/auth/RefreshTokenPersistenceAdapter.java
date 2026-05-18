@@ -3,6 +3,7 @@ package com.aquilaoffice.adapter.out.persistence.auth;
 import com.aquilaoffice.application.port.out.DeleteRefreshTokenPort;
 import com.aquilaoffice.application.port.out.RotateRefreshTokenPort;
 import com.aquilaoffice.application.port.out.SaveRefreshTokenPort;
+import java.time.Instant;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,20 +21,30 @@ public class RefreshTokenPersistenceAdapter implements SaveRefreshTokenPort, Rot
 
     @Override
     @Transactional
-    public void saveOrRotate(Long memberId, String refreshToken) {
+    public void saveOrRotate(Long memberId, String refreshToken, Instant refreshTokenExpiresAt) {
         RefreshTokenJpaEntity entity = refreshTokenJpaRepository.findByMemberId(memberId)
                 .map(existing -> {
-                    existing.rotate(refreshToken);
+                    existing.rotate(refreshToken, refreshTokenExpiresAt);
                     return existing;
                 })
-                .orElseGet(() -> RefreshTokenJpaEntity.issue(memberId, refreshToken));
+                .orElseGet(() -> RefreshTokenJpaEntity.issue(memberId, refreshToken, refreshTokenExpiresAt));
         refreshTokenJpaRepository.save(entity);
     }
 
     @Override
     @Transactional
-    public boolean rotateIfMatch(Long memberId, String currentRefreshToken, String newRefreshToken) {
-        return refreshTokenJpaRepository.rotateIfMatch(memberId, currentRefreshToken, newRefreshToken) == 1;
+    public boolean rotateIfMatch(
+            Long memberId,
+            String currentRefreshToken,
+            String newRefreshToken,
+            Instant newRefreshTokenExpiresAt,
+            Instant now) {
+        return refreshTokenJpaRepository.rotateIfMatch(
+                memberId,
+                currentRefreshToken,
+                newRefreshToken,
+                newRefreshTokenExpiresAt,
+                now) == 1;
     }
 
     @Override
