@@ -30,3 +30,6 @@ aquila:
   external-token:
     key: test-external-token-key-0123456789abcdef
     key-id: test-key
+  gateway-rpc:
+    request-timeout: 1s
+    path: /rpc

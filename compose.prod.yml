@@ -37,6 +37,8 @@ services:
       AQUILA_GOOGLE_APPLICATION_NAME: ${AQUILA_GOOGLE_APPLICATION_NAME:-aquila-office}
       AQUILA_EXTERNAL_TOKEN_KEY: ${AQUILA_EXTERNAL_TOKEN_KEY:-change_me_to_at_least_32_bytes_before_prod}
       AQUILA_EXTERNAL_TOKEN_KEY_ID: ${AQUILA_EXTERNAL_TOKEN_KEY_ID:-prod}
+      AQUILA_GATEWAY_RPC_REQUEST_TIMEOUT: ${AQUILA_GATEWAY_RPC_REQUEST_TIMEOUT:-30s}
+      AQUILA_GATEWAY_RPC_PATH: ${AQUILA_GATEWAY_RPC_PATH:-/rpc}
     depends_on:
       postgres:
         condition: service_healthy

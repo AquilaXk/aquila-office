@@ -4,6 +4,7 @@ import com.aquilaoffice.application.port.out.RunWorkspaceAgentPort;
 import com.aquilaoffice.application.port.out.WorkspaceAgentRunCommand;
 import com.aquilaoffice.application.port.out.WorkspaceAgentRunResult;
 import java.util.Objects;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Repository;
 
 /**
@@ -14,12 +15,13 @@ public class WorkspaceAgentGatewayAdapter implements RunWorkspaceAgentPort {
 
     private final WorkspaceAgentGatewayClient gatewayClient;
 
-    public WorkspaceAgentGatewayAdapter() {
-        this(new UnconfiguredWorkspaceAgentGatewayClient());
+    @Autowired
+    public WorkspaceAgentGatewayAdapter(WorkspaceAgentGatewayClient gatewayClient) {
+        this.gatewayClient = Objects.requireNonNull(gatewayClient, "gatewayClient must not be null");
     }
 
-    WorkspaceAgentGatewayAdapter(WorkspaceAgentGatewayClient gatewayClient) {
-        this.gatewayClient = Objects.requireNonNull(gatewayClient, "gatewayClient must not be null");
+    WorkspaceAgentGatewayAdapter() {
+        this(new UnconfiguredWorkspaceAgentGatewayClient());
     }
 
     @Override

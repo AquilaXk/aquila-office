@@ -11,6 +11,7 @@ import org.springframework.context.annotation.Configuration;
     AuthTokenProperties.class,
     CorsProperties.class,
     ExternalTokenEncryptionProperties.class,
+    GatewayRpcProperties.class,
     GoogleOAuthProperties.class
 })
 public class PropertiesConfig {}
