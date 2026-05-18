@@ -158,6 +158,28 @@ class ArtifactControllerTest {
     }
 
     @Test
+    void getOrchestrationPlanStepAliasReturnsOkEnvelope() throws Exception {
+        given(getOrchestrationPlanArtifactUseCase.getOrchestrationPlanArtifact(
+                        any(GetOrchestrationPlanArtifactQuery.class)))
+                .willReturn(orchestrationPlanResult());
+
+        mockMvc.perform(get("/api/v1/workspaces/101/artifacts/orchestration-plans/701/steps/11")
+                        .principal(authenticatedPrincipal("google-1")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.stepId").value(11))
+                .andExpect(jsonPath("$.data.stepKey").value("requirements"))
+                .andExpect(jsonPath("$.data.files[0].path").value("plans/701/reports/requirements.md"));
+
+        ArgumentCaptor<GetOrchestrationPlanArtifactQuery> queryCaptor =
+                ArgumentCaptor.forClass(GetOrchestrationPlanArtifactQuery.class);
+        verify(getOrchestrationPlanArtifactUseCase).getOrchestrationPlanArtifact(queryCaptor.capture());
+        assertThat(queryCaptor.getValue().workspaceId()).isEqualTo(101L);
+        assertThat(queryCaptor.getValue().planId()).isEqualTo(701L);
+        assertThat(queryCaptor.getValue().requesterGoogleSub()).isEqualTo("google-1");
+    }
+
+    @Test
     void missingPlanFilePathReturnsBadRequestAndDoesNotCallUseCase() throws Exception {
         mockMvc.perform(get("/api/v1/workspaces/101/artifacts/orchestration-plans/701/files")
                         .principal(authenticatedPrincipal("google-1")))
