@@ -81,6 +81,7 @@ import {
   createWorkspaceDetailOverview,
   type WorkspaceDetailActionItem,
 } from "@/lib/workspace-detail";
+import type { WorkspaceSceneNode } from "@/lib/workspace-2d";
 import {
   fetchWorkspaceDashboardSummary,
   fetchWorkspaceDetail,
@@ -156,6 +157,15 @@ type PresenceMutationState = {
 };
 
 type PresenceStreamStatus = "idle" | "connecting" | "open" | "error";
+type ActorPanelTab = "chat" | "tasks";
+type TaskDashboardTab = "summary" | "board";
+
+type ActorChatMessage = {
+  id: string;
+  sender: "user" | "agent";
+  text: string;
+  optimistic: boolean;
+};
 
 type DashboardSummaryState =
   | { status: "idle" | "loading"; summary: null; error: null }
@@ -322,6 +332,19 @@ export default function WorkspaceDetailPage({
       status: "idle",
       message: null,
     });
+  const [selectedActor, setSelectedActor] = useState<WorkspaceSceneNode | null>(null);
+  const [actorPanelOpen, setActorPanelOpen] = useState(false);
+  const [actorPanelTab, setActorPanelTab] = useState<ActorPanelTab>("chat");
+  const [actorChatInput, setActorChatInput] = useState("");
+  const [actorChatMessages, setActorChatMessages] = useState<ActorChatMessage[]>([]);
+  const [actorChatSessionId, setActorChatSessionId] = useState<number | null>(null);
+  const [actorChatMutation, setActorChatMutation] = useState<ChatMutationState>({
+    status: "idle",
+    message: null,
+  });
+  const [taskDashboardOpen, setTaskDashboardOpen] = useState(false);
+  const [taskDashboardTab, setTaskDashboardTab] = useState<TaskDashboardTab>("summary");
+  const [selectedDashboardTask, setSelectedDashboardTask] = useState<WorkspaceTask | null>(null);
   const [presenceStreamStatus, setPresenceStreamStatus] =
     useState<PresenceStreamStatus>("idle");
   const [presenceEvents, setPresenceEvents] = useState<WorkspacePresenceMessage[]>([]);
@@ -822,6 +845,97 @@ export default function WorkspaceDetailPage({
     }
   };
 
+  const pollActorChatMessages = useCallback(
+    async (sessionId: number) => {
+      try {
+        const page = await fetchChatSessionMessages(
+          resolveAccessToken(),
+          numericWorkspaceId,
+          sessionId,
+          chatSessionMessagePageInput(),
+        );
+        setActorChatMessages(page.messages.map(actorMessageFromChatMessage));
+        setActorChatMutation({ status: "idle", message: null });
+      } catch (error) {
+        setActorChatMutation({
+          status: "error",
+          message: messageFromError(error, "Agent 대화 메시지를 갱신하지 못했습니다."),
+        });
+      }
+    },
+    [numericWorkspaceId],
+  );
+
+  const handleSelectActor = useCallback(
+    (node: WorkspaceSceneNode) => {
+      if (selectedActor?.id !== node.id) {
+        setActorChatInput("");
+        setActorChatMessages([]);
+        setActorChatSessionId(null);
+      }
+      setSelectedActor(node);
+      setActorPanelOpen(true);
+      setActorPanelTab(node.kind === "agent" ? "chat" : "tasks");
+      setActorChatMutation({ status: "idle", message: null });
+    },
+    [selectedActor?.id],
+  );
+
+  const handleSendActorChatMessage = async () => {
+    if (!selectedActor || selectedActor.kind !== "agent") {
+      setActorChatMutation({ status: "error", message: "Agent actor를 선택해 주세요." });
+      return;
+    }
+
+    const message = actorChatInput.trim();
+    const agentId = agentIdFromActorNode(selectedActor);
+    if (!message || agentId === null) {
+      setActorChatMutation({ status: "error", message: "전송할 메시지와 Agent를 확인해 주세요." });
+      return;
+    }
+
+    const optimisticMessage: ActorChatMessage = {
+      id: `optimistic-${Date.now()}`,
+      sender: "user",
+      text: message,
+      optimistic: true,
+    };
+    setActorChatMessages((current) => [...current, optimisticMessage]);
+    setActorChatInput("");
+    setActorChatMutation({ status: "submitting", message: "Agent에게 메시지 전송 중" });
+
+    try {
+      const result = await sendWorkspaceChatMessage(resolveAccessToken(), numericWorkspaceId, {
+        message,
+        agentId,
+        taskType: "OTHER",
+        priority: "MEDIUM",
+        title: `Actor chat: ${selectedActor.label}`,
+        chatSessionId: actorChatSessionId,
+      });
+      setActorChatSessionId(result.chatSessionId);
+      setActorChatMessages((current) => [
+        ...current.filter((chatMessage) => chatMessage.id !== optimisticMessage.id),
+        ...result.messages.map(actorMessageFromChatMessage),
+      ]);
+      setActorChatMutation({ status: "success", message: `Session #${result.chatSessionId} 저장됨` });
+      await pollActorChatMessages(result.chatSessionId);
+      await refreshTaskData();
+    } catch (error) {
+      setActorChatMessages((current) =>
+        current.map((chatMessage) =>
+          chatMessage.id === optimisticMessage.id
+            ? { ...chatMessage, optimistic: false, text: `${chatMessage.text} (전송 실패)` }
+            : chatMessage,
+        ),
+      );
+      setActorChatMutation({
+        status: "error",
+        message: messageFromError(error, "Agent 대화를 전송하지 못했습니다."),
+      });
+    }
+  };
+
   const openWorkspaceFiles = useCallback(async () => {
     setFilesOpen(true);
     setArtifactTree(null);
@@ -866,7 +980,8 @@ export default function WorkspaceDetailPage({
   const handleOfficeSceneNavAction = useCallback(
     (itemId: OfficeSceneNavItemId) => {
       if (itemId === "tasks") {
-        scrollToWorkspaceSection("workspace-tasks");
+        setTaskDashboardOpen(true);
+        setTaskDashboardTab("summary");
       }
       if (itemId === "hire-agent") {
         scrollToWorkspaceSection("workspace-hire-agent");
@@ -1147,6 +1262,23 @@ export default function WorkspaceDetailPage({
       }),
     [artifactTree, canCreateInvite, detailOverview, orchestrationPlan],
   );
+  const selectedActorAgentId = selectedActor ? agentIdFromActorNode(selectedActor) : null;
+  const selectedActorTasks = useMemo(
+    () =>
+      selectedActorAgentId
+        ? tasks.filter((task) => isTaskAssignedToAgent(task, selectedActorAgentId))
+        : tasks,
+    [selectedActorAgentId, tasks],
+  );
+  const localDashboardSummary = useMemo(
+    () => createLocalDashboardSummary(workspaceAgents, tasks),
+    [tasks, workspaceAgents],
+  );
+  const taskDashboardSummary = summary ?? localDashboardSummary;
+  const canSendActorChatMessage =
+    selectedActor?.kind === "agent" &&
+    actorChatInput.trim().length > 0 &&
+    actorChatMutation.status !== "submitting";
 
   const updatePresencePosition = useCallback(
     async (
@@ -1378,9 +1510,35 @@ export default function WorkspaceDetailPage({
                 agents={workspaceAgents}
                 members={members}
                 presenceMembers={onlinePresenceMembers}
+                onActorSelect={handleSelectActor}
                 onPresenceMove={(position) =>
                   updatePresencePosition(position, "2D workspace 위치가 갱신되었습니다.")
                 }
+              />
+
+              <ActorTaskPanel
+                open={actorPanelOpen}
+                actor={selectedActor}
+                tab={actorPanelTab}
+                messages={actorChatMessages}
+                input={actorChatInput}
+                mutation={actorChatMutation}
+                tasks={selectedActorTasks}
+                canSend={canSendActorChatMessage}
+                onTabChange={setActorPanelTab}
+                onInputChange={(value) => {
+                  setActorChatInput(value);
+                  setActorChatMutation({ status: "idle", message: null });
+                }}
+                onSend={() => void handleSendActorChatMessage()}
+                onClose={() => setActorPanelOpen(false)}
+                onOpenDashboard={(task) => {
+                  setSelectedDashboardTask(task);
+                  setTaskDashboardTab("board");
+                  setTaskDashboardOpen(true);
+                }}
+                onOpenReports={openTaskReports}
+                onOpenChat={openTaskChat}
               />
 
               <section className="workspace-detail-action-rail" aria-label="워크스페이스 상세 작업">
@@ -2134,6 +2292,23 @@ export default function WorkspaceDetailPage({
         />
       </aside>
 
+      <TaskDashboardModal
+        open={taskDashboardOpen}
+        tab={taskDashboardTab}
+        summary={taskDashboardSummary}
+        apiSummary={summary}
+        localSummary={localDashboardSummary}
+        groupedTasks={groupedTasks}
+        selectedTask={selectedDashboardTask}
+        onTabChange={setTaskDashboardTab}
+        onSelectTask={setSelectedDashboardTask}
+        onOpenReports={openTaskReports}
+        onOpenChat={openTaskChat}
+        onClose={() => {
+          setTaskDashboardOpen(false);
+          setSelectedDashboardTask(null);
+        }}
+      />
       <TaskReportsModal
         task={selectedTask}
         reports={taskReports}
@@ -2235,6 +2410,398 @@ function WorkspaceDetailActionCard({
       <strong>{item.value}</strong>
       <small>{formatWorkspaceDetailActionState(item.state)}</small>
     </button>
+  );
+}
+
+function ActorTaskPanel({
+  open,
+  actor,
+  tab,
+  messages,
+  input,
+  mutation,
+  tasks,
+  canSend,
+  onTabChange,
+  onInputChange,
+  onSend,
+  onClose,
+  onOpenDashboard,
+  onOpenReports,
+  onOpenChat,
+}: {
+  open: boolean;
+  actor: WorkspaceSceneNode | null;
+  tab: ActorPanelTab;
+  messages: ActorChatMessage[];
+  input: string;
+  mutation: ChatMutationState;
+  tasks: WorkspaceTask[];
+  canSend: boolean;
+  onTabChange: (tab: ActorPanelTab) => void;
+  onInputChange: (value: string) => void;
+  onSend: () => void;
+  onClose: () => void;
+  onOpenDashboard: (task: WorkspaceTask) => void;
+  onOpenReports: (task: WorkspaceTask) => void;
+  onOpenChat: (task: WorkspaceTask) => void;
+}) {
+  if (!open || !actor) {
+    return null;
+  }
+
+  const isAgent = actor.kind === "agent";
+
+  return (
+    <aside className="workspace-actor-panel" aria-label="Agent 대화와 Task 대시보드">
+      <header className="workspace-actor-header">
+        <div>
+          <span className="workspace-detail-label">{isAgent ? "Agent actor" : "Member actor"}</span>
+          <h2>{actor.label}</h2>
+          <p>{actor.detail}</p>
+        </div>
+        <button className="icon-button workspace-modal-close" type="button" onClick={onClose} aria-label="패널 닫기">
+          <X aria-hidden="true" />
+        </button>
+      </header>
+
+      <div className="workspace-actor-tabs" role="tablist" aria-label="Actor panel tabs">
+        <button
+          className={tab === "chat" ? "workspace-actor-tab-active" : ""}
+          type="button"
+          role="tab"
+          aria-selected={tab === "chat"}
+          onClick={() => onTabChange("chat")}
+          disabled={!isAgent}
+        >
+          Chat
+        </button>
+        <button
+          className={tab === "tasks" ? "workspace-actor-tab-active" : ""}
+          type="button"
+          role="tab"
+          aria-selected={tab === "tasks"}
+          onClick={() => onTabChange("tasks")}
+        >
+          Tasks
+        </button>
+      </div>
+
+      {tab === "chat" ? (
+        <div className="workspace-actor-content" role="tabpanel">
+          <div className="workspace-actor-chat-list" aria-label="Agent chat messages">
+            {messages.length > 0 ? (
+              messages.map((message) => (
+                <article
+                  className={`workspace-actor-message workspace-actor-message-${message.sender}`}
+                  key={message.id}
+                >
+                  <strong>{message.sender === "user" ? "User" : "Agent"}</strong>
+                  <p>{message.text}</p>
+                  {message.optimistic ? <span>optimistic</span> : null}
+                </article>
+              ))
+            ) : (
+              <div className="workspace-actor-empty">
+                <Send aria-hidden="true" />
+                <strong>Agent 메시지가 없습니다</strong>
+                <p>선택한 Agent에게 바로 요청을 보낼 수 있습니다.</p>
+              </div>
+            )}
+          </div>
+
+          <form
+            className="workspace-actor-chat-form"
+            onSubmit={(event) => {
+              event.preventDefault();
+              onSend();
+            }}
+          >
+            <label className="form-field">
+              <span>
+                <strong>Agent 메시지</strong>
+                <small>{input.length}/1000</small>
+              </span>
+              <textarea
+                value={input}
+                onChange={(event) => onInputChange(event.target.value)}
+                maxLength={1000}
+                rows={3}
+                disabled={!isAgent || mutation.status === "submitting"}
+              />
+            </label>
+
+            {mutation.status === "error" && mutation.message ? (
+              <div className="workspace-task-notice" role="alert">
+                <AlertCircle aria-hidden="true" />
+                <span>{mutation.message}</span>
+              </div>
+            ) : null}
+            {mutation.status === "success" && mutation.message ? (
+              <div className="workspace-task-notice">
+                <ShieldCheck aria-hidden="true" />
+                <span>{mutation.message}</span>
+              </div>
+            ) : null}
+
+            <button
+              className="primary-action primary-action-active workspace-invite-submit"
+              type="submit"
+              disabled={!canSend}
+            >
+              {mutation.status === "submitting" ? (
+                <Loader2 className="spin" aria-hidden="true" />
+              ) : (
+                <Send aria-hidden="true" />
+              )}
+              <span>{mutation.status === "submitting" ? "전송 중" : "Agent 메시지 전송"}</span>
+            </button>
+          </form>
+        </div>
+      ) : (
+        <div className="workspace-actor-content" role="tabpanel">
+          {tasks.length > 0 ? (
+            <div className="workspace-actor-task-list">
+              {tasks.map((task) => (
+                <article className="workspace-actor-task-card" key={task.taskId}>
+                  <div>
+                    <strong>{task.title}</strong>
+                    <p>{task.description ?? "설명 없음"}</p>
+                  </div>
+                  <div className="workspace-task-card-meta">
+                    <span>{formatTaskStatus(task.status)}</span>
+                    <span>{formatTaskPriority(task.priority)}</span>
+                  </div>
+                  <div className="workspace-task-actions">
+                    <button
+                      className="secondary-action workspace-task-refresh"
+                      type="button"
+                      onClick={() => onOpenDashboard(task)}
+                    >
+                      <ListChecks aria-hidden="true" />
+                      <span>Dashboard</span>
+                    </button>
+                    <button
+                      className="secondary-action workspace-task-refresh"
+                      type="button"
+                      onClick={() => onOpenReports(task)}
+                    >
+                      <FileText aria-hidden="true" />
+                      <span>Report</span>
+                    </button>
+                    <button
+                      className="secondary-action workspace-task-refresh"
+                      type="button"
+                      onClick={() => onOpenChat(task)}
+                    >
+                      <Send aria-hidden="true" />
+                      <span>Chat</span>
+                    </button>
+                  </div>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <div className="workspace-actor-empty">
+              <ListChecks aria-hidden="true" />
+              <strong>연결된 Task가 없습니다</strong>
+              <p>Agent 배정 작업이 생성되면 이 패널에 표시됩니다.</p>
+            </div>
+          )}
+        </div>
+      )}
+    </aside>
+  );
+}
+
+function TaskDashboardModal({
+  open,
+  tab,
+  summary,
+  apiSummary,
+  localSummary,
+  groupedTasks,
+  selectedTask,
+  onTabChange,
+  onSelectTask,
+  onOpenReports,
+  onOpenChat,
+  onClose,
+}: {
+  open: boolean;
+  tab: TaskDashboardTab;
+  summary: WorkspaceDashboardSummary;
+  apiSummary: WorkspaceDashboardSummary | null;
+  localSummary: WorkspaceDashboardSummary;
+  groupedTasks: Array<TaskGroup & { tasks: WorkspaceTask[] }>;
+  selectedTask: WorkspaceTask | null;
+  onTabChange: (tab: TaskDashboardTab) => void;
+  onSelectTask: (task: WorkspaceTask) => void;
+  onOpenReports: (task: WorkspaceTask) => void;
+  onOpenChat: (task: WorkspaceTask) => void;
+  onClose: () => void;
+}) {
+  if (!open) {
+    return null;
+  }
+
+  return (
+    <div className="workspace-modal-backdrop" role="presentation">
+      <section
+        className="workspace-modal workspace-task-dashboard-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Task dashboard"
+      >
+        <header className="workspace-modal-header">
+          <div>
+            <span className="workspace-detail-label">Tasks</span>
+            <h2>Task dashboard</h2>
+          </div>
+          <div className="workspace-modal-actions">
+            <div className="workspace-actor-tabs" role="tablist" aria-label="Task dashboard tabs">
+              <button
+                className={tab === "summary" ? "workspace-actor-tab-active" : ""}
+                type="button"
+                role="tab"
+                aria-selected={tab === "summary"}
+                onClick={() => onTabChange("summary")}
+              >
+                Summary
+              </button>
+              <button
+                className={tab === "board" ? "workspace-actor-tab-active" : ""}
+                type="button"
+                role="tab"
+                aria-selected={tab === "board"}
+                onClick={() => onTabChange("board")}
+              >
+                Board
+              </button>
+            </div>
+            <button className="icon-button workspace-modal-close" type="button" onClick={onClose} aria-label="닫기">
+              <X aria-hidden="true" />
+            </button>
+          </div>
+        </header>
+
+        <div className="workspace-modal-body">
+          {tab === "summary" ? (
+            <>
+              <div className="workspace-dashboard-source-grid">
+                <div>
+                  <span>API summary</span>
+                  <strong>{apiSummary ? `${apiSummary.taskCount} Tasks` : "없음"}</strong>
+                </div>
+                <div>
+                  <span>Local fallback</span>
+                  <strong>{`${localSummary.taskCount} Tasks`}</strong>
+                </div>
+              </div>
+              <dl className="workspace-detail-meta">
+                <DetailMetaItem
+                  icon={<Users aria-hidden="true" />}
+                  label="Agent"
+                  value={`${summary.agentCount}개 · 실행 ${summary.runningAgentCount}개`}
+                />
+                <DetailMetaItem
+                  icon={<ListChecks aria-hidden="true" />}
+                  label="Task"
+                  value={`${summary.taskCount}개 · 진행 ${summary.runningTaskCount}개`}
+                />
+                <DetailMetaItem
+                  icon={<ShieldCheck aria-hidden="true" />}
+                  label="완료"
+                  value={`${summary.completedTaskCount}개`}
+                />
+                <DetailMetaItem
+                  icon={<AlertCircle aria-hidden="true" />}
+                  label="실패"
+                  value={`${summary.failedTaskCount}개`}
+                />
+              </dl>
+            </>
+          ) : (
+            <>
+              <div className="workspace-task-dashboard-board">
+                {groupedTasks.map((group) => (
+                  <article
+                    className={`workspace-task-column workspace-task-column-${group.tone}`}
+                    key={group.key}
+                  >
+                    <div className="workspace-task-column-header">
+                      <strong>{group.label}</strong>
+                      <span>{group.tasks.length}</span>
+                    </div>
+                    {group.tasks.length > 0 ? (
+                      <div className="workspace-task-list">
+                        {group.tasks.map((task) => (
+                          <button
+                            className="workspace-task-card"
+                            type="button"
+                            key={task.taskId}
+                            onClick={() => onSelectTask(task)}
+                          >
+                            <div className="workspace-task-card-title">
+                              <strong>{task.title}</strong>
+                              <span className={`task-status-badge task-status-${task.status.toLowerCase().replaceAll("_", "-")}`}>
+                                {formatTaskStatus(task.status)}
+                              </span>
+                            </div>
+                            {task.description ? <p>{task.description}</p> : null}
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="workspace-task-empty">
+                        <ListChecks aria-hidden="true" />
+                        <span>Task 없음</span>
+                      </div>
+                    )}
+                  </article>
+                ))}
+              </div>
+
+              <section className="workspace-task-dashboard-detail" aria-label="selectedDashboardTask detail">
+                {selectedTask ? (
+                  <>
+                    <div>
+                      <span className="workspace-detail-label">Task #{selectedTask.taskId}</span>
+                      <h3>{selectedTask.title}</h3>
+                      <p>{selectedTask.description ?? "설명 없음"}</p>
+                    </div>
+                    <div className="workspace-task-actions">
+                      <button
+                        className="secondary-action workspace-task-refresh"
+                        type="button"
+                        onClick={() => onOpenReports(selectedTask)}
+                      >
+                        <FileText aria-hidden="true" />
+                        <span>Report</span>
+                      </button>
+                      <button
+                        className="secondary-action workspace-task-refresh"
+                        type="button"
+                        onClick={() => onOpenChat(selectedTask)}
+                      >
+                        <Send aria-hidden="true" />
+                        <span>Chat</span>
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <div className="workspace-actor-empty">
+                    <ListChecks aria-hidden="true" />
+                    <strong>Task를 선택해 주세요</strong>
+                    <p>Board에서 항목을 선택하면 상세 작업이 표시됩니다.</p>
+                  </div>
+                )}
+              </section>
+            </>
+          )}
+        </div>
+      </section>
+    </div>
   );
 }
 
@@ -3053,6 +3620,56 @@ function parseOptionalPositiveInteger(value: string): number | null {
 
   const parsed = Number(trimmed);
   return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+}
+
+function agentIdFromActorNode(node: WorkspaceSceneNode): number | null {
+  if (node.kind !== "agent" || !node.id.startsWith("agent-")) {
+    return null;
+  }
+
+  const parsed = Number.parseInt(node.id.replace("agent-", ""), 10);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+}
+
+function actorMessageFromChatMessage(message: ChatMessage): ActorChatMessage {
+  return {
+    id: `message-${message.messageId}`,
+    sender: message.role === "USER" ? "user" : "agent",
+    text: message.content,
+    optimistic: false,
+  };
+}
+
+function isTaskAssignedToAgent(task: WorkspaceTask, agentId: number): boolean {
+  const assignedAgentId =
+    typeof task.assignedAgentId === "string"
+      ? Number.parseInt(task.assignedAgentId, 10)
+      : task.assignedAgentId;
+  return assignedAgentId === agentId;
+}
+
+function createLocalDashboardSummary(
+  agents: WorkspaceAgent[],
+  tasks: WorkspaceTask[],
+): WorkspaceDashboardSummary {
+  const errorAgentCount = agents.filter((agent) =>
+    agent.status === "ERROR" || agent.status === "SYNC_FAILED",
+  ).length;
+  const runningAgentCount = agents.filter((agent) => agent.status === "READY").length;
+  const runningTaskStatuses: TaskStatus[] = ["ASSIGNED", "IN_PROGRESS", "WAITING_USER"];
+
+  return {
+    agentCount: agents.length,
+    runningAgentCount,
+    idleAgentCount: Math.max(0, agents.length - runningAgentCount - errorAgentCount),
+    errorAgentCount,
+    taskCount: tasks.length,
+    runningTaskCount: tasks.filter((task) => runningTaskStatuses.includes(task.status)).length,
+    completedTaskCount: tasks.filter((task) => task.status === "COMPLETED").length,
+    failedTaskCount: tasks.filter((task) => task.status === "FAILED").length,
+    recentReports: [],
+    recentLogs: [],
+  };
 }
 
 function formatRole(role: WorkspaceMemberRole): string {

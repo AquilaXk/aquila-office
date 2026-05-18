@@ -97,7 +97,7 @@ test.describe("브라우저 UI UX 회귀", () => {
     await expect(page.getByRole("menuitem", { name: /CONTINUE/ })).toBeVisible();
     await page.keyboard.press("ArrowDown");
     await page.keyboard.press("Enter");
-    await expect(page).toHaveURL(/\/workspaces$/);
+    await page.waitForURL((url) => url.pathname === "/workspaces");
 
     await page.getByRole("link", { name: "새 Workspace" }).click();
     await page.getByPlaceholder("예: Product Engineering").fill("Platform Ops");
@@ -134,7 +134,7 @@ test.describe("브라우저 UI UX 회귀", () => {
     expect(profileUpdateBody).toContain("Aquila Pilot");
     expect(profileUpdateBody).toContain("builder");
 
-    await expect(page).toHaveURL(/\/workspaces$/);
+    await page.waitForURL((url) => url.pathname === "/workspaces");
     const storedCharacter = await page.evaluate(() => window.localStorage.getItem("ai-office.character"));
     expect(storedCharacter).toContain("Aquila Pilot");
     expect(storedCharacter).toContain("builder");
@@ -168,6 +168,24 @@ test.describe("브라우저 UI UX 회귀", () => {
     await expectKeyboardToMoveViewport(page, canvasFrame);
     await expectPanAndZoomToMoveViewport(page, canvasFrame);
     await openAndAssert2DContextMenu(page, canvasFrame);
+
+    const actorPanel = page.locator('aside[aria-label="Agent 대화와 Task 대시보드"]');
+    await expect(actorPanel).toBeVisible();
+    await actorPanel.getByLabel("Agent 메시지").fill("Agent 상태 요약");
+    await actorPanel.getByRole("button", { name: "Agent 메시지 전송" }).click();
+    await expect(actorPanel.getByText("브라우저 회귀 확인을 진행합니다.")).toBeVisible();
+    await actorPanel.getByRole("tab", { name: "Tasks" }).click();
+    await expect(actorPanel.getByText(regressionTask.title)).toBeVisible();
+
+    await officeScene.locator(".workspace-office-nav").getByRole("button", { name: "Tasks", exact: true }).click();
+    const taskDashboard = page.getByRole("dialog", { name: "Task dashboard" });
+    await expect(taskDashboard).toBeVisible();
+    await expect(taskDashboard.getByText("API summary")).toBeVisible();
+    await expect(taskDashboard.getByText("Local fallback")).toBeVisible();
+    await taskDashboard.getByRole("tab", { name: "Board" }).click();
+    await taskDashboard.getByRole("button", { name: /Regression smoke/ }).click();
+    await expect(taskDashboard.getByText(`Task #${taskId}`)).toBeVisible();
+    await closeTopDialog(page);
 
     const taskCard = page.locator(".workspace-task-card").filter({ hasText: regressionTask.title });
     await taskCard.getByRole("button", { name: "Report" }).click();
@@ -338,7 +356,7 @@ async function installMockApi(page: Page, options: MockApiOptions = {}) {
     if (method === "GET" && path === `/api/v1/workspaces/${workspaceId}/chat/sessions/401/messages`) {
       await fulfillJson(route, {
         chatSessionId: 401,
-        messages: chatMessages(),
+        messages: sendChatResult().messages,
         nextCursor: null,
         hasMore: false,
       });

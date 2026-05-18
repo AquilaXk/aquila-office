@@ -35,6 +35,7 @@ export type Workspace2DCanvasProps = {
   members: WorkspaceMember[];
   presenceMembers: WorkspacePresenceMember[];
   onPresenceMove?: (position: WorkspacePresencePosition) => void | Promise<void>;
+  onActorSelect?: (node: WorkspaceSceneNode) => void;
 };
 
 type DragState = {
@@ -52,6 +53,7 @@ export default function Workspace2DCanvas({
   members,
   presenceMembers,
   onPresenceMove,
+  onActorSelect,
 }: Workspace2DCanvasProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const dragStateRef = useRef<DragState | null>(null);
@@ -73,12 +75,23 @@ export default function Workspace2DCanvas({
   );
   const selectedNode = nodes.find((node) => node.id === selectedNodeId) ?? null;
 
+  const selectNode = useCallback(
+    (node: WorkspaceSceneNode) => {
+      setSelectedNodeId(node.id);
+      setContextMenu(null);
+      onActorSelect?.(node);
+    },
+    [onActorSelect],
+  );
+
   useEffect(() => {
     return eventBus.on("avatar.select", (event) => {
-      setSelectedNodeId(`agent-${event.agentId}`);
-      setContextMenu(null);
+      const node = nodes.find((candidate) => candidate.id === `agent-${event.agentId}`);
+      if (node) {
+        selectNode(node);
+      }
     });
-  }, [eventBus]);
+  }, [eventBus, nodes, selectNode]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -114,8 +127,7 @@ export default function Workspace2DCanvas({
         selectedNodeId,
         eventBus,
         onSelectNode: (node) => {
-          setSelectedNodeId(node.id);
-          setContextMenu(null);
+          selectNode(node);
         },
         onContextMenu: setContextMenu,
       });
@@ -127,7 +139,7 @@ export default function Workspace2DCanvas({
       disposed = true;
       game?.destroy(true);
     };
-  }, [eventBus, nodes, selectedNodeId, viewport]);
+  }, [eventBus, nodes, selectNode, selectedNodeId, viewport]);
 
   const publishViewport = useCallback(
     (nextViewport: WorkspaceViewport): WorkspaceViewport => {
@@ -209,7 +221,7 @@ export default function Workspace2DCanvas({
     (node: WorkspaceSceneNode, event: ReactMouseEvent<HTMLButtonElement>) => {
       event.preventDefault();
       const bounds = containerRef.current?.getBoundingClientRect();
-      setSelectedNodeId(node.id);
+      selectNode(node);
       setContextMenu(
         createWorkspaceContextMenuState({
           nodeId: node.id,
@@ -219,7 +231,7 @@ export default function Workspace2DCanvas({
         }),
       );
     },
-    [],
+    [selectNode],
   );
 
   const resetViewport = useCallback(() => {
@@ -375,8 +387,7 @@ export default function Workspace2DCanvas({
                 type="button"
                 key={node.id}
                 onClick={() => {
-                  setSelectedNodeId(node.id);
-                  setContextMenu(null);
+                  selectNode(node);
                 }}
                 onContextMenu={(event) => openContextMenu(node, event)}
               >

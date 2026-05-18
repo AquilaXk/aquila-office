@@ -1845,6 +1845,205 @@ h2 {
   line-height: 1.45;
 }
 
+.workspace-actor-panel {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  border: 1px solid rgba(194, 163, 91, 0.34);
+  border-radius: 8px;
+  background: rgba(18, 20, 22, 0.94);
+  color: var(--gothic-parchment);
+  padding: 14px;
+}
+
+.workspace-actor-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.workspace-actor-header h2 {
+  font-size: 18px;
+}
+
+.workspace-actor-header p {
+  margin: 4px 0 0;
+  color: var(--gothic-muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.workspace-actor-tabs {
+  display: inline-grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(96px, 1fr);
+  gap: 4px;
+  width: fit-content;
+  max-width: 100%;
+  border: 1px solid rgba(194, 163, 91, 0.26);
+  border-radius: 8px;
+  background: rgba(16, 18, 20, 0.78);
+  padding: 4px;
+}
+
+.workspace-actor-tabs button {
+  min-height: 32px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--gothic-muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 900;
+  padding: 0 12px;
+}
+
+.workspace-actor-tabs button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.workspace-actor-tabs button:hover:not(:disabled),
+.workspace-actor-tabs button:focus-visible,
+.workspace-actor-tab-active {
+  background: rgba(194, 163, 91, 0.18) !important;
+  color: var(--gothic-parchment) !important;
+  outline: none;
+}
+
+.workspace-actor-content {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+.workspace-actor-chat-list,
+.workspace-actor-task-list {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.workspace-actor-message,
+.workspace-actor-task-card {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  border: 1px solid rgba(194, 163, 91, 0.22);
+  border-radius: 8px;
+  background: rgba(31, 35, 39, 0.78);
+  padding: 12px;
+}
+
+.workspace-actor-message strong,
+.workspace-actor-task-card strong,
+.workspace-task-dashboard-detail h3 {
+  overflow-wrap: anywhere;
+}
+
+.workspace-actor-message p,
+.workspace-actor-task-card p,
+.workspace-task-dashboard-detail p {
+  margin: 0;
+  color: var(--gothic-muted);
+  font-size: 13px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.workspace-actor-message-user {
+  border-color: rgba(111, 159, 121, 0.42);
+}
+
+.workspace-actor-message-agent {
+  border-color: rgba(227, 198, 130, 0.42);
+}
+
+.workspace-actor-message span {
+  width: fit-content;
+  border: 1px solid rgba(227, 198, 130, 0.36);
+  border-radius: 999px;
+  color: var(--gothic-brass);
+  font-size: 11px;
+  font-weight: 900;
+  padding: 3px 8px;
+}
+
+.workspace-actor-empty {
+  display: grid;
+  gap: 8px;
+  min-height: 120px;
+  place-items: center;
+  border: 1px dashed rgba(194, 163, 91, 0.34);
+  border-radius: 8px;
+  color: var(--gothic-muted);
+  padding: 16px;
+  text-align: center;
+}
+
+.workspace-actor-empty svg {
+  width: 22px;
+  height: 22px;
+  color: var(--gothic-brass);
+}
+
+.workspace-actor-empty p {
+  margin: 0;
+  font-size: 12px;
+}
+
+.workspace-actor-chat-form {
+  display: grid;
+  gap: 10px;
+}
+
+.workspace-task-dashboard-modal {
+  width: min(980px, 100%);
+}
+
+.workspace-dashboard-source-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.workspace-dashboard-source-grid > div,
+.workspace-task-dashboard-detail {
+  display: grid;
+  gap: 6px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fbfcfe;
+  padding: 12px;
+}
+
+.workspace-dashboard-source-grid span {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.workspace-dashboard-source-grid strong {
+  color: var(--text);
+  font-size: 18px;
+}
+
+.workspace-task-dashboard-board {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.workspace-task-dashboard-board .workspace-task-card {
+  cursor: pointer;
+}
+
+.workspace-task-dashboard-detail h3 {
+  font-size: 18px;
+}
+
 .workspace-task-refresh {
   min-height: 36px;
   margin-top: 0;
@@ -4061,6 +4260,21 @@ h2 {
   .workspace-2d-canvas {
     height: clamp(300px, 70vw, 420px);
     min-height: 300px;
+  }
+
+  .workspace-actor-header,
+  .workspace-dashboard-source-grid,
+  .workspace-task-dashboard-board {
+    grid-template-columns: 1fr;
+  }
+
+  .workspace-actor-header {
+    display: grid;
+  }
+
+  .workspace-actor-tabs {
+    grid-auto-flow: row;
+    width: 100%;
   }
 
   .workspace-count-badge,
