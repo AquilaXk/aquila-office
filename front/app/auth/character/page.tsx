@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useCallback, useEffect, useState, type FormEvent } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { ApiError } from "@/lib/api";
 import { resolveAccessToken } from "@/lib/auth";
 import { fetchMemberProfile, updateMemberProfile } from "@/lib/members";
@@ -88,6 +88,9 @@ function CharacterProfileForm() {
   const searchParams = useSearchParams();
   const returnTo = safeReturnTo(searchParams.get("returnTo"));
   const [draft, setDraft] = useState<CharacterDraft>(DEFAULT_CHARACTER);
+  const draftRef = useRef<CharacterDraft>(DEFAULT_CHARACTER);
+  const draftDirtyRef = useRef(false);
+  const loadRequestIdRef = useRef(0);
   const [loadState, setLoadState] = useState<ProfileLoadState>({
     status: "loading",
     error: null,
@@ -97,22 +100,34 @@ function CharacterProfileForm() {
     message: null,
   });
 
+  const setCharacterDraft = useCallback((nextDraft: CharacterDraft) => {
+    const normalizedDraft = normalizeCharacterDraft(nextDraft);
+    draftRef.current = normalizedDraft;
+    setDraft(normalizedDraft);
+  }, []);
+
   const loadProfile = useCallback(async () => {
+    const requestId = loadRequestIdRef.current + 1;
+    loadRequestIdRef.current = requestId;
     const storedCharacter = loadStoredCharacter();
     if (storedCharacter) {
-      setDraft(normalizeCharacterDraft(storedCharacter));
+      setCharacterDraft(storedCharacter);
     }
 
     setLoadState({ status: "loading", error: null });
     try {
       const profile = await fetchMemberProfile(resolveAccessToken());
+      if (requestId !== loadRequestIdRef.current || draftDirtyRef.current) {
+        setLoadState({ status: "ready", error: null });
+        return;
+      }
       const nextDraft = normalizeCharacterDraft({
         displayName: profile.displayName,
         avatarKind: profile.avatarKind,
         colorMode: colorsMatchOriginal(profile.avatarColors) ? "original" : "custom",
         avatarColors: profile.avatarColors,
       });
-      setDraft(nextDraft);
+      setCharacterDraft(nextDraft);
       saveStoredCharacter(nextDraft);
       setLoadState({ status: "ready", error: null });
     } catch (error) {
@@ -121,7 +136,7 @@ function CharacterProfileForm() {
         error: messageFromError(error, "회원 프로필을 불러오지 못했습니다."),
       });
     }
-  }, []);
+  }, [setCharacterDraft]);
 
   useEffect(() => {
     queueMicrotask(() => {
@@ -129,36 +144,40 @@ function CharacterProfileForm() {
     });
   }, [loadProfile]);
 
-  const updateDraft = (nextDraft: CharacterDraft) => {
-    setDraft(normalizeCharacterDraft(nextDraft));
+  const updateDraft = (updater: (current: CharacterDraft) => CharacterDraft) => {
+    draftDirtyRef.current = true;
+    setCharacterDraft(updater(draftRef.current));
     setSaveState({ status: "idle", message: null });
   };
 
   const selectAvatarKind = (avatarKind: string) => {
-    updateDraft({ ...draft, avatarKind });
+    updateDraft((current) => ({ ...current, avatarKind }));
   };
 
   const selectColorMode = (colorMode: ColorMode) => {
+    const currentDraft = draftRef.current;
     const avatarColors =
       colorMode === "original"
         ? ORIGINAL_AVATAR_COLORS
-        : draft.colorMode === "original"
+        : currentDraft.colorMode === "original"
           ? CUSTOM_AVATAR_COLORS
-          : draft.avatarColors;
-    updateDraft({ ...draft, colorMode, avatarColors });
+          : currentDraft.avatarColors;
+    updateDraft((current) => ({ ...current, colorMode, avatarColors }));
   };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    loadRequestIdRef.current += 1;
+    draftDirtyRef.current = true;
 
     const nextDraft = normalizeCharacterDraft({
-      ...draft,
-      displayName: draft.displayName.trim(),
-      avatarKind: draft.avatarKind.trim(),
+      ...draftRef.current,
+      displayName: draftRef.current.displayName.trim(),
+      avatarKind: draftRef.current.avatarKind.trim(),
       avatarColors: {
-        skin: draft.avatarColors.skin.trim(),
-        hair: draft.avatarColors.hair.trim(),
-        shirt: draft.avatarColors.shirt.trim(),
+        skin: draftRef.current.avatarColors.skin.trim(),
+        hair: draftRef.current.avatarColors.hair.trim(),
+        shirt: draftRef.current.avatarColors.shirt.trim(),
       },
     });
 
@@ -184,7 +203,8 @@ function CharacterProfileForm() {
         avatarColors: nextDraft.avatarColors,
       });
       saveStoredCharacter(nextDraft);
-      setDraft(nextDraft);
+      setCharacterDraft(nextDraft);
+      draftDirtyRef.current = false;
       setSaveState({
         status: "success",
         message: "프로필이 저장되었습니다.",
@@ -247,7 +267,7 @@ function CharacterProfileForm() {
               aria-label="표시 이름"
               value={draft.displayName}
               onChange={(event) => {
-                updateDraft({ ...draft, displayName: event.target.value });
+                updateDraft((current) => ({ ...current, displayName: event.target.value }));
               }}
               maxLength={40}
               disabled={isSubmitting}
@@ -323,14 +343,14 @@ function CharacterProfileForm() {
                       type="color"
                       value={draft.avatarColors[field.key]}
                       onChange={(event) => {
-                        updateDraft({
-                          ...draft,
+                        updateDraft((current) => ({
+                          ...current,
                           colorMode: "custom",
                           avatarColors: {
-                            ...draft.avatarColors,
+                            ...current.avatarColors,
                             [field.key]: event.target.value,
                           },
-                        });
+                        }));
                       }}
                       disabled={isSubmitting || draft.colorMode === "original"}
                     />

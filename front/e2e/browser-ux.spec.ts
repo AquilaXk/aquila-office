@@ -122,7 +122,17 @@ test.describe("브라우저 UI UX 회귀", () => {
     await page.getByRole("radio", { name: /Custom/ }).click();
     await page.getByLabel("상의 색상").fill("#1f7a5f");
     await page.getByLabel("표시 이름").fill("Aquila Pilot");
+    await expect(page.getByLabel("표시 이름")).toHaveValue("Aquila Pilot");
+    await expect(page.getByRole("radio", { name: /Builder/ })).toHaveAttribute("aria-checked", "true");
+    await expect(page.getByRole("radio", { name: /Custom/ })).toHaveAttribute("aria-checked", "true");
+    const profileUpdateRequest = page.waitForRequest((request) => {
+      const url = new URL(request.url());
+      return request.method() === "PATCH" && url.pathname === "/api/v1/members/me/profile";
+    });
     await page.getByRole("button", { name: "프로필 저장" }).click();
+    const profileUpdateBody = (await profileUpdateRequest).postData() ?? "";
+    expect(profileUpdateBody).toContain("Aquila Pilot");
+    expect(profileUpdateBody).toContain("builder");
 
     await expect(page).toHaveURL(/\/workspaces$/);
     const storedCharacter = await page.evaluate(() => window.localStorage.getItem("ai-office.character"));
@@ -137,14 +147,25 @@ test.describe("브라우저 UI UX 회귀", () => {
     await page.goto(`/workspaces/${workspaceId}`);
 
     await expect(page.getByRole("heading", { name: primaryWorkspace.name })).toBeVisible();
+    const officeScene = page.locator('section[aria-label="워크스페이스 오피스 씬"]');
+    await expect(officeScene).toBeVisible();
+    await expect(officeScene.getByRole("link", { name: "Connections", exact: true })).toBeVisible();
+    await expect(officeScene.getByRole("button", { name: "Tasks", exact: true })).toBeVisible();
+    await expect(officeScene.getByRole("button", { name: "Hire agent", exact: true })).toBeVisible();
+    await expect(officeScene.getByRole("button", { name: "Files", exact: true })).toBeVisible();
+    await expect(officeScene.getByRole("link", { name: "Leave workspace", exact: true })).toBeVisible();
     await expect(page.getByRole("heading", { name: "운영 요약" })).toBeVisible();
     await expect(page.getByText("Regression smoke")).toBeVisible();
 
     const canvasFrame = page.getByRole("img", { name: "Agent and member 2D workspace scene" });
     await expect(canvasFrame).toBeVisible();
+    await expect(page.locator(".workspace-2d-hud")).toBeVisible();
+    await expect(page.locator(".workspace-2d-minimap")).toBeVisible();
+    await expect(page.locator(".workspace-2d-dialogue")).toBeVisible();
     const canvas = page.locator(".workspace-2d-canvas canvas");
     await expect(canvas).toBeVisible();
     await expectCanvasNotBlank(canvas);
+    await expectKeyboardToMoveViewport(page, canvasFrame);
     await expectPanAndZoomToMoveViewport(page, canvasFrame);
     await openAndAssert2DContextMenu(page, canvasFrame);
 
@@ -516,6 +537,15 @@ async function expectPanAndZoomToMoveViewport(page: Page, frame: Locator) {
   await page.mouse.down();
   await page.mouse.move(box.x + box.width / 2 - 120, box.y + box.height / 2 - 60);
   await page.mouse.up();
+  await expect.poll(() => statusLabel.textContent()).not.toBe(initialStatus);
+}
+
+async function expectKeyboardToMoveViewport(page: Page, frame: Locator) {
+  const statusLabel = page.locator(".workspace-2d-status span").first();
+  const initialStatus = await statusLabel.textContent();
+
+  await frame.focus();
+  await page.keyboard.press("ArrowRight");
   await expect.poll(() => statusLabel.textContent()).not.toBe(initialStatus);
 }
 

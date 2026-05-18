@@ -1,12 +1,13 @@
 "use client";
 
-import { Crosshair, Maximize2, MousePointer2, Users } from "lucide-react";
+import { Crosshair, Maximize2, Minus, MousePointer2, Plus, Users } from "lucide-react";
 import {
   useCallback,
   useEffect,
   useMemo,
   useRef,
   useState,
+  type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
   type WheelEvent as ReactWheelEvent,
@@ -15,9 +16,11 @@ import type { WorkspaceAgent } from "@/lib/agents";
 import type { WorkspacePresenceMember, WorkspacePresencePosition } from "@/lib/presence";
 import {
   createInitialWorkspaceViewport,
+  createWorkspaceSceneZones,
   createWorkspaceAvatarNodes,
   createWorkspaceContextMenuState,
   createWorkspaceSceneEventBus,
+  moveWorkspaceViewportByKey,
   panWorkspaceViewport,
   zoomWorkspaceViewport,
   type WorkspaceContextMenuAction,
@@ -53,6 +56,7 @@ export default function Workspace2DCanvas({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const dragStateRef = useRef<DragState | null>(null);
   const eventBus = useMemo(() => createWorkspaceSceneEventBus(), []);
+  const zones = useMemo(() => createWorkspaceSceneZones(), []);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [contextMenu, setContextMenu] = useState<WorkspaceContextMenuState | null>(null);
   const [viewport, setViewport] = useState<WorkspaceViewport>(() =>
@@ -231,6 +235,35 @@ export default function Workspace2DCanvas({
     );
   }, [publishViewport]);
 
+  const adjustZoom = useCallback(
+    (factor: number) => {
+      setViewport((current) =>
+        publishViewport(
+          zoomWorkspaceViewport(current, {
+            factor,
+            originX: current.width / 2,
+            originY: current.height / 2,
+          }),
+        ),
+      );
+    },
+    [publishViewport],
+  );
+
+  const handleKeyDown = useCallback(
+    (event: ReactKeyboardEvent<HTMLDivElement>) => {
+      const nextViewport = moveWorkspaceViewportByKey(viewport, event.key);
+      if (nextViewport !== viewport) {
+        event.preventDefault();
+        setViewport(publishViewport(nextViewport));
+      }
+    },
+    [publishViewport, viewport],
+  );
+
+  const activeAgents = agents.filter((agent) => agent.status === "READY").length;
+  const activeMembers = presenceMembers.filter((member) => member.status === "ACTIVE").length;
+
   return (
     <div className="workspace-2d-frame">
       <div className="workspace-2d-header">
@@ -240,6 +273,22 @@ export default function Workspace2DCanvas({
         </div>
         <div className="workspace-2d-controls">
           <span>{Math.round(viewport.zoom * 100)}%</span>
+          <button
+            className="secondary-action workspace-task-refresh"
+            type="button"
+            onClick={() => adjustZoom(0.88)}
+            aria-label="Zoom out"
+          >
+            <Minus aria-hidden="true" />
+          </button>
+          <button
+            className="secondary-action workspace-task-refresh"
+            type="button"
+            onClick={() => adjustZoom(1.12)}
+            aria-label="Zoom in"
+          >
+            <Plus aria-hidden="true" />
+          </button>
           <button className="secondary-action workspace-task-refresh" type="button" onClick={resetViewport}>
             <Maximize2 aria-hidden="true" />
             <span>Reset</span>
@@ -247,14 +296,36 @@ export default function Workspace2DCanvas({
         </div>
       </div>
 
+      <div className="workspace-2d-hud" aria-label="Office scene HUD">
+        <div>
+          <span>READY Agent</span>
+          <strong>{activeAgents}</strong>
+        </div>
+        <div>
+          <span>Active Member</span>
+          <strong>{activeMembers}</strong>
+        </div>
+        <div>
+          <span>Selected actor</span>
+          <strong>{selectedNode?.label ?? "None"}</strong>
+        </div>
+        <div>
+          <span>Viewport</span>
+          <strong>{`${Math.round(viewport.x)}, ${Math.round(viewport.y)}`}</strong>
+        </div>
+      </div>
+
       <div className="workspace-2d-layout">
         <div className="workspace-2d-stage">
+          <span aria-label="Stage keyboard controls" hidden />
           <div
             ref={containerRef}
             className="workspace-2d-canvas"
             role="img"
             aria-label="Agent and member 2D workspace scene"
+            tabIndex={0}
             onWheel={handleWheel}
+            onKeyDown={handleKeyDown}
             onPointerDown={handlePointerDown}
             onPointerMove={handlePointerMove}
             onPointerUp={handlePointerUp}
@@ -270,6 +341,30 @@ export default function Workspace2DCanvas({
           {contextMenu ? (
             <WorkspaceContextMenu menu={contextMenu} />
           ) : null}
+          <div className="workspace-2d-minimap" aria-label="Office scene minimap">
+            {zones.map((zone) => (
+              <span
+                className={`workspace-2d-minimap-zone workspace-2d-minimap-${zone.kind}`}
+                key={zone.id}
+                title={zone.label}
+                style={{
+                  left: `${(zone.x / viewport.worldWidth) * 100}%`,
+                  top: `${(zone.y / viewport.worldHeight) * 100}%`,
+                  width: `${(zone.width / viewport.worldWidth) * 100}%`,
+                  height: `${(zone.height / viewport.worldHeight) * 100}%`,
+                }}
+              />
+            ))}
+            <span
+              className="workspace-2d-minimap-view"
+              style={{
+                left: `${(viewport.x / viewport.worldWidth) * 100}%`,
+                top: `${(viewport.y / viewport.worldHeight) * 100}%`,
+                width: `${(viewport.width / viewport.zoom / viewport.worldWidth) * 100}%`,
+                height: `${(viewport.height / viewport.zoom / viewport.worldHeight) * 100}%`,
+              }}
+            />
+          </div>
         </div>
 
         <div className="workspace-2d-roster" aria-label="2D workspace nodes">
@@ -311,6 +406,15 @@ export default function Workspace2DCanvas({
           </span>
         </div>
       ) : null}
+
+      <div className="workspace-2d-dialogue" aria-live="polite">
+        <strong>{selectedNode ? selectedNode.label : "Office scene"}</strong>
+        <p>
+          {selectedNode
+            ? `${selectedNode.detail} actor가 선택되었습니다. 우클릭 메뉴로 다음 행동을 고를 수 있습니다.`
+            : "stage를 클릭해 actor를 선택하고, 방향키 또는 WASD로 화면을 이동합니다."}
+        </p>
+      </div>
     </div>
   );
 }

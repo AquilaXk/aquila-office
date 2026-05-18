@@ -35,6 +35,7 @@ export type WorkspaceZoomInput = {
 };
 
 export type WorkspaceSceneNodeKind = "agent" | "member";
+export type WorkspaceSceneZoneKind = "room" | "desk";
 
 export type WorkspaceSceneNode = {
   id: string;
@@ -44,6 +45,16 @@ export type WorkspaceSceneNode = {
   status: string;
   x: number;
   y: number;
+};
+
+export type WorkspaceSceneZone = {
+  id: string;
+  kind: WorkspaceSceneZoneKind;
+  label: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
 };
 
 export type WorkspaceAvatarAgent = {
@@ -106,6 +117,7 @@ export type WorkspaceSceneEventBus = {
 
 const MIN_ZOOM = 0.75;
 const MAX_ZOOM = 2;
+const KEYBOARD_PAN_STEP = 96;
 
 export function createWorkspaceSceneEventBus(): WorkspaceSceneEventBus {
   const listeners = new Map<WorkspaceSceneEventType, Set<(event: WorkspaceSceneEvent) => void>>();
@@ -177,6 +189,73 @@ export function zoomWorkspaceViewport(
     y: worldOriginY - originY / nextZoom,
     zoom: nextZoom,
   });
+}
+
+export function moveWorkspaceViewportByKey(
+  viewport: WorkspaceViewport,
+  key: string,
+): WorkspaceViewport {
+  switch (key) {
+    case "ArrowUp":
+    case "w":
+    case "W":
+      return panWorkspaceViewport(viewport, { deltaX: 0, deltaY: -KEYBOARD_PAN_STEP });
+    case "ArrowDown":
+    case "s":
+    case "S":
+      return panWorkspaceViewport(viewport, { deltaX: 0, deltaY: KEYBOARD_PAN_STEP });
+    case "ArrowLeft":
+    case "a":
+    case "A":
+      return panWorkspaceViewport(viewport, { deltaX: -KEYBOARD_PAN_STEP, deltaY: 0 });
+    case "ArrowRight":
+    case "d":
+    case "D":
+      return panWorkspaceViewport(viewport, { deltaX: KEYBOARD_PAN_STEP, deltaY: 0 });
+    default:
+      return viewport;
+  }
+}
+
+export function createWorkspaceSceneZones(): WorkspaceSceneZone[] {
+  return [
+    {
+      id: "room-command",
+      kind: "room",
+      label: "Command room",
+      x: 80,
+      y: 80,
+      width: 640,
+      height: 300,
+    },
+    {
+      id: "room-archive",
+      kind: "room",
+      label: "Archive room",
+      x: 790,
+      y: 90,
+      width: 520,
+      height: 290,
+    },
+    {
+      id: "desk-ops",
+      kind: "desk",
+      label: "Ops desk",
+      x: 160,
+      y: 140,
+      width: 220,
+      height: 90,
+    },
+    {
+      id: "desk-agent",
+      kind: "desk",
+      label: "Agent desk",
+      x: 860,
+      y: 165,
+      width: 240,
+      height: 90,
+    },
+  ];
 }
 
 export function createWorkspaceAvatarNodes(
