@@ -13,9 +13,12 @@ import com.aquilaoffice.domain.gateway.WorkspaceGatewayBinding;
 import com.aquilaoffice.domain.member.Member;
 import com.aquilaoffice.domain.member.MemberRole;
 import com.aquilaoffice.domain.workspace.Workspace;
+import com.aquilaoffice.global.config.properties.ExternalTokenEncryptionProperties;
+import com.aquilaoffice.global.security.AesGcmExternalTokenCipher;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.context.annotation.Import;
 
@@ -23,7 +26,8 @@ import org.springframework.context.annotation.Import;
  * workspace gateway binding persistence adapter가 active binding을 단건으로 유지하는지 검증한다.
  */
 @DataJpaTest
-@Import(WorkspaceGatewayBindingPersistenceAdapter.class)
+@Import({WorkspaceGatewayBindingPersistenceAdapter.class, AesGcmExternalTokenCipher.class})
+@EnableConfigurationProperties(ExternalTokenEncryptionProperties.class)
 class WorkspaceGatewayBindingPersistenceAdapterTest {
 
     @Autowired
@@ -53,6 +57,11 @@ class WorkspaceGatewayBindingPersistenceAdapterTest {
 
         assertThat(savedBinding.getId()).isNotNull();
         assertThat(savedBinding.getGatewayUrl()).isEqualTo("https://gateway.example.com");
+        assertThat(workspaceGatewayBindingJpaRepository.findById(savedBinding.getId()))
+                .hasValueSatisfying(entity -> {
+                    assertThat(entity.getToken()).startsWith("enc:v1:test-key:");
+                    assertThat(entity.getToken()).doesNotContain("gate_1234567890abcdef");
+                });
         assertThat(loadWorkspaceGatewayBindingPort.findActiveByWorkspaceId(workspaceEntity.getId()))
                 .hasValueSatisfying(found -> {
                     assertThat(found.getId()).isEqualTo(savedBinding.getId());
