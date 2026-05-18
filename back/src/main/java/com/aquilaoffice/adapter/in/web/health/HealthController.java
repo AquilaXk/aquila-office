@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.RestController;
  * 로드밸런서와 운영자가 백엔드 상태를 확인하는 health check용 web adapter다.
  */
 @RestController
-@RequestMapping("/api/health")
+@RequestMapping({"/api/health", "/api/v1/health"})
 public class HealthController {
 
     @GetMapping

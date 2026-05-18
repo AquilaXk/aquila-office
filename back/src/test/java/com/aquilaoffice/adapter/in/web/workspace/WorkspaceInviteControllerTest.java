@@ -84,6 +84,29 @@ class WorkspaceInviteControllerTest {
     }
 
     @Test
+    void getWorkspaceInviteAliasReturnsOkEnvelope() throws Exception {
+        given(getWorkspaceInviteUseCase.getWorkspaceInvite(any(GetWorkspaceInviteQuery.class)))
+                .willReturn(new GetWorkspaceInviteResult(
+                        501L,
+                        101L,
+                        "invitee@example.com",
+                        "invite-token",
+                        WorkspaceInviteStatus.PENDING,
+                        LocalDateTime.of(2026, 5, 15, 10, 0),
+                        LocalDateTime.of(2026, 5, 22, 10, 0),
+                        null));
+
+        mockMvc.perform(get("/api/v1/invites/invite-token"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.token").value("invite-token"));
+
+        ArgumentCaptor<GetWorkspaceInviteQuery> queryCaptor = ArgumentCaptor.forClass(GetWorkspaceInviteQuery.class);
+        verify(getWorkspaceInviteUseCase).getWorkspaceInvite(queryCaptor.capture());
+        assertThat(queryCaptor.getValue().token()).isEqualTo("invite-token");
+    }
+
+    @Test
     void getWorkspaceInviteReturnsNotFoundEnvelope() throws Exception {
         given(getWorkspaceInviteUseCase.getWorkspaceInvite(any(GetWorkspaceInviteQuery.class)))
                 .willThrow(new IllegalArgumentException("workspace invite not found"));
@@ -123,6 +146,29 @@ class WorkspaceInviteControllerTest {
         AcceptWorkspaceInviteCommand command = commandCaptor.getValue();
         assertThat(command.token()).isEqualTo("invite-token");
         assertThat(command.memberGoogleSub()).isEqualTo("google-1");
+    }
+
+    @Test
+    void acceptWorkspaceInviteAliasReturnsOkEnvelope() throws Exception {
+        LocalDateTime acceptedAt = LocalDateTime.of(2026, 5, 16, 10, 0);
+        given(acceptWorkspaceInviteUseCase.acceptWorkspaceInvite(any(AcceptWorkspaceInviteCommand.class)))
+                .willReturn(new AcceptWorkspaceInviteResult(
+                        501L,
+                        101L,
+                        "google-1",
+                        WorkspaceMemberRole.MEMBER,
+                        acceptedAt));
+
+        mockMvc.perform(post("/api/v1/invites/invite-token/accept")
+                        .principal(authenticatedPrincipal("google-1")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.memberGoogleSub").value("google-1"));
+
+        ArgumentCaptor<AcceptWorkspaceInviteCommand> commandCaptor =
+                ArgumentCaptor.forClass(AcceptWorkspaceInviteCommand.class);
+        verify(acceptWorkspaceInviteUseCase).acceptWorkspaceInvite(commandCaptor.capture());
+        assertThat(commandCaptor.getValue().token()).isEqualTo("invite-token");
     }
 
     @Test

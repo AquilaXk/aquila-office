@@ -30,4 +30,14 @@ class HealthControllerTest {
                 .andExpect(jsonPath("$.data.service").value("aquila-office-back"))
                 .andExpect(jsonPath("$.data.checkedAt", notNullValue()));
     }
+
+    @Test
+    void versionedHealthReturnsSameServiceStatus() throws Exception {
+        mockMvc.perform(get("/api/v1/health"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.status").value("ok"))
+                .andExpect(jsonPath("$.data.service").value("aquila-office-back"))
+                .andExpect(jsonPath("$.data.checkedAt", notNullValue()));
+    }
 }

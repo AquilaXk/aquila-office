@@ -22,7 +22,7 @@ import org.springframework.web.bind.annotation.RestController;
  * 워크스페이스 초대 링크 관련 HTTP 요청을 application use case로 연결하는 inbound web adapter다.
  */
 @RestController
-@RequestMapping("/api/v1/workspace-invites")
+@RequestMapping({"/api/v1/workspace-invites", "/api/v1/invites"})
 public class WorkspaceInviteController {
 
     private final GetWorkspaceInviteUseCase getWorkspaceInviteUseCase;
