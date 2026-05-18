@@ -245,6 +245,7 @@ class RpcWorkspaceAgentGatewayClientTest {
                 "https://gateway.example.com/base/",
                 "secret-token",
                 "Backend Agent",
+                "🧪",
                 com.aquilaoffice.domain.agent.WorkspaceAgentCategory.BACKEND,
                 "/workspace/project",
                 List.of(new WorkspaceAgentCreateGatewayRequest.SkillFile("AGENTS.md", "rules"))));
@@ -254,6 +255,7 @@ class RpcWorkspaceAgentGatewayClientTest {
 
         JsonNode message = objectMapper.readTree(transport.sentMessages().getFirst());
         assertThat(message.path("method").asText()).isEqualTo("agents.create");
+        assertThat(message.path("params").path("emoji").asText()).isEqualTo("🧪");
         assertThat(message.path("params").has("skillFiles")).isFalse();
     }
 

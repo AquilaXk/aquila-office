@@ -298,6 +298,9 @@ final class RpcWorkspaceAgentGatewayClient implements WorkspaceAgentGatewayClien
         params.put("name", request.name());
         params.put("category", request.category().name());
         params.put("workspacePath", request.workspacePath());
+        if (request.emoji() != null) {
+            params.put("emoji", request.emoji());
+        }
         return params;
     }
 

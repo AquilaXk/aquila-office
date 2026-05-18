@@ -93,6 +93,39 @@ class WorkspaceAgentServiceTest {
     }
 
     @Test
+    void createWorkspaceAgentDefaultsCompatiblePayloadAndPassesEmojiToGateway() {
+        FakeSaveWorkspaceAgentPort savePort = new FakeSaveWorkspaceAgentPort(null);
+        FakeCreateWorkspaceAgentGatewayPort gatewayPort =
+                new FakeCreateWorkspaceAgentGatewayPort(gatewayCreateSuccess());
+        CreateWorkspaceAgentService service = new CreateWorkspaceAgentService(
+                new FakeLoadMemberPort(Optional.of(Member.createUser("google-1", "admin@example.com", "Admin"))),
+                new FakeLoadWorkspacePort(Optional.of(workspaceDetail(WorkspaceMemberRole.ADMIN))),
+                savePort,
+                new FakeLoadWorkspaceGatewayBindingPort(Optional.of(gatewayBinding())),
+                gatewayPort);
+
+        CreateWorkspaceAgentResult result = service.createWorkspaceAgent(new CreateWorkspaceAgentCommand(
+                101L,
+                "google-1",
+                " QA Agent ",
+                " 🧪 ",
+                null,
+                null,
+                null));
+
+        assertThat(savePort.savedAgent.getName()).isEqualTo("QA Agent");
+        assertThat(savePort.savedAgent.getCategory()).isEqualTo(WorkspaceAgentCategory.CUSTOM);
+        assertThat(savePort.savedAgent.getWorkspacePath()).isEqualTo(".aquila/workspaces/101");
+        assertThat(gatewayPort.command.emoji()).isEqualTo("🧪");
+        assertThat(gatewayPort.command.category()).isEqualTo(WorkspaceAgentCategory.CUSTOM);
+        assertThat(gatewayPort.command.workspacePath()).isEqualTo(".aquila/workspaces/101");
+        assertThat(savePort.savedSkillFiles)
+                .extracting(WorkspaceAgentSkillFile::getSyncStatus)
+                .containsExactly(WorkspaceAgentSkillFileSyncStatus.SYNCED);
+        assertThat(result.status()).isEqualTo(WorkspaceAgentStatus.READY);
+    }
+
+    @Test
     void createWorkspaceAgentKeepsRequestedSkillFileWhenItOverridesDefault() {
         FakeSaveWorkspaceAgentPort savePort = new FakeSaveWorkspaceAgentPort(savedAgent());
         CreateWorkspaceAgentService service = createAgentService(savePort, WorkspaceMemberRole.ADMIN);

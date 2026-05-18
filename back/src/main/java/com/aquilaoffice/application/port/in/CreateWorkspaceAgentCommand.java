@@ -10,6 +10,7 @@ public record CreateWorkspaceAgentCommand(
         Long workspaceId,
         String requesterGoogleSub,
         String name,
+        String emoji,
         WorkspaceAgentCategory category,
         String workspacePath,
         List<WorkspaceAgentSkillFileCommand> skillFiles) {
@@ -18,9 +19,20 @@ public record CreateWorkspaceAgentCommand(
         workspaceId = requirePositive(workspaceId, "workspaceId");
         requesterGoogleSub = requireNotBlank(requesterGoogleSub, "requesterGoogleSub");
         name = requireNotBlank(name, "name");
+        emoji = normalizeOptional(emoji);
         category = category == null ? WorkspaceAgentCategory.CUSTOM : category;
         workspacePath = workspacePath == null ? null : workspacePath.trim();
         skillFiles = skillFiles == null ? List.of() : List.copyOf(skillFiles);
+    }
+
+    public CreateWorkspaceAgentCommand(
+            Long workspaceId,
+            String requesterGoogleSub,
+            String name,
+            WorkspaceAgentCategory category,
+            String workspacePath,
+            List<WorkspaceAgentSkillFileCommand> skillFiles) {
+        this(workspaceId, requesterGoogleSub, name, null, category, workspacePath, skillFiles);
     }
 
     private static Long requirePositive(Long value, String fieldName) {
@@ -33,6 +45,13 @@ public record CreateWorkspaceAgentCommand(
     private static String requireNotBlank(String value, String fieldName) {
         if (value == null || value.isBlank()) {
             throw new IllegalArgumentException(fieldName + " must not be blank");
+        }
+        return value.trim();
+    }
+
+    private static String normalizeOptional(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
         }
         return value.trim();
     }
