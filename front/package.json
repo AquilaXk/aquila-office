@@ -8,7 +8,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test:node": "node --test lib/*.test.ts"
+    "test:node": "node --test lib/*.test.ts",
+    "test:browser": "playwright test"
   },
   "dependencies": {
     "@react-oauth/google": "^0.13.5",
@@ -21,6 +22,7 @@
     "remark-gfm": "^4.0.1"
   },
   "devDependencies": {
+    "@playwright/test": "^1.60.0",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
