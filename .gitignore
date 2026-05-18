@@ -88,9 +88,17 @@ tools/guards/current-task-*.sh
 *.tfstate.*
 *.tfvars
 !*.tfvars.example
+*.tfvars.json
 *.tfplan
 crash.log
 crash.*.log
+
+# OCI A1 local secrets and Terraform run artifacts
+.env.oci-a1-*
+infra/terraform/oci/**/terraform.tfvars
+infra/terraform/oci/**/*.auto.tfvars
+infra/terraform/oci/**/*.auto.tfvars.json
+infra/terraform/oci/**/*.tfplan
 
 # Local performance/test artifacts
 perf/k6/results/*.json
