@@ -197,6 +197,14 @@ test("frontend exposes markdown artifact renderer contract", () => {
   assert.match(source, /markdown-artifact-content/);
 });
 
+test("workspace detail renders markdown artifact files", () => {
+  const source = readSource("app/workspaces/[workspaceId]/page.tsx");
+
+  assert.match(source, /MarkdownContent/);
+  assert.match(source, /isMarkdownArtifactFile/);
+  assert.match(source, /workspace-file-markdown/);
+});
+
 test("workspace detail exposes agent list surface", () => {
   const source = readSource("app/workspaces/[workspaceId]/page.tsx");
 
