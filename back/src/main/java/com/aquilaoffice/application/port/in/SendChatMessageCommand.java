@@ -12,7 +12,7 @@ public record SendChatMessageCommand(
         TaskType taskType,
         TaskPriority priority,
         String title,
-        boolean createPr,
+        Boolean createPr,
         Long chatSessionId,
         String sourceRef) {
 
@@ -25,7 +25,7 @@ public record SendChatMessageCommand(
             TaskType taskType,
             TaskPriority priority,
             String title,
-            boolean createPr,
+            Boolean createPr,
             Long chatSessionId) {
         this(
                 workspaceId,

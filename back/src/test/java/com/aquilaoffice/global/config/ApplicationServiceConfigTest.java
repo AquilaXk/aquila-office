@@ -53,6 +53,7 @@ import com.aquilaoffice.application.port.in.UpdateTaskStatusUseCase;
 import com.aquilaoffice.application.port.in.UpdateWorkspaceUseCase;
 import com.aquilaoffice.application.port.in.RevokeWorkspaceInviteUseCase;
 import com.aquilaoffice.application.port.out.AcceptWorkspaceInvitePort;
+import com.aquilaoffice.application.port.out.AnalyzeChatIntentPort;
 import com.aquilaoffice.application.port.out.AuthenticateWorkspaceGatewayPort;
 import com.aquilaoffice.application.port.out.ChangeWorkspaceMemberRolePort;
 import com.aquilaoffice.application.port.out.CreateWorkspaceAgentGatewayPort;
@@ -317,6 +318,9 @@ class ApplicationServiceConfigTest {
 
     @MockitoBean
     private SaveChatMessagePort saveChatMessagePort;
+
+    @MockitoBean
+    private AnalyzeChatIntentPort analyzeChatIntentPort;
 
     @MockitoBean
     private LoadChatMessagesPort loadChatMessagesPort;
