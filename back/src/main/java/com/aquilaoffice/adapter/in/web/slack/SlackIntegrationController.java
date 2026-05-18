@@ -13,6 +13,9 @@ import com.aquilaoffice.global.exception.CommonErrorCode;
 import com.aquilaoffice.global.exception.ServiceException;
 import com.aquilaoffice.global.response.RsData;
 import com.aquilaoffice.global.security.AuthenticatedMember;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.net.URI;
 import java.util.List;
@@ -32,6 +35,8 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @RestController
 @RequestMapping("/api/v1/workspaces/{workspaceId}/slack/integrations")
+@Tag(name = "Integration", description = "워크스페이스 외부 연동 설정 API")
+@SecurityRequirement(name = "bearerAuth")
 public class SlackIntegrationController {
 
     private final CreateSlackChannelMappingUseCase createSlackChannelMappingUseCase;
@@ -51,6 +56,7 @@ public class SlackIntegrationController {
     }
 
     @PostMapping
+    @Operation(summary = "Slack 연동 설정을 생성한다")
     public ResponseEntity<RsData<SlackIntegrationResponse>> createSlackIntegration(
             @PathVariable Long workspaceId,
             Authentication authentication,
