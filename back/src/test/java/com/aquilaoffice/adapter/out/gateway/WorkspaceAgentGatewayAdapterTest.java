@@ -4,7 +4,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.aquilaoffice.application.port.out.WorkspaceAgentRunCommand;
 import com.aquilaoffice.application.port.out.WorkspaceAgentRunResult;
+import java.lang.reflect.Constructor;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 
 /**
  * Gateway outbound adapter가 application command를 실행 client 요청으로 변환하는지 검증한다.
@@ -44,6 +46,14 @@ class WorkspaceAgentGatewayAdapterTest {
         assertThat(result.success()).isFalse();
         assertThat(result.finalText()).isNull();
         assertThat(result.failureReason()).isEqualTo("workspace agent gateway client is not configured");
+    }
+
+    @Test
+    void gatewayClientConstructorIsAutowiredForSpringWiring() throws Exception {
+        Constructor<WorkspaceAgentGatewayAdapter> constructor =
+                WorkspaceAgentGatewayAdapter.class.getConstructor(WorkspaceAgentGatewayClient.class);
+
+        assertThat(constructor.isAnnotationPresent(Autowired.class)).isTrue();
     }
 
     private static WorkspaceAgentRunCommand command() {
