@@ -9,8 +9,13 @@ import com.aquilaoffice.application.port.in.GetWorkspaceDetailResult;
 import com.aquilaoffice.application.port.out.GenerateWorkspaceInviteTokenPort;
 import com.aquilaoffice.application.port.out.LoadMemberPort;
 import com.aquilaoffice.application.port.out.LoadWorkspacePort;
+import com.aquilaoffice.application.port.out.RecordWorkspaceInviteEmailFailurePort;
+import com.aquilaoffice.application.port.out.RunAfterCommitPort;
 import com.aquilaoffice.application.port.out.SaveWorkspaceInvitePort;
 import com.aquilaoffice.application.port.out.SavedWorkspaceInvite;
+import com.aquilaoffice.application.port.out.SendWorkspaceInviteEmailPort;
+import com.aquilaoffice.application.port.out.WorkspaceInviteEmailCommand;
+import com.aquilaoffice.application.port.out.WorkspaceInviteEmailFailure;
 import com.aquilaoffice.domain.member.Member;
 import com.aquilaoffice.domain.workspace.WorkspaceInvite;
 import com.aquilaoffice.domain.workspace.WorkspaceInviteStatus;
@@ -19,6 +24,8 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
@@ -71,6 +78,62 @@ class CreateWorkspaceInviteServiceTest {
         assertThat(result.status()).isEqualTo(WorkspaceInviteStatus.PENDING);
         assertThat(result.createdAt()).isEqualTo(LocalDateTime.of(2026, 5, 15, 10, 0));
         assertThat(result.expiresAt()).isEqualTo(LocalDateTime.of(2026, 5, 22, 10, 0));
+    }
+
+    @Test
+    void createWorkspaceInviteSchedulesInviteEmailAfterCommit() {
+        FakeRunAfterCommitPort afterCommitPort = new FakeRunAfterCommitPort();
+        FakeSendWorkspaceInviteEmailPort emailPort = new FakeSendWorkspaceInviteEmailPort();
+        CreateWorkspaceInviteService service = createService(
+                WorkspaceMemberRole.ADMIN,
+                new FakeSaveWorkspaceInvitePort(new SavedWorkspaceInvite(501L)),
+                new FakeGenerateWorkspaceInviteTokenPort("generated-token"),
+                afterCommitPort,
+                emailPort,
+                new FakeRecordWorkspaceInviteEmailFailurePort());
+
+        service.createWorkspaceInvite(
+                new CreateWorkspaceInviteCommand(101L, " google-1 ", " invitee@example.com "));
+
+        assertThat(afterCommitPort.callbacks).hasSize(1);
+        assertThat(emailPort.sentCommands).isEmpty();
+
+        afterCommitPort.runAll();
+
+        assertThat(emailPort.sentCommands).singleElement().satisfies(command -> {
+            assertThat(command.inviteId()).isEqualTo(501L);
+            assertThat(command.workspaceId()).isEqualTo(101L);
+            assertThat(command.workspaceName()).isEqualTo("Team");
+            assertThat(command.email()).isEqualTo("invitee@example.com");
+            assertThat(command.token()).isEqualTo("generated-token");
+            assertThat(command.expiresAt()).isEqualTo(LocalDateTime.of(2026, 5, 22, 10, 0));
+        });
+    }
+
+    @Test
+    void createWorkspaceInviteRecordsEmailFailureAfterCommit() {
+        FakeRunAfterCommitPort afterCommitPort = new FakeRunAfterCommitPort();
+        FakeSendWorkspaceInviteEmailPort emailPort =
+                new FakeSendWorkspaceInviteEmailPort(new IllegalStateException("smtp down"));
+        FakeRecordWorkspaceInviteEmailFailurePort failurePort = new FakeRecordWorkspaceInviteEmailFailurePort();
+        CreateWorkspaceInviteService service = createService(
+                WorkspaceMemberRole.ADMIN,
+                new FakeSaveWorkspaceInvitePort(new SavedWorkspaceInvite(501L)),
+                new FakeGenerateWorkspaceInviteTokenPort("generated-token"),
+                afterCommitPort,
+                emailPort,
+                failurePort);
+
+        service.createWorkspaceInvite(
+                new CreateWorkspaceInviteCommand(101L, " google-1 ", " invitee@example.com "));
+        afterCommitPort.runAll();
+
+        assertThat(failurePort.failures).singleElement().satisfies(failure -> {
+            assertThat(failure.inviteId()).isEqualTo(501L);
+            assertThat(failure.workspaceId()).isEqualTo(101L);
+            assertThat(failure.reason()).isEqualTo("smtp down");
+            assertThat(failure.failedAt()).isEqualTo(LocalDateTime.of(2026, 5, 15, 10, 0));
+        });
     }
 
     @Test
@@ -130,6 +193,30 @@ class CreateWorkspaceInviteServiceTest {
         assertThatThrownBy(() -> new CreateWorkspaceInviteCommand(101L, "google-1", " "))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("email must not be blank");
+    }
+
+    private static CreateWorkspaceInviteService createService(
+            WorkspaceMemberRole role,
+            FakeSaveWorkspaceInvitePort saveWorkspaceInvitePort,
+            FakeGenerateWorkspaceInviteTokenPort tokenPort,
+            RunAfterCommitPort afterCommitPort,
+            SendWorkspaceInviteEmailPort emailPort,
+            RecordWorkspaceInviteEmailFailurePort failurePort) {
+        return new CreateWorkspaceInviteService(
+                new FakeLoadMemberPort(Optional.of(Member.createUser("google-1", "admin@example.com", "Admin"))),
+                new FakeLoadWorkspacePort(Optional.of(new GetWorkspaceDetailResult(
+                        101L,
+                        "Team",
+                        "Description",
+                        "google-1",
+                        role,
+                        LocalDateTime.of(2026, 5, 15, 9, 0)))),
+                saveWorkspaceInvitePort,
+                tokenPort,
+                CLOCK,
+                afterCommitPort,
+                emailPort,
+                failurePort);
     }
 
     /**
@@ -216,6 +303,50 @@ class CreateWorkspaceInviteServiceTest {
         public String generateToken() {
             this.called = true;
             return token;
+        }
+    }
+
+    private static class FakeRunAfterCommitPort implements RunAfterCommitPort {
+        private final List<Runnable> callbacks = new ArrayList<>();
+
+        @Override
+        public void runAfterCommit(Runnable callback) {
+            callbacks.add(callback);
+        }
+
+        private void runAll() {
+            callbacks.forEach(Runnable::run);
+        }
+    }
+
+    private static class FakeSendWorkspaceInviteEmailPort implements SendWorkspaceInviteEmailPort {
+        private final List<WorkspaceInviteEmailCommand> sentCommands = new ArrayList<>();
+        private final RuntimeException failure;
+
+        private FakeSendWorkspaceInviteEmailPort() {
+            this(null);
+        }
+
+        private FakeSendWorkspaceInviteEmailPort(RuntimeException failure) {
+            this.failure = failure;
+        }
+
+        @Override
+        public void send(WorkspaceInviteEmailCommand command) {
+            if (failure != null) {
+                throw failure;
+            }
+            sentCommands.add(command);
+        }
+    }
+
+    private static class FakeRecordWorkspaceInviteEmailFailurePort
+            implements RecordWorkspaceInviteEmailFailurePort {
+        private final List<WorkspaceInviteEmailFailure> failures = new ArrayList<>();
+
+        @Override
+        public void record(WorkspaceInviteEmailFailure failure) {
+            failures.add(failure);
         }
     }
 }
