@@ -4,6 +4,7 @@ import com.github.spotbugs.snom.Effort
 plugins {
     java
     checkstyle
+    jacoco
     id("org.springframework.boot") version "4.0.5"
     id("io.spring.dependency-management") version "1.1.7"
     id("com.github.spotbugs") version "6.5.4"
@@ -42,6 +43,7 @@ dependencies {
 
 tasks.withType<Test> {
     useJUnitPlatform()
+    finalizedBy(tasks.jacocoTestReport)
 }
 
 checkstyle {
@@ -73,4 +75,37 @@ tasks.withType<com.github.spotbugs.snom.SpotBugsTask>().configureEach {
         required = true
         outputLocation = layout.buildDirectory.file("reports/spotbugs/$spotbugsTaskName/spotbugs.html")
     }
+}
+
+jacoco {
+    toolVersion = "0.8.14"
+}
+
+tasks.jacocoTestReport {
+    dependsOn(tasks.test)
+
+    reports {
+        xml.required.set(true)
+        html.required.set(true)
+        csv.required.set(false)
+    }
+}
+
+tasks.jacocoTestCoverageVerification {
+    dependsOn(tasks.jacocoTestReport)
+
+    violationRules {
+        rule {
+            element = "BUNDLE"
+            limit {
+                counter = "LINE"
+                value = "COVEREDRATIO"
+                minimum = "0.80".toBigDecimal()
+            }
+        }
+    }
+}
+
+tasks.check {
+    dependsOn(tasks.jacocoTestCoverageVerification)
 }
