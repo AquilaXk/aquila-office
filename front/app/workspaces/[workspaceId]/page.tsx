@@ -42,6 +42,8 @@ import {
   type OrchestrationPlanArtifact,
 } from "@/lib/artifacts";
 import {
+  chatSessionMessagePageInput,
+  fetchChatSessionMessages,
   fetchTaskChatMessages,
   sendWorkspaceChatMessage,
   type ChatMessage,
@@ -127,6 +129,11 @@ type TaskMutationState = {
 
 type ChatMutationState = {
   status: "idle" | "submitting" | "success" | "error";
+  message: string | null;
+};
+
+type TaskChatPaginationState = {
+  status: "idle" | "loading" | "error";
   message: string | null;
 };
 
@@ -281,6 +288,14 @@ export default function WorkspaceDetailPage({
     status: "idle",
     message: null,
   });
+  const [taskChatSessionId, setTaskChatSessionId] = useState<number | null>(null);
+  const [taskChatCursor, setTaskChatCursor] = useState<number | null>(null);
+  const [taskChatHasMore, setTaskChatHasMore] = useState(false);
+  const [taskChatPaginationState, setTaskChatPaginationState] =
+    useState<TaskChatPaginationState>({
+      status: "idle",
+      message: null,
+    });
   const [presenceStreamStatus, setPresenceStreamStatus] =
     useState<PresenceStreamStatus>("idle");
   const [presenceEvents, setPresenceEvents] = useState<WorkspacePresenceMessage[]>([]);
@@ -635,6 +650,10 @@ export default function WorkspaceDetailPage({
       setTaskChatAgentIdInput(defaultAgentIdForTask(task, workspaceAgents));
       setTaskChatMessageInput("");
       setTaskChatMutation({ status: "idle", message: null });
+      setTaskChatSessionId(null);
+      setTaskChatCursor(null);
+      setTaskChatHasMore(false);
+      setTaskChatPaginationState({ status: "idle", message: null });
       setTaskChatState({ status: "loading", error: null });
 
       try {
@@ -643,7 +662,24 @@ export default function WorkspaceDetailPage({
           numericWorkspaceId,
           task.taskId,
         );
-        setTaskChatMessages(messages);
+        const sessionId = messages[0]?.chatSessionId ?? null;
+        if (sessionId) {
+          const page = await fetchChatSessionMessages(
+            resolveAccessToken(),
+            numericWorkspaceId,
+            sessionId,
+            chatSessionMessagePageInput(),
+          );
+          setTaskChatMessages(page.messages);
+          setTaskChatSessionId(sessionId);
+          setTaskChatCursor(page.nextCursor);
+          setTaskChatHasMore(page.hasMore);
+        } else {
+          setTaskChatMessages(messages);
+          setTaskChatSessionId(null);
+          setTaskChatCursor(null);
+          setTaskChatHasMore(false);
+        }
         setTaskChatState({ status: "ready", error: null });
       } catch (error) {
         setTaskChatState({
@@ -654,6 +690,31 @@ export default function WorkspaceDetailPage({
     },
     [numericWorkspaceId, workspaceAgents],
   );
+
+  const loadMoreTaskChatMessages = useCallback(async () => {
+    if (!taskChatSessionId || taskChatCursor === null) {
+      return;
+    }
+
+    setTaskChatPaginationState({ status: "loading", message: null });
+    try {
+      const page = await fetchChatSessionMessages(
+        resolveAccessToken(),
+        numericWorkspaceId,
+        taskChatSessionId,
+        chatSessionMessagePageInput(taskChatCursor),
+      );
+      setTaskChatMessages((current) => mergeChatMessages(current, page.messages));
+      setTaskChatCursor(page.nextCursor);
+      setTaskChatHasMore(page.hasMore);
+      setTaskChatPaginationState({ status: "idle", message: null });
+    } catch (error) {
+      setTaskChatPaginationState({
+        status: "error",
+        message: messageFromError(error, "Chat 메시지를 더 불러오지 못했습니다."),
+      });
+    }
+  }, [numericWorkspaceId, taskChatCursor, taskChatSessionId]);
 
   const handleSendTaskChatMessage = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -682,8 +743,8 @@ export default function WorkspaceDetailPage({
 
     setTaskChatMutation({ status: "submitting", message: null });
     try {
-      const currentSessionId = taskChatMessages.find((chatMessage) => chatMessage.chatSessionId)
-        ?.chatSessionId;
+      const currentSessionId =
+        taskChatSessionId ?? taskChatMessages.find((chatMessage) => chatMessage.chatSessionId)?.chatSessionId;
       const result = await sendWorkspaceChatMessage(resolveAccessToken(), numericWorkspaceId, {
         message,
         agentId,
@@ -693,7 +754,12 @@ export default function WorkspaceDetailPage({
         createPr,
         chatSessionId: currentSessionId ?? null,
       });
-      setTaskChatMessages((current) => mergeChatMessages(current, result.messages));
+      const nextMessages = mergeChatMessages(taskChatMessages, result.messages);
+      setTaskChatMessages(nextMessages);
+      setTaskChatSessionId(result.chatSessionId);
+      setTaskChatCursor(lastChatMessageId(nextMessages));
+      setTaskChatHasMore(false);
+      setTaskChatPaginationState({ status: "idle", message: null });
       setTaskChatMessageInput("");
       setTaskChatState({ status: "ready", error: null });
       setTaskChatMutation({
@@ -1949,6 +2015,8 @@ export default function WorkspaceDetailPage({
         agents={workspaceAgents}
         mutation={taskChatMutation}
         canSend={canSendTaskChatMessage}
+        hasMoreMessages={taskChatHasMore}
+        paginationState={taskChatPaginationState}
         onMessageChange={(value) => {
           setTaskChatMessageInput(value);
           setTaskChatMutation({ status: "idle", message: null });
@@ -1958,6 +2026,7 @@ export default function WorkspaceDetailPage({
           setTaskChatMutation({ status: "idle", message: null });
         }}
         onSubmit={handleSendTaskChatMessage}
+        onLoadMoreMessages={() => void loadMoreTaskChatMessages()}
         onReload={(task) => void openTaskChat(task)}
         onClose={() => {
           setSelectedChatTask(null);
@@ -1966,6 +2035,10 @@ export default function WorkspaceDetailPage({
           setTaskChatMessageInput("");
           setTaskChatAgentIdInput("");
           setTaskChatMutation({ status: "idle", message: null });
+          setTaskChatSessionId(null);
+          setTaskChatCursor(null);
+          setTaskChatHasMore(false);
+          setTaskChatPaginationState({ status: "idle", message: null });
         }}
       />
       <OrchestrationPlanModal
@@ -2181,9 +2254,12 @@ function TaskChatModal({
   agents,
   mutation,
   canSend,
+  hasMoreMessages,
+  paginationState,
   onMessageChange,
   onAgentChange,
   onSubmit,
+  onLoadMoreMessages,
   onReload,
   onClose,
 }: {
@@ -2195,9 +2271,12 @@ function TaskChatModal({
   agents: WorkspaceAgent[];
   mutation: ChatMutationState;
   canSend: boolean;
+  hasMoreMessages: boolean;
+  paginationState: TaskChatPaginationState;
   onMessageChange: (value: string) => void;
   onAgentChange: (value: string) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  onLoadMoreMessages: () => void;
   onReload: (task: WorkspaceTask) => void;
   onClose: () => void;
 }) {
@@ -2264,6 +2343,28 @@ function TaskChatModal({
                   </div>
                 </article>
               ))}
+            </div>
+          ) : null}
+
+          {hasMoreMessages ? (
+            <button
+              className="secondary-action workspace-task-refresh"
+              type="button"
+              onClick={onLoadMoreMessages}
+              disabled={paginationState.status === "loading"}
+            >
+              {paginationState.status === "loading" ? (
+                <Loader2 className="spin" aria-hidden="true" />
+              ) : (
+                <RefreshCw aria-hidden="true" />
+              )}
+              <span>{paginationState.status === "loading" ? "불러오는 중" : "다음 메시지 더 보기"}</span>
+            </button>
+          ) : null}
+          {paginationState.status === "error" && paginationState.message ? (
+            <div className="workspace-task-notice" role="alert">
+              <AlertCircle aria-hidden="true" />
+              <span>{paginationState.message}</span>
             </div>
           ) : null}
 
@@ -2662,6 +2763,10 @@ function mergeChatMessages(current: ChatMessage[], incoming: ChatMessage[]): Cha
     byId.set(message.messageId, message);
   }
   return [...byId.values()].sort((left, right) => left.messageId - right.messageId);
+}
+
+function lastChatMessageId(messages: ChatMessage[]): number | null {
+  return messages.length > 0 ? messages[messages.length - 1].messageId : null;
 }
 
 function isValidWorkspaceId(workspaceId: number): boolean {
