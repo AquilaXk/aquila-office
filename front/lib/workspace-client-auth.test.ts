@@ -94,6 +94,16 @@ test("frontend exposes workspace gateway route status surface", () => {
   assert.match(source, /aria-label="Gateway 관리"/);
 });
 
+test("frontend exposes workspace gateway route binding controls", () => {
+  const source = readSource("app/workspaces/gateway/page.tsx");
+
+  assert.match(source, /testWorkspaceGatewayConnection/);
+  assert.match(source, /createWorkspaceGatewayBinding/);
+  assert.match(source, /normalizeGatewayForm/);
+  assert.match(source, /Gateway 연결 테스트/);
+  assert.match(source, /Gateway binding 등록/);
+});
+
 test("workspace settings exposes slack integration controls", () => {
   const source = readSource("app/workspaces/[workspaceId]/settings/page.tsx");
 
