@@ -74,6 +74,39 @@ class WorkspaceGatewayBindingServiceTest {
     }
 
     @Test
+    void getWorkspaceGatewayStatusReturnsBoundWithDeviceIdentityAndLastStatus() {
+        LocalDateTime authenticatedAt = LocalDateTime.of(2026, 5, 18, 10, 30);
+        LocalDateTime lastCheckedAt = LocalDateTime.of(2026, 5, 18, 10, 31);
+        FakeLoadWorkspaceGatewayBindingPort bindingPort = new FakeLoadWorkspaceGatewayBindingPort(Optional.of(
+                WorkspaceGatewayBinding.restore(
+                        501L,
+                        101L,
+                        "https://gateway.example.com",
+                        "gate_1234567890abcdef",
+                        "google-1",
+                        "gw-device-1",
+                        "Seoul Office Gateway",
+                        authenticatedAt,
+                        GatewayConnectionStatus.CONNECTED,
+                        lastCheckedAt,
+                        null)));
+        GetWorkspaceGatewayStatusService service = new GetWorkspaceGatewayStatusService(
+                new FakeLoadMemberPort(Optional.of(Member.createUser("google-2", "member@example.com", "Member"))),
+                new FakeLoadWorkspacePort(Optional.of(workspaceDetail(WorkspaceMemberRole.MEMBER))),
+                bindingPort);
+
+        GetWorkspaceGatewayStatusResult result =
+                service.getWorkspaceGatewayStatus(new GetWorkspaceGatewayStatusQuery(101L, "google-2"));
+
+        assertThat(result.deviceId()).isEqualTo("gw-device-1");
+        assertThat(result.deviceName()).isEqualTo("Seoul Office Gateway");
+        assertThat(result.authenticatedAt()).isEqualTo("2026-05-18T10:30:00");
+        assertThat(result.lastStatus()).isEqualTo(GatewayConnectionStatus.CONNECTED);
+        assertThat(result.lastCheckedAt()).isEqualTo("2026-05-18T10:31:00");
+        assertThat(result.lastError()).isNull();
+    }
+
+    @Test
     void testWorkspaceGatewayConnectionRequiresAdminAndReturnsConnectedForValidInput() {
         TestWorkspaceGatewayConnectionService service = new TestWorkspaceGatewayConnectionService(
                 new FakeLoadMemberPort(Optional.of(Member.createUser("google-1", "admin@example.com", "Admin"))),
