@@ -31,6 +31,7 @@ final class RpcWorkspaceAgentGatewayClient implements WorkspaceAgentGatewayClien
     private static final String METHOD_AGENT_CREATE = "agent.create";
     private static final String METHOD_AGENT_LIST = "agent.list";
     private static final String METHOD_AGENT_DELETE = "agent.delete";
+    private static final String METHOD_AGENT_FILE_SET = "agents.files.set";
     private static final String METHOD_GATEWAY_CHALLENGE = "gateway.challenge";
     private static final String METHOD_GATEWAY_CONNECT = "gateway.connect";
     private static final String TIMEOUT_FAILURE_REASON = "gateway rpc request timed out";
@@ -69,7 +70,26 @@ final class RpcWorkspaceAgentGatewayClient implements WorkspaceAgentGatewayClien
                     METHOD_AGENT_CREATE,
                     request.gatewayToken(),
                     agentCreateParams(request));
-            return toAgentCreateResponse(response);
+            WorkspaceAgentCreateGatewayResponse createResponse = toAgentCreateResponse(response);
+            if (!createResponse.success()) {
+                return createResponse;
+            }
+            List<WorkspaceAgentCreateGatewayResponse.SkillFileResult> skillFileResults =
+                    syncSkillFiles(session, request, createResponse.openClawAgentId());
+            boolean allSkillFilesSynced =
+                    skillFileResults.stream().allMatch(WorkspaceAgentCreateGatewayResponse.SkillFileResult::success);
+            if (!allSkillFilesSynced) {
+                return new WorkspaceAgentCreateGatewayResponse(
+                        false,
+                        createResponse.openClawAgentId(),
+                        "gateway skill file sync failed",
+                        skillFileResults);
+            }
+            return new WorkspaceAgentCreateGatewayResponse(
+                    true,
+                    createResponse.openClawAgentId(),
+                    null,
+                    skillFileResults);
         } catch (TimeoutException exception) {
             return createFailure(TIMEOUT_FAILURE_REASON);
         } catch (InterruptedException exception) {
@@ -266,12 +286,34 @@ final class RpcWorkspaceAgentGatewayClient implements WorkspaceAgentGatewayClien
         params.put("name", request.name());
         params.put("category", request.category().name());
         params.put("workspacePath", request.workspacePath());
-        var skillFiles = params.putArray("skillFiles");
+        return params;
+    }
+
+    private List<WorkspaceAgentCreateGatewayResponse.SkillFileResult> syncSkillFiles(
+            GatewayWebSocketSession session,
+            WorkspaceAgentCreateGatewayRequest request,
+            String openClawAgentId)
+            throws InterruptedException, ExecutionException, TimeoutException {
+        List<WorkspaceAgentCreateGatewayResponse.SkillFileResult> results = new ArrayList<>();
         for (WorkspaceAgentCreateGatewayRequest.SkillFile skillFile : request.skillFiles()) {
-            ObjectNode skillFileNode = skillFiles.addObject();
-            skillFileNode.put("fileName", skillFile.fileName());
-            skillFileNode.put("content", skillFile.content());
+            JsonNode response = exchange(
+                    session,
+                    METHOD_AGENT_FILE_SET,
+                    request.gatewayToken(),
+                    agentFileSetParams(request.workspaceId(), openClawAgentId, skillFile));
+            results.add(toSkillFileResult(skillFile.fileName(), response));
         }
+        return results;
+    }
+
+    private ObjectNode agentFileSetParams(
+            Long workspaceId,
+            String openClawAgentId,
+            WorkspaceAgentCreateGatewayRequest.SkillFile skillFile) {
+        ObjectNode params = workspaceParams(workspaceId);
+        params.put("openClawAgentId", openClawAgentId);
+        params.put("fileName", skillFile.fileName());
+        params.put("content", skillFile.content());
         return params;
     }
 
@@ -351,6 +393,30 @@ final class RpcWorkspaceAgentGatewayClient implements WorkspaceAgentGatewayClien
             return createFailure("gateway agent id is missing");
         }
         return new WorkspaceAgentCreateGatewayResponse(true, openClawAgentId, null);
+    }
+
+    private WorkspaceAgentCreateGatewayResponse.SkillFileResult toSkillFileResult(
+            String fileName,
+            JsonNode root) {
+        JsonNode error = root.path("error");
+        if (!error.isMissingNode() && !error.isNull()) {
+            return new WorkspaceAgentCreateGatewayResponse.SkillFileResult(
+                    fileName,
+                    false,
+                    resolveGatewayErrorMessage(error));
+        }
+        JsonNode result = root.path("result");
+        if (result.isMissingNode() || result.isNull()) {
+            return new WorkspaceAgentCreateGatewayResponse.SkillFileResult(
+                    fileName,
+                    false,
+                    "gateway agent file set result is missing");
+        }
+        boolean success = result.path("success").asBoolean(false);
+        return new WorkspaceAgentCreateGatewayResponse.SkillFileResult(
+                fileName,
+                success,
+                success ? null : firstNonBlank(textOrNull(result, "failureReason"), "gateway agent file set failed"));
     }
 
     private WorkspaceAgentListGatewayResponse toAgentListResponse(JsonNode root) {
