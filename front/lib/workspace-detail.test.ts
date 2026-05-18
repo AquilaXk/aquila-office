@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createWorkspaceDetailOverview } from "./workspace-detail.ts";
+import {
+  createWorkspaceDetailActionItems,
+  createWorkspaceDetailOverview,
+} from "./workspace-detail.ts";
 
 test("workspace detail overview summarizes dashboard, agents, tasks, members, and presence", () => {
   const overview = createWorkspaceDetailOverview({
@@ -76,4 +79,60 @@ test("workspace detail overview falls back to loaded collections when dashboard 
     total: 1,
     online: 0,
   });
+});
+
+test("workspace detail action items expose modal and workflow entry states", () => {
+  const actions = createWorkspaceDetailActionItems({
+    agentCount: 2,
+    taskCount: 3,
+    memberCount: 4,
+    canCreateInvite: true,
+    hasArtifactTree: true,
+    hasOrchestrationPlan: false,
+  });
+
+  assert.deepEqual(actions, [
+    {
+      id: "agents",
+      label: "Agents",
+      value: "2",
+      state: "ready",
+      tone: "success",
+    },
+    {
+      id: "tasks",
+      label: "Tasks",
+      value: "3",
+      state: "ready",
+      tone: "warning",
+    },
+    {
+      id: "files",
+      label: "Files",
+      value: "ready",
+      state: "ready",
+      tone: "neutral",
+    },
+    {
+      id: "chat",
+      label: "Task Chat",
+      value: "3 tasks",
+      state: "ready",
+      tone: "neutral",
+    },
+    {
+      id: "invite",
+      label: "Invite",
+      value: "4 members",
+      state: "ready",
+      tone: "success",
+    },
+    {
+      id: "plan",
+      label: "Plan",
+      value: "empty",
+      state: "empty",
+      tone: "neutral",
+    },
+  ]);
 });
