@@ -8,7 +8,9 @@ import {
   Copy,
   FileText,
   FolderTree,
+  GitBranch,
   Hash,
+  KeyRound,
   ListChecks,
   Loader2,
   Mail,
@@ -16,6 +18,7 @@ import {
   Send,
   Settings,
   ShieldCheck,
+  Trash2,
   UserRound,
   Users,
   WifiOff,
@@ -50,6 +53,25 @@ import {
   sendWorkspaceChatMessage,
   type ChatMessage,
 } from "@/lib/chat";
+import {
+  createWorkspaceGatewayBinding,
+  fetchWorkspaceGatewayStatus,
+  testWorkspaceGatewayConnection,
+  type WorkspaceGatewayConnectionTest,
+  type WorkspaceGatewayStatus,
+} from "@/lib/gateway";
+import {
+  gatewayConnectionStatusLabel,
+  gatewayStatusLabel,
+  normalizeGatewayForm,
+} from "@/lib/gateway-utils";
+import {
+  createGithubCredential,
+  deleteGithubCredential,
+  fetchGithubCredentials,
+  updateGithubCredential,
+  type GithubCredential,
+} from "@/lib/github";
 import { createWorkspaceInvite, type WorkspaceInvite } from "@/lib/invites";
 import {
   createWorkspacePresenceStream,
@@ -81,6 +103,12 @@ import {
   createWorkspaceDetailOverview,
   type WorkspaceDetailActionItem,
 } from "@/lib/workspace-detail";
+import {
+  deleteSlackIntegration,
+  fetchSlackInstallUrl,
+  fetchSlackIntegrations,
+  type SlackIntegration,
+} from "@/lib/slack";
 import type { WorkspaceSceneNode } from "@/lib/workspace-2d";
 import {
   fetchWorkspaceDashboardSummary,
@@ -159,6 +187,39 @@ type PresenceMutationState = {
 type PresenceStreamStatus = "idle" | "connecting" | "open" | "error";
 type ActorPanelTab = "chat" | "tasks";
 type TaskDashboardTab = "summary" | "board";
+type ConnectionModalKind = null | "selector" | "slack" | "discord" | "github" | "gateway";
+
+type ConnectionMutationState = {
+  status: "idle" | "submitting" | "success" | "error";
+  message: string | null;
+};
+
+type SlackConnectionState =
+  | { status: "idle" | "loading"; integrations: []; error: null }
+  | { status: "ready"; integrations: SlackIntegration[]; error: null }
+  | { status: "error"; integrations: []; error: string };
+
+type GithubConnectionState =
+  | { status: "idle" | "loading"; credentials: []; error: null }
+  | { status: "ready"; credentials: GithubCredential[]; error: null }
+  | { status: "error"; credentials: []; error: string };
+
+type GatewayConnectionState =
+  | { status: "idle" | "loading"; gateway: null; error: null }
+  | { status: "ready"; gateway: WorkspaceGatewayStatus; error: null }
+  | { status: "error"; gateway: null; error: string };
+
+type GatewayConnectionTestState =
+  | { status: "idle"; result: null; message: null }
+  | { status: "submitting"; result: null; message: null }
+  | { status: "success"; result: WorkspaceGatewayConnectionTest; message: string }
+  | { status: "error"; result: null; message: string };
+
+type GithubConnectionAction =
+  | { type: "update"; credentialId: number }
+  | { type: "delete"; credentialId: number };
+
+type SlackConnectionAction = { type: "delete"; integrationId: number };
 
 type ActorChatMessage = {
   id: string;
@@ -210,6 +271,11 @@ const TASK_TYPE_OPTIONS: TaskType[] = [
 ];
 
 const TASK_PRIORITY_OPTIONS: TaskPriority[] = ["LOW", "MEDIUM", "HIGH", "URGENT"];
+const EMPTY_GITHUB_CREDENTIALS: GithubCredential[] = [];
+const EMPTY_SLACK_INTEGRATIONS: SlackIntegration[] = [];
+const PENDING_SLACK_WORKSPACE_STORAGE_KEY = "aquila-office.pendingSlackWorkspaceId";
+const PENDING_SLACK_RETURN_TO_STORAGE_KEY = "aquila-office.pendingSlackReturnTo";
+const GATEWAY_URL_STORAGE_KEY_PREFIX = "aquila-office.gatewayUrl";
 
 const TASK_STATUS_OPTIONS: TaskStatus[] = [
   "REQUESTED",
@@ -370,6 +436,64 @@ export default function WorkspaceDetailPage({
     status: "idle",
     error: null,
   });
+  const [connectionModal, setConnectionModal] = useState<ConnectionModalKind>(null);
+  const [slackConnectionState, setSlackConnectionState] = useState<SlackConnectionState>({
+    status: "idle",
+    integrations: [],
+    error: null,
+  });
+  const [slackConnectionMutation, setSlackConnectionMutation] =
+    useState<ConnectionMutationState>({
+      status: "idle",
+      message: null,
+    });
+  const [slackConnectionAction, setSlackConnectionAction] =
+    useState<SlackConnectionAction | null>(null);
+  const [githubConnectionState, setGithubConnectionState] =
+    useState<GithubConnectionState>({
+      status: "idle",
+      credentials: [],
+      error: null,
+    });
+  const [githubDisplayNameInput, setGithubDisplayNameInput] = useState("");
+  const [githubTokenInput, setGithubTokenInput] = useState("");
+  const [selectedGithubCredentialId, setSelectedGithubCredentialId] =
+    useState<number | null>(null);
+  const [editingGithubCredentialId, setEditingGithubCredentialId] =
+    useState<number | null>(null);
+  const [githubEditDisplayNameInput, setGithubEditDisplayNameInput] = useState("");
+  const [githubEditTokenInput, setGithubEditTokenInput] = useState("");
+  const [githubConnectionCreateMutation, setGithubConnectionCreateMutation] =
+    useState<ConnectionMutationState>({
+      status: "idle",
+      message: null,
+    });
+  const [githubConnectionActionMutation, setGithubConnectionActionMutation] =
+    useState<ConnectionMutationState>({
+      status: "idle",
+      message: null,
+    });
+  const [githubConnectionAction, setGithubConnectionAction] =
+    useState<GithubConnectionAction | null>(null);
+  const [gatewayConnectionState, setGatewayConnectionState] =
+    useState<GatewayConnectionState>({
+      status: "idle",
+      gateway: null,
+      error: null,
+    });
+  const [gatewayUrlInput, setGatewayUrlInput] = useState("");
+  const [gatewayTokenInput, setGatewayTokenInput] = useState("");
+  const [gatewayConnectionTestState, setGatewayConnectionTestState] =
+    useState<GatewayConnectionTestState>({
+      status: "idle",
+      result: null,
+      message: null,
+    });
+  const [gatewayBindingMutation, setGatewayBindingMutation] =
+    useState<ConnectionMutationState>({
+      status: "idle",
+      message: null,
+    });
 
   const reloadTasks = useCallback(async () => {
     if (!isValidWorkspaceId(numericWorkspaceId)) {
@@ -973,12 +1097,127 @@ export default function WorkspaceDetailPage({
     [numericWorkspaceId],
   );
 
+  const loadSlackConnections = useCallback(async () => {
+    if (!isValidWorkspaceId(numericWorkspaceId)) {
+      setSlackConnectionState({
+        status: "error",
+        integrations: [],
+        error: "올바르지 않은 워크스페이스입니다.",
+      });
+      return;
+    }
+
+    setSlackConnectionState({ status: "loading", integrations: [], error: null });
+    setSlackConnectionMutation({ status: "idle", message: null });
+
+    try {
+      const integrations = await fetchSlackIntegrations(
+        resolveAccessToken(),
+        numericWorkspaceId,
+      );
+      setSlackConnectionState({ status: "ready", integrations, error: null });
+    } catch (error) {
+      setSlackConnectionState({
+        status: "error",
+        integrations: [],
+        error: messageFromError(error, "Slack 연동 목록을 확인하지 못했습니다."),
+      });
+    }
+  }, [numericWorkspaceId]);
+
+  const loadGithubCredentials = useCallback(async () => {
+    if (!isValidWorkspaceId(numericWorkspaceId)) {
+      setGithubConnectionState({
+        status: "error",
+        credentials: [],
+        error: "올바르지 않은 워크스페이스입니다.",
+      });
+      return;
+    }
+
+    setGithubConnectionState({ status: "loading", credentials: [], error: null });
+    setGithubConnectionCreateMutation({ status: "idle", message: null });
+    setGithubConnectionActionMutation({ status: "idle", message: null });
+
+    try {
+      const credentials = await fetchGithubCredentials(
+        resolveAccessToken(),
+        numericWorkspaceId,
+      );
+      setGithubConnectionState({ status: "ready", credentials, error: null });
+      setSelectedGithubCredentialId((current) =>
+        current && credentials.some((credential) => credential.credentialId === current)
+          ? current
+          : credentials[0]?.credentialId ?? null,
+      );
+    } catch (error) {
+      setGithubConnectionState({
+        status: "error",
+        credentials: [],
+        error: messageFromError(error, "GitHub 자격 증명 목록을 확인하지 못했습니다."),
+      });
+    }
+  }, [numericWorkspaceId]);
+
+  const loadGatewayConnection = useCallback(async () => {
+    if (!isValidWorkspaceId(numericWorkspaceId)) {
+      setGatewayConnectionState({
+        status: "error",
+        gateway: null,
+        error: "올바르지 않은 워크스페이스입니다.",
+      });
+      return;
+    }
+
+    setGatewayConnectionState({ status: "loading", gateway: null, error: null });
+    setGatewayConnectionTestState({ status: "idle", result: null, message: null });
+    setGatewayBindingMutation({ status: "idle", message: null });
+
+    try {
+      const gateway = await fetchWorkspaceGatewayStatus(
+        resolveAccessToken(),
+        numericWorkspaceId,
+      );
+      setGatewayConnectionState({ status: "ready", gateway, error: null });
+      setGatewayUrlInput((current) =>
+        current || gateway.gatewayUrl || loadGatewayUrlFallback(numericWorkspaceId),
+      );
+    } catch (error) {
+      setGatewayConnectionState({
+        status: "error",
+        gateway: null,
+        error: messageFromError(error, "gateway 상태를 확인하지 못했습니다."),
+      });
+      setGatewayUrlInput((current) => current || loadGatewayUrlFallback(numericWorkspaceId));
+    }
+  }, [numericWorkspaceId]);
+
+  const openConnectionModal = useCallback(
+    (kind: Exclude<ConnectionModalKind, null>) => {
+      setConnectionModal(kind);
+
+      if (kind === "slack") {
+        void loadSlackConnections();
+      }
+      if (kind === "github") {
+        void loadGithubCredentials();
+      }
+      if (kind === "gateway") {
+        void loadGatewayConnection();
+      }
+    },
+    [loadGatewayConnection, loadGithubCredentials, loadSlackConnections],
+  );
+
   const scrollToWorkspaceSection = useCallback((sectionId: string) => {
     document.getElementById(sectionId)?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, []);
 
   const handleOfficeSceneNavAction = useCallback(
     (itemId: OfficeSceneNavItemId) => {
+      if (itemId === "connections") {
+        openConnectionModal("selector");
+      }
       if (itemId === "tasks") {
         setTaskDashboardOpen(true);
         setTaskDashboardTab("summary");
@@ -990,7 +1229,7 @@ export default function WorkspaceDetailPage({
         void openWorkspaceFiles();
       }
     },
-    [openWorkspaceFiles, scrollToWorkspaceSection],
+    [openConnectionModal, openWorkspaceFiles, scrollToWorkspaceSection],
   );
 
   const reloadWorkspace = useCallback(async () => {
@@ -1279,6 +1518,389 @@ export default function WorkspaceDetailPage({
     selectedActor?.kind === "agent" &&
     actorChatInput.trim().length > 0 &&
     actorChatMutation.status !== "submitting";
+  const canManageConnections = workspace?.myRole === "ADMIN";
+  const slackConnectionIntegrations =
+    slackConnectionState.status === "ready"
+      ? slackConnectionState.integrations
+      : EMPTY_SLACK_INTEGRATIONS;
+  const githubConnectionCredentials =
+    githubConnectionState.status === "ready"
+      ? githubConnectionState.credentials
+      : EMPTY_GITHUB_CREDENTIALS;
+  const selectedGithubCredential =
+    githubConnectionCredentials.find(
+      (credential) => credential.credentialId === selectedGithubCredentialId,
+    ) ??
+    githubConnectionCredentials[0] ??
+    null;
+  const trimmedGithubDisplayName = githubDisplayNameInput.trim();
+  const trimmedGithubToken = githubTokenInput.trim();
+  const isCreatingGithubCredential =
+    githubConnectionCreateMutation.status === "submitting";
+  const hasGithubCredentialAction = githubConnectionAction !== null;
+  const canCreateGithubCredential =
+    canManageConnections &&
+    trimmedGithubDisplayName.length > 0 &&
+    trimmedGithubToken.length > 0 &&
+    !isCreatingGithubCredential &&
+    !hasGithubCredentialAction;
+  const canUpdateGithubCredential =
+    canManageConnections &&
+    selectedGithubCredential !== null &&
+    githubEditDisplayNameInput.trim().length > 0 &&
+    !hasGithubCredentialAction;
+  const normalizedConnectionGatewayForm = useMemo(
+    () =>
+      normalizeGatewayForm({
+        gatewayUrl: gatewayUrlInput,
+        token: gatewayTokenInput,
+        validateConnection: true,
+      }),
+    [gatewayTokenInput, gatewayUrlInput],
+  );
+  const isTestingConnectionGateway = gatewayConnectionTestState.status === "submitting";
+  const isBindingConnectionGateway = gatewayBindingMutation.status === "submitting";
+  const canSubmitConnectionGateway =
+    canManageConnections &&
+    normalizedConnectionGatewayForm.isValid &&
+    !isTestingConnectionGateway &&
+    !isBindingConnectionGateway;
+
+  const handleOpenSlackInstallUrl = async () => {
+    if (!canManageConnections || !isValidWorkspaceId(numericWorkspaceId)) {
+      return;
+    }
+
+    setSlackConnectionMutation({ status: "submitting", message: "Slack 설치 URL 확인 중" });
+    saveSlackPendingConnectionState(numericWorkspaceId);
+
+    try {
+      const installUrl = await fetchSlackInstallUrl(resolveAccessToken(), numericWorkspaceId);
+      if (typeof window !== "undefined") {
+        window.open(installUrl.url, "_blank", "noopener,noreferrer");
+      }
+      setSlackConnectionMutation({
+        status: "success",
+        message: "Slack 설치 페이지를 열었습니다.",
+      });
+    } catch (error) {
+      setSlackConnectionMutation({
+        status: "error",
+        message: messageFromError(error, "Slack 설치 URL을 확인하지 못했습니다."),
+      });
+    }
+  };
+
+  const handleDeleteSlackConnection = async (integration: SlackIntegration) => {
+    if (!canManageConnections || slackConnectionAction) {
+      return;
+    }
+
+    setSlackConnectionAction({ type: "delete", integrationId: integration.id });
+    setSlackConnectionMutation({ status: "submitting", message: "Slack 연동 삭제 중" });
+
+    try {
+      await deleteSlackIntegration(resolveAccessToken(), numericWorkspaceId, integration.id);
+      setSlackConnectionState((previous) =>
+        previous.status === "ready"
+          ? {
+              ...previous,
+              integrations: previous.integrations.filter(
+                (currentIntegration) => currentIntegration.id !== integration.id,
+              ),
+            }
+          : previous,
+      );
+      setSlackConnectionMutation({
+        status: "success",
+        message: "Slack 연동이 삭제되었습니다.",
+      });
+    } catch (error) {
+      setSlackConnectionMutation({
+        status: "error",
+        message: messageFromError(error, "Slack 연동을 삭제하지 못했습니다."),
+      });
+    } finally {
+      setSlackConnectionAction(null);
+    }
+  };
+
+  const handleCreateGithubConnection = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (!canManageConnections) {
+      return;
+    }
+
+    if (!trimmedGithubDisplayName || !trimmedGithubToken) {
+      setGithubConnectionCreateMutation({
+        status: "error",
+        message: "이름과 token을 모두 입력해 주세요.",
+      });
+      return;
+    }
+
+    setGithubConnectionCreateMutation({
+      status: "submitting",
+      message: "GitHub 자격 증명 등록 중",
+    });
+
+    try {
+      const createdCredential = await createGithubCredential(
+        resolveAccessToken(),
+        numericWorkspaceId,
+        {
+          displayName: trimmedGithubDisplayName,
+          token: trimmedGithubToken,
+        },
+      );
+      setGithubConnectionState((previous) =>
+        previous.status === "ready"
+          ? {
+              ...previous,
+              credentials: [createdCredential, ...previous.credentials],
+            }
+          : { status: "ready", credentials: [createdCredential], error: null },
+      );
+      setSelectedGithubCredentialId(createdCredential.credentialId);
+      setGithubDisplayNameInput("");
+      setGithubTokenInput("");
+      setGithubConnectionCreateMutation({
+        status: "success",
+        message: "GitHub 자격 증명이 등록되었습니다.",
+      });
+    } catch (error) {
+      setGithubConnectionCreateMutation({
+        status: "error",
+        message: messageFromError(error, "GitHub 자격 증명을 등록하지 못했습니다."),
+      });
+    }
+  };
+
+  const startGithubCredentialEdit = (credential: GithubCredential) => {
+    if (!canManageConnections || hasGithubCredentialAction) {
+      return;
+    }
+
+    setSelectedGithubCredentialId(credential.credentialId);
+    setEditingGithubCredentialId(credential.credentialId);
+    setGithubEditDisplayNameInput(credential.displayName);
+    setGithubEditTokenInput("");
+    setGithubConnectionActionMutation({ status: "idle", message: null });
+  };
+
+  const cancelGithubCredentialEdit = () => {
+    if (hasGithubCredentialAction) {
+      return;
+    }
+
+    setEditingGithubCredentialId(null);
+    setGithubEditDisplayNameInput("");
+    setGithubEditTokenInput("");
+  };
+
+  const handleUpdateGithubConnection = async (
+    event: FormEvent<HTMLFormElement>,
+    credential: GithubCredential,
+  ) => {
+    event.preventDefault();
+
+    if (!canManageConnections || hasGithubCredentialAction) {
+      return;
+    }
+
+    const nextDisplayName = githubEditDisplayNameInput.trim();
+    const nextToken = githubEditTokenInput.trim();
+    if (!nextDisplayName) {
+      setGithubConnectionActionMutation({
+        status: "error",
+        message: "표시 이름을 입력해 주세요.",
+      });
+      return;
+    }
+
+    setGithubConnectionAction({ type: "update", credentialId: credential.credentialId });
+    setGithubConnectionActionMutation({
+      status: "submitting",
+      message: "GitHub 자격 증명 수정 중",
+    });
+
+    try {
+      const updatedCredential = await updateGithubCredential(
+        resolveAccessToken(),
+        numericWorkspaceId,
+        credential.credentialId,
+        {
+          displayName: nextDisplayName,
+          token: nextToken || undefined,
+        },
+      );
+      setGithubConnectionState((previous) =>
+        previous.status === "ready"
+          ? {
+              ...previous,
+              credentials: previous.credentials.map((currentCredential) =>
+                currentCredential.credentialId === updatedCredential.credentialId
+                  ? updatedCredential
+                  : currentCredential,
+              ),
+            }
+          : previous,
+      );
+      setEditingGithubCredentialId(null);
+      setGithubEditDisplayNameInput("");
+      setGithubEditTokenInput("");
+      setGithubConnectionActionMutation({
+        status: "success",
+        message: "GitHub 자격 증명이 수정되었습니다.",
+      });
+    } catch (error) {
+      setGithubConnectionActionMutation({
+        status: "error",
+        message: messageFromError(error, "GitHub 자격 증명을 수정하지 못했습니다."),
+      });
+    } finally {
+      setGithubConnectionAction(null);
+    }
+  };
+
+  const handleDeleteGithubConnection = async (credential: GithubCredential) => {
+    if (!canManageConnections || hasGithubCredentialAction) {
+      return;
+    }
+
+    setGithubConnectionAction({ type: "delete", credentialId: credential.credentialId });
+    setGithubConnectionActionMutation({
+      status: "submitting",
+      message: "GitHub 자격 증명 삭제 중",
+    });
+
+    try {
+      await deleteGithubCredential(
+        resolveAccessToken(),
+        numericWorkspaceId,
+        credential.credentialId,
+      );
+      const nextCredentials = githubConnectionCredentials.filter(
+        (currentCredential) => currentCredential.credentialId !== credential.credentialId,
+      );
+      setGithubConnectionState((previous) =>
+        previous.status === "ready"
+          ? { ...previous, credentials: nextCredentials }
+          : previous,
+      );
+      setSelectedGithubCredentialId(nextCredentials[0]?.credentialId ?? null);
+      if (editingGithubCredentialId === credential.credentialId) {
+        setEditingGithubCredentialId(null);
+        setGithubEditDisplayNameInput("");
+        setGithubEditTokenInput("");
+      }
+      setGithubConnectionActionMutation({
+        status: "success",
+        message: "GitHub 자격 증명이 삭제되었습니다.",
+      });
+    } catch (error) {
+      setGithubConnectionActionMutation({
+        status: "error",
+        message: messageFromError(error, "GitHub 자격 증명을 삭제하지 못했습니다."),
+      });
+    } finally {
+      setGithubConnectionAction(null);
+    }
+  };
+
+  const handleTestConnectionGateway = async () => {
+    if (!canManageConnections) {
+      return;
+    }
+
+    if (!normalizedConnectionGatewayForm.isValid) {
+      setGatewayConnectionTestState({
+        status: "error",
+        result: null,
+        message:
+          normalizedConnectionGatewayForm.urlError ??
+          normalizedConnectionGatewayForm.tokenError ??
+          "gateway 연결 정보를 확인해 주세요.",
+      });
+      return;
+    }
+
+    setGatewayConnectionTestState({ status: "submitting", result: null, message: null });
+    try {
+      const result = await testWorkspaceGatewayConnection(
+        resolveAccessToken(),
+        numericWorkspaceId,
+        {
+          gatewayUrl: normalizedConnectionGatewayForm.gatewayUrl,
+          token: normalizedConnectionGatewayForm.token,
+        },
+      );
+      saveGatewayUrlFallback(numericWorkspaceId, normalizedConnectionGatewayForm.gatewayUrl);
+      setGatewayConnectionTestState({
+        status: "success",
+        result,
+        message: result.message || gatewayConnectionStatusLabel(result.status),
+      });
+    } catch (error) {
+      setGatewayConnectionTestState({
+        status: "error",
+        result: null,
+        message: messageFromError(error, "gateway 연결 테스트를 처리하지 못했습니다."),
+      });
+    }
+  };
+
+  const handleCreateConnectionGatewayBinding = async (
+    event: FormEvent<HTMLFormElement>,
+  ) => {
+    event.preventDefault();
+
+    if (!canManageConnections) {
+      return;
+    }
+
+    if (!normalizedConnectionGatewayForm.isValid) {
+      setGatewayBindingMutation({
+        status: "error",
+        message:
+          normalizedConnectionGatewayForm.urlError ??
+          normalizedConnectionGatewayForm.tokenError ??
+          "gateway 연결 정보를 확인해 주세요.",
+      });
+      return;
+    }
+
+    setGatewayBindingMutation({
+      status: "submitting",
+      message: "Gateway binding 등록 중",
+    });
+
+    try {
+      await createWorkspaceGatewayBinding(resolveAccessToken(), numericWorkspaceId, {
+        gatewayUrl: normalizedConnectionGatewayForm.gatewayUrl,
+        token: normalizedConnectionGatewayForm.token,
+        validateConnection: normalizedConnectionGatewayForm.validateConnection,
+      });
+      const gateway = await fetchWorkspaceGatewayStatus(
+        resolveAccessToken(),
+        numericWorkspaceId,
+      );
+      saveGatewayUrlFallback(numericWorkspaceId, normalizedConnectionGatewayForm.gatewayUrl);
+      setGatewayConnectionState({ status: "ready", gateway, error: null });
+      setGatewayUrlInput(normalizedConnectionGatewayForm.gatewayUrl);
+      setGatewayTokenInput("");
+      setGatewayBindingMutation({
+        status: "success",
+        message: "Gateway binding이 등록되었습니다.",
+      });
+    } catch (error) {
+      setGatewayBindingMutation({
+        status: "error",
+        message: messageFromError(error, "Gateway binding을 등록하지 못했습니다."),
+      });
+    }
+  };
 
   const updatePresencePosition = useCallback(
     async (
@@ -1460,18 +2082,6 @@ export default function WorkspaceDetailPage({
               <nav className="workspace-office-nav" aria-label="워크스페이스 오피스 씬 메뉴">
                 {officeSceneNavItems.map((item) => {
                   const Icon = item.icon;
-                  if (item.id === "connections") {
-                    return (
-                      <Link
-                        className="workspace-office-nav-item"
-                        href={`/workspaces/${numericWorkspaceId}/settings`}
-                        key={item.id}
-                      >
-                        <Icon aria-hidden="true" />
-                        <span>{item.label}</span>
-                      </Link>
-                    );
-                  }
                   if (item.id === "leave-workspace") {
                     return (
                       <Link className="workspace-office-nav-item" href="/workspaces" key={item.id}>
@@ -2292,6 +2902,76 @@ export default function WorkspaceDetailPage({
         />
       </aside>
 
+      <ConnectionSettingsModal
+        modal={connectionModal}
+        canManage={canManageConnections}
+        slackState={slackConnectionState}
+        slackIntegrations={slackConnectionIntegrations}
+        slackMutation={slackConnectionMutation}
+        slackAction={slackConnectionAction}
+        githubState={githubConnectionState}
+        githubCredentials={githubConnectionCredentials}
+        selectedGithubCredential={selectedGithubCredential}
+        selectedGithubCredentialId={selectedGithubCredentialId}
+        editingGithubCredentialId={editingGithubCredentialId}
+        githubDisplayNameInput={githubDisplayNameInput}
+        githubTokenInput={githubTokenInput}
+        githubEditDisplayNameInput={githubEditDisplayNameInput}
+        githubEditTokenInput={githubEditTokenInput}
+        githubCreateMutation={githubConnectionCreateMutation}
+        githubActionMutation={githubConnectionActionMutation}
+        githubAction={githubConnectionAction}
+        canCreateGithubCredential={canCreateGithubCredential}
+        canUpdateGithubCredential={canUpdateGithubCredential}
+        gatewayState={gatewayConnectionState}
+        gatewayUrlInput={gatewayUrlInput}
+        gatewayTokenInput={gatewayTokenInput}
+        gatewayTestState={gatewayConnectionTestState}
+        gatewayBindingMutation={gatewayBindingMutation}
+        canSubmitGateway={canSubmitConnectionGateway}
+        onOpen={openConnectionModal}
+        onClose={() => setConnectionModal(null)}
+        onBack={() => setConnectionModal("selector")}
+        onReloadSlack={() => void loadSlackConnections()}
+        onOpenSlackInstall={() => void handleOpenSlackInstallUrl()}
+        onDeleteSlack={(integration) => void handleDeleteSlackConnection(integration)}
+        onReloadGithub={() => void loadGithubCredentials()}
+        onCreateGithub={handleCreateGithubConnection}
+        onSelectGithubCredential={setSelectedGithubCredentialId}
+        onStartGithubEdit={startGithubCredentialEdit}
+        onCancelGithubEdit={cancelGithubCredentialEdit}
+        onUpdateGithub={handleUpdateGithubConnection}
+        onDeleteGithub={(credential) => void handleDeleteGithubConnection(credential)}
+        onGithubDisplayNameChange={(value) => {
+          setGithubDisplayNameInput(value);
+          setGithubConnectionCreateMutation({ status: "idle", message: null });
+        }}
+        onGithubTokenChange={(value) => {
+          setGithubTokenInput(value);
+          setGithubConnectionCreateMutation({ status: "idle", message: null });
+        }}
+        onGithubEditDisplayNameChange={(value) => {
+          setGithubEditDisplayNameInput(value);
+          setGithubConnectionActionMutation({ status: "idle", message: null });
+        }}
+        onGithubEditTokenChange={(value) => {
+          setGithubEditTokenInput(value);
+          setGithubConnectionActionMutation({ status: "idle", message: null });
+        }}
+        onReloadGateway={() => void loadGatewayConnection()}
+        onGatewayUrlChange={(value) => {
+          setGatewayUrlInput(value);
+          setGatewayBindingMutation({ status: "idle", message: null });
+          setGatewayConnectionTestState({ status: "idle", result: null, message: null });
+        }}
+        onGatewayTokenChange={(value) => {
+          setGatewayTokenInput(value);
+          setGatewayBindingMutation({ status: "idle", message: null });
+          setGatewayConnectionTestState({ status: "idle", result: null, message: null });
+        }}
+        onTestGateway={() => void handleTestConnectionGateway()}
+        onBindGateway={handleCreateConnectionGatewayBinding}
+      />
       <TaskDashboardModal
         open={taskDashboardOpen}
         tab={taskDashboardTab}
@@ -2410,6 +3090,633 @@ function WorkspaceDetailActionCard({
       <strong>{item.value}</strong>
       <small>{formatWorkspaceDetailActionState(item.state)}</small>
     </button>
+  );
+}
+
+function ConnectionSettingsModal({
+  modal,
+  canManage,
+  slackState,
+  slackIntegrations,
+  slackMutation,
+  slackAction,
+  githubState,
+  githubCredentials,
+  selectedGithubCredential,
+  selectedGithubCredentialId,
+  editingGithubCredentialId,
+  githubDisplayNameInput,
+  githubTokenInput,
+  githubEditDisplayNameInput,
+  githubEditTokenInput,
+  githubCreateMutation,
+  githubActionMutation,
+  githubAction,
+  canCreateGithubCredential,
+  canUpdateGithubCredential,
+  gatewayState,
+  gatewayUrlInput,
+  gatewayTokenInput,
+  gatewayTestState,
+  gatewayBindingMutation,
+  canSubmitGateway,
+  onOpen,
+  onClose,
+  onBack,
+  onReloadSlack,
+  onOpenSlackInstall,
+  onDeleteSlack,
+  onReloadGithub,
+  onCreateGithub,
+  onSelectGithubCredential,
+  onStartGithubEdit,
+  onCancelGithubEdit,
+  onUpdateGithub,
+  onDeleteGithub,
+  onGithubDisplayNameChange,
+  onGithubTokenChange,
+  onGithubEditDisplayNameChange,
+  onGithubEditTokenChange,
+  onReloadGateway,
+  onGatewayUrlChange,
+  onGatewayTokenChange,
+  onTestGateway,
+  onBindGateway,
+}: {
+  modal: ConnectionModalKind;
+  canManage: boolean;
+  slackState: SlackConnectionState;
+  slackIntegrations: SlackIntegration[];
+  slackMutation: ConnectionMutationState;
+  slackAction: SlackConnectionAction | null;
+  githubState: GithubConnectionState;
+  githubCredentials: GithubCredential[];
+  selectedGithubCredential: GithubCredential | null;
+  selectedGithubCredentialId: number | null;
+  editingGithubCredentialId: number | null;
+  githubDisplayNameInput: string;
+  githubTokenInput: string;
+  githubEditDisplayNameInput: string;
+  githubEditTokenInput: string;
+  githubCreateMutation: ConnectionMutationState;
+  githubActionMutation: ConnectionMutationState;
+  githubAction: GithubConnectionAction | null;
+  canCreateGithubCredential: boolean;
+  canUpdateGithubCredential: boolean;
+  gatewayState: GatewayConnectionState;
+  gatewayUrlInput: string;
+  gatewayTokenInput: string;
+  gatewayTestState: GatewayConnectionTestState;
+  gatewayBindingMutation: ConnectionMutationState;
+  canSubmitGateway: boolean;
+  onOpen: (kind: Exclude<ConnectionModalKind, null>) => void;
+  onClose: () => void;
+  onBack: () => void;
+  onReloadSlack: () => void;
+  onOpenSlackInstall: () => void;
+  onDeleteSlack: (integration: SlackIntegration) => void;
+  onReloadGithub: () => void;
+  onCreateGithub: (event: FormEvent<HTMLFormElement>) => void;
+  onSelectGithubCredential: (credentialId: number) => void;
+  onStartGithubEdit: (credential: GithubCredential) => void;
+  onCancelGithubEdit: () => void;
+  onUpdateGithub: (event: FormEvent<HTMLFormElement>, credential: GithubCredential) => void;
+  onDeleteGithub: (credential: GithubCredential) => void;
+  onGithubDisplayNameChange: (value: string) => void;
+  onGithubTokenChange: (value: string) => void;
+  onGithubEditDisplayNameChange: (value: string) => void;
+  onGithubEditTokenChange: (value: string) => void;
+  onReloadGateway: () => void;
+  onGatewayUrlChange: (value: string) => void;
+  onGatewayTokenChange: (value: string) => void;
+  onTestGateway: () => void;
+  onBindGateway: (event: FormEvent<HTMLFormElement>) => void;
+}) {
+  if (!modal) {
+    return null;
+  }
+
+  const title = connectionModalTitle(modal);
+  const isSlackLoading = slackState.status === "loading";
+  const isGithubLoading = githubState.status === "loading";
+  const isGatewayLoading = gatewayState.status === "loading";
+  const currentGateway = gatewayState.status === "ready" ? gatewayState.gateway : null;
+
+  return (
+    <div className="workspace-modal-backdrop" role="presentation">
+      <section
+        className={`workspace-modal workspace-connection-modal${
+          modal === "selector" ? " workspace-connection-selector-modal" : ""
+        }`}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Connection settings"
+      >
+        <header className="workspace-modal-header">
+          <div>
+            <span className="workspace-detail-label">Connections</span>
+            <h2>{title}</h2>
+          </div>
+          <div className="workspace-modal-actions">
+            {modal !== "selector" ? (
+              <button
+                className="secondary-action workspace-task-refresh"
+                type="button"
+                onClick={onBack}
+              >
+                <ArrowLeft aria-hidden="true" />
+                <span>뒤로</span>
+              </button>
+            ) : null}
+            <button className="icon-button workspace-modal-close" type="button" onClick={onClose} aria-label="닫기">
+              <X aria-hidden="true" />
+            </button>
+          </div>
+        </header>
+
+        <div className="workspace-modal-body">
+          {modal === "selector" ? (
+            <div className="workspace-connection-grid" aria-label="Connection targets">
+              <button
+                className="workspace-connection-card"
+                type="button"
+                aria-label="Slack"
+                onClick={() => onOpen("slack")}
+              >
+                <KeyRound aria-hidden="true" />
+                <span>Slack</span>
+                <strong>설치와 연동 목록</strong>
+              </button>
+              <button
+                className="workspace-connection-card"
+                type="button"
+                aria-label="Discord"
+                onClick={() => onOpen("discord")}
+              >
+                <Hash aria-hidden="true" />
+                <span>Discord</span>
+                <strong>준비 중</strong>
+              </button>
+              <button
+                className="workspace-connection-card"
+                type="button"
+                aria-label="GitHub"
+                onClick={() => onOpen("github")}
+              >
+                <GitBranch aria-hidden="true" />
+                <span>GitHub</span>
+                <strong>Token 자격 증명</strong>
+              </button>
+              <button
+                className="workspace-connection-card"
+                type="button"
+                aria-label="Gateway"
+                onClick={() => onOpen("gateway")}
+              >
+                <ShieldCheck aria-hidden="true" />
+                <span>Gateway</span>
+                <strong>외부 실행 연결</strong>
+              </button>
+            </div>
+          ) : null}
+
+          {modal !== "selector" && !canManage ? (
+            <ConnectionNotice tone="danger" icon={<AlertCircle aria-hidden="true" />}>
+              관리자 역할만 연결 설정을 변경할 수 있습니다.
+            </ConnectionNotice>
+          ) : null}
+
+          {modal === "slack" ? (
+            <>
+              <div className="workspace-modal-summary">
+                <strong>Slack 설치</strong>
+                <p>설치 진입 시 workspace와 return 위치를 저장하고 연동 목록을 갱신합니다.</p>
+              </div>
+              <div className="workspace-invite-management-toolbar">
+                <button
+                  className="secondary-action workspace-invite-refresh"
+                  type="button"
+                  onClick={onOpenSlackInstall}
+                  disabled={!canManage || slackMutation.status === "submitting"}
+                >
+                  {slackMutation.status === "submitting" ? (
+                    <Loader2 className="spin" aria-hidden="true" />
+                  ) : (
+                    <KeyRound aria-hidden="true" />
+                  )}
+                  <span>{slackMutation.status === "submitting" ? "확인 중" : "Slack 설치 열기"}</span>
+                </button>
+                <button
+                  className="secondary-action workspace-invite-refresh"
+                  type="button"
+                  onClick={onReloadSlack}
+                  disabled={isSlackLoading}
+                >
+                  <RefreshCw className={isSlackLoading ? "spin" : undefined} aria-hidden="true" />
+                  <span>목록 새로고침</span>
+                </button>
+              </div>
+              {slackMutation.status === "error" && slackMutation.message ? (
+                <ConnectionNotice tone="danger" icon={<AlertCircle aria-hidden="true" />}>
+                  {slackMutation.message}
+                </ConnectionNotice>
+              ) : null}
+              {slackMutation.status === "success" && slackMutation.message ? (
+                <ConnectionNotice tone="success" icon={<ShieldCheck aria-hidden="true" />}>
+                  {slackMutation.message}
+                </ConnectionNotice>
+              ) : null}
+              {slackState.status === "loading" ? (
+                <ModalState icon={<Loader2 className="spin" aria-hidden="true" />} text="Slack 연동 목록 확인 중" />
+              ) : null}
+              {slackState.status === "error" ? (
+                <ModalState icon={<AlertCircle aria-hidden="true" />} text={slackState.error} tone="danger" />
+              ) : null}
+              {slackIntegrations.length > 0 ? (
+                <div className="workspace-connection-list">
+                  {slackIntegrations.map((integration) => {
+                    const busy = slackAction?.integrationId === integration.id;
+                    return (
+                      <article className="workspace-connection-row" key={integration.id}>
+                        <div className="workspace-member-main">
+                          <strong>{integration.channelName ?? integration.slackChannelId}</strong>
+                          <p>
+                            Team {integration.slackTeamId} · Channel {integration.slackChannelId} ·{" "}
+                            {integration.maskedBotToken}
+                          </p>
+                        </div>
+                        <button
+                          className="danger-action workspace-github-row-button"
+                          type="button"
+                          onClick={() => onDeleteSlack(integration)}
+                          disabled={!canManage || Boolean(slackAction)}
+                        >
+                          {busy ? <Loader2 className="spin" aria-hidden="true" /> : <Trash2 aria-hidden="true" />}
+                          <span>{busy ? "삭제 중" : "삭제"}</span>
+                        </button>
+                      </article>
+                    );
+                  })}
+                </div>
+              ) : slackState.status === "ready" ? (
+                <div className="workspace-member-empty">
+                  <KeyRound aria-hidden="true" />
+                  <strong>Slack 연동이 없습니다</strong>
+                  <p>설치 완료 후 연결 목록이 표시됩니다.</p>
+                </div>
+              ) : null}
+            </>
+          ) : null}
+
+          {modal === "discord" ? (
+            <div className="workspace-member-empty">
+              <Hash aria-hidden="true" />
+              <strong>Discord 준비 중</strong>
+              <p>연결 흐름이 열리면 같은 back/close modal 패턴으로 제공됩니다.</p>
+            </div>
+          ) : null}
+
+          {modal === "github" ? (
+            <>
+              <form className="workspace-connection-form" onSubmit={onCreateGithub}>
+                <div className="workspace-gateway-form-grid">
+                  <label className="form-field">
+                    <span>
+                      <strong>표시 이름</strong>
+                      <small>{githubDisplayNameInput.length}/100</small>
+                    </span>
+                    <input
+                      value={githubDisplayNameInput}
+                      onChange={(event) => onGithubDisplayNameChange(event.target.value)}
+                      disabled={!canManage || githubCreateMutation.status === "submitting"}
+                    />
+                  </label>
+                  <label className="form-field">
+                    <span>
+                      <strong>Token</strong>
+                      <small>필수</small>
+                    </span>
+                    <input
+                      type="password"
+                      value={githubTokenInput}
+                      onChange={(event) => onGithubTokenChange(event.target.value)}
+                      disabled={!canManage || githubCreateMutation.status === "submitting"}
+                    />
+                  </label>
+                </div>
+                {githubCreateMutation.status === "error" && githubCreateMutation.message ? (
+                  <ConnectionNotice tone="danger" icon={<AlertCircle aria-hidden="true" />}>
+                    {githubCreateMutation.message}
+                  </ConnectionNotice>
+                ) : null}
+                {githubCreateMutation.status === "success" && githubCreateMutation.message ? (
+                  <ConnectionNotice tone="success" icon={<ShieldCheck aria-hidden="true" />}>
+                    {githubCreateMutation.message}
+                  </ConnectionNotice>
+                ) : null}
+                <div className="workspace-settings-actions">
+                  <button
+                    className="primary-action primary-action-active"
+                    type="submit"
+                    disabled={!canCreateGithubCredential}
+                  >
+                    {githubCreateMutation.status === "submitting" ? (
+                      <Loader2 className="spin" aria-hidden="true" />
+                    ) : (
+                      <KeyRound aria-hidden="true" />
+                    )}
+                    <span>{githubCreateMutation.status === "submitting" ? "등록 중" : "등록"}</span>
+                  </button>
+                </div>
+              </form>
+
+              <div className="workspace-invite-management-toolbar">
+                <strong>GitHub 자격 증명</strong>
+                <button
+                  className="secondary-action workspace-invite-refresh"
+                  type="button"
+                  onClick={onReloadGithub}
+                  disabled={isGithubLoading}
+                >
+                  <RefreshCw className={isGithubLoading ? "spin" : undefined} aria-hidden="true" />
+                  <span>목록 새로고침</span>
+                </button>
+              </div>
+              {githubActionMutation.status === "error" && githubActionMutation.message ? (
+                <ConnectionNotice tone="danger" icon={<AlertCircle aria-hidden="true" />}>
+                  {githubActionMutation.message}
+                </ConnectionNotice>
+              ) : null}
+              {githubActionMutation.status === "success" && githubActionMutation.message ? (
+                <ConnectionNotice tone="success" icon={<ShieldCheck aria-hidden="true" />}>
+                  {githubActionMutation.message}
+                </ConnectionNotice>
+              ) : null}
+              {githubState.status === "loading" ? (
+                <ModalState icon={<Loader2 className="spin" aria-hidden="true" />} text="GitHub 자격 증명 확인 중" />
+              ) : null}
+              {githubState.status === "error" ? (
+                <ModalState icon={<AlertCircle aria-hidden="true" />} text={githubState.error} tone="danger" />
+              ) : null}
+              {selectedGithubCredential ? (
+                <section className="workspace-modal-summary" aria-label="selected credential">
+                  <strong>selected credential</strong>
+                  <p>
+                    {selectedGithubCredential.displayName} ·{" "}
+                    <span className="workspace-github-token">{selectedGithubCredential.maskedToken}</span>
+                  </p>
+                </section>
+              ) : null}
+              {githubCredentials.length > 0 ? (
+                <div className="workspace-connection-list">
+                  {githubCredentials.map((credential) => {
+                    const busy = githubAction?.credentialId === credential.credentialId;
+                    const selected = selectedGithubCredentialId === credential.credentialId;
+                    const editing = editingGithubCredentialId === credential.credentialId;
+
+                    return (
+                      <article className="workspace-connection-row" key={credential.credentialId}>
+                        <button
+                          className={`workspace-connection-select${selected ? " workspace-connection-select-active" : ""}`}
+                          type="button"
+                          aria-pressed={selected}
+                          onClick={() => onSelectGithubCredential(credential.credentialId)}
+                        >
+                          <strong>{credential.displayName}</strong>
+                          <span>{credential.maskedToken}</span>
+                        </button>
+                        <div className="workspace-github-row-actions">
+                          <button
+                            className="secondary-action workspace-github-row-button"
+                            type="button"
+                            onClick={() => onStartGithubEdit(credential)}
+                            disabled={!canManage || Boolean(githubAction)}
+                          >
+                            <KeyRound aria-hidden="true" />
+                            <span>수정</span>
+                          </button>
+                          <button
+                            className="danger-action workspace-github-row-button"
+                            type="button"
+                            onClick={() => onDeleteGithub(credential)}
+                            disabled={!canManage || Boolean(githubAction)}
+                          >
+                            {busy && githubAction?.type === "delete" ? (
+                              <Loader2 className="spin" aria-hidden="true" />
+                            ) : (
+                              <Trash2 aria-hidden="true" />
+                            )}
+                            <span>{busy && githubAction?.type === "delete" ? "삭제 중" : "삭제"}</span>
+                          </button>
+                        </div>
+                        {editing ? (
+                          <form
+                            className="workspace-github-edit-form"
+                            onSubmit={(event) => onUpdateGithub(event, credential)}
+                          >
+                            <label className="form-field workspace-github-edit-field">
+                              <span>
+                                <strong>표시 이름</strong>
+                                <small>필수</small>
+                              </span>
+                              <input
+                                value={githubEditDisplayNameInput}
+                                onChange={(event) => onGithubEditDisplayNameChange(event.target.value)}
+                                disabled={Boolean(githubAction)}
+                              />
+                            </label>
+                            <label className="form-field workspace-github-edit-field">
+                              <span>
+                                <strong>Token</strong>
+                                <small>변경 시 입력</small>
+                              </span>
+                              <input
+                                type="password"
+                                value={githubEditTokenInput}
+                                onChange={(event) => onGithubEditTokenChange(event.target.value)}
+                                disabled={Boolean(githubAction)}
+                              />
+                            </label>
+                            <div className="workspace-github-row-actions">
+                              <button
+                                className="primary-action primary-action-active workspace-github-row-button"
+                                type="submit"
+                                disabled={!canUpdateGithubCredential}
+                              >
+                                {busy && githubAction?.type === "update" ? (
+                                  <Loader2 className="spin" aria-hidden="true" />
+                                ) : (
+                                  <ShieldCheck aria-hidden="true" />
+                                )}
+                                <span>{busy && githubAction?.type === "update" ? "저장 중" : "저장"}</span>
+                              </button>
+                              <button
+                                className="secondary-action workspace-github-row-button"
+                                type="button"
+                                onClick={onCancelGithubEdit}
+                                disabled={Boolean(githubAction)}
+                              >
+                                <X aria-hidden="true" />
+                                <span>취소</span>
+                              </button>
+                            </div>
+                          </form>
+                        ) : null}
+                      </article>
+                    );
+                  })}
+                </div>
+              ) : githubState.status === "ready" ? (
+                <div className="workspace-member-empty">
+                  <GitBranch aria-hidden="true" />
+                  <strong>GitHub 자격 증명이 없습니다</strong>
+                  <p>Agent가 저장소 작업을 수행할 token을 등록해 주세요.</p>
+                </div>
+              ) : null}
+            </>
+          ) : null}
+
+          {modal === "gateway" ? (
+            <>
+              <form className="workspace-connection-form workspace-gateway-form" onSubmit={onBindGateway}>
+                <div className="workspace-gateway-form-grid">
+                  <label className="form-field">
+                    <span>
+                      <strong>Gateway URL</strong>
+                      <small>http/https</small>
+                    </span>
+                    <input
+                      aria-label="Gateway URL"
+                      value={gatewayUrlInput}
+                      onChange={(event) => onGatewayUrlChange(event.target.value)}
+                      disabled={!canManage || gatewayBindingMutation.status === "submitting"}
+                    />
+                  </label>
+                  <label className="form-field">
+                    <span>
+                      <strong>Token</strong>
+                      <small>필수</small>
+                    </span>
+                    <input
+                      aria-label="Token"
+                      type="password"
+                      value={gatewayTokenInput}
+                      onChange={(event) => onGatewayTokenChange(event.target.value)}
+                      disabled={!canManage || gatewayBindingMutation.status === "submitting"}
+                    />
+                  </label>
+                </div>
+                <div className="workspace-settings-actions workspace-gateway-actions">
+                  <button
+                    className="secondary-action workspace-invite-refresh"
+                    type="button"
+                    onClick={onReloadGateway}
+                    disabled={isGatewayLoading}
+                  >
+                    <RefreshCw className={isGatewayLoading ? "spin" : undefined} aria-hidden="true" />
+                    <span>상태 새로고침</span>
+                  </button>
+                  <button
+                    className="secondary-action workspace-invite-refresh"
+                    type="button"
+                    onClick={onTestGateway}
+                    disabled={!canSubmitGateway}
+                  >
+                    {gatewayTestState.status === "submitting" ? (
+                      <Loader2 className="spin" aria-hidden="true" />
+                    ) : (
+                      <ShieldCheck aria-hidden="true" />
+                    )}
+                    <span>{gatewayTestState.status === "submitting" ? "테스트 중" : "연결 테스트"}</span>
+                  </button>
+                  <button
+                    className="primary-action primary-action-active"
+                    type="submit"
+                    disabled={!canSubmitGateway}
+                  >
+                    {gatewayBindingMutation.status === "submitting" ? (
+                      <Loader2 className="spin" aria-hidden="true" />
+                    ) : (
+                      <KeyRound aria-hidden="true" />
+                    )}
+                    <span>{gatewayBindingMutation.status === "submitting" ? "등록 중" : "Gateway binding 등록"}</span>
+                  </button>
+                </div>
+                {gatewayTestState.status === "error" ? (
+                  <ConnectionNotice tone="danger" icon={<AlertCircle aria-hidden="true" />}>
+                    {gatewayTestState.message}
+                  </ConnectionNotice>
+                ) : null}
+                {gatewayTestState.status === "success" ? (
+                  <ConnectionNotice tone="success" icon={<ShieldCheck aria-hidden="true" />}>
+                    {gatewayTestState.message}
+                  </ConnectionNotice>
+                ) : null}
+                {gatewayBindingMutation.status === "error" && gatewayBindingMutation.message ? (
+                  <ConnectionNotice tone="danger" icon={<AlertCircle aria-hidden="true" />}>
+                    {gatewayBindingMutation.message}
+                  </ConnectionNotice>
+                ) : null}
+                {gatewayBindingMutation.status === "success" && gatewayBindingMutation.message ? (
+                  <ConnectionNotice tone="success" icon={<ShieldCheck aria-hidden="true" />}>
+                    {gatewayBindingMutation.message}
+                  </ConnectionNotice>
+                ) : null}
+              </form>
+
+              {gatewayState.status === "error" ? (
+                <ModalState icon={<AlertCircle aria-hidden="true" />} text={gatewayState.error} tone="danger" />
+              ) : null}
+              <div className="workspace-gateway-status-list" aria-label="Gateway status list">
+                <div>
+                  <span>Binding</span>
+                  <strong>
+                    {currentGateway ? gatewayStatusLabel(currentGateway.status) : "상태 없음"}
+                  </strong>
+                </div>
+                <div>
+                  <span>URL</span>
+                  <strong>{(currentGateway?.gatewayUrl ?? gatewayUrlInput) || "-"}</strong>
+                </div>
+                <div>
+                  <span>Last status</span>
+                  <strong>
+                    {currentGateway?.lastStatus
+                      ? gatewayConnectionStatusLabel(currentGateway.lastStatus)
+                      : "-"}
+                  </strong>
+                </div>
+                <div>
+                  <span>Connection test</span>
+                  <strong>
+                    {gatewayTestState.status === "success"
+                      ? gatewayConnectionStatusLabel(gatewayTestState.result.status)
+                      : "-"}
+                  </strong>
+                </div>
+              </div>
+            </>
+          ) : null}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function ConnectionNotice({
+  tone,
+  icon,
+  children,
+}: {
+  tone: "success" | "danger";
+  icon: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <div className={`workspace-settings-notice workspace-settings-notice-${tone}`} role={tone === "danger" ? "alert" : "status"}>
+      {icon}
+      <span>{children}</span>
+    </div>
   );
 }
 
@@ -3556,6 +4863,53 @@ function DetailMetaItem({
       <dd>{value}</dd>
     </div>
   );
+}
+
+function connectionModalTitle(modal: Exclude<ConnectionModalKind, null>): string {
+  switch (modal) {
+    case "selector":
+      return "Connection settings";
+    case "slack":
+      return "Slack";
+    case "discord":
+      return "Discord";
+    case "github":
+      return "GitHub";
+    case "gateway":
+      return "Gateway";
+  }
+}
+
+function saveSlackPendingConnectionState(workspaceId: number): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.localStorage.setItem(PENDING_SLACK_WORKSPACE_STORAGE_KEY, String(workspaceId));
+  window.localStorage.setItem(
+    PENDING_SLACK_RETURN_TO_STORAGE_KEY,
+    `/workspaces/${workspaceId}`,
+  );
+}
+
+function gatewayUrlStorageKey(workspaceId: number): string {
+  return `${GATEWAY_URL_STORAGE_KEY_PREFIX}.${workspaceId}`;
+}
+
+function loadGatewayUrlFallback(workspaceId: number): string {
+  if (typeof window === "undefined") {
+    return "";
+  }
+
+  return window.localStorage.getItem(gatewayUrlStorageKey(workspaceId)) ?? "";
+}
+
+function saveGatewayUrlFallback(workspaceId: number, gatewayUrl: string): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.localStorage.setItem(gatewayUrlStorageKey(workspaceId), gatewayUrl);
 }
 
 function toFailureState(error: unknown, fallback: string): WorkspaceDetailState {

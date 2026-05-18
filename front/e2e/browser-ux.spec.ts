@@ -143,17 +143,49 @@ test.describe("브라우저 UI UX 회귀", () => {
 
   test("워크스페이스 상세, Task 모달, artifact, 2D canvas 상호작용을 검증한다", async ({ page }) => {
     await installMockApi(page);
+    await page.addInitScript(() => {
+      window.open = () => null;
+    });
 
     await page.goto(`/workspaces/${workspaceId}`);
 
     await expect(page.getByRole("heading", { name: primaryWorkspace.name })).toBeVisible();
     const officeScene = page.locator('section[aria-label="워크스페이스 오피스 씬"]');
     await expect(officeScene).toBeVisible();
-    await expect(officeScene.getByRole("link", { name: "Connections", exact: true })).toBeVisible();
+    await expect(officeScene.getByRole("button", { name: "Connections", exact: true })).toBeVisible();
     await expect(officeScene.getByRole("button", { name: "Tasks", exact: true })).toBeVisible();
     await expect(officeScene.getByRole("button", { name: "Hire agent", exact: true })).toBeVisible();
     await expect(officeScene.getByRole("button", { name: "Files", exact: true })).toBeVisible();
     await expect(officeScene.getByRole("link", { name: "Leave workspace", exact: true })).toBeVisible();
+
+    await officeScene.getByRole("button", { name: "Connections", exact: true }).click();
+    const connectionDialog = page.getByRole("dialog", { name: "Connection settings" });
+    await expect(connectionDialog).toBeVisible();
+    await connectionDialog.getByRole("button", { name: "Slack", exact: true }).click();
+    await expect(connectionDialog.getByRole("button", { name: "Slack 설치 열기" })).toBeVisible();
+    await connectionDialog.getByRole("button", { name: "Slack 설치 열기" }).click();
+    await expect
+      .poll(() => page.evaluate(() => localStorage.getItem("aquila-office.pendingSlackWorkspaceId")))
+      .toBe(String(workspaceId));
+    await connectionDialog.getByRole("button", { name: "뒤로" }).click();
+    await connectionDialog.getByRole("button", { name: "GitHub", exact: true }).click();
+    await expect(connectionDialog.getByLabel("selected credential")).toBeVisible();
+    await connectionDialog.locator(".workspace-connection-form").getByLabel("표시 이름").fill("Deploy token");
+    await connectionDialog.locator(".workspace-connection-form").getByLabel("Token").fill("ghp_new_secret");
+    await connectionDialog.getByRole("button", { name: "등록", exact: true }).click();
+    await expect(
+      connectionDialog.locator(".workspace-connection-select").filter({ hasText: "Deploy token" }),
+    ).toBeVisible();
+    await connectionDialog.getByRole("button", { name: "뒤로" }).click();
+    await connectionDialog.getByRole("button", { name: "Gateway", exact: true }).click();
+    await connectionDialog.getByLabel("Gateway URL").fill("https://gateway.example.test");
+    await connectionDialog.getByLabel("Token").fill("gateway-secret");
+    await connectionDialog.getByRole("button", { name: "연결 테스트" }).click();
+    await expect(connectionDialog.getByText("연결 가능").first()).toBeVisible();
+    await connectionDialog.getByRole("button", { name: "Gateway binding 등록" }).click();
+    await expect(connectionDialog.getByText("Gateway binding이 등록되었습니다.")).toBeVisible();
+    await closeTopDialog(page);
+
     await expect(page.getByRole("heading", { name: "운영 요약" })).toBeVisible();
     await expect(page.getByText("Regression smoke")).toBeVisible();
 
@@ -477,6 +509,15 @@ async function installMockApi(page: Page, options: MockApiOptions = {}) {
       return;
     }
 
+    if (method === "DELETE" && path === `/api/v1/workspaces/${workspaceId}/slack/integrations/301`) {
+      await fulfillJson(route, {
+        id: 301,
+        workspaceId,
+        active: false,
+      });
+      return;
+    }
+
     if (method === "GET" && path === `/api/v1/workspaces/${workspaceId}/slack/channel-mappings`) {
       await fulfillJson(route, [slackChannelMapping()]);
       return;
@@ -484,6 +525,32 @@ async function installMockApi(page: Page, options: MockApiOptions = {}) {
 
     if (method === "GET" && path === `/api/v1/workspaces/${workspaceId}/github/credentials`) {
       await fulfillJson(route, [githubCredential()]);
+      return;
+    }
+
+    if (method === "POST" && path === `/api/v1/workspaces/${workspaceId}/github/credentials`) {
+      const body = (request.postDataJSON() ?? {}) as Record<string, unknown>;
+      await fulfillJson(route, {
+        ...githubCredential(),
+        credentialId: 202,
+        displayName: typeof body.displayName === "string" ? body.displayName : "Deploy token",
+        maskedToken: "ghp_new****",
+      });
+      return;
+    }
+
+    if (method === "PATCH" && path === `/api/v1/workspaces/${workspaceId}/github/credentials/201`) {
+      const body = (request.postDataJSON() ?? {}) as Record<string, unknown>;
+      await fulfillJson(route, {
+        ...githubCredential(),
+        displayName: typeof body.displayName === "string" ? body.displayName : "Automation token",
+        maskedToken: typeof body.token === "string" ? "ghp_edit****" : "ghp_****",
+      });
+      return;
+    }
+
+    if (method === "DELETE" && path === `/api/v1/workspaces/${workspaceId}/github/credentials/201`) {
+      await route.fulfill({ status: 204, body: "" });
       return;
     }
 
@@ -857,7 +924,7 @@ function workspaceInviteManagement() {
 
 function gatewayStatus() {
   return {
-    status: "ACTIVE",
+    status: "BOUND",
     bound: true,
     bindingId: 401,
     mode: "EXTERNAL",
