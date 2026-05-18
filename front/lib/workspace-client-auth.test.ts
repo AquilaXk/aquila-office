@@ -89,6 +89,18 @@ test("workspace settings exposes slack channel mapping controls", () => {
   assert.match(source, /slackChannelMappings/);
 });
 
+test("frontend exposes slack integration result routes", () => {
+  const successSource = readSource("app/settings/integrations/success/page.tsx");
+  const failSource = readSource("app/settings/integrations/fail/page.tsx");
+
+  assert.match(successSource, /SlackIntegrationSuccessPage/);
+  assert.match(successSource, /aio\.slack\.returnTo/);
+  assert.match(successSource, /연동 목록으로 이동/);
+  assert.match(failSource, /SlackIntegrationFailPage/);
+  assert.match(failSource, /aio\.slack\.returnTo/);
+  assert.match(failSource, /재시도/);
+});
+
 test("workspace detail exposes dashboard summary sections", () => {
   const source = readSource("app/workspaces/[workspaceId]/page.tsx");
 
