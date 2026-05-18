@@ -116,6 +116,37 @@ class WorkspaceAgentControllerTest {
     }
 
     @Test
+    void createWorkspaceAgentAcceptsOptionalEmojiAndDefaultPayload() throws Exception {
+        given(createWorkspaceAgentUseCase.createWorkspaceAgent(any(CreateWorkspaceAgentCommand.class)))
+                .willReturn(createResult());
+
+        mockMvc.perform(post("/api/v1/workspaces/101/agents")
+                        .principal(authenticatedPrincipal("google-1"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "name": " QA Agent ",
+                                  "emoji": " 🧪 ",
+                                  "category": "",
+                                  "skillFiles": []
+                                }
+                                """))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.skillFiles[0].syncStatus").value("SYNCED"));
+
+        ArgumentCaptor<CreateWorkspaceAgentCommand> commandCaptor =
+                ArgumentCaptor.forClass(CreateWorkspaceAgentCommand.class);
+        verify(createWorkspaceAgentUseCase).createWorkspaceAgent(commandCaptor.capture());
+        CreateWorkspaceAgentCommand command = commandCaptor.getValue();
+        assertThat(command.name()).isEqualTo("QA Agent");
+        assertThat(command.emoji()).isEqualTo("🧪");
+        assertThat(command.category()).isEqualTo(WorkspaceAgentCategory.CUSTOM);
+        assertThat(command.workspacePath()).isNull();
+        assertThat(command.skillFiles()).isEmpty();
+    }
+
+    @Test
     void listWorkspaceAgentsReturnsOkEnvelope() throws Exception {
         given(listWorkspaceAgentsUseCase.listWorkspaceAgents(any(ListWorkspaceAgentsQuery.class)))
                 .willReturn(List.of(listResult()));

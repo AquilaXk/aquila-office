@@ -124,6 +124,7 @@ public class WorkspaceAgentGatewayAdapter
                 command.gatewayUrl(),
                 command.gatewayToken(),
                 command.name(),
+                command.emoji(),
                 command.category(),
                 command.workspacePath(),
                 command.skillFiles().stream()

@@ -43,6 +43,7 @@ export type WorkspaceAgentSkillFileInput = {
 
 export type CreateWorkspaceAgentInput = {
   name: string;
+  emoji?: string;
   category?: WorkspaceAgentCategory;
   workspacePath?: string;
   skillFiles?: WorkspaceAgentSkillFileInput[];

@@ -11,13 +11,34 @@ public record CreateWorkspaceAgentGatewayCommand(
         String gatewayUrl,
         String gatewayToken,
         String name,
+        String emoji,
         WorkspaceAgentCategory category,
         String workspacePath,
         List<SkillFile> skillFiles) {
 
     public CreateWorkspaceAgentGatewayCommand {
+        emoji = normalizeOptional(emoji);
+        category = category == null ? WorkspaceAgentCategory.CUSTOM : category;
         skillFiles = skillFiles == null ? List.of() : List.copyOf(skillFiles);
     }
 
+    public CreateWorkspaceAgentGatewayCommand(
+            Long workspaceId,
+            String gatewayUrl,
+            String gatewayToken,
+            String name,
+            WorkspaceAgentCategory category,
+            String workspacePath,
+            List<SkillFile> skillFiles) {
+        this(workspaceId, gatewayUrl, gatewayToken, name, null, category, workspacePath, skillFiles);
+    }
+
     public record SkillFile(String fileName, String content) {}
+
+    private static String normalizeOptional(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        return value.trim();
+    }
 }

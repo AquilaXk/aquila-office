@@ -62,7 +62,8 @@ public class CreateWorkspaceAgentService implements CreateWorkspaceAgentUseCase 
         List<WorkspaceAgentSkillFile> skillFiles = mergeSkillFiles(command);
         WorkspaceGatewayBinding gatewayBinding = loadGatewayBinding(command.workspaceId());
         CreateWorkspaceAgentGatewayResult gatewayResult =
-                createWorkspaceAgentGatewayPort.create(toGatewayCreateCommand(agent, skillFiles, gatewayBinding));
+                createWorkspaceAgentGatewayPort.create(
+                        toGatewayCreateCommand(command, agent, skillFiles, gatewayBinding));
         applyGatewayCreateResult(agent, gatewayResult);
         applyGatewaySkillFileResults(skillFiles, gatewayResult);
 
@@ -91,6 +92,7 @@ public class CreateWorkspaceAgentService implements CreateWorkspaceAgentUseCase 
     }
 
     private CreateWorkspaceAgentGatewayCommand toGatewayCreateCommand(
+            CreateWorkspaceAgentCommand command,
             WorkspaceAgent agent,
             List<WorkspaceAgentSkillFile> skillFiles,
             WorkspaceGatewayBinding gatewayBinding) {
@@ -99,6 +101,7 @@ public class CreateWorkspaceAgentService implements CreateWorkspaceAgentUseCase 
                 gatewayBinding.getGatewayUrl(),
                 gatewayBinding.getToken(),
                 agent.getName(),
+                command.emoji(),
                 agent.getCategory(),
                 agent.getWorkspacePath(),
                 skillFiles.stream()
