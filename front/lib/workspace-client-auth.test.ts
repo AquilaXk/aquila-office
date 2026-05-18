@@ -65,7 +65,8 @@ test("home dashboard exposes auth token session actions", () => {
 
 test("frontend route aliases expose workspace and auth entries", () => {
   assert.match(readSource("app/workspaces/page.tsx"), /HomePage/);
-  assert.match(readSource("app/auth/page.tsx"), /HomePage/);
+  assert.match(readSource("app/auth/page.tsx"), /GoogleLogin/);
+  assert.match(readSource("app/auth/page.tsx"), /safeReturnTo/);
 });
 
 test("frontend exposes character profile route", () => {
