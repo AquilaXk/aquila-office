@@ -108,6 +108,29 @@ test.describe("브라우저 UI UX 회귀", () => {
     await expect(page.getByRole("link", { name: "상세 보기" })).toHaveAttribute("href", `/workspaces/${workspaceId}`);
   });
 
+  test("캐릭터 프로필 설정에서 avatar와 색상 저장 흐름을 검증한다", async ({ page }) => {
+    await installMockApi(page);
+    await seedAuthTokens(page);
+    await seedCharacterProfile(page);
+
+    await page.goto("/auth/character?returnTo=/workspaces");
+    await expect(page.getByRole("heading", { name: "캐릭터 프로필" })).toBeVisible();
+    await expect(page.getByLabel("표시 이름")).toHaveValue("Aquila User");
+    await expect(page.getByRole("radio", { name: /Operator/ })).toHaveAttribute("aria-checked", "true");
+
+    await page.getByRole("radio", { name: /Builder/ }).click();
+    await page.getByRole("radio", { name: /Custom/ }).click();
+    await page.getByLabel("상의 색상").fill("#1f7a5f");
+    await page.getByLabel("표시 이름").fill("Aquila Pilot");
+    await page.getByRole("button", { name: "프로필 저장" }).click();
+
+    await expect(page).toHaveURL(/\/workspaces$/);
+    const storedCharacter = await page.evaluate(() => window.localStorage.getItem("ai-office.character"));
+    expect(storedCharacter).toContain("Aquila Pilot");
+    expect(storedCharacter).toContain("builder");
+    expect(storedCharacter).toContain("#1f7a5f");
+  });
+
   test("워크스페이스 상세, Task 모달, artifact, 2D canvas 상호작용을 검증한다", async ({ page }) => {
     await installMockApi(page);
 
@@ -219,7 +242,16 @@ async function installMockApi(page: Page, options: MockApiOptions = {}) {
     }
 
     if (method === "PATCH" && path === "/api/v1/members/me/profile") {
-      await fulfillJson(route, memberProfile());
+      const body = (request.postDataJSON() ?? {}) as Record<string, unknown>;
+      await fulfillJson(route, {
+        ...memberProfile(),
+        displayName: typeof body.displayName === "string" ? body.displayName : memberProfile().displayName,
+        avatarKind: typeof body.avatarKind === "string" ? body.avatarKind : memberProfile().avatarKind,
+        avatarColors:
+          typeof body.avatarColors === "object" && body.avatarColors
+            ? body.avatarColors
+            : memberProfile().avatarColors,
+      });
       return;
     }
 
@@ -432,6 +464,24 @@ async function seedAuthTokens(page: Page) {
   await page.addInitScript((tokens) => {
     window.localStorage.setItem("aquila-office.auth", JSON.stringify(tokens));
   }, authTokens);
+}
+
+async function seedCharacterProfile(page: Page) {
+  await page.addInitScript(() => {
+    window.localStorage.setItem(
+      "ai-office.character",
+      JSON.stringify({
+        displayName: "Local Builder",
+        avatarKind: "builder",
+        colorMode: "custom",
+        avatarColors: {
+          skin: "#d8b48a",
+          hair: "#101820",
+          shirt: "#1f7a5f",
+        },
+      }),
+    );
+  });
 }
 
 function deferred() {
