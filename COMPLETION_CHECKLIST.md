@@ -85,3 +85,58 @@ Backend는 실제 업무 흐름을 HTTP API, domain rule, persistence, 외부 �
 - Slack OAuth는 install URL, callback, state 검증, bot token 저장/삭제를 제공한다.
 - GitHub 작업 adapter는 credential 확인, repository 작업 준비, clone/push/PR 인터페이스를 분리한다.
 - 초대 email은 transaction commit 이후 발송하고 실패 기록을 남긴다.
+
+## Frontend UI UX checklist
+
+Frontend는 화면 구조, 정보 밀도, asset, interaction, API client contract가 실제 업무 흐름과 맞을 때 완료로 본다.
+
+### Branding과 asset
+
+- 서비스명은 navigation, auth, dashboard, settings, metadata에서 Aquila Office로 통일한다.
+- favicon, apple touch icon, Open Graph 이미지, 대표 preview 이미지는 Aquila 계열 asset을 사용한다.
+- `aquila-bank`, `aquila-blog`에서 쓰는 gothic sci-fi tone을 Aquila Office에 맞게 적용한다.
+- Warhammer 40k st visual direction은 과한 장식보다 묵직한 contrast, metallic border, command panel density, 붉은 accent로 표현한다.
+- 깨진 이미지, 임시 logo, generic placeholder, 빈 alt text가 남지 않는다.
+- brand color token과 shadow, border, focus ring은 공통 theme에서만 확장한다.
+
+### 공통 UI system
+
+- `components/ui`는 button, input, textarea, select, tabs, modal, toast, badge, skeleton, tooltip을 일관된 API로 제공한다.
+- `components/arcade` 또는 domain component는 workspace, agent, task, artifact 같은 업무 대상의 반복 UI를 재사용한다.
+- icon button은 의미가 명확한 lucide icon과 tooltip을 제공한다.
+- form은 loading, disabled, validation, API error 상태를 모두 표현한다.
+- table, list, panel은 빈 상태, loading 상태, error 상태, pagination 또는 overflow를 처리한다.
+- mobile viewport에서 버튼 text와 주요 label이 잘리지 않는다.
+
+### Route와 화면 구조
+
+- auth 화면은 Google login, token session, logout 흐름과 연결된다.
+- workspace 목록, 생성, 상세, 설정, 초대 수락 route가 서로 이동 가능한 구조를 가진다.
+- workspace 상세는 dashboard, agents, tasks, chat, artifacts, settings 진입점을 한 화면 흐름 안에 둔다.
+- gateway route는 연결 상태, binding 생성/수정, test connection, 실패 메시지를 제공한다.
+- integration route는 Slack, GitHub, Gateway 설정과 success/fail callback 화면을 제공한다.
+- member profile, avatar, role, invite 관리 화면은 권한에 따라 행동 가능 여부를 표시한다.
+
+### 2D workspace experience
+
+- Phaser scene은 agent/member avatar, workspace layer, pan/zoom, context menu를 제공한다.
+- EventBus는 React state와 scene event를 단방향으로 동기화한다.
+- agent와 member 상태는 idle/running/error/offline처럼 구분 가능한 색과 icon을 가진다.
+- scene은 빈 workspace, 많은 avatar, 작은 viewport에서 layout shift 없이 동작한다.
+- visual check는 desktop과 mobile viewport에서 canvas가 비지 않고 interaction이 가능한지 확인한다.
+
+### Task, chat, artifact interaction
+
+- task 생성, 즉시 실행, 상태 변경, report 조회가 frontend client와 화면에서 같은 contract를 사용한다.
+- chat은 workspace session, message list, agent 응답, task 생성 응답을 구분해서 보여준다.
+- task log와 report는 성공, 실패, 진행 중, 취소 상태를 분명히 표시한다.
+- artifact modal은 tree 탐색, markdown rendering, plan/report preview, 파일 error 상태를 처리한다.
+- orchestration plan modal은 step, dependency, worker status, 실패 원인을 스캔 가능하게 보여준다.
+
+### Realtime과 접근성
+
+- SSE presence stream은 연결, 재연결, 종료 상태를 사용자에게 노출한다.
+- 위치 업데이트는 낙관적 UI와 실패 복구를 함께 처리한다.
+- keyboard focus, aria label, semantic heading, modal focus trap을 유지한다.
+- 주요 action은 mouse 없이 keyboard로 실행 가능하다.
+- color만으로 상태를 구분하지 않고 icon 또는 text label을 함께 제공한다.
