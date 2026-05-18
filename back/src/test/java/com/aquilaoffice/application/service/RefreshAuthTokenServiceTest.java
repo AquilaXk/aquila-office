@@ -11,13 +11,19 @@ import com.aquilaoffice.application.port.out.ResolveRefreshTokenPort;
 import com.aquilaoffice.application.port.out.ResolvedRefreshToken;
 import com.aquilaoffice.application.port.out.RotateRefreshTokenPort;
 import com.aquilaoffice.domain.member.MemberRole;
+import java.time.Clock;
 import java.time.Instant;
+import java.time.ZoneOffset;
 import org.junit.jupiter.api.Test;
 
 /**
  * Refresh token 재발급 service가 저장된 token을 조건부 회전하는지 검증한다.
  */
 class RefreshAuthTokenServiceTest {
+
+    private static final Instant NOW = Instant.parse("2026-05-18T00:00:00Z");
+    private static final Instant REFRESH_EXPIRES_AT = Instant.parse("2026-06-01T00:00:00Z");
+    private static final Clock CLOCK = Clock.fixed(NOW, ZoneOffset.UTC);
 
     @Test
     void refreshRotatesStoredRefreshTokenAndReturnsNewTokens() {
@@ -27,7 +33,8 @@ class RefreshAuthTokenServiceTest {
         RefreshAuthTokenService service = new RefreshAuthTokenService(
                 resolveRefreshTokenPort,
                 new FakeIssueAuthTokenPort(),
-                rotateRefreshTokenPort);
+                rotateRefreshTokenPort,
+                CLOCK);
 
         RefreshAuthTokenResult result = service.refresh(new RefreshAuthTokenCommand(" old-refresh "));
 
@@ -35,6 +42,8 @@ class RefreshAuthTokenServiceTest {
         assertThat(rotateRefreshTokenPort.rotated.memberId()).isEqualTo(7L);
         assertThat(rotateRefreshTokenPort.rotated.currentRefreshToken()).isEqualTo("old-refresh");
         assertThat(rotateRefreshTokenPort.rotated.newRefreshToken()).isEqualTo("refresh-7-USER");
+        assertThat(rotateRefreshTokenPort.rotated.newRefreshTokenExpiresAt()).isEqualTo(REFRESH_EXPIRES_AT);
+        assertThat(rotateRefreshTokenPort.rotated.now()).isEqualTo(NOW);
         assertThat(result.accessToken()).isEqualTo("access-7-USER");
         assertThat(result.refreshToken()).isEqualTo("refresh-7-USER");
     }
@@ -44,7 +53,8 @@ class RefreshAuthTokenServiceTest {
         RefreshAuthTokenService service = new RefreshAuthTokenService(
                 new FakeResolveRefreshTokenPort(new ResolvedRefreshToken(8L, "user@example.com", MemberRole.USER)),
                 new FakeIssueAuthTokenPort(),
-                new FakeRotateRefreshTokenPort(false));
+                new FakeRotateRefreshTokenPort(false),
+                CLOCK);
 
         assertThatThrownBy(() -> service.refresh(new RefreshAuthTokenCommand("old-refresh")))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -58,7 +68,12 @@ class RefreshAuthTokenServiceTest {
                 .hasMessage("refreshToken must not be blank");
     }
 
-    private record RotatedRefreshToken(Long memberId, String currentRefreshToken, String newRefreshToken) {}
+    private record RotatedRefreshToken(
+            Long memberId,
+            String currentRefreshToken,
+            String newRefreshToken,
+            Instant newRefreshTokenExpiresAt,
+            Instant now) {}
 
     private static class FakeResolveRefreshTokenPort implements ResolveRefreshTokenPort {
         private final ResolvedRefreshToken resolvedRefreshToken;
@@ -83,7 +98,7 @@ class RefreshAuthTokenServiceTest {
                     "access-" + memberId + "-" + role.name(),
                     "refresh-" + memberId + "-" + role.name(),
                     Instant.parse("2026-05-18T00:15:00Z"),
-                    Instant.parse("2026-06-01T00:00:00Z"));
+                    REFRESH_EXPIRES_AT);
         }
     }
 
@@ -96,8 +111,18 @@ class RefreshAuthTokenServiceTest {
         }
 
         @Override
-        public boolean rotateIfMatch(Long memberId, String currentRefreshToken, String newRefreshToken) {
-            this.rotated = new RotatedRefreshToken(memberId, currentRefreshToken, newRefreshToken);
+        public boolean rotateIfMatch(
+                Long memberId,
+                String currentRefreshToken,
+                String newRefreshToken,
+                Instant newRefreshTokenExpiresAt,
+                Instant now) {
+            this.rotated = new RotatedRefreshToken(
+                    memberId,
+                    currentRefreshToken,
+                    newRefreshToken,
+                    newRefreshTokenExpiresAt,
+                    now);
             return result;
         }
     }

@@ -49,6 +49,8 @@ class GoogleLoginServiceTest {
         assertThat(result.refreshToken()).isEqualTo("refresh-1-USER");
         assertThat(saveRefreshTokenPort.saved.memberId()).isEqualTo(1L);
         assertThat(saveRefreshTokenPort.saved.refreshToken()).isEqualTo("refresh-1-USER");
+        assertThat(saveRefreshTokenPort.saved.refreshTokenExpiresAt())
+                .isEqualTo(Instant.parse("2026-06-01T00:00:00Z"));
     }
 
     @Test
@@ -82,7 +84,7 @@ class GoogleLoginServiceTest {
 
     private record SavedRequest(String googleSub, String email, String name, MemberRole role) {}
 
-    private record SavedRefreshToken(Long memberId, String refreshToken) {}
+    private record SavedRefreshToken(Long memberId, String refreshToken, Instant refreshTokenExpiresAt) {}
 
     private static class FakeVerifyGoogleIdTokenPort implements VerifyGoogleIdTokenPort {
         private final VerifiedGoogleUser user;
@@ -132,8 +134,8 @@ class GoogleLoginServiceTest {
         private SavedRefreshToken saved;
 
         @Override
-        public void saveOrRotate(Long memberId, String refreshToken) {
-            this.saved = new SavedRefreshToken(memberId, refreshToken);
+        public void saveOrRotate(Long memberId, String refreshToken, Instant refreshTokenExpiresAt) {
+            this.saved = new SavedRefreshToken(memberId, refreshToken, refreshTokenExpiresAt);
         }
     }
 }
