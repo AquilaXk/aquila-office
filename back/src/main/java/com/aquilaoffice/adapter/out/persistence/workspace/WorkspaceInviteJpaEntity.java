@@ -47,6 +47,12 @@ public class WorkspaceInviteJpaEntity extends BaseEntity {
     @Column(name = "revoked_at")
     private LocalDateTime revokedAt;
 
+    @Column(name = "email_failure_reason", length = 500)
+    private String emailFailureReason;
+
+    @Column(name = "email_failed_at")
+    private LocalDateTime emailFailedAt;
+
     protected WorkspaceInviteJpaEntity() {}
 
     private WorkspaceInviteJpaEntity(
@@ -113,6 +119,17 @@ public class WorkspaceInviteJpaEntity extends BaseEntity {
         this.expiresAt = expiresAt.plusDays(additionalDays);
     }
 
+    public void recordEmailFailure(String reason, LocalDateTime failedAt) {
+        if (reason == null || reason.isBlank()) {
+            throw new IllegalArgumentException("reason must not be blank");
+        }
+        if (failedAt == null) {
+            throw new IllegalArgumentException("failedAt must not be null");
+        }
+        this.emailFailureReason = trimFailureReason(reason);
+        this.emailFailedAt = failedAt;
+    }
+
     public WorkspaceJpaEntity getWorkspace() {
         return workspace;
     }
@@ -145,10 +162,23 @@ public class WorkspaceInviteJpaEntity extends BaseEntity {
         return revokedAt;
     }
 
+    public String getEmailFailureReason() {
+        return emailFailureReason;
+    }
+
+    public LocalDateTime getEmailFailedAt() {
+        return emailFailedAt;
+    }
+
     private static WorkspaceJpaEntity requireWorkspaceEntity(WorkspaceJpaEntity workspace) {
         if (workspace == null) {
             throw new IllegalArgumentException("workspace entity must not be null");
         }
         return workspace;
+    }
+
+    private static String trimFailureReason(String reason) {
+        String trimmed = reason.trim();
+        return trimmed.length() > 500 ? trimmed.substring(0, 500) : trimmed;
     }
 }

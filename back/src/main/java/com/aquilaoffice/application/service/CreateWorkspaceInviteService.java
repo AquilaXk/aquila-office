@@ -7,8 +7,13 @@ import com.aquilaoffice.application.port.in.GetWorkspaceDetailResult;
 import com.aquilaoffice.application.port.out.GenerateWorkspaceInviteTokenPort;
 import com.aquilaoffice.application.port.out.LoadMemberPort;
 import com.aquilaoffice.application.port.out.LoadWorkspacePort;
+import com.aquilaoffice.application.port.out.RecordWorkspaceInviteEmailFailurePort;
+import com.aquilaoffice.application.port.out.RunAfterCommitPort;
 import com.aquilaoffice.application.port.out.SaveWorkspaceInvitePort;
 import com.aquilaoffice.application.port.out.SavedWorkspaceInvite;
+import com.aquilaoffice.application.port.out.SendWorkspaceInviteEmailPort;
+import com.aquilaoffice.application.port.out.WorkspaceInviteEmailCommand;
+import com.aquilaoffice.application.port.out.WorkspaceInviteEmailFailure;
 import com.aquilaoffice.domain.member.Member;
 import com.aquilaoffice.domain.workspace.Workspace;
 import com.aquilaoffice.domain.workspace.WorkspaceInvite;
@@ -30,6 +35,9 @@ public class CreateWorkspaceInviteService implements CreateWorkspaceInviteUseCas
     private final SaveWorkspaceInvitePort saveWorkspaceInvitePort;
     private final GenerateWorkspaceInviteTokenPort generateWorkspaceInviteTokenPort;
     private final Clock clock;
+    private final RunAfterCommitPort runAfterCommitPort;
+    private final SendWorkspaceInviteEmailPort sendWorkspaceInviteEmailPort;
+    private final RecordWorkspaceInviteEmailFailurePort recordWorkspaceInviteEmailFailurePort;
 
     public CreateWorkspaceInviteService(
             LoadMemberPort loadMemberPort,
@@ -37,6 +45,26 @@ public class CreateWorkspaceInviteService implements CreateWorkspaceInviteUseCas
             SaveWorkspaceInvitePort saveWorkspaceInvitePort,
             GenerateWorkspaceInviteTokenPort generateWorkspaceInviteTokenPort,
             Clock clock) {
+        this(
+                loadMemberPort,
+                loadWorkspacePort,
+                saveWorkspaceInvitePort,
+                generateWorkspaceInviteTokenPort,
+                clock,
+                RunAfterCommitPort.immediate(),
+                SendWorkspaceInviteEmailPort.noop(),
+                RecordWorkspaceInviteEmailFailurePort.noop());
+    }
+
+    public CreateWorkspaceInviteService(
+            LoadMemberPort loadMemberPort,
+            LoadWorkspacePort loadWorkspacePort,
+            SaveWorkspaceInvitePort saveWorkspaceInvitePort,
+            GenerateWorkspaceInviteTokenPort generateWorkspaceInviteTokenPort,
+            Clock clock,
+            RunAfterCommitPort runAfterCommitPort,
+            SendWorkspaceInviteEmailPort sendWorkspaceInviteEmailPort,
+            RecordWorkspaceInviteEmailFailurePort recordWorkspaceInviteEmailFailurePort) {
         this.loadMemberPort = Objects.requireNonNull(loadMemberPort, "loadMemberPort must not be null");
         this.loadWorkspacePort = Objects.requireNonNull(loadWorkspacePort, "loadWorkspacePort must not be null");
         this.saveWorkspaceInvitePort =
@@ -44,6 +72,11 @@ public class CreateWorkspaceInviteService implements CreateWorkspaceInviteUseCas
         this.generateWorkspaceInviteTokenPort = Objects.requireNonNull(
                 generateWorkspaceInviteTokenPort, "generateWorkspaceInviteTokenPort must not be null");
         this.clock = Objects.requireNonNull(clock, "clock must not be null");
+        this.runAfterCommitPort = Objects.requireNonNull(runAfterCommitPort, "runAfterCommitPort must not be null");
+        this.sendWorkspaceInviteEmailPort =
+                Objects.requireNonNull(sendWorkspaceInviteEmailPort, "sendWorkspaceInviteEmailPort must not be null");
+        this.recordWorkspaceInviteEmailFailurePort = Objects.requireNonNull(
+                recordWorkspaceInviteEmailFailurePort, "recordWorkspaceInviteEmailFailurePort must not be null");
     }
 
     @Override
@@ -69,6 +102,7 @@ public class CreateWorkspaceInviteService implements CreateWorkspaceInviteUseCas
                 createdAt,
                 createdAt.plus(INVITE_TTL));
         SavedWorkspaceInvite savedInvite = saveWorkspaceInvitePort.save(workspaceDetail.workspaceId(), invite);
+        scheduleInviteEmail(savedInvite, workspaceDetail, invite);
 
         return new CreateWorkspaceInviteResult(
                 savedInvite.inviteId(),
@@ -78,5 +112,38 @@ public class CreateWorkspaceInviteService implements CreateWorkspaceInviteUseCas
                 invite.getStatus(),
                 invite.getCreatedAt(),
                 invite.getExpiresAt());
+    }
+
+    private void scheduleInviteEmail(
+            SavedWorkspaceInvite savedInvite,
+            GetWorkspaceDetailResult workspaceDetail,
+            WorkspaceInvite invite) {
+        WorkspaceInviteEmailCommand emailCommand = new WorkspaceInviteEmailCommand(
+                savedInvite.inviteId(),
+                workspaceDetail.workspaceId(),
+                workspaceDetail.name(),
+                invite.getEmail(),
+                invite.getToken(),
+                invite.getExpiresAt());
+        runAfterCommitPort.runAfterCommit(() -> sendInviteEmail(emailCommand));
+    }
+
+    private void sendInviteEmail(WorkspaceInviteEmailCommand emailCommand) {
+        try {
+            sendWorkspaceInviteEmailPort.send(emailCommand);
+        } catch (RuntimeException exception) {
+            recordWorkspaceInviteEmailFailurePort.record(new WorkspaceInviteEmailFailure(
+                    emailCommand.inviteId(),
+                    emailCommand.workspaceId(),
+                    resolveFailureReason(exception),
+                    LocalDateTime.now(clock)));
+        }
+    }
+
+    private static String resolveFailureReason(RuntimeException exception) {
+        if (exception.getMessage() == null || exception.getMessage().isBlank()) {
+            return exception.getClass().getSimpleName();
+        }
+        return exception.getMessage();
     }
 }

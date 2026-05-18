@@ -9,10 +9,12 @@ import com.aquilaoffice.application.port.out.AcceptWorkspaceInvitePort;
 import com.aquilaoffice.application.port.out.AcceptedWorkspaceInvite;
 import com.aquilaoffice.application.port.out.LoadWorkspaceInvitePort;
 import com.aquilaoffice.application.port.out.LoadWorkspaceInvitesPort;
+import com.aquilaoffice.application.port.out.RecordWorkspaceInviteEmailFailurePort;
 import com.aquilaoffice.application.port.out.RevokeWorkspaceInvitePort;
 import com.aquilaoffice.application.port.out.SaveWorkspaceInvitePort;
 import com.aquilaoffice.application.port.out.SavedWorkspaceInvite;
 import com.aquilaoffice.application.port.out.WorkspaceInviteAcceptance;
+import com.aquilaoffice.application.port.out.WorkspaceInviteEmailFailure;
 import com.aquilaoffice.application.port.out.WorkspaceInviteRevocation;
 import com.aquilaoffice.domain.member.Member;
 import com.aquilaoffice.domain.member.MemberRole;
@@ -59,6 +61,9 @@ class WorkspaceInvitePersistenceAdapterTest {
 
     @Autowired
     private RevokeWorkspaceInvitePort revokeWorkspaceInvitePort;
+
+    @Autowired
+    private RecordWorkspaceInviteEmailFailurePort recordWorkspaceInviteEmailFailurePort;
 
     @Test
     void savePersistsInviteAndFindByTokenReturnsLookup() {
@@ -274,6 +279,24 @@ class WorkspaceInvitePersistenceAdapterTest {
                         LocalDateTime.of(2026, 5, 16, 11, 0))))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("workspace invite entity not found");
+    }
+
+    @Test
+    void recordWorkspaceInviteEmailFailureUpdatesFailureColumns() {
+        WorkspaceJpaEntity workspaceEntity = saveWorkspaceEntity("creator-google");
+        WorkspaceInviteJpaEntity inviteEntity = saveInviteEntity(workspaceEntity);
+        LocalDateTime failedAt = LocalDateTime.of(2026, 5, 16, 12, 30);
+
+        recordWorkspaceInviteEmailFailurePort.record(new WorkspaceInviteEmailFailure(
+                inviteEntity.getId(),
+                workspaceEntity.getId(),
+                "smtp down",
+                failedAt));
+
+        WorkspaceInviteJpaEntity savedInvite =
+                workspaceInviteJpaRepository.findById(inviteEntity.getId()).orElseThrow();
+        assertThat(savedInvite.getEmailFailureReason()).isEqualTo("smtp down");
+        assertThat(savedInvite.getEmailFailedAt()).isEqualTo(failedAt);
     }
 
     private WorkspaceJpaEntity saveWorkspaceEntity(String googleSub) {

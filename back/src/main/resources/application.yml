@@ -1,6 +1,17 @@
 spring:
   application:
     name: aquila-office-back
+  mail:
+    host: ${SPRING_MAIL_HOST:localhost}
+    port: ${SPRING_MAIL_PORT:1025}
+    username: ${SPRING_MAIL_USERNAME:}
+    password: ${SPRING_MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: ${SPRING_MAIL_PROPERTIES_MAIL_SMTP_AUTH:false}
+          starttls:
+            enable: ${SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_ENABLE:false}
 
 server:
   port: 8080
@@ -49,6 +60,10 @@ aquila:
     location: ${VERTEX_AI_LOCATION:us-central1}
     model: ${VERTEX_AI_MODEL:gemini-2.5-flash}
     credentials-path: ${GOOGLE_APPLICATION_CREDENTIALS:}
+  invite-email:
+    enabled: ${AQUILA_INVITE_EMAIL_ENABLED:false}
+    from: ${AQUILA_INVITE_EMAIL_FROM:noreply@aquila-office.local}
+    accept-url-base: ${AQUILA_INVITE_ACCEPT_URL_BASE:http://localhost:3000/invites/accept}
 
 springdoc:
   api-docs:

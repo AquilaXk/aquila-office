@@ -91,10 +91,12 @@ import com.aquilaoffice.application.port.out.LoadWorkspaceInvitePort;
 import com.aquilaoffice.application.port.out.LoadWorkspaceInvitesPort;
 import com.aquilaoffice.application.port.out.LoadWorkspaceMemberPort;
 import com.aquilaoffice.application.port.out.LoadWorkspacePort;
+import com.aquilaoffice.application.port.out.RecordWorkspaceInviteEmailFailurePort;
 import com.aquilaoffice.application.port.out.RemoveWorkspaceMemberPort;
 import com.aquilaoffice.application.port.out.ResolveRefreshTokenPort;
 import com.aquilaoffice.application.port.out.RevokeWorkspaceInvitePort;
 import com.aquilaoffice.application.port.out.RotateRefreshTokenPort;
+import com.aquilaoffice.application.port.out.RunAfterCommitPort;
 import com.aquilaoffice.application.port.out.RunWorkspaceAgentPort;
 import com.aquilaoffice.application.port.out.SaveGithubCredentialPort;
 import com.aquilaoffice.application.port.out.SaveChatMessagePort;
@@ -111,6 +113,7 @@ import com.aquilaoffice.application.port.out.SaveWorkspaceGatewayBindingPort;
 import com.aquilaoffice.application.port.out.SaveWorkspaceInvitePort;
 import com.aquilaoffice.application.port.out.SaveWorkspacePort;
 import com.aquilaoffice.application.port.out.SendSlackReplyPort;
+import com.aquilaoffice.application.port.out.SendWorkspaceInviteEmailPort;
 import com.aquilaoffice.application.port.out.UpdateTaskExecutionPort;
 import com.aquilaoffice.application.port.out.UpdateGithubCredentialPort;
 import com.aquilaoffice.application.port.out.UpdateMemberProfilePort;
@@ -234,6 +237,15 @@ class ApplicationServiceConfigTest {
 
     @MockitoBean
     private GenerateWorkspaceInviteTokenPort generateWorkspaceInviteTokenPort;
+
+    @MockitoBean
+    private RunAfterCommitPort runAfterCommitPort;
+
+    @MockitoBean
+    private SendWorkspaceInviteEmailPort sendWorkspaceInviteEmailPort;
+
+    @MockitoBean
+    private RecordWorkspaceInviteEmailFailurePort recordWorkspaceInviteEmailFailurePort;
 
     @MockitoBean
     private ExistsGithubCredentialPort existsGithubCredentialPort;

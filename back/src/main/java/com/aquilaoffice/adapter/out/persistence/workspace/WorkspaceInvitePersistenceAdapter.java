@@ -7,10 +7,12 @@ import com.aquilaoffice.application.port.out.AcceptedWorkspaceInvite;
 import com.aquilaoffice.application.port.out.ExtendWorkspaceInvitePort;
 import com.aquilaoffice.application.port.out.LoadWorkspaceInvitePort;
 import com.aquilaoffice.application.port.out.LoadWorkspaceInvitesPort;
+import com.aquilaoffice.application.port.out.RecordWorkspaceInviteEmailFailurePort;
 import com.aquilaoffice.application.port.out.RevokeWorkspaceInvitePort;
 import com.aquilaoffice.application.port.out.SaveWorkspaceInvitePort;
 import com.aquilaoffice.application.port.out.SavedWorkspaceInvite;
 import com.aquilaoffice.application.port.out.WorkspaceInviteAcceptance;
+import com.aquilaoffice.application.port.out.WorkspaceInviteEmailFailure;
 import com.aquilaoffice.application.port.out.WorkspaceInviteExtension;
 import com.aquilaoffice.application.port.out.WorkspaceInviteLookup;
 import com.aquilaoffice.application.port.out.WorkspaceInviteManagement;
@@ -33,7 +35,8 @@ public class WorkspaceInvitePersistenceAdapter
                 AcceptWorkspaceInvitePort,
                 LoadWorkspaceInvitesPort,
                 RevokeWorkspaceInvitePort,
-                ExtendWorkspaceInvitePort {
+                ExtendWorkspaceInvitePort,
+                RecordWorkspaceInviteEmailFailurePort {
 
     private final MemberJpaRepository memberJpaRepository;
     private final WorkspaceJpaRepository workspaceJpaRepository;
@@ -142,6 +145,17 @@ public class WorkspaceInvitePersistenceAdapter
 
         inviteEntity.extendExpiresAt(extension.additionalDays(), extension.extendedAt());
         return toManagement(inviteEntity);
+    }
+
+    @Override
+    @Transactional
+    public void record(WorkspaceInviteEmailFailure failure) {
+        Objects.requireNonNull(failure, "failure must not be null");
+        WorkspaceInviteJpaEntity inviteEntity = workspaceInviteJpaRepository
+                .findByIdAndWorkspaceId(failure.inviteId(), failure.workspaceId())
+                .orElseThrow(() -> new IllegalArgumentException("workspace invite entity not found"));
+
+        inviteEntity.recordEmailFailure(failure.reason(), failure.failedAt());
     }
 
     private WorkspaceInviteLookup toLookup(WorkspaceInviteJpaEntity inviteEntity) {
