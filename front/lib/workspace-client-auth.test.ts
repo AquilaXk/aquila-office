@@ -85,6 +85,15 @@ test("character profile route exposes avatar color controls", () => {
   assert.match(source, /aria-label="Avatar 색상 설정"/);
 });
 
+test("frontend exposes workspace gateway route status surface", () => {
+  const source = readSource("app/workspaces/gateway/page.tsx");
+
+  assert.match(source, /GatewayRoutePage/);
+  assert.match(source, /fetchWorkspaces/);
+  assert.match(source, /fetchWorkspaceGatewayStatus/);
+  assert.match(source, /aria-label="Gateway 관리"/);
+});
+
 test("workspace settings exposes slack integration controls", () => {
   const source = readSource("app/workspaces/[workspaceId]/settings/page.tsx");
 
