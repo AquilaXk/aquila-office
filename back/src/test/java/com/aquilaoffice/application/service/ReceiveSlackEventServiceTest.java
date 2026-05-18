@@ -216,6 +216,38 @@ class ReceiveSlackEventServiceTest {
     }
 
     @Test
+    void receiveSlackEventIgnoresBotGeneratedMentionWithoutDispatch() {
+        FakeSendChatMessageUseCase sendChatMessageUseCase = new FakeSendChatMessageUseCase();
+        FakeSendSlackReplyPort sendSlackReplyPort = new FakeSendSlackReplyPort();
+        ReceiveSlackEventUseCase service = newService(
+                sendChatMessageUseCase,
+                new FakeLoadSlackChannelMappingPort(Optional.empty()),
+                sendSlackReplyPort);
+
+        ReceiveSlackEventResult result = service.receiveSlackEvent(new ReceiveSlackEventCommand(
+                101L,
+                "google-1",
+                "event_callback",
+                null,
+                "T123",
+                "E123",
+                new ReceiveSlackEventCommand.SlackEventPayload(
+                        "app_mention",
+                        "C456",
+                        "U789",
+                        "<@U123ABC> /agent 501 장애를 확인해주세요",
+                        "1715841000.000100",
+                        null,
+                        "bot_message",
+                        "B123")));
+
+        assertThat(result.processed()).isFalse();
+        assertThat(result.ignoredReason()).isEqualTo("bot event");
+        assertThat(sendChatMessageUseCase.called).isFalse();
+        assertThat(sendSlackReplyPort.request).isNull();
+    }
+
+    @Test
     void receiveSlackEventIgnoresUnsupportedEventWithoutDispatch() {
         FakeSendChatMessageUseCase sendChatMessageUseCase = new FakeSendChatMessageUseCase();
         FakeSendSlackReplyPort sendSlackReplyPort = new FakeSendSlackReplyPort();
