@@ -38,6 +38,11 @@ aquila:
   gateway-rpc:
     request-timeout: ${AQUILA_GATEWAY_RPC_REQUEST_TIMEOUT:30s}
     path: ${AQUILA_GATEWAY_RPC_PATH:/rpc}
+  vertex-ai:
+    project-id: ${GOOGLE_CLOUD_PROJECT_ID:}
+    location: ${VERTEX_AI_LOCATION:us-central1}
+    model: ${VERTEX_AI_MODEL:gemini-2.5-flash}
+    credentials-path: ${GOOGLE_APPLICATION_CREDENTIALS:}
 
 springdoc:
   api-docs:
