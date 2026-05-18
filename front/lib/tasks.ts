@@ -6,6 +6,7 @@ import {
   workspaceTaskReportsPath,
   workspaceTaskRunPath,
   workspaceTaskStatusPath,
+  workspaceTasksRunPath,
   workspaceTasksPath,
   type AgentReport,
   type RunWorkspaceTaskResult,
@@ -22,6 +23,7 @@ export {
   workspaceTaskReportsPath,
   workspaceTaskRunPath,
   workspaceTaskStatusPath,
+  workspaceTasksRunPath,
   workspaceTasksPath,
   type AgentReport,
   type RunWorkspaceTaskResult,
@@ -50,6 +52,8 @@ export type RunWorkspaceTaskInput = {
   createPr?: boolean;
 };
 
+export type CreateAndRunWorkspaceTaskInput = CreateWorkspaceTaskInput & RunWorkspaceTaskInput;
+
 export async function fetchWorkspaceTasks(
   accessToken: string,
   workspaceId: number,
@@ -67,6 +71,21 @@ export async function createWorkspaceTask(
   input: CreateWorkspaceTaskInput,
 ): Promise<WorkspaceTask> {
   return apiFetch<WorkspaceTask>(workspaceTasksPath(workspaceId), {
+    method: "POST",
+    accessToken,
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(input),
+  });
+}
+
+export async function createAndRunWorkspaceTask(
+  accessToken: string,
+  workspaceId: number,
+  input: CreateAndRunWorkspaceTaskInput,
+): Promise<RunWorkspaceTaskResult> {
+  return apiFetch<RunWorkspaceTaskResult>(workspaceTasksRunPath(workspaceId), {
     method: "POST",
     accessToken,
     headers: {
