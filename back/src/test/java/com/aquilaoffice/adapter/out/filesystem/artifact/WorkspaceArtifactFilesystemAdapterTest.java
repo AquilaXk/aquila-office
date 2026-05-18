@@ -8,6 +8,8 @@ import com.aquilaoffice.application.port.out.ArtifactNodeType;
 import com.aquilaoffice.application.port.out.ArtifactTreeData;
 import com.aquilaoffice.application.port.out.LoadOrchestrationPlanArtifactPort;
 import com.aquilaoffice.application.port.out.LoadWorkspaceArtifactsPort;
+import com.aquilaoffice.application.port.out.SaveWorkspaceArtifactPort;
+import com.aquilaoffice.application.port.out.WorkspaceArtifactFileCommand;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
@@ -54,6 +56,34 @@ class WorkspaceArtifactFilesystemAdapterTest {
         assertThat(file.name()).isEqualTo("result.md");
         assertThat(file.content()).contains("테스트 작성 완료");
         assertThat(file.sizeBytes()).isPositive();
+    }
+
+    @Test
+    void saveFileWritesContentUnderWorkspaceRoot() {
+        SaveWorkspaceArtifactPort adapter = new WorkspaceArtifactFilesystemAdapter(artifactRoot);
+
+        var saved = adapter.saveFile(new WorkspaceArtifactFileCommand(
+                101L,
+                "reports/result.md",
+                "# 완료\n테스트 작성 완료"));
+
+        assertThat(saved.workspaceId()).isEqualTo(101L);
+        assertThat(saved.path()).isEqualTo("reports/result.md");
+        assertThat(saved.name()).isEqualTo("result.md");
+        assertThat(saved.content()).contains("테스트 작성 완료");
+        assertThat(saved.sizeBytes()).isPositive();
+    }
+
+    @Test
+    void saveFileRejectsPathTraversal() {
+        SaveWorkspaceArtifactPort adapter = new WorkspaceArtifactFilesystemAdapter(artifactRoot);
+
+        assertThatThrownBy(() -> adapter.saveFile(new WorkspaceArtifactFileCommand(
+                        101L,
+                        "../secret.txt",
+                        "secret")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("artifact path is outside workspace root");
     }
 
     @Test
