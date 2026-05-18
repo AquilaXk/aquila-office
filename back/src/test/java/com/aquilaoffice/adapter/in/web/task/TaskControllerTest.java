@@ -198,6 +198,54 @@ class TaskControllerTest {
     }
 
     @Test
+    void createAndRunTaskReturnsOkEnvelope() throws Exception {
+        given(createTaskUseCase.createTask(any(CreateTaskCommand.class))).willReturn(createResult());
+        given(runTaskUseCase.runTask(any(RunTaskCommand.class))).willReturn(runResult());
+
+        mockMvc.perform(post("/api/v1/workspaces/101/tasks/run")
+                        .principal(authenticatedPrincipal("google-1"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "title": " 작업 실행 ",
+                                  "description": " 생성 직후 실행해 주세요. ",
+                                  "type": "FEATURE_IMPLEMENTATION",
+                                  "priority": "URGENT",
+                                  "assignedAgentId": 501,
+                                  "createPr": true
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.workspaceId").value(101))
+                .andExpect(jsonPath("$.data.taskId").value(301))
+                .andExpect(jsonPath("$.data.executionId").value(701))
+                .andExpect(jsonPath("$.data.agentId").value(501))
+                .andExpect(jsonPath("$.data.taskStatus").value("COMPLETED"))
+                .andExpect(jsonPath("$.data.executionStatus").value("SUCCEEDED"));
+
+        ArgumentCaptor<CreateTaskCommand> createCommandCaptor =
+                ArgumentCaptor.forClass(CreateTaskCommand.class);
+        verify(createTaskUseCase).createTask(createCommandCaptor.capture());
+        CreateTaskCommand createCommand = createCommandCaptor.getValue();
+        assertThat(createCommand.workspaceId()).isEqualTo(101L);
+        assertThat(createCommand.requesterGoogleSub()).isEqualTo("google-1");
+        assertThat(createCommand.title()).isEqualTo("작업 실행");
+        assertThat(createCommand.description()).isEqualTo("생성 직후 실행해 주세요.");
+        assertThat(createCommand.type()).isEqualTo(TaskType.FEATURE_IMPLEMENTATION);
+        assertThat(createCommand.priority()).isEqualTo(TaskPriority.URGENT);
+        assertThat(createCommand.assignedAgentId()).isEqualTo(501L);
+
+        ArgumentCaptor<RunTaskCommand> runCommandCaptor = ArgumentCaptor.forClass(RunTaskCommand.class);
+        verify(runTaskUseCase).runTask(runCommandCaptor.capture());
+        RunTaskCommand runCommand = runCommandCaptor.getValue();
+        assertThat(runCommand.workspaceId()).isEqualTo(101L);
+        assertThat(runCommand.taskId()).isEqualTo(301L);
+        assertThat(runCommand.requesterGoogleSub()).isEqualTo("google-1");
+        assertThat(runCommand.createPr()).isTrue();
+    }
+
+    @Test
     void missingPrincipalReturnsUnauthorizedAndDoesNotCallUseCases() throws Exception {
         mockMvc.perform(get("/api/v1/workspaces/101/tasks"))
                 .andExpect(status().isUnauthorized())
