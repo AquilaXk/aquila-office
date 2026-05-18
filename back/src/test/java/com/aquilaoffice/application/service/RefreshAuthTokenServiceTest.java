@@ -11,6 +11,7 @@ import com.aquilaoffice.application.port.out.ResolveRefreshTokenPort;
 import com.aquilaoffice.application.port.out.ResolvedRefreshToken;
 import com.aquilaoffice.application.port.out.RotateRefreshTokenPort;
 import com.aquilaoffice.domain.member.MemberRole;
+import java.time.Instant;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -80,7 +81,9 @@ class RefreshAuthTokenServiceTest {
         public IssuedAuthTokens issue(Long memberId, String email, MemberRole role) {
             return new IssuedAuthTokens(
                     "access-" + memberId + "-" + role.name(),
-                    "refresh-" + memberId + "-" + role.name());
+                    "refresh-" + memberId + "-" + role.name(),
+                    Instant.parse("2026-05-18T00:15:00Z"),
+                    Instant.parse("2026-06-01T00:00:00Z"));
         }
     }
 

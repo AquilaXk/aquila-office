@@ -27,6 +27,10 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-change_me_before_prod}
       SPRING_JPA_HIBERNATE_DDL_AUTO: ${SPRING_JPA_HIBERNATE_DDL_AUTO:-validate}
       CUSTOM_CORS_ALLOWED_ORIGIN_PATTERNS: ${CUSTOM_CORS_ALLOWED_ORIGIN_PATTERNS:-http://localhost,http://localhost:3000}
+      AQUILA_AUTH_TOKEN_ISSUER: ${AQUILA_AUTH_TOKEN_ISSUER:-aquila-office}
+      AQUILA_AUTH_TOKEN_SECRET: ${AQUILA_AUTH_TOKEN_SECRET:-change_me_to_at_least_32_bytes_before_prod}
+      AQUILA_AUTH_ACCESS_TOKEN_TTL: ${AQUILA_AUTH_ACCESS_TOKEN_TTL:-15m}
+      AQUILA_AUTH_REFRESH_TOKEN_TTL: ${AQUILA_AUTH_REFRESH_TOKEN_TTL:-14d}
     depends_on:
       postgres:
         condition: service_healthy
