@@ -55,6 +55,7 @@ import com.aquilaoffice.application.port.in.UpdateTaskStatusUseCase;
 import com.aquilaoffice.application.port.in.UpdateWorkspacePresencePositionUseCase;
 import com.aquilaoffice.application.port.in.UpdateWorkspaceUseCase;
 import com.aquilaoffice.application.port.out.AcceptWorkspaceInvitePort;
+import com.aquilaoffice.application.port.out.AuthenticateWorkspaceGatewayPort;
 import com.aquilaoffice.application.port.out.ChangeWorkspaceMemberRolePort;
 import com.aquilaoffice.application.port.out.DeleteRefreshTokenPort;
 import com.aquilaoffice.application.port.out.DeleteGithubCredentialPort;
@@ -491,17 +492,20 @@ public class ApplicationServiceConfig {
     @Bean
     public TestWorkspaceGatewayConnectionUseCase testWorkspaceGatewayConnectionUseCase(
             LoadMemberPort loadMemberPort,
-            LoadWorkspacePort loadWorkspacePort) {
-        return new TestWorkspaceGatewayConnectionService(loadMemberPort, loadWorkspacePort);
+            LoadWorkspacePort loadWorkspacePort,
+            AuthenticateWorkspaceGatewayPort authenticateWorkspaceGatewayPort) {
+        return new TestWorkspaceGatewayConnectionService(
+                loadMemberPort, loadWorkspacePort, authenticateWorkspaceGatewayPort);
     }
 
     @Bean
     public CreateWorkspaceGatewayBindingUseCase createWorkspaceGatewayBindingUseCase(
             LoadMemberPort loadMemberPort,
             LoadWorkspacePort loadWorkspacePort,
-            SaveWorkspaceGatewayBindingPort saveWorkspaceGatewayBindingPort) {
+            SaveWorkspaceGatewayBindingPort saveWorkspaceGatewayBindingPort,
+            AuthenticateWorkspaceGatewayPort authenticateWorkspaceGatewayPort) {
         return new CreateWorkspaceGatewayBindingService(
-                loadMemberPort, loadWorkspacePort, saveWorkspaceGatewayBindingPort);
+                loadMemberPort, loadWorkspacePort, saveWorkspaceGatewayBindingPort, authenticateWorkspaceGatewayPort);
     }
 
     @Bean

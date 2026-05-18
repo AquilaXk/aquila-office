@@ -86,6 +86,11 @@ class WorkspaceAgentGatewayAdapterTest {
             return response;
         }
 
+        @Override
+        public WorkspaceGatewayAuthenticationResponse authenticate(WorkspaceGatewayAuthenticationRequest request) {
+            throw new UnsupportedOperationException("not used in run mapping test");
+        }
+
         private WorkspaceAgentGatewayRequest request() {
             return request;
         }
