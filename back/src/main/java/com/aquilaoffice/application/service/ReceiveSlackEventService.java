@@ -95,6 +95,9 @@ public class ReceiveSlackEventService implements ReceiveSlackEventUseCase {
         if (event == null || !APP_MENTION_EVENT_TYPE.equals(normalize(event.type()))) {
             return ignored(null, "unsupported event type");
         }
+        if (isBotEvent(event)) {
+            return ignored(null, "bot event");
+        }
 
         SlackAgentCommandParser.ParsedCommand parsedCommand = slackAgentCommandParser.parse(event.text());
         if (!parsedCommand.matched()) {
@@ -186,6 +189,10 @@ public class ReceiveSlackEventService implements ReceiveSlackEventUseCase {
     private boolean isDuplicateEvent(String eventId) {
         String normalizedEventId = normalize(eventId);
         return !normalizedEventId.isBlank() && !claimSlackEventPort.claimEvent(normalizedEventId);
+    }
+
+    private boolean isBotEvent(ReceiveSlackEventCommand.SlackEventPayload event) {
+        return !normalize(event.botId()).isBlank() || "bot_message".equals(normalize(event.subtype()));
     }
 
     private String resolveTitle(String message) {
