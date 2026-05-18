@@ -1,12 +1,17 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import {
   flattenArtifactNodes,
   normalizeArtifactTree,
   workspaceArtifactFilePath,
   workspaceArtifactTreePath,
+  workspaceOrchestrationPlanArtifactPath,
   type ArtifactTree,
 } from "./artifacts-utils.ts";
+
+const appRoot = process.cwd();
 
 const tree: ArtifactTree = {
   workspaceId: 101,
@@ -35,6 +40,18 @@ test("workspace artifact paths target a single workspace", () => {
     workspaceArtifactFilePath(101, "reports/result.md"),
     "/api/v1/workspaces/101/artifacts/files?path=reports%2Fresult.md",
   );
+  assert.equal(
+    workspaceOrchestrationPlanArtifactPath(101, 701),
+    "/api/v1/workspaces/101/artifacts/orchestration-plans/701",
+  );
+});
+
+test("artifact client exposes orchestration plan artifact contract", () => {
+  const source = readFileSync(path.join(appRoot, "lib/artifacts.ts"), "utf8");
+
+  assert.match(source, /type OrchestrationPlanArtifact/);
+  assert.match(source, /fetchOrchestrationPlanArtifact/);
+  assert.match(source, /workspaceOrchestrationPlanArtifactPath/);
 });
 
 test("normalizeArtifactTree accepts direct tree payloads", () => {
