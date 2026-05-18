@@ -1,7 +1,13 @@
+import com.github.spotbugs.snom.Confidence
+import com.github.spotbugs.snom.Effort
+
 plugins {
     java
+    checkstyle
+    jacoco
     id("org.springframework.boot") version "4.0.5"
     id("io.spring.dependency-management") version "1.1.7"
+    id("com.github.spotbugs") version "6.5.4"
 }
 
 group = "com.aquilaoffice"
@@ -37,4 +43,69 @@ dependencies {
 
 tasks.withType<Test> {
     useJUnitPlatform()
+    finalizedBy(tasks.jacocoTestReport)
+}
+
+checkstyle {
+    toolVersion = "10.23.1"
+    configDirectory.set(layout.projectDirectory.dir("config/checkstyle"))
+    isIgnoreFailures = false
+    maxWarnings = 0
+}
+
+tasks.withType<org.gradle.api.plugins.quality.Checkstyle>().configureEach {
+    reports {
+        xml.required.set(true)
+        html.required.set(true)
+    }
+}
+
+spotbugs {
+    ignoreFailures = false
+    showStackTraces = true
+    showProgress = false
+    effort = Effort.DEFAULT
+    reportLevel = Confidence.HIGH
+    excludeFilter = file("config/spotbugs/exclude.xml")
+}
+
+tasks.withType<com.github.spotbugs.snom.SpotBugsTask>().configureEach {
+    val spotbugsTaskName = name
+    reports.create("html") {
+        required = true
+        outputLocation = layout.buildDirectory.file("reports/spotbugs/$spotbugsTaskName/spotbugs.html")
+    }
+}
+
+jacoco {
+    toolVersion = "0.8.14"
+}
+
+tasks.jacocoTestReport {
+    dependsOn(tasks.test)
+
+    reports {
+        xml.required.set(true)
+        html.required.set(true)
+        csv.required.set(false)
+    }
+}
+
+tasks.jacocoTestCoverageVerification {
+    dependsOn(tasks.jacocoTestReport)
+
+    violationRules {
+        rule {
+            element = "BUNDLE"
+            limit {
+                counter = "LINE"
+                value = "COVEREDRATIO"
+                minimum = "0.80".toBigDecimal()
+            }
+        }
+    }
+}
+
+tasks.check {
+    dependsOn(tasks.jacocoTestCoverageVerification)
 }

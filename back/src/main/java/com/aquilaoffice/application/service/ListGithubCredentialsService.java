@@ -1,6 +1,5 @@
 package com.aquilaoffice.application.service;
 
-import com.aquilaoffice.application.port.in.GetWorkspaceDetailResult;
 import com.aquilaoffice.application.port.in.ListGithubCredentialsQuery;
 import com.aquilaoffice.application.port.in.ListGithubCredentialsResult;
 import com.aquilaoffice.application.port.in.ListGithubCredentialsUseCase;
