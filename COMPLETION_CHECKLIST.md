@@ -140,3 +140,73 @@ Frontend는 화면 구조, 정보 밀도, asset, interaction, API client contrac
 - keyboard focus, aria label, semantic heading, modal focus trap을 유지한다.
 - 주요 action은 mouse 없이 keyboard로 실행 가능하다.
 - color만으로 상태를 구분하지 않고 icon 또는 text label을 함께 제공한다.
+
+## 운영 검증 checklist
+
+운영 준비는 local 실행, CI, container, deployment, 관측, 문서가 같은 결과를 낼 때 완료로 본다.
+
+### 품질 gate
+
+- Backend `check`는 test, static analysis, coverage report를 포함한다.
+- coverage gate는 전체 coverage와 핵심 service/controller coverage를 모두 확인한다.
+- Frontend는 lint, node test, build, visual smoke check를 통과한다.
+- PR CI는 backend, frontend, docs 변경을 각각 필요한 job으로 검증한다.
+- main CI는 merge commit 기준으로 다시 통과해야 한다.
+
+### 환경과 배포
+
+- `.env.example`, `back/.env.example`, `front/.env.example`은 필수 key, 기본값, 비밀값 처리 방식을 설명한다.
+- Dockerfile은 non-root runtime, health check, deterministic build를 만족한다.
+- dev compose는 local DB, backend, frontend, gateway mock 또는 연동 대상을 명확히 제공한다.
+- prod compose와 nginx 설정은 TLS termination, reverse proxy, static asset cache, API timeout을 다룬다.
+- blue/green script는 현재 slot 확인, 새 slot health check, traffic switch, rollback path를 제공한다.
+- OCI deployment hook은 secret 주입, image pull, container restart, health polling을 분리한다.
+
+### 관측과 장애 대응
+
+- actuator health, readiness, metrics endpoint가 profile별로 의도대로 열린다.
+- Prometheus registry는 API latency, error count, task execution, gateway RPC, Slack event 지표를 노출한다.
+- log는 request id, workspace id, task id 같은 추적 정보를 포함하되 secret을 masking한다.
+- k6 smoke는 login, workspace, agent, task, report 흐름을 낮은 부하로 반복한다.
+- 운영 문서는 장애 증상, 확인 명령, rollback 절차, known limitation을 포함한다.
+
+### 문서와 release
+
+- README는 설치, 실행, test, build, 주요 URL을 최신 상태로 유지한다.
+- API 설명은 실제 controller path와 request/response 이름을 따라간다.
+- ERD 또는 domain model 설명은 workspace, member, task, execution, artifact, integration 관계를 보여준다.
+- 발표용 README는 서비스 가치, 주요 화면, 기술 선택, 검증 결과를 간결하게 설명한다.
+- release 전에는 open issue, failed CI, unchecked checklist가 없는지 확인한다.
+
+## 28단계 완료 추적
+
+| 순서 | PR 제목 | 완료 기준 | 검증 |
+| --- | --- | --- | --- |
+| 1 | `[Docs] 완성도 체크리스트 정리` | 100% 완료 기준, API/화면/운영 checklist 고정 | 문서 리뷰 |
+| 2 | `[Build] 백엔드 품질 게이트 확장` | Checkstyle, SpotBugs, JaCoCo, coverage gate, test report 구성 | `./back/gradlew -p back check` |
+| 3 | `[Build] 운영 환경 구성 추가` | Dockerfile, dev/prod compose, nginx 설정, env sample 정리 | Docker build, health check |
+| 4 | `[CI] 백엔드 배포 워크플로 추가` | blue/green 배포 script, CD workflow, OCI 배포 hook 작성 | workflow dry-run 수준 검증 |
+| 5 | `[Feat] JWT 인증 구현 고도화` | JWT 발급/검증, refresh token 만료/폐기, 보안 예외 정리 | auth controller/service tests |
+| 6 | `[Feat] Google 로그인 검증 구현` | Google ID token verifier, OAuth 설정, profile 초기화 | auth integration tests |
+| 7 | `[Feat] 외부 토큰 암호화 저장` | GitHub/Slack/Gateway token 암호화, key 설정, masking | persistence/security tests |
+| 8 | `[Feat] Gateway RPC 연결 구현` | WebSocket RPC client, pending request, timeout, URL normalization | gateway client tests |
+| 9 | `[Feat] Gateway 장치 인증 구현` | challenge/connect handshake, device identity 저장, 연결 상태 판정 | gateway auth tests |
+| 10 | `[Feat] Agent 템플릿 동기화 구현` | 역할별 template, AGENTS.md 생성, skill file sync | agent service tests |
+| 11 | `[Feat] Agent 생성 실행 연동` | Agent create/delete/list를 Gateway RPC와 연결 | agent controller/service tests |
+| 12 | `[Feat] Task 실행 코어 완성` | task run, execution lifecycle, log/report 저장, 실패 상태 처리 | task/execution tests |
+| 13 | `[Feat] Chat 실행 연동 완성` | chat intent parsing, agent chat, task 생성 응답 저장 | chat service tests |
+| 14 | `[Feat] Multi Agent 조율 구현` | orchestration session/plan/step, dependsOn, worker dispatch | orchestrator tests |
+| 15 | `[Feat] 작업 충돌 방지 구현` | workspace path lock, 동시 실행 방지, unlock/failure cleanup | concurrency tests |
+| 16 | `[Feat] 산출물 저장 조회 완성` | artifact tree/file/report/plan file 조회, 경로 방어 | artifact tests |
+| 17 | `[Feat] Slack 이벤트 처리 완성` | signature, dedupe, channel mapping, mention parsing, thread reply | slack controller/service tests |
+| 18 | `[Feat] Slack OAuth 설정 완성` | install URL, callback, state 검증, bot token 저장/삭제 | slack OAuth tests |
+| 19 | `[Feat] GitHub 작업 연동 구현` | credential 별 repository 작업 준비, clone/push/PR 실행 interface | GitHub adapter tests |
+| 20 | `[Feat] 초대 이메일 발송 구현` | SMTP 설정, afterCommit 발송, 실패 기록 | invite email tests |
+| 21 | `[Feat] 프론트 공통 UI 시스템 추가` | components/ui, components/arcade, theme token 정리 | lint/build |
+| 22 | `[Feat] 2D 워크스페이스 화면 구현` | Phaser scene, EventBus, agent/member avatar, pan/zoom/context menu | Playwright/visual check |
+| 23 | `[Feat] 워크스페이스 상세 화면 완성` | dashboard, agents, tasks, chat, artifact modal, plan modal 통합 | lint/build/node tests |
+| 24 | `[Feat] 연동 설정 화면 완성` | Slack/GitHub/Gateway 설정, channel mapping, success/fail route | lint/build/node tests |
+| 25 | `[Feat] 실시간 Presence 화면 완성` | SSE stream, 위치 업데이트, member 상태 표시 | BE/FE integration tests |
+| 26 | `[Test] 통합 시나리오 검증 추가` | login, workspace, agent, task, report 흐름 검증 | backend test + FE build |
+| 27 | `[Perf] 관측 및 부하 테스트 구성` | Prometheus registry, k6 smoke, actuator metrics | k6 smoke, actuator check |
+| 28 | `[Docs] 실행 문서와 발표용 README 정리` | 설치, env, API, ERD, 운영/문제 해결 문서 정리 | 문서 링크/명령 검증 |
