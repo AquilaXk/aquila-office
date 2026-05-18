@@ -1,0 +1,54 @@
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import path from "node:path";
+import test from "node:test";
+
+const appRoot = process.cwd();
+
+test("theme tokens expose gothic operation color and radius contracts", () => {
+  const source = readSource("lib/theme.ts");
+
+  assert.match(source, /gothicThemeTokens/);
+  assert.match(source, /ThemeTokenName/);
+  assert.match(source, /surfaceRaised/);
+  assert.match(source, /brass/);
+  assert.match(source, /radiusControl/);
+});
+
+test("common ui index exports shared controls", () => {
+  const source = readSource("components/ui/index.ts");
+
+  assert.match(source, /Button/);
+  assert.match(source, /IconButton/);
+  assert.match(source, /Badge/);
+  assert.match(source, /Panel/);
+  assert.match(source, /TextField/);
+  assert.match(source, /cn/);
+});
+
+test("icon button requires an accessible label contract", () => {
+  const source = readSource("components/ui/IconButton.tsx");
+
+  assert.match(source, /aria-label/);
+  assert.match(source, /label: string/);
+});
+
+test("arcade index exports gothic operation controls", () => {
+  const source = readSource("components/arcade/index.ts");
+
+  assert.match(source, /ArcadeFrame/);
+  assert.match(source, /CommandBar/);
+  assert.match(source, /MetricTile/);
+  assert.match(source, /StatusPip/);
+});
+
+test("arcade controls use shared UI and gothic class contracts", () => {
+  assert.match(readSource("components/arcade/ArcadeFrame.tsx"), /ao-arcade-frame/);
+  assert.match(readSource("components/arcade/CommandBar.tsx"), /ao-command-bar/);
+  assert.match(readSource("components/arcade/MetricTile.tsx"), /ao-metric-tile/);
+  assert.match(readSource("components/arcade/StatusPip.tsx"), /ao-status-pip/);
+});
+
+function readSource(filePath: string): string {
+  return readFileSync(path.join(appRoot, filePath), "utf8");
+}
