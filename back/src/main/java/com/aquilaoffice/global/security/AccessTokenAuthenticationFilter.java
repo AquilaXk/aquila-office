@@ -45,6 +45,8 @@ public class AccessTokenAuthenticationFilter extends OncePerRequestFilter {
         return isPublicPostEndpoint(request, path)
                 || "/api/health".equals(path)
                 || path.startsWith("/actuator/health")
+                || path.startsWith("/actuator/metrics")
+                || path.startsWith("/actuator/prometheus")
                 || path.startsWith("/v3/api-docs")
                 || "/swagger-ui.html".equals(path)
                 || path.startsWith("/swagger-ui/");
