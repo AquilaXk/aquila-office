@@ -19,6 +19,8 @@ import com.aquilaoffice.application.port.in.GetArtifactTreeQuery;
 import com.aquilaoffice.application.port.in.GetArtifactTreeUseCase;
 import com.aquilaoffice.application.port.in.GetOrchestrationPlanArtifactQuery;
 import com.aquilaoffice.application.port.in.GetOrchestrationPlanArtifactUseCase;
+import com.aquilaoffice.application.port.in.GetOrchestrationPlanFileQuery;
+import com.aquilaoffice.application.port.in.GetOrchestrationPlanFileUseCase;
 import com.aquilaoffice.application.port.in.OrchestrationPlanArtifactResult;
 import com.aquilaoffice.application.port.in.OrchestrationPlanFileResult;
 import com.aquilaoffice.application.port.in.OrchestrationPlanStepResult;
@@ -52,6 +54,9 @@ class ArtifactControllerTest {
 
     @MockitoBean
     private GetOrchestrationPlanArtifactUseCase getOrchestrationPlanArtifactUseCase;
+
+    @MockitoBean
+    private GetOrchestrationPlanFileUseCase getOrchestrationPlanFileUseCase;
 
     @Test
     void getArtifactTreeReturnsOkEnvelope() throws Exception {
@@ -122,6 +127,48 @@ class ArtifactControllerTest {
     }
 
     @Test
+    void getOrchestrationPlanFileReturnsOkEnvelope() throws Exception {
+        given(getOrchestrationPlanFileUseCase.getOrchestrationPlanFile(
+                        any(GetOrchestrationPlanFileQuery.class)))
+                .willReturn(new ArtifactFileResult(
+                        101L,
+                        "plans/701/reports/requirements.md",
+                        "requirements.md",
+                        "text/markdown",
+                        128L,
+                        "# 요구사항"));
+
+        mockMvc.perform(get("/api/v1/workspaces/101/artifacts/orchestration-plans/701/files")
+                        .queryParam("path", "reports/requirements.md")
+                        .principal(authenticatedPrincipal("google-1")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.workspaceId").value(101))
+                .andExpect(jsonPath("$.data.path").value("plans/701/reports/requirements.md"))
+                .andExpect(jsonPath("$.data.name").value("requirements.md"))
+                .andExpect(jsonPath("$.data.content").value("# 요구사항"));
+
+        ArgumentCaptor<GetOrchestrationPlanFileQuery> queryCaptor =
+                ArgumentCaptor.forClass(GetOrchestrationPlanFileQuery.class);
+        verify(getOrchestrationPlanFileUseCase).getOrchestrationPlanFile(queryCaptor.capture());
+        assertThat(queryCaptor.getValue().workspaceId()).isEqualTo(101L);
+        assertThat(queryCaptor.getValue().planId()).isEqualTo(701L);
+        assertThat(queryCaptor.getValue().path()).isEqualTo("reports/requirements.md");
+        assertThat(queryCaptor.getValue().requesterGoogleSub()).isEqualTo("google-1");
+    }
+
+    @Test
+    void missingPlanFilePathReturnsBadRequestAndDoesNotCallUseCase() throws Exception {
+        mockMvc.perform(get("/api/v1/workspaces/101/artifacts/orchestration-plans/701/files")
+                        .principal(authenticatedPrincipal("google-1")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code").value("400"));
+
+        verifyNoInteractions(getOrchestrationPlanFileUseCase);
+    }
+
+    @Test
     void missingFilePathReturnsBadRequestAndDoesNotCallUseCase() throws Exception {
         mockMvc.perform(get("/api/v1/workspaces/101/artifacts/files")
                         .principal(authenticatedPrincipal("google-1")))
@@ -155,7 +202,8 @@ class ArtifactControllerTest {
         verifyNoInteractions(
                 getArtifactTreeUseCase,
                 getArtifactFileUseCase,
-                getOrchestrationPlanArtifactUseCase);
+                getOrchestrationPlanArtifactUseCase,
+                getOrchestrationPlanFileUseCase);
     }
 
     @Test
