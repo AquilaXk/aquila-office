@@ -1,8 +1,12 @@
+import com.github.spotbugs.snom.Confidence
+import com.github.spotbugs.snom.Effort
+
 plugins {
     java
     checkstyle
     id("org.springframework.boot") version "4.0.5"
     id("io.spring.dependency-management") version "1.1.7"
+    id("com.github.spotbugs") version "6.5.4"
 }
 
 group = "com.aquilaoffice"
@@ -51,5 +55,22 @@ tasks.withType<org.gradle.api.plugins.quality.Checkstyle>().configureEach {
     reports {
         xml.required.set(true)
         html.required.set(true)
+    }
+}
+
+spotbugs {
+    ignoreFailures = false
+    showStackTraces = true
+    showProgress = false
+    effort = Effort.DEFAULT
+    reportLevel = Confidence.HIGH
+    excludeFilter = file("config/spotbugs/exclude.xml")
+}
+
+tasks.withType<com.github.spotbugs.snom.SpotBugsTask>().configureEach {
+    val spotbugsTaskName = name
+    reports.create("html") {
+        required = true
+        outputLocation = layout.buildDirectory.file("reports/spotbugs/$spotbugsTaskName/spotbugs.html")
     }
 }
