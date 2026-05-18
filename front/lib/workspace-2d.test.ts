@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   WORKSPACE_SCENE_EVENT_TYPES,
+  createWorkspaceAvatarNodes,
+  createWorkspaceContextMenuState,
   createInitialWorkspaceViewport,
   createWorkspaceSceneEventBus,
   panWorkspaceViewport,
@@ -51,4 +53,70 @@ test("workspace viewport helpers clamp pan and zoom inside the scene bounds", ()
   assert.equal(reset.zoom, 0.75);
   assert.ok(reset.x >= 0);
   assert.ok(reset.y >= 0);
+});
+
+test("workspace avatar nodes preserve agent and member identity for the scene", () => {
+  const nodes = createWorkspaceAvatarNodes({
+    agents: [
+      {
+        agentId: 7,
+        name: "Backend Executor",
+        category: "BACKEND",
+        status: "READY",
+      },
+    ],
+    members: [
+      {
+        memberId: 11,
+        name: "Kim Admin",
+        email: "kim@example.com",
+        role: "ADMIN",
+      },
+    ],
+    presenceMembers: [
+      {
+        memberId: 11,
+        position: { left: "320", top: "160" },
+        status: "ACTIVE",
+      },
+    ],
+  });
+
+  assert.deepEqual(nodes, [
+    {
+      id: "agent-7",
+      kind: "agent",
+      label: "Backend Executor",
+      detail: "BACKEND · READY",
+      status: "READY",
+      x: 180,
+      y: 150,
+    },
+    {
+      id: "member-11",
+      kind: "member",
+      label: "Kim Admin",
+      detail: "kim@example.com · ADMIN",
+      status: "ACTIVE",
+      x: 320,
+      y: 160,
+    },
+  ]);
+});
+
+test("workspace context menu state exposes node actions at the requested screen point", () => {
+  const menu = createWorkspaceContextMenuState({
+    nodeId: "agent-7",
+    kind: "agent",
+    screenX: 48,
+    screenY: 96,
+  });
+
+  assert.deepEqual(menu, {
+    nodeId: "agent-7",
+    kind: "agent",
+    screenX: 48,
+    screenY: 96,
+    actions: ["open-profile", "focus-node", "start-chat"],
+  });
 });
