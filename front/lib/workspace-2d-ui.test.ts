@@ -9,10 +9,16 @@ test("workspace 2d canvas component wires Phaser scene, event bus, pan zoom, and
   const source = readSource("components/workspace/Workspace2DCanvas.tsx");
 
   assert.match(source, /Phaser/);
-  assert.match(source, /createWorkspaceSceneEventBus/);
+  assert.match(source, /createWorkspace2DGame/);
   assert.match(source, /contextmenu/);
   assert.match(source, /workspace-2d-canvas/);
   assert.match(source, /onWheel/);
+});
+
+test("workspace phaser scene boundary lives outside the react component", () => {
+  assert.match(readSource("game/office/main.ts"), /createWorkspace2DGame/);
+  assert.match(readSource("game/office/EventBus.ts"), /createWorkspaceSceneEventBus/);
+  assert.doesNotMatch(readSource("components/workspace/Workspace2DCanvas.tsx"), /class WorkspaceScene/);
 });
 
 test("workspace detail page mounts the 2d workspace screen without replacing existing sections", () => {
