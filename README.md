@@ -80,3 +80,57 @@ Keep sensitive values out of git. `vertex-key.json` is intentionally ignored and
 | `AQUILA_SLACK_CLIENT_SECRET` | empty | Slack OAuth client secret |
 | `AQUILA_SLACK_SIGNING_SECRET` | empty | Slack event signature secret |
 | `AQUILA_INVITE_EMAIL_ENABLED` | `false` | Enable SMTP invite delivery |
+
+## API Map
+
+All backend responses use the shared `RsData` envelope unless the endpoint is an actuator or static infrastructure endpoint.
+
+| Area | Method and path | Purpose |
+| --- | --- | --- |
+| Health | `GET /api/health` | Lightweight service health envelope |
+| Metrics | `GET /actuator/prometheus` | Prometheus scrape endpoint |
+| Auth | `POST /api/v1/auth/google/login` | Verify Google ID token and issue access/refresh tokens |
+| Auth | `POST /api/v1/auth/token/refresh` | Rotate refresh token and issue a new token pair |
+| Auth | `POST /api/v1/auth/logout` | Revoke refresh token |
+| Workspaces | `GET /api/v1/workspaces` | List joined workspaces |
+| Workspaces | `POST /api/v1/workspaces` | Create workspace |
+| Workspaces | `GET /api/v1/workspaces/{workspaceId}` | Read workspace detail |
+| Workspaces | `GET /api/v1/workspaces/{workspaceId}/dashboard/summary` | Read dashboard counts, logs, and reports |
+| Members | `GET /api/v1/workspaces/{workspaceId}/members` | List workspace members |
+| Members | `GET /api/v1/workspaces/{workspaceId}/members/task-stats` | Read member task score summary |
+| Agents | `GET /api/v1/workspaces/{workspaceId}/agents` | List workspace agents |
+| Agents | `POST /api/v1/workspaces/{workspaceId}/agents` | Create workspace agent and sync skill files |
+| Agents | `DELETE /api/v1/workspaces/{workspaceId}/agents/{agentId}` | Delete workspace agent |
+| Tasks | `GET /api/v1/workspaces/{workspaceId}/tasks` | List workspace tasks |
+| Tasks | `POST /api/v1/workspaces/{workspaceId}/tasks/run` | Create and run a task |
+| Tasks | `POST /api/v1/workspaces/{workspaceId}/tasks/{taskId}/run` | Run an existing task |
+| Reports | `GET /api/v1/workspaces/{workspaceId}/tasks/{taskId}/reports` | List task execution reports |
+| Chat | `POST /api/v1/workspaces/{workspaceId}/chat/messages` | Send workspace or task chat message |
+| Artifacts | `GET /api/v1/workspaces/{workspaceId}/artifacts/tree` | Read artifact tree |
+| Artifacts | `GET /api/v1/workspaces/{workspaceId}/artifacts/files?path=...` | Read artifact file content |
+| Integrations | `GET /api/v1/workspaces/{workspaceId}/github/credentials` | List GitHub credentials |
+| Integrations | `GET /api/v1/workspaces/{workspaceId}/slack/integrations` | List Slack integrations |
+| Integrations | `GET /api/v1/workspaces/{workspaceId}/gateway/status` | Read Gateway binding status |
+| Presence | `GET /api/v1/workspaces/{workspaceId}/presence/stream` | Open workspace presence SSE stream |
+| Presence | `POST /api/v1/workspaces/{workspaceId}/presence/position` | Update member position |
+
+## ERD Summary
+
+The backend keeps domain logic in Java objects and persists the current state through JPA adapters.
+
+| Entity | Key relationships |
+| --- | --- |
+| `Member` | Owns Google identity and role. Has one `MemberProfile`. |
+| `Workspace` | Created by a Google subject. Has many `WorkspaceMember`, `WorkspaceAgent`, `Task`, invites, integrations, and artifacts. |
+| `WorkspaceMember` | Joins a `Member` to a `Workspace` with a workspace role. |
+| `WorkspaceInvite` | Stores invited email, token, expiry, accepted, and revoked timestamps for workspace onboarding. |
+| `WorkspaceAgent` | Belongs to a `Workspace`; can have many `WorkspaceAgentSkillFile` entries and a Gateway agent ID. |
+| `Task` | Belongs to a `Workspace`; can be assigned to an agent and progresses through requested, running, completed, failed, or canceled states. |
+| `TaskExecution` | Stores a task run lifecycle, final text, failure reason, and report data. |
+| `TaskExecutionLog` | Stores log lines for a `TaskExecution`. |
+| `ChatSession` | Groups chat messages for workspace and task interaction. |
+| `ChatMessage` | Stores role, content, and task linkage for chat responses. |
+| `WorkspaceGatewayBinding` | Stores Gateway mode, URL, encrypted token, and connection status. |
+| `SlackChannelMapping` | Maps a Slack team/channel to a workspace with encrypted bot token material. |
+| `GithubCredential` | Stores encrypted GitHub token material for repository work. |
+| `OrchestrationSession` | Tracks multi-agent plan execution and has many `OrchestrationStep` rows. |
