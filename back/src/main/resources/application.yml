@@ -38,6 +38,12 @@ aquila:
   gateway-rpc:
     request-timeout: ${AQUILA_GATEWAY_RPC_REQUEST_TIMEOUT:30s}
     path: ${AQUILA_GATEWAY_RPC_PATH:/rpc}
+  slack:
+    client-id: ${AQUILA_SLACK_CLIENT_ID:}
+    client-secret: ${AQUILA_SLACK_CLIENT_SECRET:}
+    signing-secret: ${AQUILA_SLACK_SIGNING_SECRET:}
+    redirect-uri: ${AQUILA_SLACK_REDIRECT_URI:http://localhost:8080/api/v1/slack/oauth/callback}
+    scopes: ${AQUILA_SLACK_SCOPES:app_mentions:read,channels:read,chat:write,incoming-webhook}
   vertex-ai:
     project-id: ${GOOGLE_CLOUD_PROJECT_ID:}
     location: ${VERTEX_AI_LOCATION:us-central1}

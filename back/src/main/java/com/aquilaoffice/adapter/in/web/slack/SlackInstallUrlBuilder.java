@@ -20,19 +20,26 @@ public class SlackInstallUrlBuilder {
 
     private final String clientId;
     private final String redirectUri;
+    private final String scopes;
     private final URI authorizeUri;
 
     @Autowired
     public SlackInstallUrlBuilder(
             @Value("${aquila.slack.client-id:}") String clientId,
             @Value("${aquila.slack.redirect-uri:http://localhost:8080/api/v1/slack/oauth/callback}")
-                    String redirectUri) {
-        this(clientId, redirectUri, DEFAULT_AUTHORIZE_URI);
+                    String redirectUri,
+            @Value("${aquila.slack.scopes:" + DEFAULT_SCOPE + "}") String scopes) {
+        this(clientId, redirectUri, DEFAULT_AUTHORIZE_URI, scopes);
     }
 
     SlackInstallUrlBuilder(String clientId, String redirectUri, URI authorizeUri) {
+        this(clientId, redirectUri, authorizeUri, DEFAULT_SCOPE);
+    }
+
+    SlackInstallUrlBuilder(String clientId, String redirectUri, URI authorizeUri, String scopes) {
         this.clientId = normalizeOptional(clientId);
         this.redirectUri = requireNotBlank(redirectUri, "redirectUri");
+        this.scopes = requireNotBlank(scopes, "scopes");
         this.authorizeUri = Objects.requireNonNull(authorizeUri, "authorizeUri must not be null");
     }
 
@@ -46,7 +53,7 @@ public class SlackInstallUrlBuilder {
 
         return authorizeUri + "?"
                 + queryParameter("client_id", clientId)
-                + "&" + queryParameter("scope", DEFAULT_SCOPE)
+                + "&" + queryParameter("scope", scopes)
                 + "&" + queryParameter("redirect_uri", redirectUri)
                 + "&" + queryParameter("state", state);
     }
