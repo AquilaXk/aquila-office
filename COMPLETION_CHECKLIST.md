@@ -47,9 +47,9 @@ Aquila Office는 다음 조건을 모두 만족할 때 100% 완료로 본다.
 
 최신 검증 snapshot:
 
-- `main` commit: `5722c551d727b25fbdb7815a7b1142875613a2c3`
-- `main` CI: `26070864190`, `Backend Quality Gate`, `Frontend Quality Gate`, `Smoke Definition Gate`, `Terraform Infra Gate` 모두 success
-- issue scan: 이 문서 갱신 PR merge 전에는 `#375`만 open이며, 해당 PR merge 후 open issue 0개를 최종 상태로 확인한다.
+- `main` commit before this PR: `f6487d110b3cfb1710912297caea38666732ea30`
+- `main` CI workflow run: `26092492917`, `Backend Quality Gate`, `Frontend Quality Gate`, `Smoke Definition Gate`, `Terraform Infra Gate`, `Workflow Contract Gate` 모두 success
+- issue scan: 이 문서 PR 작성 시점에는 `#378`만 open이며, 이 PR merge 후 open issue 0개가 최종 상태다.
 
 출시 직전 preflight는 다음 순서로 실행한다.
 
@@ -60,7 +60,7 @@ gh issue list --repo AquilaXk/aquila-office --state open --limit 50
 gh run list --repo AquilaXk/aquila-office --branch main --limit 10
 ```
 
-완료 판정은 release evidence PR merge 이후 open issue가 없고, 최신 `main` CI run에 failed/cancelled job이 없고, 이 문서의 출시 차단 조건과 최종 출시 검증 근거 표에 미해결 항목이 없을 때만 내린다.
+완료 판정은 release evidence PR merge 이후 open issue가 없고, 최신 `main` CI workflow run에 failed/cancelled job이 없고, 이 문서의 출시 차단 조건과 최종 출시 검증 근거 표에 미해결 항목이 없을 때만 내린다.
 
 ## Backend API checklist
 
