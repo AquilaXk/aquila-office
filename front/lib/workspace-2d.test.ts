@@ -6,8 +6,16 @@ import {
   createWorkspaceContextMenuState,
   createInitialWorkspaceViewport,
   createWorkspaceSceneEventBus,
+  buildStageWalls,
+  clampStageZoom,
+  getPlayerMoveDirection,
+  getStagePanForPosition,
+  isNearQuestMarker,
   panWorkspaceViewport,
+  resolveStageMove,
+  smoothStagePan,
   zoomWorkspaceViewport,
+  type StageRoomSpec,
 } from "./workspace-2d.ts";
 
 test("workspace scene event bus dispatches and unsubscribes typed events", () => {
@@ -119,4 +127,52 @@ test("workspace context menu state exposes node actions at the requested screen 
     screenY: 96,
     actions: ["open-profile", "focus-node", "start-chat"],
   });
+});
+
+test("workspace stage helpers clamp zoom and follow the player position", () => {
+  assert.equal(clampStageZoom(0.1), 0.75);
+  assert.equal(clampStageZoom(1.23456), 1.235);
+  assert.equal(clampStageZoom(2), 1.5);
+
+  assert.deepEqual(
+    getStagePanForPosition({ left: "75%", top: "25%" }, { width: 1200, height: 800 }, 1.25),
+    { x: -375, y: 250 },
+  );
+  assert.deepEqual(
+    smoothStagePan({ x: 0, y: 0 }, { x: -100, y: 50 }, 0.2),
+    { x: -20, y: 10 },
+  );
+});
+
+test("workspace stage movement respects player bounds and room walls", () => {
+  const rooms: StageRoomSpec[] = [
+    {
+      label: "Engineering",
+      left: "20%",
+      top: "20%",
+      width: "30%",
+      height: "30%",
+      variant: "engineering",
+      doorSide: "right",
+      doorAt: 0.5,
+    },
+  ];
+  const walls = buildStageWalls(rooms);
+
+  assert.deepEqual(
+    resolveStageMove({ left: "4%", top: "9%" }, -10, -10, walls),
+    { left: "3%", top: "8%" },
+  );
+  assert.deepEqual(
+    resolveStageMove({ left: "49%", top: "35%" }, 5, 0, walls),
+    { left: "50.6%", top: "35%" },
+  );
+  assert.deepEqual(getPlayerMoveDirection("ArrowLeft"), { x: -1, y: 0 });
+  assert.deepEqual(getPlayerMoveDirection("w"), { x: 0, y: -1 });
+  assert.equal(getPlayerMoveDirection("Escape"), null);
+});
+
+test("workspace stage quest marker matches interaction radius", () => {
+  assert.equal(isNearQuestMarker({ left: "90.4%", top: "75.8%" }), true);
+  assert.equal(isNearQuestMarker({ left: "10%", top: "10%" }), false);
 });
