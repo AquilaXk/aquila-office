@@ -215,9 +215,13 @@ Deployment scripts:
 Release preflight:
 
 ```bash
+node tools/readme/validate-readme.mjs
+node tools/perf/validate-k6-smoke.mjs
 gh issue list --repo AquilaXk/aquila-office --state open --limit 50
 gh run list --repo AquilaXk/aquila-office --branch main --limit 10
 ```
+
+Current release evidence is recorded in `COMPLETION_CHECKLIST.md` with `main` commit `5722c551d727b25fbdb7815a7b1142875613a2c3` and CI run `26070864190`.
 
 Before release, the issue list should be empty after the release-evidence PR is merged, the latest `main` CI run should show only passing jobs, and `COMPLETION_CHECKLIST.md` should have no unresolved release blocker or unchecked final-state item.
 
