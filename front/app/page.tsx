@@ -7,9 +7,8 @@ import { BRAND_MASCOT_PATH, SERVICE_NAME } from "@/lib/branding";
 import { AUTH_STORAGE_KEYS, isAuthenticated, readAuthUser, type AuthUser } from "@/lib/auth";
 
 const MENU = [
-  { label: "START", href: "/auth", action: "start" as const },
+  { label: "LOGIN", href: "/auth", action: "login" as const },
   { label: "CONTINUE", href: "/workspaces", action: "continue" as const },
-  { label: "SETTINGS", href: "/auth/character", action: "settings" as const },
 ];
 
 export default function Home() {
@@ -18,7 +17,7 @@ export default function Home() {
   const [user, setUser] = useState<AuthUser | null>(null);
 
   const activate = useCallback((item: (typeof MENU)[number]) => {
-    if (item.action !== "start" && !isAuthenticated()) {
+    if (item.action === "continue" && !isAuthenticated()) {
       router.push("/");
       return;
     }

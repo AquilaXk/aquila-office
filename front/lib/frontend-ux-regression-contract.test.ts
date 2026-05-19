@@ -57,7 +57,7 @@ test("browser regression covers routes and interactions without screenshot asser
 
   for (const interactionEvidence of [
     'page.getByRole("menuitem", { name: /CONTINUE/ }).click()',
-    'page.getByRole("menuitem", { name: /START/ }).click()',
+    'page.getByRole("menuitem", { name: /LOGIN/ }).click()',
     'page.getByRole("status")',
     'page.keyboard.press("ArrowDown")',
     'page.keyboard.press("ArrowRight")',

@@ -149,7 +149,7 @@ test.describe("브라우저 UI UX 회귀", () => {
     await expect(page.getByRole("heading", { name: "AQUILA OFFICE" })).toBeVisible();
   });
 
-  test("title screen은 미인증 CONTINUE를 title에 머물게 하고 START로 인증 화면에 진입한다", async ({ page }) => {
+  test("title screen은 미인증 CONTINUE를 title에 머물게 하고 LOGIN으로 인증 화면에 진입한다", async ({ page }) => {
     await installMockApi(page);
 
     await page.goto("/");
@@ -158,7 +158,7 @@ test.describe("브라우저 UI UX 회귀", () => {
     await expect(page).toHaveURL((url) => url.pathname === "/");
     await expect(page.getByRole("status")).toHaveCount(0);
 
-    await page.getByRole("menuitem", { name: /START/ }).click();
+    await page.getByRole("menuitem", { name: /LOGIN/ }).click();
     await page.waitForURL((url) => url.pathname === "/auth");
     await expect(page.getByRole("heading", { name: "AQUILA OFFICE" })).toBeVisible();
   });
