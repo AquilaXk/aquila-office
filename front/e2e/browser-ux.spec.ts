@@ -106,6 +106,15 @@ test.describe("브라우저 UI UX 회귀", () => {
     await expect(page.getByRole("heading", { name: "AQUILA OFFICE" })).toBeVisible();
   });
 
+  test("인증 없는 Gateway registry 접근은 title screen으로 되돌린다", async ({ page }) => {
+    await installMockApi(page);
+
+    await page.goto("/workspaces/gateway");
+
+    await page.waitForURL((url) => url.pathname === "/");
+    await expect(page.getByRole("heading", { name: "AQUILA OFFICE" })).toBeVisible();
+  });
+
   test("title screen에서 워크스페이스 목록으로 이동하고 워크스페이스를 생성한다", async ({ page }) => {
     await installMockApi(page);
     await seedAuthTokens(page);
@@ -377,6 +386,7 @@ test.describe("브라우저 UI UX 회귀", () => {
 
   test("Gateway, 통합 설정, 초대 화면을 검증한다", async ({ page }) => {
     await installMockApi(page);
+    await seedAuthTokens(page);
     await page.addInitScript(() => {
       Object.defineProperty(window.navigator, "clipboard", {
         configurable: true,
@@ -389,15 +399,23 @@ test.describe("브라우저 UI UX 회귀", () => {
     });
 
     await page.goto("/workspaces/gateway");
-    await expect(page.getByRole("heading", { name: "Gateway 관리" })).toBeVisible();
-    await page.getByLabel("Gateway URL").fill("https://gateway.example.test");
-    await page.getByLabel("Token").fill("gateway-secret");
-    await page.getByRole("button", { name: "Gateway 연결 테스트" }).click();
-    await expect(
-      page.locator('section[aria-label="선택된 Gateway 상태"]').getByText("연결 가능").first(),
-    ).toBeVisible();
-    await page.getByRole("button", { name: "Gateway binding 등록" }).click();
-    await expect(page.getByText("Gateway binding 등록이 완료되었습니다.")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "REGISTER A GATEWAY" })).toBeVisible();
+    await expect(page.getByText("LINKED · 00")).toBeVisible();
+    await page.getByLabel(/DISPLAY NAME/).fill("Local Gate");
+    await page.getByLabel(/GATEWAY URL/).fill("https://gateway.example.test");
+    await page.getByLabel(/TOKEN/).fill("gateway-secret");
+    await page.getByRole("button", { name: /LINK GATE/ }).click();
+    await expect(page.getByText("WARP GATE LINKED.")).toBeVisible();
+    await expect(page.getByText("LINKED · 01")).toBeVisible();
+    await expect(page.getByRole("button", { name: /LOCAL GATE/ })).toBeVisible();
+    await expect(page.getByText("https://gateway.example.test")).toBeVisible();
+    await expect(page.getByText("ON")).toBeVisible();
+    const activeLink = page.locator('section[aria-label="ACTIVE LINK"]');
+    await expect(activeLink.getByRole("heading", { name: "LOCAL GATE" })).toBeVisible();
+    await expect(activeLink.getByText("TOKEN · gate...cret")).toBeVisible();
+    await expect
+      .poll(() => page.evaluate(() => window.localStorage.getItem("aio.openclaw.gateways")))
+      .toContain("Local Gate");
 
     await page.goto(`/workspaces/${workspaceId}/settings`);
     await expect(page.locator('section[aria-label="워크스페이스 설정"]')).toBeVisible();
