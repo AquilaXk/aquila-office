@@ -14,6 +14,7 @@ HEALTH_INTERVAL_SECONDS="${HEALTH_INTERVAL_SECONDS:-2}"
 UPSTREAM_FILE="${UPSTREAM_FILE:-/etc/nginx/conf.d/aquila-office-backend-upstream.conf}"
 RELOAD_COMMAND="${RELOAD_COMMAND:-nginx -t && nginx -s reload}"
 DOCKER_NETWORK="${DOCKER_NETWORK:-bridge}"
+SKIP_IMAGE_PULL="${SKIP_IMAGE_PULL:-false}"
 DRY_RUN="${DRY_RUN:-false}"
 TARGET_SLOT=""
 
@@ -33,6 +34,7 @@ Environment:
   UPSTREAM_FILE                Default: /etc/nginx/conf.d/aquila-office-backend-upstream.conf
   RELOAD_COMMAND               Default: nginx -t && nginx -s reload
   DOCKER_NETWORK               Default: bridge
+  SKIP_IMAGE_PULL              Default: false
 USAGE
 }
 
@@ -134,6 +136,27 @@ upstream aquila_office_backend {
 UPSTREAM
 }
 
+pull_image() {
+    if [[ "$SKIP_IMAGE_PULL" == "true" ]]; then
+        log "skipping docker pull because image was loaded from deployment payload"
+        return
+    fi
+    run docker pull "$IMAGE_REF"
+}
+
+remove_existing_container() {
+    local container_name="$1"
+    if [[ "$DRY_RUN" == "true" ]]; then
+        run docker rm -f "$container_name"
+        return
+    fi
+    if docker inspect "$container_name" >/dev/null 2>&1; then
+        docker rm -f "$container_name"
+    else
+        log "no existing container named $container_name"
+    fi
+}
+
 wait_for_health() {
     local port="$1"
     local url="http://127.0.0.1:${port}${HEALTH_PATH}"
@@ -158,8 +181,8 @@ container_name="${APP_NAME}-${slot}"
 
 log "deploying image=$IMAGE_REF slot=$slot port=$port dry_run=$DRY_RUN"
 
-run docker pull "$IMAGE_REF"
-run docker rm -f "$container_name"
+pull_image
+remove_existing_container "$container_name"
 
 docker_run_args=(
     docker run -d
