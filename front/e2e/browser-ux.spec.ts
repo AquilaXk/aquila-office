@@ -149,16 +149,16 @@ test.describe("브라우저 UI UX 회귀", () => {
     await expect(page.getByRole("heading", { name: "AQUILA OFFICE" })).toBeVisible();
   });
 
-  test("title screen은 미인증 CONTINUE를 막고 LOGIN으로 인증 화면에 진입한다", async ({ page }) => {
+  test("title screen은 미인증 CONTINUE를 title에 머물게 하고 START로 인증 화면에 진입한다", async ({ page }) => {
     await installMockApi(page);
 
     await page.goto("/");
     await page.getByRole("menuitem", { name: /CONTINUE/ }).click();
 
     await expect(page).toHaveURL((url) => url.pathname === "/");
-    await expect(page.getByRole("status")).toHaveText("로그인이 필요합니다. LOGIN을 선택하세요.");
+    await expect(page.getByRole("status")).toHaveCount(0);
 
-    await page.getByRole("menuitem", { name: /LOGIN/ }).click();
+    await page.getByRole("menuitem", { name: /START/ }).click();
     await page.waitForURL((url) => url.pathname === "/auth");
     await expect(page.getByRole("heading", { name: "AQUILA OFFICE" })).toBeVisible();
   });
@@ -204,13 +204,16 @@ test.describe("브라우저 UI UX 회귀", () => {
     await page.goto("/auth?returnTo=/workspaces/new");
     await expect(page.getByRole("heading", { name: "AQUILA OFFICE" })).toBeVisible();
     await expect(page.locator(".auth-crest")).toBeVisible();
-    await expect(page.locator(".auth-menu-line")).toContainText("GOOGLE LOGIN");
+    await expect(page.locator(".auth-menu-line")).toContainText("SIGN IN TO CONTINUE");
     await expect(page.locator(".auth-google-action")).toBeVisible();
 
     await seedAuthTokens(page);
     await expect
-      .poll(() => page.evaluate(() => window.localStorage.getItem("aquila-office.auth")))
+      .poll(() => page.evaluate(() => window.localStorage.getItem("aquila-office.auth.accessToken")))
       .toContain("e2e-access-token");
+    await expect
+      .poll(() => page.evaluate(() => window.localStorage.getItem("aquila-office.auth.user")))
+      .toContain("Aquila User");
     await Promise.all([
       page.waitForURL((url) => url.pathname === "/auth/character" && url.searchParams.get("returnTo") === "/workspaces/new"),
       page.reload(),
@@ -267,7 +270,12 @@ test.describe("브라우저 UI UX 회귀", () => {
 
     await page.waitForURL((url) => url.pathname === "/");
     await expect(page.getByRole("heading", { name: "AQUILA OFFICE" })).toBeVisible();
-    await expect.poll(() => page.evaluate(() => window.localStorage.getItem("aquila-office.auth"))).toBeNull();
+    await expect
+      .poll(() => page.evaluate(() => window.localStorage.getItem("aquila-office.auth.accessToken")))
+      .toBeNull();
+    await expect
+      .poll(() => page.evaluate(() => window.localStorage.getItem("aquila-office.auth.user")))
+      .toBeNull();
   });
 
   test("워크스페이스 상세, Task 모달, artifact, 2D canvas 상호작용을 검증한다", async ({ page }) => {
@@ -947,7 +955,17 @@ async function fulfillJson(route: Route, body: unknown, status = 200) {
 
 async function seedAuthTokens(page: Page) {
   const storeTokens = (tokens: typeof authTokens) => {
-    window.localStorage.setItem("aquila-office.auth", JSON.stringify(tokens));
+    window.localStorage.setItem("aquila-office.auth.accessToken", tokens.accessToken);
+    window.localStorage.setItem("aquila-office.auth.refreshToken", tokens.refreshToken);
+    window.localStorage.setItem(
+      "aquila-office.auth.user",
+      JSON.stringify({
+        memberId: tokens.memberId,
+        name: tokens.name,
+        email: tokens.email,
+        role: tokens.role,
+      }),
+    );
   };
 
   await page.addInitScript(storeTokens, authTokens);

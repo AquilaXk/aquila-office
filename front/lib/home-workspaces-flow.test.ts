@@ -13,8 +13,9 @@ test("home route is a title screen with keyboard and click navigation", () => {
   const source = readSource("app/page.tsx");
 
   assert.match(source, /MENU/);
-  assert.match(source, /LOGIN/);
+  assert.match(source, /START/);
   assert.match(source, /CONTINUE/);
+  assert.match(source, /SETTINGS/);
   assert.match(source, /ArrowDown|ArrowRight/);
   assert.match(source, /ArrowUp|ArrowLeft/);
   assert.match(source, /Enter/);
