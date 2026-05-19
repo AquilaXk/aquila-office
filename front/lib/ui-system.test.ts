@@ -31,16 +31,40 @@ test("common ui index exports shared controls", () => {
   assert.match(source, /ChatBubble/);
   assert.match(source, /Input/);
   assert.match(source, /cn/);
+  assert.match(source, /Textarea/);
 });
 
 test("shared interaction components expose accessibility contracts", () => {
   assert.match(readSource("components/ui/Modal.tsx"), /role="dialog"/);
   assert.match(readSource("components/ui/Modal.tsx"), /Escape/);
+  assert.match(readSource("components/ui/Modal.tsx"), /Modal\.Body|ModalBody/);
+  assert.match(readSource("components/ui/Modal.tsx"), /Modal\.Footer|ModalFooter/);
   assert.match(readSource("components/ui/Dropdown.tsx"), /aria-expanded/);
   assert.match(readSource("components/ui/Tab.tsx"), /role="tablist"/);
   assert.match(readSource("components/ui/Toast.tsx"), /role="status"/);
   assert.match(readSource("components/ui/Input.tsx"), /aria-invalid/);
+  assert.match(readSource("components/ui/Input.tsx"), /Textarea/);
   assert.match(readSource("components/ui/ChatBubble.tsx"), /aria-label/);
+});
+
+test("shared source base supports imported arcade and modal contracts", () => {
+  const arcadeIndex = readSource("components/arcade/index.ts");
+  const buttonSource = readSource("components/ui/Button.tsx");
+  const modalSource = readSource("components/ui/Modal.tsx");
+  const globalsSource = readSource("app/globals.css");
+
+  assert.match(arcadeIndex, /T4Screen/);
+  assert.match(arcadeIndex, /T4Panel/);
+  assert.match(arcadeIndex, /T4Bar/);
+  assert.match(arcadeIndex, /GlyphText/);
+  assert.match(arcadeIndex, /t4/);
+  assert.match(buttonSource, /icon\?: ReactNode/);
+  assert.match(buttonSource, /loading\?: boolean/);
+  assert.match(buttonSource, /"lg"/);
+  assert.match(modalSource, /size\?: "sm" \| "md" \| "lg" \| "full"/);
+  assert.match(modalSource, /disableEscapeClose/);
+  assert.match(globalsSource, /styles\/tokens\.css/);
+  assert.match(globalsSource, /styles\/theme-web\.css/);
 });
 
 test("icon button requires an accessible label contract", () => {
@@ -57,6 +81,8 @@ test("arcade index exports gothic operation controls", () => {
   assert.match(source, /CommandBar/);
   assert.match(source, /MetricTile/);
   assert.match(source, /StatusPip/);
+  assert.match(source, /T4Screen/);
+  assert.match(source, /GlyphText/);
 });
 
 test("arcade controls use shared UI and gothic class contracts", () => {

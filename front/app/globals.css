@@ -1,3 +1,6 @@
+@import "../styles/tokens.css";
+@import "../styles/theme-web.css";
+
 :root {
   color-scheme: dark;
   --gothic-page: #101214;
@@ -405,6 +408,52 @@ h2 {
   min-height: 40px;
 }
 
+.ao-button-lg {
+  min-height: 46px;
+  padding: 0 18px;
+  font-size: 15px;
+}
+
+.ao-button-icon,
+.ao-button-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ao-button-icon-sm {
+  width: 14px;
+  height: 14px;
+}
+
+.ao-button-icon-md {
+  width: 16px;
+  height: 16px;
+}
+
+.ao-button-icon-lg {
+  width: 20px;
+  height: 20px;
+}
+
+.ao-button-icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+.ao-button-spinner {
+  border: 2px solid currentcolor;
+  border-top-color: transparent;
+  border-radius: 999px;
+  animation: ao-spin 0.8s linear infinite;
+}
+
+@keyframes ao-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .ao-icon-button {
   display: inline-grid;
   width: 40px;
@@ -488,6 +537,40 @@ h2 {
   padding: 0 11px;
 }
 
+.ao-input-frame {
+  position: relative;
+  display: grid;
+  gap: 6px;
+}
+
+.ao-input-icon {
+  position: absolute;
+  top: 20px;
+  left: 12px;
+  display: inline-grid;
+  width: 16px;
+  height: 16px;
+  place-items: center;
+  color: var(--text-muted);
+  transform: translateY(-50%);
+}
+
+.ao-input-with-icon {
+  padding-left: 36px;
+}
+
+.ao-textarea {
+  min-height: 108px;
+  padding-block: 10px;
+  resize: vertical;
+}
+
+.ao-input-error {
+  color: var(--red);
+  font-size: 12px;
+  font-weight: 700;
+}
+
 .ao-input:focus {
   outline: 2px solid rgba(194, 163, 91, 0.34);
   outline-offset: 2px;
@@ -504,6 +587,87 @@ h2 {
 
 .ao-field-error {
   color: var(--red);
+}
+
+.ao-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  background: rgba(5, 6, 7, 0.78);
+  padding: 18px;
+}
+
+.ao-modal {
+  width: min(100%, 720px);
+  max-height: min(90vh, 860px);
+  overflow: hidden;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.ao-modal-sm {
+  width: min(100%, 460px);
+}
+
+.ao-modal-lg {
+  width: min(100%, 980px);
+}
+
+.ao-modal-full {
+  width: min(100%, 1180px);
+  height: min(90vh, 860px);
+}
+
+.ao-modal-header,
+.ao-modal-footer {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-color: var(--border);
+  padding: 16px 18px;
+}
+
+.ao-modal-header {
+  justify-content: space-between;
+  border-bottom: 1px solid var(--border);
+}
+
+.ao-modal-header h2 {
+  margin: 0;
+  color: var(--text);
+  font-size: 18px;
+}
+
+.ao-modal-body {
+  overflow: auto;
+  max-height: calc(90vh - 138px);
+  padding: 18px;
+}
+
+.ao-modal-footer {
+  justify-content: flex-end;
+  border-top: 1px solid var(--border);
+}
+
+.ao-modal-close {
+  display: inline-grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.ao-modal-close svg {
+  width: 18px;
+  height: 18px;
 }
 
 .ao-arcade-frame {
