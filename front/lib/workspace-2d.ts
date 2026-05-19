@@ -210,8 +210,10 @@ const PLAYER_STAGE_BOUNDS = {
 };
 const QUEST_MARKER_POSITION: StageActorPosition = { left: "90.4%", top: "75.8%" };
 const QUEST_INTERACTION_RADIUS_PCT = 6.5;
+const ACTOR_INTERACTION_RADIUS_PCT = 7;
 const WALL_DOOR_HALF_PCT = 5;
 const PLAYER_WALL_PADDING_PCT = 0.6;
+const AGENT_DOOR_OUT_OFFSET_PCT = 1.6;
 const AGENT_DESK_COL_CENTERS = [16, 33, 50, 67];
 const STAGE_WORLD_WIDTH = 1800;
 const STAGE_WORLD_MIN_HEIGHT = 950;
@@ -686,6 +688,106 @@ export function resolveStageMove(
   return { left: pct(resolvedX), top: pct(resolvedY) };
 }
 
+function findRoomContaining(x: number, y: number, rooms: StageRoomSpec[]): StageRoomSpec | null {
+  for (const room of rooms) {
+    const left = parseStagePct(room.left);
+    const top = parseStagePct(room.top);
+    const width = parseStagePct(room.width);
+    const height = parseStagePct(room.height);
+    if (x >= left && x <= left + width && y >= top && y <= top + height) {
+      return room;
+    }
+  }
+  return null;
+}
+
+function getRoomDoorPoint(room: StageRoomSpec): {
+  inside: { x: number; y: number };
+  outside: { x: number; y: number };
+} {
+  const left = parseStagePct(room.left);
+  const top = parseStagePct(room.top);
+  const width = parseStagePct(room.width);
+  const height = parseStagePct(room.height);
+  const right = left + width;
+  const bottom = top + height;
+  const offset = AGENT_DOOR_OUT_OFFSET_PCT;
+
+  if (room.doorSide === "top") {
+    const x = left + width * room.doorAt;
+    return { inside: { x, y: top }, outside: { x, y: top - offset } };
+  }
+  if (room.doorSide === "bottom") {
+    const x = left + width * room.doorAt;
+    return { inside: { x, y: bottom }, outside: { x, y: bottom + offset } };
+  }
+  if (room.doorSide === "left") {
+    const y = top + height * room.doorAt;
+    return { inside: { x: left, y }, outside: { x: left - offset, y } };
+  }
+
+  const y = top + height * room.doorAt;
+  return { inside: { x: right, y }, outside: { x: right + offset, y } };
+}
+
+function getHallwayCorner(
+  sourceOutside: { x: number; y: number },
+  sourceSide: StageRoomSpec["doorSide"],
+  targetOutside: { x: number; y: number },
+  targetSide: StageRoomSpec["doorSide"],
+): { x: number; y: number } | null {
+  const sourceHorizontal = sourceSide === "left" || sourceSide === "right";
+  const targetHorizontal = targetSide === "left" || targetSide === "right";
+  if (
+    Math.abs(sourceOutside.x - targetOutside.x) < 0.05 ||
+    Math.abs(sourceOutside.y - targetOutside.y) < 0.05
+  ) {
+    return null;
+  }
+  if (sourceHorizontal && !targetHorizontal) {
+    return { x: sourceOutside.x, y: targetOutside.y };
+  }
+  if (!sourceHorizontal && targetHorizontal) {
+    return { x: targetOutside.x, y: sourceOutside.y };
+  }
+  if (sourceHorizontal) {
+    return { x: sourceOutside.x, y: targetOutside.y };
+  }
+  return { x: targetOutside.x, y: sourceOutside.y };
+}
+
+export function computeAgentPath(
+  from: StageActorPosition,
+  to: StageActorPosition,
+  rooms: StageRoomSpec[],
+): { x: number; y: number }[] {
+  const fromX = parseStagePct(from.left);
+  const fromY = parseStagePct(from.top);
+  const toX = parseStagePct(to.left);
+  const toY = parseStagePct(to.top);
+  const fromRoom = findRoomContaining(fromX, fromY, rooms);
+  const toRoom = findRoomContaining(toX, toY, rooms);
+
+  if (!fromRoom || !toRoom || fromRoom.label === toRoom.label) {
+    return [{ x: toX, y: toY }];
+  }
+
+  const sourceDoor = getRoomDoorPoint(fromRoom);
+  const targetDoor = getRoomDoorPoint(toRoom);
+  const corner = getHallwayCorner(
+    sourceDoor.outside,
+    fromRoom.doorSide,
+    targetDoor.outside,
+    toRoom.doorSide,
+  );
+  const waypoints = [sourceDoor.inside, sourceDoor.outside];
+  if (corner) {
+    waypoints.push(corner);
+  }
+  waypoints.push(targetDoor.outside, targetDoor.inside, { x: toX, y: toY });
+  return waypoints;
+}
+
 export function getStagePanForPosition(
   position: StageActorPosition,
   stageSize: StageSize,
@@ -706,10 +808,32 @@ export function smoothStagePan(current: StagePan, target: StagePan, amount: numb
   };
 }
 
-function getStageDistancePct(a: StageActorPosition, b: StageActorPosition): number {
+export function getStageDistancePct(a: StageActorPosition, b: StageActorPosition): number {
   const dx = parseStagePct(a.left) - parseStagePct(b.left);
   const dy = parseStagePct(a.top) - parseStagePct(b.top);
   return Math.hypot(dx, dy);
+}
+
+export function sameStagePosition(a: StageActorPosition, b: StageActorPosition): boolean {
+  return a.left === b.left && a.top === b.top;
+}
+
+export function findNearestInteractableStageActor<T>(
+  playerPosition: StageActorPosition,
+  candidates: Array<{ actor: T; position: StageActorPosition }>,
+  radius = ACTOR_INTERACTION_RADIUS_PCT,
+): T | null {
+  let nearest: { actor: T; distance: number } | null = null;
+  for (const candidate of candidates) {
+    const distance = getStageDistancePct(playerPosition, candidate.position);
+    if (distance > radius) {
+      continue;
+    }
+    if (!nearest || distance < nearest.distance) {
+      nearest = { actor: candidate.actor, distance };
+    }
+  }
+  return nearest?.actor ?? null;
 }
 
 export function isNearQuestMarker(position: StageActorPosition): boolean {

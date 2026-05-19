@@ -2,12 +2,15 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   WORKSPACE_SCENE_EVENT_TYPES,
+  computeAgentPath,
   createWorkspaceAvatarNodes,
   createWorkspaceStageActors,
   createWorkspaceContextMenuState,
   createInitialWorkspaceViewport,
   getEngineeringRows,
+  getAgentPositionInStage,
   createWorkspaceSceneEventBus,
+  findNearestInteractableStageActor,
   buildStageWalls,
   clampStageZoom,
   getPlayerMoveDirection,
@@ -15,6 +18,8 @@ import {
   getStagePanForPosition,
   getStageMiniMapRooms,
   getStageWorldSize,
+  parseStagePct,
+  pct,
   getWorkspaceActorSpeech,
   getWorkspaceActorScreenPosition,
   focusWorkspaceViewportOnStagePosition,
@@ -179,6 +184,45 @@ test("workspace stage movement respects player bounds and room walls", () => {
   assert.deepEqual(getPlayerMoveDirection("ArrowLeft"), { x: -1, y: 0 });
   assert.deepEqual(getPlayerMoveDirection("w"), { x: 0, y: -1 });
   assert.equal(getPlayerMoveDirection("Escape"), null);
+});
+
+test("workspace stage routing moves agents through doors and selects nearby actors", () => {
+  const rows = getEngineeringRows(4);
+  const worldSize = getStageWorldSize(rows);
+  const rooms = getStageRooms(rows, worldSize, 4);
+  const engineering = rooms.find((room) => room.variant === "engineering") ?? rooms[0];
+  const library = rooms.find((room) => room.variant === "library") ?? rooms[rooms.length - 1];
+  const start = getAgentPositionInStage(0, rows, engineering);
+  const end = {
+    left: pct(parseStagePct(library.left) + parseStagePct(library.width) * 0.35),
+    top: pct(parseStagePct(library.top) + parseStagePct(library.height) * 0.55),
+  };
+
+  const path = computeAgentPath(start, end, rooms);
+
+  assert.ok(path.length >= 5);
+  assert.deepEqual(path.at(-1), {
+    x: parseStagePct(end.left),
+    y: parseStagePct(end.top),
+  });
+
+  const nearby = { id: "agent-8", label: "Review Bot" };
+  const nearest = findNearestInteractableStageActor(
+    { left: "50%", top: "50%" },
+    [
+      { actor: { id: "agent-7", label: "Backend Executor" }, position: { left: "68%", top: "50%" } },
+      { actor: nearby, position: { left: "53%", top: "52%" } },
+    ],
+  );
+
+  assert.equal(nearest, nearby);
+  assert.equal(
+    findNearestInteractableStageActor(
+      { left: "10%", top: "10%" },
+      [{ actor: nearby, position: { left: "53%", top: "52%" } }],
+    ),
+    null,
+  );
 });
 
 test("workspace stage quest marker matches interaction radius", () => {
