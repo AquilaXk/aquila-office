@@ -176,7 +176,7 @@ export default function WorkspaceInviteAcceptPage({
               <div>
                 <span className="invite-label">Workspace</span>
                 <strong>{workspaceName}</strong>
-                <p>{invite.email}</p>
+                <p>{formatInviteTarget(invite)}</p>
               </div>
             </div>
 
@@ -301,6 +301,10 @@ function isInviteExpired(invite: WorkspaceInvite): boolean {
 
   const expiresAt = new Date(invite.expiresAt);
   return !Number.isNaN(expiresAt.getTime()) && expiresAt.getTime() <= Date.now();
+}
+
+function formatInviteTarget(invite: WorkspaceInvite): string {
+  return invite.targetEmail?.trim() || "SHARE LINK";
 }
 
 function formatDateTime(value: string): string {

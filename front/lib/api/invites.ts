@@ -8,7 +8,9 @@ export type WorkspaceInvite = {
   inviteId: number;
   workspaceId: number;
   workspaceName?: string;
-  email: string;
+  targetEmail?: string | null;
+  inviteUrl?: string | null;
+  emailStatus?: string | null;
   role?: WorkspaceMemberRole;
   token: string;
   status: WorkspaceInviteStatus;
@@ -21,7 +23,9 @@ export type WorkspaceInvite = {
 export type WorkspaceInviteManagement = {
   inviteId: number;
   workspaceId: number;
-  email: string;
+  targetEmail?: string | null;
+  inviteUrl?: string | null;
+  emailStatus?: string | null;
   token: string;
   status: WorkspaceInviteManagementStatus;
   createdAt: string;
@@ -39,8 +43,7 @@ export type AcceptedWorkspaceInvite = {
 };
 
 export type CreateWorkspaceInviteInput = {
-  email?: string;
-  mode?: "email" | "link";
+  targetEmail?: string;
   role?: WorkspaceMemberRole;
   expiresInDays?: number;
 };

@@ -2208,7 +2208,7 @@ export default function WorkspaceDetailPage({
       const invite = await createWorkspaceInvite(
         resolveAccessToken(),
         numericWorkspaceId,
-        { email },
+        { targetEmail: email },
       );
       const invitePath = `/invites/${invite.token}`;
       const inviteUrl = `${window.location.origin}${invitePath}`;
@@ -3070,7 +3070,7 @@ export default function WorkspaceDetailPage({
                   <div className="workspace-invite-result" role="status">
                     <Mail aria-hidden="true" />
                     <div>
-                      <strong>{inviteState.invite.email}</strong>
+                      <strong>{formatInviteTarget(inviteState.invite)}</strong>
                       <p>{inviteState.inviteUrl}</p>
                       <div className="workspace-invite-actions">
                         <Link className="secondary-action workspace-invite-open" href={inviteState.invitePath}>
@@ -5934,6 +5934,10 @@ function createLocalId(): string {
   }
 
   return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function formatInviteTarget(invite: WorkspaceInvite): string {
+  return invite.targetEmail?.trim() || "SHARE LINK";
 }
 
 function formatDateTime(value: string): string {
