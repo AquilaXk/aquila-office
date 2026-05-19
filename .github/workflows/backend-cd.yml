@@ -1,10 +1,14 @@
 name: Backend CD
 
 on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: ["main"]
   workflow_dispatch:
     inputs:
       dry_run:
-        description: Run deployment steps without changing the OCI host
+        description: Run deployment checks without changing the OCI host
         required: true
         type: boolean
         default: true
@@ -17,92 +21,449 @@ on:
           - auto
           - blue
           - green
+      ref:
+        description: Optional branch, tag, or SHA to deploy for manual runs
+        required: false
+        type: string
+        default: ""
   push:
     tags:
       - "backend-v*"
 
 permissions:
   contents: read
+  deployments: write
+
+concurrency:
+  group: backend-cd-staging
+  cancel-in-progress: false
+
+env:
+  DEPLOY_ENVIRONMENT: staging
+  DEPLOY_PAYLOAD_DIR: /tmp/aquila-office-deploy
+  IMAGE_NAME: aquila-office-back
 
 jobs:
-  backend-cd:
-    name: Backend CD
+  prepare:
+    name: Resolve Deployment Context
     runs-on: ubuntu-latest
-    env:
-      IMAGE_REF: aquila-office-back:${{ github.sha }}
+    outputs:
+      deploy_sha: ${{ steps.context.outputs.deploy_sha }}
+      dry_run: ${{ steps.context.outputs.dry_run }}
+      image_ref: ${{ steps.context.outputs.image_ref }}
+      short_sha: ${{ steps.context.outputs.short_sha }}
+      should_deploy: ${{ steps.context.outputs.should_deploy }}
+      skip_reason: ${{ steps.context.outputs.skip_reason }}
+      target_slot: ${{ steps.context.outputs.target_slot }}
 
     steps:
-      - name: Checkout
+      - name: Checkout metadata
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: Resolve deployment mode
-        id: mode
+      - name: Resolve deployment context
+        id: context
         shell: bash
+        env:
+          DISPATCH_DRY_RUN: ${{ inputs.dry_run }}
+          DISPATCH_REF: ${{ inputs.ref }}
+          DISPATCH_TARGET_SLOT: ${{ inputs.target_slot }}
+          WORKFLOW_RUN_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          WORKFLOW_RUN_HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          WORKFLOW_RUN_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            echo "dry_run=${{ inputs.dry_run }}" >> "$GITHUB_OUTPUT"
-            echo "target_slot=${{ inputs.target_slot }}" >> "$GITHUB_OUTPUT"
+          set -euo pipefail
+
+          event_name="$GITHUB_EVENT_NAME"
+          dry_run="false"
+          target_slot="auto"
+          should_deploy="true"
+          skip_reason=""
+
+          if [[ "$event_name" == "workflow_run" ]]; then
+            deploy_sha="$WORKFLOW_RUN_HEAD_SHA"
+            if [[ "$WORKFLOW_RUN_CONCLUSION" != "success" ]]; then
+              should_deploy="false"
+              skip_reason="CI conclusion is $WORKFLOW_RUN_CONCLUSION"
+            elif [[ "$WORKFLOW_RUN_HEAD_BRANCH" != "main" ]]; then
+              should_deploy="false"
+              skip_reason="CI head branch is $WORKFLOW_RUN_HEAD_BRANCH"
+            fi
+          elif [[ "$event_name" == "workflow_dispatch" ]]; then
+            dry_run="${DISPATCH_DRY_RUN:-true}"
+            target_slot="${DISPATCH_TARGET_SLOT:-auto}"
+            if [[ -n "${DISPATCH_REF:-}" ]]; then
+              git fetch --no-tags origin "$DISPATCH_REF"
+              deploy_sha="$(git rev-parse FETCH_HEAD)"
+            else
+              deploy_sha="$GITHUB_SHA"
+            fi
           else
-            echo "dry_run=false" >> "$GITHUB_OUTPUT"
-            echo "target_slot=auto" >> "$GITHUB_OUTPUT"
+            deploy_sha="$GITHUB_SHA"
           fi
 
-      - name: Build backend image
+          git fetch --no-tags origin main
+          main_sha="$(git rev-parse origin/main)"
+
+          if [[ "$dry_run" != "true" && "$deploy_sha" != "$main_sha" ]]; then
+            should_deploy="false"
+            skip_reason="stale deployment SHA $deploy_sha does not match origin/main $main_sha"
+          fi
+
+          short_sha="${deploy_sha:0:12}"
+          image_ref="${IMAGE_NAME}:${short_sha}"
+
+          {
+            echo "deploy_sha=$deploy_sha"
+            echo "dry_run=$dry_run"
+            echo "image_ref=$image_ref"
+            echo "short_sha=$short_sha"
+            echo "should_deploy=$should_deploy"
+            echo "skip_reason=$skip_reason"
+            echo "target_slot=$target_slot"
+          } >> "$GITHUB_OUTPUT"
+
+          {
+            echo "### Backend CD context"
+            echo ""
+            echo "| key | value |"
+            echo "| --- | --- |"
+            echo "| event | $event_name |"
+            echo "| deploy_sha | $deploy_sha |"
+            echo "| origin/main | $main_sha |"
+            echo "| dry_run | $dry_run |"
+            echo "| target_slot | $target_slot |"
+            echo "| should_deploy | $should_deploy |"
+            if [[ -n "$skip_reason" ]]; then
+              echo "| skip_reason | $skip_reason |"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  noop:
+    name: Explain Skipped Deployment
+    runs-on: ubuntu-latest
+    needs: prepare
+    if: needs.prepare.outputs.should_deploy != 'true'
+
+    steps:
+      - name: Write skip summary
+        shell: bash
+        run: |
+          {
+            echo "### Backend CD skipped"
+            echo ""
+            echo "${{ needs.prepare.outputs.skip_reason }}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  build-image:
+    name: Build Backend Image
+    runs-on: ubuntu-latest
+    needs: prepare
+    if: needs.prepare.outputs.should_deploy == 'true'
+    env:
+      IMAGE_REF: ${{ needs.prepare.outputs.image_ref }}
+
+    steps:
+      - name: Checkout deployment SHA
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.deploy_sha }}
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+
+      - name: Grant Gradle wrapper permission
+        run: chmod +x back/gradlew
+
+      - name: Build backend artifact
+        run: ./back/gradlew -p back bootJar --stacktrace
+
+      - name: Build backend Docker image
         run: docker build -f docker/Dockerfile -t "$IMAGE_REF" .
 
-      - name: Save backend image
+      - name: Save backend Docker image
         run: docker save "$IMAGE_REF" -o backend-image.tar
+
+      - name: Collect image diagnostics
+        shell: bash
+        run: |
+          mkdir -p deploy-debug
+          docker image inspect "$IMAGE_REF" > deploy-debug/image-inspect.json
+          sha256sum backend-image.tar | tee deploy-debug/backend-image.sha256
+          du -h backend-image.tar | tee deploy-debug/backend-image-size.txt
+          {
+            echo "### Backend image"
+            echo ""
+            echo "| key | value |"
+            echo "| --- | --- |"
+            echo "| image | $IMAGE_REF |"
+            echo "| sha | ${{ needs.prepare.outputs.deploy_sha }} |"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload backend image artifact
         uses: actions/upload-artifact@v4
         with:
-          name: backend-image
+          name: backend-image-${{ needs.prepare.outputs.short_sha }}
           path: backend-image.tar
           retention-days: 7
 
-      - name: Dry-run deployment hook
-        if: steps.mode.outputs.dry_run == 'true'
+      - name: Upload build diagnostics
+        uses: actions/upload-artifact@v4
+        with:
+          name: deploy-debug-build-${{ needs.prepare.outputs.short_sha }}
+          path: deploy-debug/
+          retention-days: 14
+
+  deploy:
+    name: Deploy Backend to Staging
+    runs-on: ubuntu-latest
+    needs:
+      - prepare
+      - build-image
+    if: needs.prepare.outputs.should_deploy == 'true'
+    env:
+      BACKEND_ENV_B64: ${{ secrets.OCI_A1_BACKEND_ENV_B64 || secrets.BACKEND_ENV_B64 }}
+      DEPLOY_SHA: ${{ needs.prepare.outputs.deploy_sha }}
+      DRY_RUN: ${{ needs.prepare.outputs.dry_run }}
+      IMAGE_REF: ${{ needs.prepare.outputs.image_ref }}
+      KNOWN_HOSTS_B64: ${{ secrets.OCI_A1_SSH_KNOWN_HOSTS_B64 || secrets.OCI_SSH_KNOWN_HOSTS_B64 }}
+      OCI_BACKEND_HOST: ${{ secrets.OCI_BACKEND_HOST }}
+      OCI_BACKEND_USER: ${{ secrets.OCI_BACKEND_USER }}
+      OCI_SSH_PRIVATE_KEY: ${{ secrets.OCI_SSH_PRIVATE_KEY }}
+      SHORT_SHA: ${{ needs.prepare.outputs.short_sha }}
+      TARGET_SLOT: ${{ needs.prepare.outputs.target_slot }}
+
+    steps:
+      - name: Checkout deployment SHA
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.deploy_sha }}
+
+      - name: Download backend image artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: backend-image-${{ needs.prepare.outputs.short_sha }}
+
+      - name: Prepare deploy debug directory
+        run: mkdir -p deploy-debug
+
+      - name: Validate and materialize backend env
+        id: backend-env
         shell: bash
         run: |
-          slot_arg=()
-          if [[ "${{ steps.mode.outputs.target_slot }}" != "auto" ]]; then
-            slot_arg=(--slot "${{ steps.mode.outputs.target_slot }}")
+          set -euo pipefail
+          if [[ "$DRY_RUN" == "true" && -z "${BACKEND_ENV_B64:-}" ]]; then
+            echo "env_file=" >> "$GITHUB_OUTPUT"
+            echo "### Backend env" >> "$GITHUB_STEP_SUMMARY"
+            echo "Dry-run skipped env materialization because no backend env secret is configured." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
           fi
+
+          scripts/deploy/materialize-backend-env.sh --output deploy-debug/backend.env
+          echo "env_file=deploy-debug/backend.env" >> "$GITHUB_OUTPUT"
+          {
+            echo "### Backend env"
+            echo ""
+            echo "Backend env file was decoded and validated. Values are not printed."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Run local deployment dry-run
+        if: env.DRY_RUN == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          slot_arg=()
+          env_arg=()
+          if [[ "$TARGET_SLOT" != "auto" ]]; then
+            slot_arg=(--slot "$TARGET_SLOT")
+          fi
+          if [[ -n "${{ steps.backend-env.outputs.env_file }}" ]]; then
+            env_arg=(--env-file "${{ steps.backend-env.outputs.env_file }}")
+          fi
+
           scripts/deploy/oci-backend-hook.sh \
             --dry-run \
             --image "$IMAGE_REF" \
             --image-tar backend-image.tar \
-            "${slot_arg[@]}"
+            --doctor-script scripts/deploy/oci-staging-doctor.sh \
+            "${env_arg[@]}" \
+            "${slot_arg[@]}" | tee deploy-debug/dry-run-hook.log
 
-      - name: Prepare SSH key
-        if: steps.mode.outputs.dry_run != 'true'
+      - name: Verify remote deployment secrets
+        if: env.DRY_RUN != 'true'
         shell: bash
         run: |
+          set -euo pipefail
+          missing=()
+          for name in OCI_SSH_PRIVATE_KEY OCI_BACKEND_HOST OCI_BACKEND_USER BACKEND_ENV_B64; do
+            if [[ -z "${!name:-}" ]]; then
+              missing+=("$name")
+            fi
+          done
+          if (( ${#missing[@]} > 0 )); then
+            printf 'Missing required secret/env values: %s\n' "${missing[*]}" >&2
+            exit 1
+          fi
+
+      - name: Prepare SSH key and known hosts
+        if: env.DRY_RUN != 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
           install -m 700 -d ~/.ssh
-          printf '%s\n' "${{ secrets.OCI_SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
+          printf '%s\n' "$OCI_SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
 
+          if [[ -n "${KNOWN_HOSTS_B64:-}" ]]; then
+            if ! printf '%s' "$KNOWN_HOSTS_B64" | base64 --decode > ~/.ssh/known_hosts 2>/dev/null; then
+              printf '%s' "$KNOWN_HOSTS_B64" | base64 -D > ~/.ssh/known_hosts
+            fi
+          else
+            ssh-keyscan -H "$OCI_BACKEND_HOST" > ~/.ssh/known_hosts
+          fi
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: Create GitHub deployment
+        id: deployment
+        if: env.DRY_RUN != 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          payload="$(jq -n \
+            --arg ref "$DEPLOY_SHA" \
+            --arg environment "$DEPLOY_ENVIRONMENT" \
+            '{
+              ref: $ref,
+              environment: $environment,
+              auto_merge: false,
+              required_contexts: [],
+              production_environment: false,
+              transient_environment: false,
+              description: "Backend staging deployment"
+            }')"
+          deployment="$(printf '%s' "$payload" | gh api "repos/${GITHUB_REPOSITORY}/deployments" --method POST --input -)"
+          deployment_id="$(jq -r '.id' <<< "$deployment")"
+          echo "deployment_id=$deployment_id" >> "$GITHUB_OUTPUT"
+          gh api "repos/${GITHUB_REPOSITORY}/deployments/${deployment_id}/statuses" \
+            --method POST \
+            -f state=in_progress \
+            -f environment="$DEPLOY_ENVIRONMENT" \
+            -f log_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" \
+            -f description="Backend deployment started"
+
       - name: Upload deployment payload
-        if: steps.mode.outputs.dry_run != 'true'
+        if: env.DRY_RUN != 'true'
         shell: bash
         run: |
-          remote="${{ secrets.OCI_BACKEND_USER }}@${{ secrets.OCI_BACKEND_HOST }}"
-          ssh -o StrictHostKeyChecking=accept-new "$remote" "install -d /tmp/aquila-office-deploy"
-          scp -o StrictHostKeyChecking=accept-new \
+          set -euo pipefail
+          remote="${OCI_BACKEND_USER}@${OCI_BACKEND_HOST}"
+          ssh_opts=(-i ~/.ssh/id_ed25519 -o UserKnownHostsFile="$HOME/.ssh/known_hosts" -o StrictHostKeyChecking=yes)
+
+          ssh "${ssh_opts[@]}" "$remote" "install -d -m 700 '$DEPLOY_PAYLOAD_DIR'"
+          scp "${ssh_opts[@]}" \
             backend-image.tar \
+            deploy-debug/backend.env \
             scripts/deploy-bluegreen.sh \
             scripts/deploy/backend-blue-green.sh \
             scripts/deploy/oci-backend-hook.sh \
-            "$remote:/tmp/aquila-office-deploy/"
+            scripts/deploy/oci-staging-doctor.sh \
+            "$remote:$DEPLOY_PAYLOAD_DIR/"
 
-      - name: Run OCI deployment hook
-        if: steps.mode.outputs.dry_run != 'true'
+      - name: Run remote preflight doctor
+        if: env.DRY_RUN != 'true'
         shell: bash
         run: |
-          remote="${{ secrets.OCI_BACKEND_USER }}@${{ secrets.OCI_BACKEND_HOST }}"
+          set -euo pipefail
+          remote="${OCI_BACKEND_USER}@${OCI_BACKEND_HOST}"
+          ssh_opts=(-i ~/.ssh/id_ed25519 -o UserKnownHostsFile="$HOME/.ssh/known_hosts" -o StrictHostKeyChecking=yes)
+          ssh "${ssh_opts[@]}" "$remote" \
+            "cd '$DEPLOY_PAYLOAD_DIR' && chmod +x *.sh && ./oci-staging-doctor.sh --phase before --image '$IMAGE_REF'" \
+            | tee deploy-debug/doctor-before.log
+
+      - name: Run remote backend hook
+        if: env.DRY_RUN != 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          remote="${OCI_BACKEND_USER}@${OCI_BACKEND_HOST}"
+          ssh_opts=(-i ~/.ssh/id_ed25519 -o UserKnownHostsFile="$HOME/.ssh/known_hosts" -o StrictHostKeyChecking=yes)
           slot_arg=""
-          if [[ "${{ steps.mode.outputs.target_slot }}" != "auto" ]]; then
-            slot_arg="--slot ${{ steps.mode.outputs.target_slot }}"
+          if [[ "$TARGET_SLOT" != "auto" ]]; then
+            slot_arg=" --slot $TARGET_SLOT"
           fi
-          ssh -o StrictHostKeyChecking=accept-new "$remote" \
-            "cd /tmp/aquila-office-deploy && chmod +x *.sh && ./oci-backend-hook.sh --image '$IMAGE_REF' --image-tar backend-image.tar $slot_arg"
+          ssh "${ssh_opts[@]}" "$remote" \
+            "cd '$DEPLOY_PAYLOAD_DIR' && chmod +x *.sh && ./oci-backend-hook.sh --image '$IMAGE_REF' --image-tar backend-image.tar --env-file backend.env --doctor-script ./oci-staging-doctor.sh$slot_arg" \
+            | tee deploy-debug/deploy-hook.log
+
+      - name: Run remote postflight doctor
+        if: env.DRY_RUN != 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          remote="${OCI_BACKEND_USER}@${OCI_BACKEND_HOST}"
+          ssh_opts=(-i ~/.ssh/id_ed25519 -o UserKnownHostsFile="$HOME/.ssh/known_hosts" -o StrictHostKeyChecking=yes)
+          ssh "${ssh_opts[@]}" "$remote" \
+            "cd '$DEPLOY_PAYLOAD_DIR' && ./oci-staging-doctor.sh --phase after --image '$IMAGE_REF'" \
+            | tee deploy-debug/doctor-after.log
+
+      - name: Collect remote failure diagnostics
+        if: failure() && env.DRY_RUN != 'true'
+        continue-on-error: true
+        shell: bash
+        run: |
+          remote="${OCI_BACKEND_USER}@${OCI_BACKEND_HOST}"
+          ssh_opts=(-i ~/.ssh/id_ed25519 -o UserKnownHostsFile="$HOME/.ssh/known_hosts" -o StrictHostKeyChecking=yes)
+          ssh "${ssh_opts[@]}" "$remote" \
+            "cd '$DEPLOY_PAYLOAD_DIR' && ./oci-staging-doctor.sh --phase failure --include-logs --image '$IMAGE_REF'" \
+            | tee deploy-debug/doctor-failure.log
+
+      - name: Remove transient remote env file
+        if: always() && env.DRY_RUN != 'true'
+        continue-on-error: true
+        shell: bash
+        run: |
+          remote="${OCI_BACKEND_USER}@${OCI_BACKEND_HOST}"
+          ssh_opts=(-i ~/.ssh/id_ed25519 -o UserKnownHostsFile="$HOME/.ssh/known_hosts" -o StrictHostKeyChecking=yes)
+          ssh "${ssh_opts[@]}" "$remote" "rm -f '$DEPLOY_PAYLOAD_DIR/backend.env'"
+
+      - name: Mark deployment success
+        if: success() && steps.deployment.outputs.deployment_id != ''
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api "repos/${GITHUB_REPOSITORY}/deployments/${{ steps.deployment.outputs.deployment_id }}/statuses" \
+            --method POST \
+            -f state=success \
+            -f environment="$DEPLOY_ENVIRONMENT" \
+            -f log_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" \
+            -f description="Backend deployment completed"
+
+      - name: Mark deployment failure
+        if: failure() && steps.deployment.outputs.deployment_id != ''
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api "repos/${GITHUB_REPOSITORY}/deployments/${{ steps.deployment.outputs.deployment_id }}/statuses" \
+            --method POST \
+            -f state=failure \
+            -f environment="$DEPLOY_ENVIRONMENT" \
+            -f log_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" \
+            -f description="Backend deployment failed; inspect deploy-debug artifact"
+
+      - name: Upload deploy debug artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: deploy-debug-${{ needs.prepare.outputs.short_sha }}
+          path: deploy-debug/
+          if-no-files-found: ignore
+          retention-days: 14
