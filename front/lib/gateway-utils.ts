@@ -15,6 +15,12 @@ export type GatewayFormValues = {
   validateConnection?: boolean;
 };
 
+export type GatewayRegistryFormValues = {
+  displayName: string;
+  gatewayUrl: string;
+  token: string;
+};
+
 export type NormalizedGatewayForm = {
   gatewayUrl: string;
   token: string;
@@ -23,6 +29,18 @@ export type NormalizedGatewayForm = {
   tokenError: string | null;
   isValid: boolean;
 };
+
+export type NormalizedGatewayRegistryForm = {
+  displayName: string;
+  gatewayUrl: string;
+  token: string;
+  displayNameError: string | null;
+  urlError: string | null;
+  tokenError: string | null;
+  isValid: boolean;
+};
+
+export const OPENCLAW_GATEWAYS_STORAGE_KEY = "aio.openclaw.gateways";
 
 export function normalizeGatewayForm(values: GatewayFormValues): NormalizedGatewayForm {
   const gatewayUrl = values.gatewayUrl.trim();
@@ -45,6 +63,32 @@ export function normalizeGatewayForm(values: GatewayFormValues): NormalizedGatew
   };
 }
 
+export function normalizeGatewayRegistryForm(
+  values: GatewayRegistryFormValues,
+): NormalizedGatewayRegistryForm {
+  const displayName = values.displayName.trim();
+  const gatewayUrl = values.gatewayUrl.trim();
+  const token = values.token.trim();
+  const displayNameError = displayName.length === 0 ? "표시 이름은 필수입니다." : null;
+  const urlError =
+    gatewayUrl.length === 0
+      ? "OpenClaw 게이트웨이 URL은 필수입니다."
+      : isGatewayUrl(gatewayUrl)
+        ? null
+        : "게이트웨이 URL은 http:// 또는 https:// 로 시작해야 합니다.";
+  const tokenError = token.length === 0 ? "토큰은 필수입니다." : null;
+
+  return {
+    displayName,
+    gatewayUrl,
+    token,
+    displayNameError,
+    urlError,
+    tokenError,
+    isValid: displayNameError === null && urlError === null && tokenError === null,
+  };
+}
+
 export function isGatewayUrl(value: string): boolean {
   try {
     const url = new URL(value);
@@ -59,7 +103,7 @@ export function maskGatewayToken(token: string): string {
     return "****";
   }
 
-  return `${token.slice(0, 4)}****${token.slice(-4)}`;
+  return `${token.slice(0, 4)}...${token.slice(-4)}`;
 }
 
 export function gatewayStatusLabel(status: GatewayBindingStatus): string {

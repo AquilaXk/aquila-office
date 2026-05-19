@@ -63,7 +63,7 @@ test("browser regression covers routes and interactions without screenshot asser
     'getByRole("dialog", { name: "Workspace files" })',
     'getByLabel("Agent 메시지")',
     'getByLabel("Task 상태 변경").selectOption("COMPLETED")',
-    'getByRole("heading", { name: "Gateway 관리" })',
+    'getByRole("heading", { name: "REGISTER A GATEWAY" })',
     'getByRole("heading", { name: "워크스페이스 초대" })',
     'getByRole("button", { name: "워크스페이스 정보" })',
     'getByRole("button", { name: "멤버 관리" })',

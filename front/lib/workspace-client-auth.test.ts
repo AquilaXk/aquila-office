@@ -91,31 +91,36 @@ test("frontend exposes workspace gateway route status surface", () => {
   const source = readSource("app/workspaces/gateway/page.tsx");
 
   assert.match(source, /GatewayRoutePage/);
-  assert.match(source, /fetchWorkspaces/);
-  assert.match(source, /fetchWorkspaceGatewayStatus/);
-  assert.match(source, /aria-label="Gateway 관리"/);
+  assert.match(source, /readAuthTokens/);
+  assert.match(source, /router\.replace\("\/"\)/);
+  assert.match(source, /OPENCLAW_GATEWAYS_STORAGE_KEY/);
+  assert.match(source, /readGatewayRegistry/);
+  assert.match(source, /writeGatewayRegistry/);
+  assert.match(source, /aria-label="Gateway registry"/);
 });
 
 test("frontend exposes workspace gateway route binding controls", () => {
   const source = readSource("app/workspaces/gateway/page.tsx");
 
-  assert.match(source, /testWorkspaceGatewayConnection/);
-  assert.match(source, /createWorkspaceGatewayBinding/);
-  assert.match(source, /normalizeGatewayForm/);
-  assert.match(source, /Gateway 연결 테스트/);
-  assert.match(source, /Gateway binding 등록/);
+  assert.match(source, /normalizeGatewayRegistryForm/);
+  assert.match(source, /DISPLAY NAME/);
+  assert.match(source, /GATEWAY URL/);
+  assert.match(source, /TOKEN/);
+  assert.match(source, /LINK GATE/);
+  assert.match(source, /CANCEL/);
 });
 
 test("frontend exposes workspace gateway registration UX contract", () => {
   const source = readSource("app/workspaces/gateway/page.tsx");
 
-  assert.match(source, /gatewayDisplayNameInput/);
-  assert.match(source, /<strong>표시 이름<\/strong>/);
-  assert.match(source, /<strong>OpenClaw Gateway URL<\/strong>/);
-  assert.match(source, /aria-label="등록된 Gateway 목록"/);
-  assert.match(source, /aria-label="선택된 Gateway 요약"/);
-  assert.match(source, /maskedGatewayTokenLabel/);
-  assert.match(source, /Gateway 등록/);
+  assert.match(source, /REGISTER A GATEWAY/);
+  assert.match(source, /LINKED ·/);
+  assert.match(source, /ACTIVE LINK/);
+  assert.match(source, /selectedGateway\.maskedToken/);
+  assert.match(source, /setGateways\(\[nextGateway, \.\.\.gateways\]\)/);
+  assert.match(source, /setSelectedId\(nextGateway\.id\)/);
+  assert.doesNotMatch(source, /fetchWorkspaces/);
+  assert.doesNotMatch(source, /createWorkspaceGatewayBinding/);
 });
 
 test("workspace settings exposes slack integration controls", () => {
