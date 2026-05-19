@@ -45,6 +45,19 @@ test("workspaces route owns the list flow instead of re-exporting home", () => {
 test("new workspace route returns to the workspace list", () => {
   const source = readSource("app/workspaces/new/page.tsx");
 
+  assert.match(source, /useRouter/);
+  assert.match(source, /readAuthTokens/);
+  assert.match(source, /router\.replace\("\/"\)/);
   assert.match(source, /href="\/workspaces"/);
   assert.doesNotMatch(source, /href="\/"/);
+  assert.match(source, /NAME_MAX_LENGTH = 100/);
+  assert.match(source, /DESCRIPTION_MAX_LENGTH = 500/);
+  assert.match(source, /name\.trim\(\)/);
+  assert.match(source, /description\.trim\(\) \|\| undefined/);
+  assert.match(source, /router\.replace\(`\/workspaces\/\$\{created\.workspaceId\}`\)/);
+  assert.match(source, /CANCEL/);
+  assert.match(source, /FORM WORKSPACE/);
+  assert.doesNotMatch(source, /createdWorkspaceHref/);
+  assert.doesNotMatch(source, /상세 보기/);
+  assert.doesNotMatch(source, /form-notice-success/);
 });
