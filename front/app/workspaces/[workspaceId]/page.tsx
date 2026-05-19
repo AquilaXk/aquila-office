@@ -2026,8 +2026,8 @@ export default function WorkspaceDetailPage({
     <main className="workspace-detail-shell">
       <section className="workspace-detail-panel" aria-label="워크스페이스 상세">
         <header className="workspace-detail-header">
-          <div className="workspace-detail-actions">
-            <Link className="secondary-action workspace-detail-back" href="/">
+          <nav className="workspace-detail-actions" aria-label="워크스페이스 내비게이션">
+            <Link className="secondary-action workspace-detail-back" href="/workspaces">
               <ArrowLeft aria-hidden="true" />
               <span>목록으로</span>
             </Link>
@@ -2040,7 +2040,16 @@ export default function WorkspaceDetailPage({
                 <span>설정</span>
               </Link>
             ) : null}
-          </div>
+            <button
+              className="secondary-action workspace-detail-back"
+              type="button"
+              onClick={() => openConnectionModal("selector")}
+              disabled={state.status !== "ready"}
+            >
+              <Settings aria-hidden="true" />
+              <span>Connection settings</span>
+            </button>
+          </nav>
           <div className="workspace-detail-title">
             <div className="workspace-detail-icon">
               <Building2 aria-hidden="true" />

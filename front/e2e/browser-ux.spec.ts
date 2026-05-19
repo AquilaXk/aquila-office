@@ -11,6 +11,7 @@ type MockApiOptions = {
   workspaceList?: WorkspaceListFixture;
   workspaceListGate?: Promise<void>;
   artifactFailureMode?: boolean;
+  workspaceRole?: "ADMIN" | "MEMBER";
 };
 
 const authTokens = {
@@ -172,9 +173,18 @@ test.describe("브라우저 UI UX 회귀", () => {
     await expect(officeScene.getByRole("button", { name: "Files", exact: true })).toBeVisible();
     await expect(officeScene.getByRole("link", { name: "Leave workspace", exact: true })).toBeVisible();
 
-    await officeScene.getByRole("button", { name: "Connections", exact: true }).click();
+    const detailNav = page.getByRole("navigation", { name: "워크스페이스 내비게이션" });
+    await expect(detailNav.getByRole("link", { name: "목록으로" })).toHaveAttribute("href", "/workspaces");
+    await expect(detailNav.getByRole("link", { name: "설정" })).toHaveAttribute(
+      "href",
+      `/workspaces/${workspaceId}/settings`,
+    );
+    await detailNav.getByRole("button", { name: "Connection settings" }).click();
     const connectionDialog = page.getByRole("dialog", { name: "Connection settings" });
     await expect(connectionDialog).toBeVisible();
+    await connectionDialog.getByRole("button", { name: "Discord", exact: true }).click();
+    await expect(connectionDialog.getByText("Discord 준비 중")).toBeVisible();
+    await connectionDialog.getByRole("button", { name: "뒤로" }).click();
     await connectionDialog.getByRole("button", { name: "Slack", exact: true }).click();
     await expect(connectionDialog.getByRole("button", { name: "Slack 설치 열기" })).toBeVisible();
     await connectionDialog.getByRole("button", { name: "Slack 설치 열기" }).click();
@@ -311,11 +321,24 @@ test.describe("브라우저 UI UX 회귀", () => {
 
     await page.goto(`/workspaces/${workspaceId}/settings`);
     await expect(page.locator('section[aria-label="워크스페이스 설정"]')).toBeVisible();
+    const settingsNav = page.getByRole("navigation", { name: "워크스페이스 내비게이션" });
+    await expect(settingsNav.getByRole("link", { name: "목록으로" })).toHaveAttribute("href", "/workspaces");
+    await expect(settingsNav.getByRole("link", { name: "상세로" })).toHaveAttribute(
+      "href",
+      `/workspaces/${workspaceId}`,
+    );
     await expect(page.getByRole("button", { name: "워크스페이스 정보" })).toBeVisible();
     await expect(page.getByRole("button", { name: "멤버 관리" })).toBeVisible();
     await expect(page.getByRole("button", { name: "초대 생성" })).toBeVisible();
     await expect(page.getByRole("button", { name: "초대 목록" })).toBeVisible();
-    await expect(page.locator('section[aria-label="Slack 연동 설정"]')).toBeHidden();
+    await page.getByRole("button", { name: "Slack 설정으로" }).click();
+    await expect(page.locator('section[aria-label="Slack 연동 설정"]')).toBeVisible();
+    await page.getByRole("button", { name: "Discord 상태 보기" }).click();
+    await expect(page.locator('section[aria-label="Discord 설정"]')).toBeVisible();
+    await page.getByRole("button", { name: "GitHub 설정으로" }).click();
+    await expect(page.locator('section[aria-label="GitHub 자격 증명 관리"]')).toBeVisible();
+    await page.getByRole("button", { name: "Gateway 설정으로" }).click();
+    await expect(page.locator('section[aria-label="Gateway 설정"]')).toBeVisible();
 
     await page.getByRole("button", { name: "멤버 관리" }).click();
     await expect(page.locator('section[aria-label="멤버 현황"]')).toBeVisible();
@@ -348,9 +371,37 @@ test.describe("브라우저 UI UX 회귀", () => {
     await page.getByRole("button", { name: "초대 수락" }).click();
     await expect(page.getByText("google-1 계정이 MEMBER 역할로 참여했습니다.")).toBeVisible();
   });
+
+  test("MEMBER 권한의 설정 화면은 navigation을 유지하고 관리 action을 잠근다", async ({ page }) => {
+    await installMockApi(page, { workspaceRole: "MEMBER" });
+
+    await page.goto(`/workspaces/${workspaceId}/settings`);
+
+    const settingsNav = page.getByRole("navigation", { name: "워크스페이스 내비게이션" });
+    await expect(settingsNav.getByRole("link", { name: "목록으로" })).toHaveAttribute("href", "/workspaces");
+    await expect(settingsNav.getByRole("link", { name: "상세로" })).toHaveAttribute(
+      "href",
+      `/workspaces/${workspaceId}`,
+    );
+    await expect(page.getByText("MEMBER").first()).toBeVisible();
+    await expect(page.getByRole("button", { name: "Slack 설정으로" })).toBeVisible();
+    await expect(
+      page.locator('section[aria-label="Slack 연동 설정"]').getByRole("button", { name: "Slack 설치 열기" }),
+    ).toBeDisabled();
+    await expect(
+      page.locator('section[aria-label="Gateway 설정"]').getByRole("button", { name: "연결 테스트" }),
+    ).toBeDisabled();
+    await expect(
+      page.locator('section[aria-label="GitHub 자격 증명 관리"]').getByRole("button", { name: "등록" }),
+    ).toBeDisabled();
+  });
 });
 
 async function installMockApi(page: Page, options: MockApiOptions = {}) {
+  const workspaceRole = options.workspaceRole ?? "ADMIN";
+  const currentWorkspace = { ...primaryWorkspace, myRole: workspaceRole };
+  const currentMember = { ...workspaceMember, role: workspaceRole };
+
   await page.route("**/api/health", (route) =>
     fulfillJson(route, {
       status: "UP",
@@ -411,7 +462,7 @@ async function installMockApi(page: Page, options: MockApiOptions = {}) {
         await fulfillJson(route, { message: "워크스페이스 fixture 오류" }, 503);
         return;
       }
-      await fulfillJson(route, options.workspaceList === "empty" ? [] : [primaryWorkspace]);
+      await fulfillJson(route, options.workspaceList === "empty" ? [] : [currentWorkspace]);
       return;
     }
 
@@ -426,12 +477,12 @@ async function installMockApi(page: Page, options: MockApiOptions = {}) {
     }
 
     if (method === "GET" && path === `/api/v1/workspaces/${workspaceId}`) {
-      await fulfillJson(route, primaryWorkspace);
+      await fulfillJson(route, currentWorkspace);
       return;
     }
 
     if (method === "GET" && path === `/api/v1/workspaces/${workspaceId}/members`) {
-      await fulfillJson(route, [workspaceMember]);
+      await fulfillJson(route, [currentMember]);
       return;
     }
 
