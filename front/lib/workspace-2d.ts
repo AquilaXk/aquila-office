@@ -119,6 +119,235 @@ const MIN_ZOOM = 0.75;
 const MAX_ZOOM = 2;
 const KEYBOARD_PAN_STEP = 96;
 
+export type StageActorPosition = {
+  left: string;
+  top: string;
+};
+
+export type StagePan = {
+  x: number;
+  y: number;
+};
+
+export type StageSize = {
+  width: number;
+  height: number;
+};
+
+export type StageRoomSpec = {
+  label: string;
+  left: string;
+  top: string;
+  width: string;
+  height: string;
+  variant: "engineering" | "planning" | "review" | "rest";
+  doorSide: "top" | "right" | "bottom" | "left";
+  doorAt: number;
+};
+
+export type WallSegment = {
+  axis: "h" | "v";
+  fixed: number;
+  start: number;
+  end: number;
+};
+
+const STAGE_ZOOM_MIN = 0.75;
+const STAGE_ZOOM_MAX = 1.5;
+const PLAYER_STAGE_BOUNDS = {
+  minX: 3,
+  maxX: 96,
+  minY: 8,
+  maxY: 91,
+};
+const QUEST_MARKER_POSITION: StageActorPosition = { left: "90.4%", top: "75.8%" };
+const QUEST_INTERACTION_RADIUS_PCT = 6.5;
+const WALL_DOOR_HALF_PCT = 5;
+const PLAYER_WALL_PADDING_PCT = 0.6;
+
+export function clampStageZoom(value: number): number {
+  return Math.min(STAGE_ZOOM_MAX, Math.max(STAGE_ZOOM_MIN, Number(value.toFixed(3))));
+}
+
+export function pct(value: number): string {
+  return `${Number(value.toFixed(2))}%`;
+}
+
+export function parseStagePct(value: string): number {
+  const parsed = Number.parseFloat(value);
+  return Number.isFinite(parsed) ? parsed : 50;
+}
+
+export function buildStageWalls(rooms: StageRoomSpec[]): WallSegment[] {
+  const walls: WallSegment[] = [];
+  for (const room of rooms) {
+    const left = parseStagePct(room.left);
+    const top = parseStagePct(room.top);
+    const width = parseStagePct(room.width);
+    const height = parseStagePct(room.height);
+    const right = left + width;
+    const bottom = top + height;
+
+    pushWallSide(walls, "h", top, left, right, width, room.doorSide === "top" ? room.doorAt : null);
+    pushWallSide(
+      walls,
+      "h",
+      bottom,
+      left,
+      right,
+      width,
+      room.doorSide === "bottom" ? room.doorAt : null,
+    );
+    pushWallSide(walls, "v", left, top, bottom, height, room.doorSide === "left" ? room.doorAt : null);
+    pushWallSide(
+      walls,
+      "v",
+      right,
+      top,
+      bottom,
+      height,
+      room.doorSide === "right" ? room.doorAt : null,
+    );
+  }
+  return walls;
+}
+
+function pushWallSide(
+  walls: WallSegment[],
+  axis: "h" | "v",
+  fixed: number,
+  start: number,
+  end: number,
+  span: number,
+  doorAt: number | null,
+) {
+  if (doorAt == null) {
+    walls.push({ axis, fixed, start, end });
+    return;
+  }
+  const doorMid = start + span * doorAt;
+  const half = (span * WALL_DOOR_HALF_PCT) / 100;
+  const before = { axis, fixed, start, end: doorMid - half };
+  const after = { axis, fixed, start: doorMid + half, end };
+  if (before.end > before.start) {
+    walls.push(before);
+  }
+  if (after.end > after.start) {
+    walls.push(after);
+  }
+}
+
+function findWallBlocking(
+  walls: WallSegment[],
+  axis: "h" | "v",
+  from: number,
+  to: number,
+  perp: number,
+): WallSegment | null {
+  if (from === to) {
+    return null;
+  }
+  for (const wall of walls) {
+    if (wall.axis !== axis) {
+      continue;
+    }
+    if (perp < wall.start || perp > wall.end) {
+      continue;
+    }
+    if ((from < wall.fixed && to >= wall.fixed) || (from > wall.fixed && to <= wall.fixed)) {
+      return wall;
+    }
+  }
+  return null;
+}
+
+function resolveAxisMove(
+  walls: WallSegment[],
+  axis: "h" | "v",
+  from: number,
+  to: number,
+  perp: number,
+): number {
+  const wall = findWallBlocking(walls, axis, from, to, perp);
+  if (!wall) {
+    return to;
+  }
+  if (from < wall.fixed) {
+    const limit = wall.fixed - PLAYER_WALL_PADDING_PCT;
+    return Math.max(from, Math.min(to, limit));
+  }
+  const limit = wall.fixed + PLAYER_WALL_PADDING_PCT;
+  return Math.min(from, Math.max(to, limit));
+}
+
+export function resolveStageMove(
+  position: StageActorPosition,
+  deltaX: number,
+  deltaY: number,
+  walls: WallSegment[],
+): StageActorPosition {
+  const fromX = parseStagePct(position.left);
+  const fromY = parseStagePct(position.top);
+  const targetX = clampNumber(fromX + deltaX, PLAYER_STAGE_BOUNDS.minX, PLAYER_STAGE_BOUNDS.maxX);
+  const targetY = clampNumber(fromY + deltaY, PLAYER_STAGE_BOUNDS.minY, PLAYER_STAGE_BOUNDS.maxY);
+  const resolvedX = resolveAxisMove(walls, "v", fromX, targetX, fromY);
+  const resolvedY = resolveAxisMove(walls, "h", fromY, targetY, resolvedX);
+  return { left: pct(resolvedX), top: pct(resolvedY) };
+}
+
+export function getStagePanForPosition(
+  position: StageActorPosition,
+  stageSize: StageSize,
+  zoom: number,
+): StagePan {
+  const playerLeftPct = parseStagePct(position.left);
+  const playerTopPct = parseStagePct(position.top);
+  return {
+    x: -((playerLeftPct - 50) / 100) * stageSize.width * zoom,
+    y: -((playerTopPct - 50) / 100) * stageSize.height * zoom,
+  };
+}
+
+export function smoothStagePan(current: StagePan, target: StagePan, amount: number): StagePan {
+  return {
+    x: current.x + (target.x - current.x) * amount,
+    y: current.y + (target.y - current.y) * amount,
+  };
+}
+
+function getStageDistancePct(a: StageActorPosition, b: StageActorPosition): number {
+  const dx = parseStagePct(a.left) - parseStagePct(b.left);
+  const dy = parseStagePct(a.top) - parseStagePct(b.top);
+  return Math.hypot(dx, dy);
+}
+
+export function isNearQuestMarker(position: StageActorPosition): boolean {
+  return getStageDistancePct(position, QUEST_MARKER_POSITION) <= QUEST_INTERACTION_RADIUS_PCT;
+}
+
+export function getPlayerMoveDirection(key: string): { x: number; y: number } | null {
+  switch (key.toLowerCase()) {
+    case "arrowup":
+    case "w":
+      return { x: 0, y: -1 };
+    case "arrowdown":
+    case "s":
+      return { x: 0, y: 1 };
+    case "arrowleft":
+    case "a":
+      return { x: -1, y: 0 };
+    case "arrowright":
+    case "d":
+      return { x: 1, y: 0 };
+    default:
+      return null;
+  }
+}
+
+export function isPlayerMoveKey(key: string): boolean {
+  return getPlayerMoveDirection(key) != null;
+}
+
 export function createWorkspaceSceneEventBus(): WorkspaceSceneEventBus {
   const listeners = new Map<WorkspaceSceneEventType, Set<(event: WorkspaceSceneEvent) => void>>();
 

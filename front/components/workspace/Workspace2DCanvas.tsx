@@ -20,9 +20,14 @@ import {
   createWorkspaceAvatarNodes,
   createWorkspaceContextMenuState,
   createWorkspaceSceneEventBus,
+  buildStageWalls,
+  getPlayerMoveDirection,
   moveWorkspaceViewportByKey,
   panWorkspaceViewport,
+  resolveStageMove,
   zoomWorkspaceViewport,
+  type StageActorPosition,
+  type StageRoomSpec,
   type WorkspaceContextMenuAction,
   type WorkspaceContextMenuState,
   type WorkspaceSceneNode,
@@ -34,7 +39,10 @@ export type Workspace2DCanvasProps = {
   agents: WorkspaceAgent[];
   members: WorkspaceMember[];
   presenceMembers: WorkspacePresenceMember[];
+  playerPosition?: StageActorPosition | null;
+  rooms?: StageRoomSpec[];
   onPresenceMove?: (position: WorkspacePresencePosition) => void | Promise<void>;
+  onPlayerPositionChange?: (position: StageActorPosition) => void | Promise<void>;
   onActorSelect?: (node: WorkspaceSceneNode) => void;
 };
 
@@ -52,13 +60,17 @@ export default function Workspace2DCanvas({
   agents,
   members,
   presenceMembers,
+  playerPosition = null,
+  rooms = [],
   onPresenceMove,
+  onPlayerPositionChange,
   onActorSelect,
 }: Workspace2DCanvasProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const dragStateRef = useRef<DragState | null>(null);
   const eventBus = useMemo(() => createWorkspaceSceneEventBus(), []);
   const zones = useMemo(() => createWorkspaceSceneZones(), []);
+  const stageWalls = useMemo(() => buildStageWalls(rooms), [rooms]);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [contextMenu, setContextMenu] = useState<WorkspaceContextMenuState | null>(null);
   const [viewport, setViewport] = useState<WorkspaceViewport>(() =>
@@ -264,13 +276,26 @@ export default function Workspace2DCanvas({
 
   const handleKeyDown = useCallback(
     (event: ReactKeyboardEvent<HTMLDivElement>) => {
+      const moveDirection = getPlayerMoveDirection(event.key);
+      if (moveDirection && playerPosition && onPlayerPositionChange) {
+        event.preventDefault();
+        const nextPosition = resolveStageMove(
+          playerPosition,
+          moveDirection.x * 2,
+          moveDirection.y * 2,
+          stageWalls,
+        );
+        void onPlayerPositionChange(nextPosition);
+        return;
+      }
+
       const nextViewport = moveWorkspaceViewportByKey(viewport, event.key);
       if (nextViewport !== viewport) {
         event.preventDefault();
         setViewport(publishViewport(nextViewport));
       }
     },
-    [publishViewport, viewport],
+    [onPlayerPositionChange, playerPosition, publishViewport, stageWalls, viewport],
   );
 
   const activeAgents = agents.filter((agent) => agent.status === "READY").length;
@@ -324,6 +349,10 @@ export default function Workspace2DCanvas({
         <div>
           <span>Viewport</span>
           <strong>{`${Math.round(viewport.x)}, ${Math.round(viewport.y)}`}</strong>
+        </div>
+        <div>
+          <span>Player</span>
+          <strong>{playerPosition ? `${playerPosition.left}, ${playerPosition.top}` : "No signal"}</strong>
         </div>
       </div>
 
