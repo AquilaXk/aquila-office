@@ -2343,7 +2343,7 @@ h2 {
 
 .character-color-input {
   display: grid;
-  grid-template-columns: 28px 1fr;
+  grid-template-columns: 28px minmax(0, 1fr);
   align-items: center;
   gap: 10px;
 }
@@ -2358,6 +2358,34 @@ h2 {
 .character-color-field input[type="color"] {
   min-height: 42px;
   padding: 4px;
+}
+
+.character-color-palette {
+  display: grid;
+  grid-template-columns: repeat(5, 24px);
+  gap: 6px;
+}
+
+.character-color-token {
+  width: 24px;
+  height: 24px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  cursor: pointer;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14);
+}
+
+.character-color-token:disabled {
+  cursor: not-allowed;
+  filter: grayscale(0.72) brightness(0.72);
+  opacity: 0.58;
+}
+
+.character-color-token-active {
+  border-color: var(--gothic-brass);
+  box-shadow:
+    0 0 0 2px rgba(194, 163, 91, 0.22),
+    0 0 12px rgba(194, 163, 91, 0.28);
 }
 
 .character-preview {

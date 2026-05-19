@@ -26,6 +26,13 @@ type CharacterDraft = {
   avatarColors: Record<AvatarColorKey, string>;
 };
 
+type StoredCharacter = CharacterDraft & {
+  kind: string;
+  name: string;
+  colors: Record<AvatarColorKey, string>;
+  paletteOverride?: Record<AvatarColorKey, string>;
+};
+
 type ProfileLoadState =
   | { status: "loading"; error: null }
   | { status: "ready"; error: null }
@@ -40,32 +47,46 @@ const CHARACTER_STORAGE_KEY = "ai-office.character";
 
 const CHARACTER_ARCHETYPES = [
   {
-    value: "operator",
-    label: "Operator",
-    description: "운영 중심",
-    detail: "운영 프로필",
-    sigil: "O",
+    value: "frontend",
+    label: "Frontend",
+    description: "UI와 사용 흐름을 빠르게 다듬습니다.",
+    detail: "UI와 상태 흐름",
+    sigil: "F",
   },
   {
-    value: "analyst",
-    label: "Analyst",
-    description: "분석 중심",
-    detail: "분석 프로필",
-    sigil: "A",
+    value: "design",
+    label: "Design",
+    description: "팀이 볼 화면과 인터랙션을 정리합니다.",
+    detail: "화면과 상호작용",
+    sigil: "D",
   },
   {
-    value: "builder",
-    label: "Builder",
-    description: "구축 중심",
-    detail: "구축 프로필",
+    value: "backend",
+    label: "Backend",
+    description: "API와 데이터 흐름을 안정적으로 연결합니다.",
+    detail: "API와 데이터",
     sigil: "B",
   },
   {
-    value: "designer",
-    label: "Designer",
-    description: "설계 중심",
-    detail: "설계 프로필",
-    sigil: "D",
+    value: "product",
+    label: "Product",
+    description: "작업 우선순위와 사용자 맥락을 챙깁니다.",
+    detail: "우선순위와 맥락",
+    sigil: "P",
+  },
+  {
+    value: "devops",
+    label: "DevOps",
+    description: "실행 환경과 배포 흐름을 관리합니다.",
+    detail: "환경과 배포",
+    sigil: "O",
+  },
+  {
+    value: "ai",
+    label: "AI",
+    description: "에이전트와 협업해 작업을 진행합니다.",
+    detail: "에이전트 협업",
+    sigil: "A",
   },
 ] as const;
 
@@ -82,6 +103,12 @@ const COLOR_FIELDS: { key: AvatarColorKey; label: string }[] = [
   { key: "shirt", label: "상의" },
 ];
 
+const COLOR_PALETTE: Record<AvatarColorKey, string[]> = {
+  skin: ["#f8d4b0", "#f0c098", "#d8a878", "#9a6a48"],
+  hair: ["#1a1a1a", "#3a2a1a", "#a83a3a", "#5a3a8a", "#d8a838"],
+  shirt: ["#2a3a4a", "#3a5a3a", "#5a3a8a", "#a83a6a", "#d8c89a"],
+};
+
 const ORIGINAL_AVATAR_COLORS: Record<AvatarColorKey, string> = {
   skin: "#c8916b",
   hair: "#2b1f1a",
@@ -96,7 +123,7 @@ const CUSTOM_AVATAR_COLORS: Record<AvatarColorKey, string> = {
 
 const DEFAULT_CHARACTER: CharacterDraft = {
   displayName: "",
-  avatarKind: "operator",
+  avatarKind: "frontend",
   colorMode: "original",
   avatarColors: ORIGINAL_AVATAR_COLORS,
 };
@@ -370,6 +397,33 @@ function CharacterProfileForm() {
                       style={{ background: draft.avatarColors[field.key] }}
                       aria-hidden="true"
                     />
+                    <span className="character-color-palette" role="radiogroup" aria-label={`${field.label} 색상`}>
+                      {COLOR_PALETTE[field.key].map((color, index) => {
+                        const selected = draft.avatarColors[field.key].toLowerCase() === color;
+                        return (
+                          <button
+                            aria-label={`${field.label} 색상 ${index + 1}`}
+                            aria-checked={selected}
+                            className={`character-color-token ${selected ? "character-color-token-active" : ""}`}
+                            disabled={isSubmitting || draft.colorMode === "original"}
+                            key={color}
+                            onClick={() => {
+                              updateDraft((current) => ({
+                                ...current,
+                                colorMode: "custom",
+                                avatarColors: {
+                                  ...current.avatarColors,
+                                  [field.key]: color,
+                                },
+                              }));
+                            }}
+                            role="radio"
+                            style={{ background: color }}
+                            type="button"
+                          />
+                        );
+                      })}
+                    </span>
                     <input
                       aria-label={`${field.label} 색상`}
                       type="color"
@@ -468,9 +522,10 @@ function CharacterProfileForm() {
 
 function normalizeCharacterDraft(value: CharacterDraft): CharacterDraft {
   const colorMode: ColorMode = value.colorMode === "custom" ? "custom" : "original";
+  const normalizedKind = normalizeAvatarKind(value.avatarKind);
   return {
     displayName: typeof value.displayName === "string" ? value.displayName : "",
-    avatarKind: typeof value.avatarKind === "string" ? value.avatarKind : "operator",
+    avatarKind: normalizedKind,
     colorMode,
     avatarColors:
       colorMode === "original"
@@ -500,12 +555,23 @@ function loadStoredCharacter(): CharacterDraft | null {
     if (!rawCharacter) {
       return null;
     }
-    const parsedCharacter = JSON.parse(rawCharacter) as Partial<CharacterDraft>;
+    const parsedCharacter = JSON.parse(rawCharacter) as Partial<StoredCharacter>;
+    const colors = parsedCharacter.colors ?? parsedCharacter.avatarColors;
     return normalizeCharacterDraft({
-      displayName: typeof parsedCharacter.displayName === "string" ? parsedCharacter.displayName : "",
-      avatarKind: typeof parsedCharacter.avatarKind === "string" ? parsedCharacter.avatarKind : "operator",
+      displayName:
+        typeof parsedCharacter.name === "string"
+          ? parsedCharacter.name
+          : typeof parsedCharacter.displayName === "string"
+            ? parsedCharacter.displayName
+            : "",
+      avatarKind:
+        typeof parsedCharacter.kind === "string"
+          ? parsedCharacter.kind
+          : typeof parsedCharacter.avatarKind === "string"
+            ? parsedCharacter.avatarKind
+            : "frontend",
       colorMode: parsedCharacter.colorMode === "custom" ? "custom" : "original",
-      avatarColors: normalizeAvatarColors(parsedCharacter.avatarColors, ORIGINAL_AVATAR_COLORS),
+      avatarColors: normalizeAvatarColors(colors, ORIGINAL_AVATAR_COLORS),
     });
   } catch {
     return null;
@@ -517,7 +583,18 @@ function saveStoredCharacter(character: CharacterDraft) {
     return;
   }
 
-  window.localStorage.setItem(CHARACTER_STORAGE_KEY, JSON.stringify(normalizeCharacterDraft(character)));
+  const normalizedCharacter = normalizeCharacterDraft(character);
+  const storedCharacter: StoredCharacter = {
+    ...normalizedCharacter,
+    kind: normalizedCharacter.avatarKind,
+    name: normalizedCharacter.displayName,
+    colors: normalizedCharacter.avatarColors,
+    paletteOverride:
+      normalizedCharacter.colorMode === "custom"
+        ? normalizedCharacter.avatarColors
+        : undefined,
+  };
+  window.localStorage.setItem(CHARACTER_STORAGE_KEY, JSON.stringify(storedCharacter));
 }
 
 function colorsMatchOriginal(colors: Partial<Record<AvatarColorKey, string>>): boolean {
@@ -526,6 +603,20 @@ function colorsMatchOriginal(colors: Partial<Record<AvatarColorKey, string>>): b
 
 function validColor(value: string | undefined): value is string {
   return Boolean(value && /^#[0-9a-f]{6}$/i.test(value));
+}
+
+function normalizeAvatarKind(value: string): string {
+  if (AVATAR_OPTIONS.some((option) => option.value === value)) {
+    return value;
+  }
+
+  const legacyKindMap: Record<string, string> = {
+    operator: "frontend",
+    analyst: "design",
+    builder: "backend",
+    designer: "product",
+  };
+  return legacyKindMap[value] ?? "frontend";
 }
 
 function safeReturnTo(value: string | null): string {

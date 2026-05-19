@@ -16,10 +16,22 @@ test("auth page uses google login button and handles success failure and return 
 
   assert.match(source, /GoogleLogin/);
   assert.match(source, /loginWithGoogle/);
+  assert.match(source, /saveAuthTokens/);
   assert.match(source, /credential/);
   assert.match(source, /safeReturnTo/);
-  assert.match(source, /router.replace/);
+  assert.match(source, /nextStep/);
+  assert.match(source, /router\.replace\(nextStep\(returnTo\)\)/);
+  assert.doesNotMatch(source, /window\.location\.replace\(returnTo\)/);
   assert.doesNotMatch(source, /Google id token/);
+});
+
+test("title screen keeps unauthenticated continue on title screen", () => {
+  const source = readSource("app/page.tsx");
+
+  assert.match(source, /isAuthenticated/);
+  assert.match(source, /router\.push\(item\.href\)/);
+  assert.doesNotMatch(source, /router\.push\("\/auth\?returnTo=\/workspaces"\)/);
+  assert.doesNotMatch(source, /인증 화면으로 이동합니다/);
 });
 
 test("auth helper exposes authenticated session predicate", () => {

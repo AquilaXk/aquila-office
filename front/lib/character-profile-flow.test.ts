@@ -28,6 +28,17 @@ test("character profile flow exposes avatar kind and color mode controls", () =>
   assert.match(source, /Custom/);
 });
 
+test("character profile flow supports reference role options and color storage shape", () => {
+  for (const role of ["Frontend", "Design", "Backend", "Product", "DevOps", "AI"]) {
+    assert.match(source, new RegExp(role));
+  }
+
+  assert.match(source, /paletteOverride/);
+  assert.match(source, /skin/);
+  assert.match(source, /hair/);
+  assert.match(source, /shirt/);
+});
+
 test("character profile flow supports safe completion and retry", () => {
   assert.match(source, /safeReturnTo/);
   assert.match(source, /router\.replace\(returnTo\)/);
@@ -38,10 +49,6 @@ test("character profile flow supports safe completion and retry", () => {
 
 test("character profile exposes grimdark gothic sci-fi avatar art direction", () => {
   assert.match(source, /CHARACTER_ARCHETYPES/);
-  assert.match(source, /Operator/);
-  assert.match(source, /Analyst/);
-  assert.match(source, /Builder/);
-  assert.match(source, /Designer/);
   assert.match(source, /character-preview-gothic/);
   assert.match(source, /character-avatar-halo/);
   assert.match(source, /character-avatar-armor/);

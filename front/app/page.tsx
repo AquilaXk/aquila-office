@@ -18,8 +18,7 @@ export default function Home() {
 
   const activate = useCallback((item: (typeof MENU)[number]) => {
     if (item.action === "continue" && !isAuthenticated()) {
-      setNotice("로그인이 필요합니다. 인증 화면으로 이동합니다.");
-      router.push("/auth?returnTo=/workspaces");
+      setNotice("로그인이 필요합니다. LOGIN을 선택하세요.");
       return;
     }
 
