@@ -46,6 +46,22 @@ test("workspace detail page mounts the 2d workspace screen without replacing exi
   assert.match(source, /onlinePresenceMembers/);
 });
 
+test("workspace detail promotes the 2d workspace into a first-screen full stage surface", () => {
+  const detailSource = readSource("app/workspaces/[workspaceId]/page.tsx");
+  const canvasSource = readSource("components/workspace/Workspace2DCanvas.tsx");
+  const cssSource = readSource("app/globals.css");
+
+  assert.match(detailSource, /workspace-stage-route/);
+  assert.match(detailSource, /workspace-stage-surface/);
+  assert.match(detailSource, /variant="fullscreen"/);
+  assert.match(canvasSource, /variant\?: "panel" \| "fullscreen"/);
+  assert.match(canvasSource, /workspace-2d-frame-fullscreen/);
+  assert.match(cssSource, /\.workspace-stage-route/);
+  assert.match(cssSource, /\.workspace-stage-surface/);
+  assert.match(cssSource, /\.workspace-2d-frame-fullscreen/);
+  assert.match(cssSource, /min-height:\s*100svh/);
+});
+
 function readSource(filePath: string): string {
   return readFileSync(path.join(appRoot, filePath), "utf8");
 }

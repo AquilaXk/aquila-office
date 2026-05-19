@@ -384,11 +384,17 @@ test.describe("브라우저 UI UX 회귀", () => {
       .toContain("https://gateway.example.test");
     await closeTopDialog(page);
 
-    await expect(page.getByRole("heading", { name: "운영 요약" })).toBeVisible();
-    await expect(page.getByText("Regression smoke")).toBeVisible();
-
     const canvasFrame = page.getByRole("img", { name: "Agent and member 2D workspace scene" });
     await expect(canvasFrame).toBeVisible();
+    await expect(officeScene).toHaveClass(/workspace-stage-surface/);
+    const stageShell = page.locator(".workspace-2d-stage-shell").first();
+    await expect(stageShell).toBeVisible();
+    await expectStageShellToFillFirstScreen(page, stageShell);
+    await expectElementToTouchViewport(page, page.locator(".stage-room-engineering").first(), "engineering room");
+    if ((page.viewportSize()?.width ?? 0) >= 900) {
+      await expectElementToTouchViewport(page, page.locator(".stage-desk").first(), "engineering desk");
+    }
+    await expectElementToTouchViewport(page, page.locator(".stage-corridor").first(), "stage corridor");
     await expect(page.locator(".workspace-2d-hud")).toBeVisible();
     await expect(page.locator(".workspace-2d-minimap")).toBeVisible();
     await expect(page.locator(".workspace-2d-dialogue")).toBeVisible();
@@ -425,6 +431,10 @@ test.describe("브라우저 UI UX 회귀", () => {
     await taskDashboard.getByRole("button", { name: /Regression smoke/ }).click();
     await expect(taskDashboard.getByText(`Task #${taskId}`)).toBeVisible();
     await closeTopDialog(page);
+
+    await page.locator('section[aria-label="워크스페이스 대시보드 요약"]').scrollIntoViewIfNeeded();
+    await expect(page.getByRole("heading", { name: "운영 요약" })).toBeVisible();
+    await expect(page.getByText("Regression smoke")).toBeVisible();
 
     const taskCard = page.locator(".workspace-task-card").filter({ hasText: regressionTask.title });
     const taskStatusRequest = page.waitForRequest((request) => {
@@ -1073,6 +1083,37 @@ async function closeTopDialog(page: Page) {
   await page.getByRole("button", { name: "닫기" }).last().click();
 }
 
+async function expectStageShellToFillFirstScreen(page: Page, stageShell: Locator) {
+  const viewport = page.viewportSize();
+  const shellBox = await stageShell.boundingBox();
+  expect(shellBox).not.toBeNull();
+  expect(viewport).not.toBeNull();
+  if (!shellBox || !viewport) {
+    return;
+  }
+
+  expect(shellBox.y).toBeLessThanOrEqual(viewport.height * 0.34);
+  expect(shellBox.width).toBeGreaterThanOrEqual(viewport.width * 0.86);
+  expect(shellBox.height).toBeGreaterThanOrEqual(viewport.height * 0.64);
+}
+
+async function expectElementToTouchViewport(page: Page, locator: Locator, label: string) {
+  const viewport = page.viewportSize();
+  const box = await locator.boundingBox();
+  expect(box, `${label} should be rendered`).not.toBeNull();
+  expect(viewport).not.toBeNull();
+  if (!box || !viewport) {
+    return;
+  }
+
+  const intersectsViewport =
+    box.x < viewport.width &&
+    box.x + box.width > 0 &&
+    box.y < viewport.height &&
+    box.y + box.height > 0;
+  expect(intersectsViewport, `${label} should be visible in the first viewport`).toBe(true);
+}
+
 async function expectPanAndZoomToMoveViewport(page: Page, frame: Locator) {
   const zoomLabel = page.locator(".workspace-2d-controls span").first();
   const statusLabel = page.locator(".workspace-2d-status span").first();
@@ -1110,14 +1151,33 @@ async function expectKeyboardToMovePlayer(page: Page, frame: Locator, playerHudV
 }
 
 async function openAndAssert2DContextMenu(page: Page, frame: Locator) {
-  await frame.click({ button: "right", position: { x: 240, y: 180 } });
+  const box = await frame.boundingBox();
+  expect(box).not.toBeNull();
+  if (!box) {
+    return;
+  }
+  await frame.click({
+    button: "right",
+    position: {
+      x: Math.min(100, box.width * 0.24),
+      y: Math.min(Math.max(260, box.height * 0.52), box.height - 220),
+    },
+  });
   const focusAction = page.getByRole("button", { name: "Focus" }).first();
   if (!(await focusAction.isVisible().catch(() => false))) {
-    await page
-      .locator(".workspace-2d-roster")
+    const qaAgentActor = page
+      .locator(".workspace-2d-actor-layer")
       .getByRole("button", { name: /QA Agent/ })
-      .first()
-      .click({ button: "right" });
+      .first();
+    if ((page.viewportSize()?.width ?? 0) >= 900 && (await qaAgentActor.isVisible().catch(() => false))) {
+      await qaAgentActor.click({ button: "right" });
+    } else {
+      await page
+        .locator(".workspace-2d-roster")
+        .getByRole("button", { name: /QA Agent/ })
+        .first()
+        .click({ button: "right" });
+    }
   }
   await expect(focusAction).toBeVisible();
   await expect(page.getByRole("button", { name: "Profile" })).toBeVisible();
