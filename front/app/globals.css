@@ -4587,6 +4587,10 @@ h2 {
   gap: 14px;
 }
 
+.workspace-metric-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
 .status-panel {
   border-color: var(--gothic-line);
   background:
@@ -4762,6 +4766,10 @@ h2 {
   }
 
   .status-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .workspace-metric-grid {
     grid-template-columns: 1fr;
   }
 

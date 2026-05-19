@@ -27,8 +27,17 @@ test("workspaces route owns the list flow instead of re-exporting home", () => {
   assert.doesNotMatch(source, /export default HomePage/);
   assert.match(source, /fetchWorkspaces/);
   assert.match(source, /logoutAuth/);
+  assert.match(source, /router\.replace\("\/"\)/);
   assert.match(source, /\/workspaces\/gateway/);
   assert.match(source, /\/workspaces\/new/);
+  assert.match(source, /WORKPLACES JOINED/);
+  assert.match(source, /TASKS · ACTIVE/);
+  assert.match(source, /AGENT ALLIES/);
+  assert.match(source, /TASKS · DONE/);
+  assert.match(source, /W\$\{String\(index \+ 1\)\.padStart\(3, "0"\)\}/);
+  assert.match(source, /workspace\.agentCount/);
+  assert.match(source, /workspace\.runningTaskCount/);
+  assert.match(source, /ENTER/);
   assert.match(source, /가입된 워크스페이스가 없습니다/);
   assert.match(source, /목록을 불러오지 못했습니다/);
 });
