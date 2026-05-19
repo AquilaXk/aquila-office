@@ -29,12 +29,11 @@ test("title screen exposes gothic operations visual tokens", () => {
 });
 
 test("auth screen follows the title screen visual system", () => {
-  assert.match(authSource, /SERVICE_NAME/);
-  assert.match(authSource, /BRAND_MASCOT_PATH/);
-  assert.match(authSource, /auth-crest/);
-  assert.match(authSource, /auth-menu-line/);
-  assert.match(cssSource, /\.auth-page/);
-  assert.match(cssSource, /\.auth-crest/);
-  assert.match(cssSource, /\.auth-google-action/);
-  assert.match(cssSource, /max-width:\s*100%/);
+  assert.match(authSource, /T4Screen/);
+  assert.match(authSource, /T4Panel/);
+  assert.match(authSource, /SIGN IN TO CONTINUE/);
+  assert.match(authSource, /WORKSPACE MEMBER VERIFICATION/);
+  assert.match(authSource, /GoogleLogin/);
+  assert.match(cssSource, /styles\/tokens\.css/);
+  assert.match(cssSource, /styles\/theme-web\.css/);
 });

@@ -9,14 +9,16 @@ const settingsSource = readSource("app/workspaces/[workspaceId]/settings/page.ts
 
 test("workspace detail and settings expose shared navigation routes", () => {
   assert.match(detailSource, /aria-label="워크스페이스 내비게이션"/);
-  assert.match(settingsSource, /aria-label="워크스페이스 내비게이션"/);
+  assert.match(settingsSource, /BACK TO WORKSPACE/);
   assert.match(detailSource, /href="\/workspaces"/);
-  assert.match(settingsSource, /href="\/workspaces"/);
+  assert.match(settingsSource, /href=\{`\/workspaces\/\$\{workspaceIdNumber\}`\}/);
   assert.match(detailSource, /<span>Connection settings<\/span>/);
 });
 
 test("workspace integrations are entered from the office scene instead of settings", () => {
-  assert.match(settingsSource, /const SHOW_CONNECTION_SETTINGS = false;/);
+  assert.doesNotMatch(settingsSource, /Slack 설정으로/);
+  assert.doesNotMatch(settingsSource, /GitHub 설정으로/);
+  assert.doesNotMatch(settingsSource, /Gateway 설정으로/);
   assert.match(detailSource, /officeSceneNavItems/);
   assert.match(detailSource, /connections/);
   assert.match(detailSource, /openConnectionModal\("selector"\)/);

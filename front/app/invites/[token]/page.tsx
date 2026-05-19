@@ -1,315 +1,329 @@
 "use client";
 
-import {
-  AlertCircle,
-  Clock3,
-  Loader2,
-  Mail,
-  RefreshCw,
-  ShieldCheck,
-  UserPlus,
-  WifiOff,
-} from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { use, useCallback, useEffect, useMemo, useState } from "react";
-import { ApiError } from "@/lib/api";
-import { isAuthenticated, resolveAccessToken } from "@/lib/auth";
+import { use, useEffect, useState } from "react";
+import { Button } from "@/components/ui";
+import { GlyphText, T4Screen, T4Panel, PixelAvatar } from "@/components/arcade";
+import { t4 } from "@/components/arcade/tokens";
+import { getStoredUser, type ApiError } from "@/lib/api-client";
 import {
-  acceptWorkspaceInvite,
-  fetchWorkspaceInvite,
-  type AcceptedWorkspaceInvite,
-  type WorkspaceInvite,
-} from "@/lib/invites";
+  acceptInvite,
+  getInviteInfo,
+  type InviteInfo,
+} from "@/lib/api/invites";
 
-type InviteState =
-  | { status: "loading"; invite: null; accepted: null; error: null }
-  | { status: "ready"; invite: WorkspaceInvite; accepted: null; error: null }
-  | { status: "accepted"; invite: WorkspaceInvite; accepted: AcceptedWorkspaceInvite; error: null }
-  | { status: "error" | "offline"; invite: null; accepted: null; error: string };
+type LoadState =
+  | { kind: "loading" }
+  | { kind: "ready"; invite: InviteInfo }
+  | { kind: "error"; message: string };
 
-export default function WorkspaceInviteAcceptPage({
+export default function InviteAcceptPage({
   params,
 }: {
   params: Promise<{ token: string }>;
 }) {
   const { token } = use(params);
   const router = useRouter();
-  const [state, setState] = useState<InviteState>({
-    status: "loading",
-    invite: null,
-    accepted: null,
-    error: null,
-  });
-  const [isAccepting, setIsAccepting] = useState(false);
-  const [acceptError, setAcceptError] = useState<string | null>(null);
-
-  const reloadInvite = useCallback(async () => {
-    if (!isAuthenticated()) {
-      router.replace("/");
-      return;
-    }
-
-    setState({ status: "loading", invite: null, accepted: null, error: null });
-    setAcceptError(null);
-
-    try {
-      const invite = await fetchWorkspaceInvite(token);
-      setState({ status: "ready", invite, accepted: null, error: null });
-    } catch (error) {
-      setState(toFailureState(error, "초대 정보를 확인하지 못했습니다."));
-    }
-  }, [router, token]);
+  const [state, setState] = useState<LoadState>({ kind: "loading" });
+  const [accepting, setAccepting] = useState(false);
+  const [acceptError, setAcceptError] = useState("");
 
   useEffect(() => {
-    let ignore = false;
-
-    async function loadInitialInvite() {
-      if (!isAuthenticated()) {
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (cancelled) return;
+      if (!getStoredUser()) {
         router.replace("/");
-        return;
       }
-
-      try {
-        const invite = await fetchWorkspaceInvite(token);
-        if (!ignore) {
-          setState({ status: "ready", invite, accepted: null, error: null });
-        }
-      } catch (error) {
-        if (!ignore) {
-          setState(toFailureState(error, "초대 정보를 확인하지 못했습니다."));
-        }
-      }
-    }
-
-    void loadInitialInvite();
-
+    });
     return () => {
-      ignore = true;
+      cancelled = true;
     };
   }, [router, token]);
 
-  const invite = state.invite;
-  const expired = invite ? isInviteExpired(invite) : false;
-  const isPending = invite?.status === "PENDING" && !expired;
-  const inviteRole = invite?.role ?? "MEMBER";
-  const workspaceName = invite?.workspaceName ?? (invite ? `Workspace #${invite.workspaceId}` : "-");
-  const blockedReason = useMemo(() => {
-    if (!invite || (invite.status === "PENDING" && !expired)) {
-      return null;
-    }
-    if (invite.status === "ACCEPTED") {
-      return "이미 수락된 초대입니다.";
-    }
-    if (invite.status === "REVOKED") {
-      return "취소된 초대입니다.";
-    }
-    return "만료된 초대입니다.";
-  }, [expired, invite]);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const invite = await getInviteInfo(token);
+        if (!cancelled) setState({ kind: "ready", invite });
+      } catch (err) {
+        const apiErr = err as ApiError;
+        if (!cancelled) {
+          setState({
+            kind: "error",
+            message: apiErr?.message ?? "초대 정보를 불러오지 못했습니다.",
+          });
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [token]);
 
-  const acceptInvite = async () => {
-    if (!isPending) {
-      return;
-    }
-
-    setIsAccepting(true);
-    setAcceptError(null);
-
+  async function handleAccept() {
+    setAcceptError("");
+    setAccepting(true);
     try {
-      await acceptWorkspaceInvite(token, resolveAccessToken());
+      await acceptInvite(token);
       router.replace("/workspaces");
-    } catch (error) {
-      setAcceptError(messageFromError(error, "초대를 수락하지 못했습니다."));
-    } finally {
-      setIsAccepting(false);
+    } catch (err) {
+      const apiErr = err as ApiError;
+      setAcceptError(apiErr?.message ?? "초대 수락에 실패했습니다.");
+      setAccepting(false);
     }
-  };
+  }
 
   return (
-    <main className="invite-shell">
-      <section className="invite-panel" aria-label="워크스페이스 초대">
-        <header className="invite-header">
-          <div className="invite-header-icon">
-            <UserPlus aria-hidden="true" />
-          </div>
-          <div>
-            <p className="eyebrow">Workspace Invite</p>
-            <h1>워크스페이스 초대</h1>
-          </div>
-        </header>
-
-        {state.status === "loading" ? (
-          <InviteStateMessage
-            tone="neutral"
-            icon={<Loader2 className="spin" aria-hidden="true" />}
-            title="초대 확인 중"
-            message="초대 링크 정보를 불러오고 있습니다."
-          />
-        ) : null}
-
-        {state.status === "error" || state.status === "offline" ? (
-          <InviteStateMessage
-            tone={state.status === "offline" ? "offline" : "danger"}
-            icon={
-              state.status === "offline" ? (
-                <WifiOff aria-hidden="true" />
-              ) : (
-                <AlertCircle aria-hidden="true" />
-              )
-            }
-            title={state.status === "offline" ? "연결 실패" : "초대 확인 실패"}
-            message={state.error}
-            action={
-              <button className="secondary-action" type="button" onClick={() => void reloadInvite()}>
-                <RefreshCw aria-hidden="true" />
-                <span>다시 시도</span>
-              </button>
-            }
-          />
-        ) : null}
-
-        {invite ? (
-          <section className="invite-content" aria-label="초대 정보">
-            <div className="invite-summary">
-              <div className="invite-summary-icon">
-                <Mail aria-hidden="true" />
-              </div>
-              <div>
-                <span className="invite-label">Workspace</span>
-                <strong>{workspaceName}</strong>
-                <p>{formatInviteTarget(invite)}</p>
-              </div>
-            </div>
-
-            <dl className="invite-meta">
-              <div>
-                <dt>Role</dt>
-                <dd>{inviteRole}</dd>
-              </div>
-              <div>
-                <dt>Status</dt>
-                <dd>
-                  <span className={`invite-status invite-status-${invite.status.toLowerCase()}`}>
-                    {invite.status}
-                  </span>
-                </dd>
-              </div>
-              <div>
-                <dt>Expires</dt>
-                <dd>{formatDateTime(invite.expiresAt)}</dd>
-              </div>
-              <div>
-                <dt>Expired</dt>
-                <dd>{expired ? "YES" : "NO"}</dd>
-              </div>
-            </dl>
-
-            {blockedReason ? (
-              <div className="invite-notice invite-notice-danger">
-                <AlertCircle aria-hidden="true" />
-                <span>{blockedReason}</span>
-              </div>
-            ) : null}
-
-            {acceptError ? (
-              <div className="invite-notice invite-notice-danger">
-                <AlertCircle aria-hidden="true" />
-                <span>{acceptError}</span>
-              </div>
-            ) : null}
-
-            <button
-              className="invite-accept-button"
-              type="button"
-              onClick={() => void acceptInvite()}
-              disabled={!isPending || isAccepting}
+    <T4Screen title="WORKSPACE INVITE · WARP IN">
+      <div
+        style={{
+          height: "100%",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: "30px 22px",
+        }}
+      >
+        <div
+          style={{
+            width: "100%",
+            maxWidth: 520,
+            display: "flex",
+            flexDirection: "column",
+            gap: 20,
+          }}
+        >
+          <header style={{ textAlign: "center" }}>
+            <div
+              style={{
+                fontFamily: "var(--font-pixel)",
+                fontSize: 8,
+                letterSpacing: 3,
+                color: t4.pink,
+                marginBottom: 6,
+              }}
             >
-              {isAccepting ? <Loader2 className="spin" aria-hidden="true" /> : <ShieldCheck aria-hidden="true" />}
-              <span>{isAccepting ? "수락 중" : "초대 수락"}</span>
-            </button>
-          </section>
-        ) : null}
-      </section>
+              <GlyphText glyph="◆">INVITATION</GlyphText>
+            </div>
+            <h1
+              style={{
+                fontFamily: "var(--font-pixel)",
+                fontSize: 22,
+                letterSpacing: 2,
+                margin: 0,
+                color: t4.ink,
+                textShadow: `0 0 12px ${t4.pink}80`,
+              }}
+            >
+              JOIN A WORKSPACE
+            </h1>
+            <p
+              style={{
+                fontFamily: "var(--font-mono-arcade)",
+                fontSize: 11,
+                color: t4.dim,
+                marginTop: 8,
+              }}
+            >
+              Confirm the summon and warp into the workspace.
+            </p>
+          </header>
 
-      <aside className="invite-side" aria-label="수락 정보">
-        <div>
-          <Clock3 aria-hidden="true" />
-          <strong>{invite ? formatDateTime(invite.expiresAt) : "-"}</strong>
-          <span>초대 만료 시각</span>
+          <T4Panel label="SUMMON" accent={t4.pink} style={{ position: "relative", padding: 22 }}>
+            {state.kind === "loading" && <Skeleton />}
+            {state.kind === "error" && (
+              <p
+                style={{
+                  textAlign: "center",
+                  fontFamily: "var(--font-mono-arcade)",
+                  fontSize: 12,
+                  color: t4.hp,
+                }}
+              >
+                <GlyphText glyph="⚠">{state.message}</GlyphText>
+              </p>
+            )}
+            {state.kind === "ready" && (
+              <InviteBody
+                invite={state.invite}
+                accepting={accepting}
+                acceptError={acceptError}
+                onAccept={handleAccept}
+              />
+            )}
+          </T4Panel>
+
+          <Link
+            href="/workspaces"
+            style={{
+              fontFamily: "var(--font-pixel)",
+              fontSize: 8,
+              letterSpacing: 2,
+              color: t4.dim,
+              textDecoration: "none",
+              textAlign: "center",
+            }}
+          >
+            <GlyphText glyph="▷">MY WORKSPACES</GlyphText>
+          </Link>
         </div>
-        <div>
-          <ShieldCheck aria-hidden="true" />
-          <strong>{resolveAccessToken() ? "설정됨" : "미설정"}</strong>
-          <span>개발 access token</span>
-        </div>
-      </aside>
-    </main>
+      </div>
+    </T4Screen>
   );
 }
 
-function InviteStateMessage({
-  tone,
-  icon,
-  title,
-  message,
-  action,
+function InviteBody({
+  invite,
+  accepting,
+  acceptError,
+  onAccept,
 }: {
-  tone: "neutral" | "danger" | "offline";
-  icon: React.ReactNode;
-  title: string;
-  message: string;
-  action?: React.ReactNode;
+  invite: InviteInfo;
+  accepting: boolean;
+  acceptError: string;
+  onAccept: () => void;
 }) {
+  const blocked = invite.expired || invite.status !== "PENDING";
+  const blockedReason =
+    invite.status === "ACCEPTED"
+      ? "이미 수락된 초대입니다."
+      : invite.status === "REVOKED"
+        ? "폐기된 초대입니다."
+        : invite.expired || invite.status === "EXPIRED"
+          ? "만료된 초대입니다."
+          : null;
+  const roleColor = invite.role === "ADMIN" ? t4.pink : t4.mp;
+
   return (
-    <div className={`invite-state invite-state-${tone}`}>
-      {icon}
-      <strong>{title}</strong>
-      <p>{message}</p>
-      {action}
+    <div className="flex flex-col gap-5">
+      <div className="flex items-start gap-4">
+        <div
+          style={{
+            padding: 8,
+            border: `1px solid ${t4.pink}`,
+            background: "rgba(0,0,0,0.4)",
+            boxShadow: `0 0 10px ${t4.pink}50`,
+            flexShrink: 0,
+          }}
+        >
+          <PixelAvatar kind="mira" size={3} />
+        </div>
+        <div className="min-w-0 flex flex-col gap-2">
+          <p
+            className="break-words"
+            style={{
+              fontFamily: "var(--font-pixel)",
+              fontSize: 12,
+              letterSpacing: 1.5,
+              color: t4.ink,
+              margin: 0,
+              textShadow: `0 0 6px ${t4.pink}80`,
+            }}
+          >
+            <GlyphText glyph="♦" truncate>{invite.workspaceName.toUpperCase()}</GlyphText>
+          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            <span
+              style={{
+                fontFamily: "var(--font-pixel)",
+                fontSize: 7,
+                letterSpacing: 1,
+                color: roleColor,
+                padding: "3px 6px",
+                border: `1px solid ${roleColor}`,
+              }}
+            >
+              {invite.role}
+            </span>
+            <span
+              style={{
+                fontFamily: "var(--font-mono-arcade)",
+                fontSize: 10,
+                color: t4.dim,
+              }}
+            >
+              ⌛ expires {formatDateTime(invite.expiresAt)}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {blockedReason && (
+        <p
+          style={{
+            fontFamily: "var(--font-mono-arcade)",
+            fontSize: 11,
+            color: t4.hp,
+            textAlign: "center",
+            padding: "10px",
+            border: `1px solid ${t4.hp}`,
+            background: "rgba(255,85,119,0.06)",
+          }}
+        >
+          <GlyphText glyph="⚠">{blockedReason}</GlyphText>
+        </p>
+      )}
+
+      {acceptError && (
+        <p
+          style={{
+            fontFamily: "var(--font-mono-arcade)",
+            fontSize: 11,
+            color: t4.hp,
+            textAlign: "center",
+          }}
+        >
+          <GlyphText glyph="⚠">{acceptError}</GlyphText>
+        </p>
+      )}
+
+      <Button
+        onClick={onAccept}
+        loading={accepting}
+        disabled={blocked}
+        className="w-full"
+      >
+        <GlyphText glyph="▶">{blocked ? "LOCKED" : "ACCEPT SUMMON"}</GlyphText>
+      </Button>
     </div>
   );
 }
 
-function toFailureState(error: unknown, fallback: string): InviteState {
-  if (error instanceof ApiError) {
-    return {
-      status: "error",
-      invite: null,
-      accepted: null,
-      error: error.message,
-    };
+function Skeleton() {
+  return (
+    <div className="flex flex-col gap-3" style={{ animation: "t4-pulse 1.4s ease-in-out infinite" }}>
+      <div className="flex gap-4">
+        <div
+          style={{
+            width: 56,
+            height: 56,
+            border: `1px solid ${t4.line}`,
+            background: "rgba(0,0,0,0.3)",
+          }}
+        />
+        <div className="flex-1 flex flex-col gap-2">
+          <div style={{ height: 10, background: "rgba(255,255,255,0.04)", width: "70%" }} />
+          <div style={{ height: 8, background: "rgba(255,255,255,0.04)", width: "40%" }} />
+        </div>
+      </div>
+      <div style={{ height: 36, background: "rgba(255,255,255,0.04)" }} />
+    </div>
+  );
+}
+
+function formatDateTime(iso: string): string {
+  try {
+    return new Date(iso).toLocaleString("ko-KR", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  } catch {
+    return iso;
   }
-
-  return {
-    status: "offline",
-    invite: null,
-    accepted: null,
-    error: fallback,
-  };
-}
-
-function messageFromError(error: unknown, fallback: string): string {
-  if (error instanceof ApiError) {
-    return error.message;
-  }
-  return fallback;
-}
-
-function isInviteExpired(invite: WorkspaceInvite): boolean {
-  if (typeof invite.expired === "boolean") {
-    return invite.expired;
-  }
-
-  const expiresAt = new Date(invite.expiresAt);
-  return !Number.isNaN(expiresAt.getTime()) && expiresAt.getTime() <= Date.now();
-}
-
-function formatInviteTarget(invite: WorkspaceInvite): string {
-  return invite.targetEmail?.trim() || "SHARE LINK";
-}
-
-function formatDateTime(value: string): string {
-  return new Intl.DateTimeFormat("ko-KR", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(new Date(value));
 }

@@ -1,6 +1,8 @@
 import { apiFetch } from "@/lib/api";
+import { resolveAccessToken } from "@/lib/auth";
 
 export type WorkspaceMemberRole = "ADMIN" | "MEMBER";
+export type WorkspaceRole = WorkspaceMemberRole;
 
 export type WorkspaceSummary = {
   workspaceId: number;
@@ -86,6 +88,10 @@ export async function fetchWorkspaces(accessToken: string): Promise<WorkspaceSum
   });
 }
 
+export async function listWorkspaces(): Promise<WorkspaceSummary[]> {
+  return fetchWorkspaces(resolveAccessToken());
+}
+
 export async function fetchWorkspaceDetail(
   accessToken: string,
   workspaceId: number,
@@ -95,6 +101,10 @@ export async function fetchWorkspaceDetail(
   });
 }
 
+export async function getWorkspace(workspaceId: number): Promise<WorkspaceDetail> {
+  return fetchWorkspaceDetail(resolveAccessToken(), workspaceId);
+}
+
 export async function fetchWorkspaceMembers(
   accessToken: string,
   workspaceId: number,
@@ -102,6 +112,10 @@ export async function fetchWorkspaceMembers(
   return apiFetch<WorkspaceMember[]>(`/api/v1/workspaces/${workspaceId}/members`, {
     accessToken,
   });
+}
+
+export async function listWorkspaceMembers(workspaceId: number): Promise<WorkspaceMember[]> {
+  return fetchWorkspaceMembers(resolveAccessToken(), workspaceId);
 }
 
 export async function fetchWorkspaceDashboardSummary(
@@ -128,10 +142,19 @@ export async function fetchWorkspaceMemberTaskStats(
   );
 }
 
+export async function createWorkspace(input: CreateWorkspaceInput): Promise<WorkspaceSummary>;
 export async function createWorkspace(
   accessToken: string,
   input: CreateWorkspaceInput,
+): Promise<WorkspaceSummary>;
+export async function createWorkspace(
+  accessTokenOrInput: string | CreateWorkspaceInput,
+  maybeInput?: CreateWorkspaceInput,
 ): Promise<WorkspaceSummary> {
+  const accessToken =
+    typeof accessTokenOrInput === "string" ? accessTokenOrInput : resolveAccessToken();
+  const input = typeof accessTokenOrInput === "string" ? maybeInput : accessTokenOrInput;
+
   return apiFetch<WorkspaceSummary>("/api/v1/workspaces", {
     method: "POST",
     accessToken,
@@ -140,10 +163,30 @@ export async function createWorkspace(
 }
 
 export async function updateWorkspace(
+  workspaceId: number,
+  input: UpdateWorkspaceInput,
+): Promise<WorkspaceDetail>;
+export async function updateWorkspace(
   accessToken: string,
   workspaceId: number,
   input: UpdateWorkspaceInput,
+): Promise<WorkspaceDetail>;
+export async function updateWorkspace(
+  accessTokenOrWorkspaceId: string | number,
+  workspaceIdOrInput: number | UpdateWorkspaceInput,
+  maybeInput?: UpdateWorkspaceInput,
 ): Promise<WorkspaceDetail> {
+  const accessToken =
+    typeof accessTokenOrWorkspaceId === "string" ? accessTokenOrWorkspaceId : resolveAccessToken();
+  const workspaceId =
+    typeof accessTokenOrWorkspaceId === "string"
+      ? (workspaceIdOrInput as number)
+      : accessTokenOrWorkspaceId;
+  const input =
+    typeof accessTokenOrWorkspaceId === "string"
+      ? maybeInput
+      : (workspaceIdOrInput as UpdateWorkspaceInput);
+
   return apiFetch<WorkspaceDetail>(`/api/v1/workspaces/${workspaceId}`, {
     method: "PATCH",
     accessToken,
@@ -151,10 +194,17 @@ export async function updateWorkspace(
   });
 }
 
+export async function deleteWorkspace(workspaceId: number): Promise<void>;
+export async function deleteWorkspace(accessToken: string, workspaceId: number): Promise<void>;
 export async function deleteWorkspace(
-  accessToken: string,
-  workspaceId: number,
+  accessTokenOrWorkspaceId: string | number,
+  maybeWorkspaceId?: number,
 ): Promise<void> {
+  const accessToken =
+    typeof accessTokenOrWorkspaceId === "string" ? accessTokenOrWorkspaceId : resolveAccessToken();
+  const workspaceId =
+    typeof accessTokenOrWorkspaceId === "string" ? maybeWorkspaceId : accessTokenOrWorkspaceId;
+
   return apiFetch<void>(`/api/v1/workspaces/${workspaceId}`, {
     method: "DELETE",
     accessToken,
@@ -174,6 +224,14 @@ export async function changeWorkspaceMemberRole(
   });
 }
 
+export async function changeMemberRole(
+  workspaceId: number,
+  memberId: number,
+  role: WorkspaceMemberRole,
+): Promise<void> {
+  return changeWorkspaceMemberRole(resolveAccessToken(), workspaceId, memberId, role);
+}
+
 export async function removeWorkspaceMember(
   accessToken: string,
   workspaceId: number,
@@ -183,4 +241,8 @@ export async function removeWorkspaceMember(
     method: "DELETE",
     accessToken,
   });
+}
+
+export async function removeMember(workspaceId: number, memberId: number): Promise<void> {
+  return removeWorkspaceMember(resolveAccessToken(), workspaceId, memberId);
 }

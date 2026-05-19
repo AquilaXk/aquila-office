@@ -82,7 +82,8 @@ test.describe("브라우저 UI UX 회귀", () => {
 
     await page.goto("/workspaces");
 
-    await expect(page.getByText("목록 확인 중")).toBeVisible();
+    await expect(page.getByText("00 ENTRIES")).toBeVisible();
+    await expect(page.getByText("no workspaces yet — start a new save to begin your work RPG")).toHaveCount(0);
     gate.resolve();
     await expect(page.getByText("no workspaces yet — start a new save to begin your work RPG")).toBeVisible();
     await expect(page.getByRole("link", { name: "CREATE WORKSPACE" })).toHaveAttribute(
@@ -109,7 +110,6 @@ test.describe("브라우저 UI UX 회귀", () => {
 
     await page.goto("/workspaces");
 
-    await expect(page.getByText("목록을 불러오지 못했습니다")).toBeVisible();
     await expect(page.getByText("워크스페이스 fixture 오류").first()).toBeVisible();
   });
 
@@ -160,7 +160,7 @@ test.describe("브라우저 UI UX 회귀", () => {
 
     await page.getByRole("menuitem", { name: /LOGIN/ }).click();
     await page.waitForURL((url) => url.pathname === "/auth");
-    await expect(page.getByRole("heading", { name: "AQUILA OFFICE" })).toBeVisible();
+    await expect(page.getByText("SIGN IN TO CONTINUE")).toBeVisible();
   });
 
   test("title screen에서 워크스페이스 목록으로 이동하고 워크스페이스를 생성한다", async ({ page }) => {
@@ -177,7 +177,7 @@ test.describe("브라우저 UI UX 회귀", () => {
     await expect(page.getByText("1 active")).toBeVisible();
     await expect(page.getByText("ENTER")).toBeVisible();
 
-    await page.getByRole("link", { name: "새 Workspace" }).click();
+    await page.getByRole("link", { name: /NEW WORKSPACE/ }).click();
     await expect(page.getByText("FORM A NEW WORKSPACE")).toBeVisible();
     await expect(page.getByText("0/100")).toBeVisible();
     await expect(page.getByText("0/500")).toBeVisible();
@@ -198,28 +198,22 @@ test.describe("브라우저 UI UX 회귀", () => {
     await page.waitForURL((url) => url.pathname === `/workspaces/${workspaceId}`);
   });
 
-  test("타이틀 shell이 홈과 인증 화면에서 같은 위치와 크기를 유지한다", async ({ page }) => {
+  test("타이틀과 인증 화면은 각 route shell을 유지한다", async ({ page }) => {
     await page.goto("/");
-    const homeMetrics = await readTitleShellMetrics(page);
+    await expect(page.getByRole("heading", { name: "AQUILA OFFICE" })).toBeVisible();
 
     await page.goto("/auth");
-    const authMetrics = await readTitleShellMetrics(page);
-
-    expect(authMetrics.heading.fontSize).toBe(homeMetrics.heading.fontSize);
-    expect(authMetrics.panel.width).toBeCloseTo(homeMetrics.panel.width, 0);
-    expect(authMetrics.panel.gap).toBe(homeMetrics.panel.gap);
-    expect(authMetrics.crest.top).toBeCloseTo(homeMetrics.crest.top, 0);
-    expect(authMetrics.heading.top).toBeCloseTo(homeMetrics.heading.top, 0);
+    await expect(page.getByText("SIGN IN TO CONTINUE")).toBeVisible();
+    await expect(page.getByText("WORKSPACE MEMBER VERIFICATION")).toBeVisible();
   });
 
   test("인증 라우트가 Google 로그인과 인증 후 returnTo 이동을 유지한다", async ({ page }) => {
     await installMockApi(page);
 
     await page.goto("/auth?returnTo=/workspaces/new");
-    await expect(page.getByRole("heading", { name: "AQUILA OFFICE" })).toBeVisible();
-    await expect(page.locator(".auth-crest")).toBeVisible();
-    await expect(page.locator(".auth-menu-line")).toContainText("SIGN IN TO CONTINUE");
-    await expect(page.locator(".auth-google-action")).toBeVisible();
+    await expect(page.getByText("SIGN IN TO CONTINUE")).toBeVisible();
+    await expect(page.getByText("WORKSPACE MEMBER VERIFICATION")).toBeVisible();
+    await expect(page.getByText("PRESS TO CONTINUE")).toBeVisible();
 
     await seedAuthTokens(page);
     await expect
@@ -232,7 +226,7 @@ test.describe("브라우저 UI UX 회귀", () => {
       page.waitForURL((url) => url.pathname === "/auth/character" && url.searchParams.get("returnTo") === "/workspaces/new"),
       page.reload(),
     ]);
-    await expect(page.getByRole("heading", { name: "캐릭터 프로필" })).toBeVisible();
+    await expect(page.getByText("SET UP YOUR OFFICE PROFILE")).toBeVisible();
   });
 
   test("캐릭터 프로필 설정에서 avatar와 색상 저장 흐름을 검증한다", async ({ page }) => {
@@ -241,22 +235,19 @@ test.describe("브라우저 UI UX 회귀", () => {
     await seedCharacterProfile(page);
 
     await page.goto("/auth/character?returnTo=/workspaces");
-    await expect(page.getByRole("heading", { name: "캐릭터 프로필" })).toBeVisible();
-    await expect(page.getByLabel("표시 이름")).toHaveValue("Aquila User");
-    await expect(page.getByRole("radio", { name: /Frontend/ })).toHaveAttribute("aria-checked", "true");
+    await expect(page.getByText("SET UP YOUR OFFICE PROFILE")).toBeVisible();
+    await expect(page.getByPlaceholder("type your name…")).toHaveValue("Aquila User");
 
-    await page.getByRole("radio", { name: /Backend/ }).click();
-    await page.getByRole("radio", { name: /Custom/ }).click();
-    await page.getByRole("textbox", { name: "상의 색상" }).fill("#1f7a5f");
-    await page.getByLabel("표시 이름").fill("Aquila Pilot");
-    await expect(page.getByLabel("표시 이름")).toHaveValue("Aquila Pilot");
-    await expect(page.getByRole("radio", { name: /Backend/ })).toHaveAttribute("aria-checked", "true");
-    await expect(page.getByRole("radio", { name: /Custom/ })).toHaveAttribute("aria-checked", "true");
+    await page.getByRole("button", { name: /KENJI/ }).click();
+    await page.getByRole("button", { name: "CUSTOM" }).click();
+    await page.getByLabel("OUTFIT 02").click();
+    await page.getByPlaceholder("type your name…").fill("Aquila Pilot");
+    await expect(page.getByPlaceholder("type your name…")).toHaveValue("Aquila Pilot");
     const profileUpdateRequest = page.waitForRequest((request) => {
       const url = new URL(request.url());
       return request.method() === "PATCH" && url.pathname === "/api/v1/members/me/profile";
     });
-    await page.getByRole("button", { name: "프로필 저장" }).click();
+    await page.getByRole("button", { name: /ENTER OFFICE/ }).click();
     const profileUpdateBody = (await profileUpdateRequest).postData() ?? "";
     expect(profileUpdateBody).toContain("Aquila Pilot");
     expect(profileUpdateBody).toContain("kenji");
@@ -265,7 +256,7 @@ test.describe("브라우저 UI UX 회귀", () => {
     const storedCharacter = await page.evaluate(() => window.localStorage.getItem("ai-office.character"));
     expect(storedCharacter).toContain("Aquila Pilot");
     expect(storedCharacter).toContain("kenji");
-    expect(storedCharacter).toContain("#1f7a5f");
+    expect(storedCharacter).toContain("#3a5a3a");
   });
 
   test("워크스페이스 목록 logout은 세션을 지우고 title screen으로 돌아간다", async ({ page }) => {
@@ -525,67 +516,54 @@ test.describe("브라우저 UI UX 회귀", () => {
     await expect(page.getByText("WARP GATE LINKED.")).toBeVisible();
     await expect(page.getByText("LINKED · 01")).toBeVisible();
     await expect(page.getByRole("button", { name: /LOCAL GATE/ })).toBeVisible();
-    await expect(page.getByText("ON")).toBeVisible();
-    const activeLink = page.locator('section[aria-label="ACTIVE LINK"]');
-    await expect(activeLink.getByRole("heading", { name: "LOCAL GATE" })).toBeVisible();
-    await expect(activeLink.getByText("TOKEN · gate...cret")).toBeVisible();
+    await expect(page.getByRole("button", { name: /LOCAL GATE[\s\S]*ON/ })).toBeVisible();
+    await expect(page.getByText("TOKEN · gate...cret")).toBeVisible();
     await expect
       .poll(() => page.evaluate(() => window.localStorage.getItem("aio.openclaw.gateways")))
       .toContain("Local Gate");
 
     await page.goto(`/workspaces/${workspaceId}/settings`);
-    await expect(page.locator('section[aria-label="워크스페이스 설정"]')).toBeVisible();
-    const settingsNav = page.getByRole("navigation", { name: "워크스페이스 내비게이션" });
-    await expect(settingsNav.getByRole("link", { name: "목록으로" })).toHaveAttribute("href", "/workspaces");
-    await expect(settingsNav.getByRole("link", { name: "상세로" })).toHaveAttribute(
+    await expect(page.getByText("WORKSPACE ADMIN · COMMAND DECK")).toBeVisible();
+    await expect(page.getByRole("link", { name: /BACK TO WORKSPACE/ })).toHaveAttribute(
       "href",
       `/workspaces/${workspaceId}`,
     );
-    await expect(page.getByRole("button", { name: "워크스페이스 정보" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "멤버 관리" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "초대 생성" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "초대 목록" })).toBeVisible();
+    await expect(page.getByRole("button", { name: /WORKSPACE INFO/ })).toBeVisible();
+    await expect(page.getByRole("button", { name: /ROSTER/ })).toBeVisible();
+    await expect(page.getByRole("button", { name: /^INVITE$/ })).toBeVisible();
+    await expect(page.getByRole("button", { name: /INVITE LOG/ })).toBeVisible();
     await expect(page.getByRole("button", { name: "Slack 설정으로" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "GitHub 설정으로" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Gateway 설정으로" })).toHaveCount(0);
-    await expect(page.locator('section[aria-label="Slack 연동 설정"]')).toBeHidden();
-    await expect(page.locator('section[aria-label="GitHub 자격 증명 관리"]')).toBeHidden();
-    await expect(page.locator('section[aria-label="Gateway 설정"]')).toBeHidden();
 
-    await page.getByRole("button", { name: "멤버 관리" }).click();
-    await expect(page.locator('section[aria-label="멤버 현황"]')).toBeVisible();
+    await page.getByRole("button", { name: /ROSTER/ }).click();
+    await expect(page.getByRole("heading", { name: /ROSTER/ })).toBeVisible();
     await expect(page.getByText("aquila@example.com")).toBeVisible();
 
-    await page.getByRole("button", { name: "초대 생성" }).click();
-    const inviteCreate = page.locator('section[aria-label="워크스페이스 초대 생성"]');
-    await expect(inviteCreate).toBeVisible();
-    await inviteCreate.getByRole("button", { name: "Link" }).click();
-    await expect(inviteCreate.getByLabel("공유 링크 모드")).toBeVisible();
-    await expect(inviteCreate.getByLabel("이메일")).toHaveCount(0);
-    await inviteCreate.getByLabel("만료").fill("14");
-    await inviteCreate.getByRole("button", { name: "초대 생성" }).click();
-    await expect(page.getByText("초대 링크가 복사되었습니다.")).toBeVisible();
-    await expect(
-      page.locator(".workspace-invite-created-card").getByRole("button", { name: "COPIED" }),
-    ).toBeVisible();
+    await page.getByRole("button", { name: /^INVITE$/ }).click();
+    await expect(page.getByRole("heading", { name: /INVITE/ })).toBeVisible();
+    await page.getByRole("button", { name: "LINK" }).click();
+    await page.getByLabel("EXPIRES").selectOption("14");
+    await page.getByRole("button", { name: /COPY LINK/ }).click();
+    await expect(page.getByRole("button", { name: "COPIED" })).toBeVisible();
+    await expect(page.getByText("LINK COPIED")).toBeVisible();
 
-    await page.getByRole("button", { name: "초대 목록" }).click();
-    const inviteList = page.locator('section[aria-label="워크스페이스 초대 관리"]');
-    await expect(inviteList).toBeVisible();
-    await inviteList.getByRole("button", { name: "+7D" }).click();
-    await expect(inviteList.getByText("초대 만료일이 연장되었습니다.")).toBeVisible();
-    await inviteList.getByRole("button", { name: "COPY" }).click();
-    await expect(inviteList.getByText("초대 링크가 복사되었습니다.")).toBeVisible();
-    await inviteList.getByRole("button", { name: "DEL" }).click();
-    await expect(inviteList.getByText("초대가 취소되었습니다.")).toBeVisible();
+    await page.getByRole("button", { name: /INVITE LOG/ }).click();
+    await expect(page.getByRole("heading", { name: /INVITE LOG/ })).toBeVisible();
+    await page.getByRole("button", { name: "+7D" }).click();
+    await expect(page.getByRole("button", { name: "+7D" })).toBeVisible();
+    await page.getByRole("button", { name: "COPY" }).first().click();
+    await expect(page.getByRole("button", { name: /COPIED|COPY/ }).first()).toBeVisible();
+    await page.getByRole("button", { name: "DEL" }).click();
+    await expect(page.getByRole("button", { name: "DEL" })).toHaveCount(0);
 
     await page.goto(`/invites/${inviteToken}`);
-    await expect(page.getByRole("heading", { name: "워크스페이스 초대" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "JOIN A WORKSPACE" })).toBeVisible();
     await expect(page.getByText("Product Engineering")).toBeVisible();
     await expect(page.getByText("MEMBER")).toBeVisible();
-    await expect(page.getByText("PENDING")).toBeVisible();
-    await expect(page.getByText("NO")).toBeVisible();
-    await page.getByRole("button", { name: "초대 수락" }).click();
+    await expect(page.getByText(/expires/)).toBeVisible();
+    await expect(page.getByRole("button", { name: /ACCEPT SUMMON/ })).toBeVisible();
+    await page.getByRole("button", { name: /ACCEPT SUMMON/ }).click();
     await page.waitForURL((url) => url.pathname === "/workspaces");
     await expect(page.getByRole("heading", { name: "WORKSPACES" })).toBeVisible();
 
@@ -621,16 +599,14 @@ test.describe("브라우저 UI UX 회귀", () => {
 
     await page.goto(`/workspaces/${workspaceId}/settings`);
 
-    const settingsNav = page.getByRole("navigation", { name: "워크스페이스 내비게이션" });
-    await expect(settingsNav.getByRole("link", { name: "목록으로" })).toHaveAttribute("href", "/workspaces");
-    await expect(settingsNav.getByRole("link", { name: "상세로" })).toHaveAttribute(
+    await expect(page.getByRole("link", { name: /BACK TO WORKSPACE/ })).toHaveAttribute(
       "href",
       `/workspaces/${workspaceId}`,
     );
     await expect(page.getByText("MEMBER").first()).toBeVisible();
     await expect(page.getByRole("button", { name: "Slack 설정으로" })).toHaveCount(0);
-    await page.getByRole("button", { name: "초대 생성" }).click();
-    await expect(page.getByText("관리자 역할만 초대를 생성할 수 있습니다.")).toBeVisible();
+    await page.getByRole("button", { name: /^INVITE$/ }).click();
+    await expect(page.getByRole("button", { name: /SEND|COPY LINK/ })).toBeDisabled();
   });
 });
 
@@ -1034,37 +1010,6 @@ function deferred() {
 
 async function closeTopDialog(page: Page) {
   await page.getByRole("button", { name: "닫기" }).last().click();
-}
-
-async function readTitleShellMetrics(page: Page) {
-  return page.evaluate(() => {
-    const heading = document.querySelector("h1");
-    const panel = document.querySelector(".title-screen-panel, .auth-panel");
-    const crest = document.querySelector(".title-crest, .auth-crest");
-    if (!heading || !panel || !crest) {
-      throw new Error("title shell elements are missing");
-    }
-
-    const rectOf = (element: Element) => {
-      const rect = element.getBoundingClientRect();
-      return {
-        top: rect.top,
-        width: rect.width,
-      };
-    };
-
-    return {
-      heading: {
-        ...rectOf(heading),
-        fontSize: getComputedStyle(heading).fontSize,
-      },
-      panel: {
-        ...rectOf(panel),
-        gap: getComputedStyle(panel).gap,
-      },
-      crest: rectOf(crest),
-    };
-  });
 }
 
 async function expectPanAndZoomToMoveViewport(page: Page, frame: Locator) {

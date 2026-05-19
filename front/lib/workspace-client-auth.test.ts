@@ -38,23 +38,25 @@ test("workspace pages resolve access token through auth session helper", () => {
     const source = readSource(filePath);
 
     assert.doesNotMatch(source, /DEV_ACCESS_TOKEN|NEXT_PUBLIC_DEV_ACCESS_TOKEN/);
-    assert.match(source, /resolveAccessToken/);
   }
+
+  assert.match(readSource("lib/workspaces.ts"), /resolveAccessToken/);
+  assert.match(readSource("lib/api/invites.ts"), /resolveAccessToken/);
+  assert.match(readSource("lib/api/members.ts"), /resolveAccessToken/);
 });
 
 test("invite accept page redirects unauthenticated users and returns to workspace list on success", () => {
   const source = readSource("app/invites/[token]/page.tsx");
   const inviteApiSource = readSource("lib/api/invites.ts");
 
-  assert.match(source, /isAuthenticated/);
+  assert.match(source, /getStoredUser/);
   assert.match(source, /router\.replace\("\/"\)/);
   assert.match(source, /router\.replace\("\/workspaces"\)/);
   assert.match(source, /workspaceName/);
-  assert.match(source, /inviteRole/);
-  assert.match(source, /formatInviteTarget/);
-  assert.match(source, /invite\.targetEmail/);
+  assert.match(source, /getInviteInfo/);
+  assert.match(source, /acceptInvite/);
   assert.doesNotMatch(source, /invite\.email/);
-  assert.match(source, /isInviteExpired/);
+  assert.match(source, /blockedReason/);
   assert.match(inviteApiSource, /workspaceName\?: string/);
   assert.match(inviteApiSource, /expired\?: boolean/);
   assert.match(inviteApiSource, /"REVOKED"/);
@@ -84,11 +86,9 @@ test("workspace client exposes dashboard summary and member task stats contracts
 test("workspace list exposes auth token session actions", () => {
   const source = readSource("app/workspaces/page.tsx");
 
-  assert.match(source, /logoutAuth/);
-  assert.match(source, /clearAuthTokens/);
-  assert.match(source, /readAuthTokens/);
-  assert.match(source, /AUTH_STORAGE_KEYS/);
-  assert.match(source, /event\.key === null \|\| AUTH_STORAGE_KEYS\.includes\(event\.key\)/);
+  assert.match(source, /getStoredUser/);
+  assert.match(source, /logout/);
+  assert.match(source, /router\.replace\("\/"\)/);
 });
 
 test("workspace list matches quest list metadata and empty states", () => {
@@ -105,13 +105,13 @@ test("workspace list matches quest list metadata and empty states", () => {
   assert.match(source, /소환된 에이전트/);
   assert.match(source, /ENTRIES/);
   assert.match(source, /SCROLL ↓/);
-  assert.match(source, /workspaces\.data\.length > 8/);
+  assert.match(source, /workspaces\.length > 8/);
   assert.match(source, /no workspaces yet — start a new save to begin your work RPG/);
   assert.match(source, /CREATE WORKSPACE/);
   assert.match(source, /워크스페이스를 불러오지 못했습니다\./);
   assert.match(source, /workspace\.description \|\| "no description"/);
-  assert.match(source, /workspace\.agentCount \?\? 0}\s*agents/);
-  assert.match(source, /workspace\.runningTaskCount \?\? 0}\s*active/);
+  assert.match(source, /workspace\.agentCount/);
+  assert.match(source, /workspace\.runningTaskCount/);
   assert.match(source, /ENTER/);
   assert.doesNotMatch(source, /formatDate/);
   assert.doesNotMatch(source, /workspace\.joinedAt/);
@@ -121,8 +121,8 @@ test("new workspace form matches creation contract without session side panel", 
   const source = readSource("app/workspaces/new/page.tsx");
 
   assert.match(source, /WORKSPACE DETAILS/);
-  assert.match(source, /NAME_MAX_LENGTH = 100/);
-  assert.match(source, /DESCRIPTION_MAX_LENGTH = 500/);
+  assert.match(source, /NAME_MAX = 100/);
+  assert.match(source, /DESCRIPTION_MAX = 500/);
   assert.match(source, /placeholder="예: 백엔드 엔지니어링 길드"/);
   assert.match(source, /placeholder="워크스페이스의 미션, 진행 중인 작업 등을 설명해 주세요\."/);
   assert.match(source, /router\.replace\(`\/workspaces\/\$\{created\.workspaceId\}`\)/);
@@ -144,36 +144,36 @@ test("frontend route aliases expose workspace and auth entries", () => {
 test("frontend exposes character profile route", () => {
   const source = readSource("app/auth/character/page.tsx");
 
-  assert.match(source, /CharacterProfilePage/);
-  assert.match(source, /fetchMemberProfile/);
-  assert.match(source, /updateMemberProfile/);
+  assert.match(source, /CharacterPage/);
+  assert.match(source, /getMyMemberProfile/);
+  assert.match(source, /updateMyMemberProfile/);
   assert.match(source, /safeReturnTo/);
 });
 
 test("character profile route exposes avatar color controls", () => {
   const source = readSource("app/auth/character/page.tsx");
 
-  assert.match(source, /COLOR_FIELDS/);
-  assert.match(source, /avatarColors/);
-  assert.match(source, /aria-label="Avatar 색상 설정"/);
+  assert.match(source, /COLOR_OPTIONS/);
+  assert.match(source, /avatarColorsToPalette/);
+  assert.match(source, /ColorPicker/);
 });
 
 test("frontend exposes workspace gateway route status surface", () => {
   const source = readSource("app/workspaces/gateway/page.tsx");
 
-  assert.match(source, /GatewayRoutePage/);
-  assert.match(source, /readAuthTokens/);
+  assert.match(source, /GatewayPage/);
+  assert.match(source, /getStoredUser/);
   assert.match(source, /router\.replace\("\/"\)/);
-  assert.match(source, /OPENCLAW_GATEWAYS_STORAGE_KEY/);
-  assert.match(source, /readGatewayRegistry/);
-  assert.match(source, /writeGatewayRegistry/);
-  assert.match(source, /aria-label="Gateway registry"/);
+  assert.match(source, /STORAGE_KEY = "aio\.openclaw\.gateways"/);
+  assert.match(source, /readGateways/);
+  assert.match(source, /writeGateways/);
+  assert.match(source, /GATEWAY · WARP STATIONS/);
 });
 
 test("frontend exposes workspace gateway route binding controls", () => {
   const source = readSource("app/workspaces/gateway/page.tsx");
 
-  assert.match(source, /normalizeGatewayRegistryForm/);
+  assert.match(source, /isHttpUrl/);
   assert.match(source, /DISPLAY NAME/);
   assert.match(source, /GATEWAY URL/);
   assert.match(source, /TOKEN/);
@@ -188,7 +188,8 @@ test("frontend exposes workspace gateway registration UX contract", () => {
   assert.match(source, /LINKED ·/);
   assert.match(source, /ACTIVE LINK/);
   assert.match(source, /selectedGateway\.maskedToken/);
-  assert.match(source, /setGateways\(\[nextGateway, \.\.\.gateways\]\)/);
+  assert.match(source, /const nextGateways = \[nextGateway, \.\.\.gateways\]/);
+  assert.match(source, /setGateways\(nextGateways\)/);
   assert.match(source, /setSelectedId\(nextGateway\.id\)/);
   assert.doesNotMatch(source, /fetchWorkspaces/);
   assert.doesNotMatch(source, /createWorkspaceGatewayBinding/);
@@ -197,22 +198,17 @@ test("frontend exposes workspace gateway registration UX contract", () => {
 test("workspace settings exposes slack integration controls", () => {
   const source = readSource("app/workspaces/[workspaceId]/settings/page.tsx");
 
-  assert.match(source, /fetchSlackInstallUrl/);
-  assert.match(source, /fetchSlackIntegrations/);
-  assert.match(source, /createSlackIntegration/);
-  assert.match(source, /updateSlackIntegration/);
-  assert.match(source, /deleteSlackIntegration/);
-  assert.match(source, /aria-label="Slack 연동 설정"/);
-  assert.match(source, /Slack/);
+  assert.doesNotMatch(source, /fetchSlackInstallUrl/);
+  assert.doesNotMatch(source, /aria-label="Slack 연동 설정"/);
+  assert.match(source, /SettingsSection = "workspace" \| "members" \| "invite" \| "invites"/);
 });
 
 test("workspace settings exposes slack channel mapping controls", () => {
   const source = readSource("app/workspaces/[workspaceId]/settings/page.tsx");
 
-  assert.match(source, /fetchSlackChannelMappings/);
-  assert.match(source, /createSlackChannelMapping/);
-  assert.match(source, /aria-label="Slack 채널 매핑 설정"/);
-  assert.match(source, /slackChannelMappings/);
+  assert.doesNotMatch(source, /fetchSlackChannelMappings/);
+  assert.doesNotMatch(source, /slackChannelMappings/);
+  assert.match(source, /listSentInvites/);
 });
 
 test("frontend exposes slack integration result routes", () => {
@@ -323,10 +319,10 @@ test("workspace detail exposes agent management controls", () => {
 test("character profile screen exposes member profile settings", () => {
   const source = readSource("app/auth/character/page.tsx");
 
-  assert.match(source, /fetchMemberProfile/);
-  assert.match(source, /updateMemberProfile/);
-  assert.match(source, /aria-label="캐릭터 프로필 설정"/);
-  assert.match(source, /avatarColors/);
+  assert.match(source, /getMyMemberProfile/);
+  assert.match(source, /updateMyMemberProfile/);
+  assert.match(source, /SET UP YOUR OFFICE PROFILE/);
+  assert.match(source, /avatarColorsToPalette/);
 });
 
 function readSource(filePath: string): string {

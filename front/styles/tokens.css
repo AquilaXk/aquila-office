@@ -54,6 +54,13 @@
   --text-muted: var(--t4-dim);
   --text-dim: #706958;
 
+  /* Font aliases expected by the imported UI shell. */
+  --font-sans: Arial, Helvetica, sans-serif;
+  --font-mixed-ko: Arial, Helvetica, sans-serif;
+  --font-pixel: Arial, Helvetica, sans-serif;
+  --font-mono-arcade: "Courier New", ui-monospace, monospace;
+  --font-arcade-mono: var(--font-mono-arcade);
+
   /* Spacing aliases */
   --gap-tight: 4px;
   --gap-normal: 8px;

@@ -27,8 +27,9 @@ test("workspaces route owns the list flow instead of re-exporting home", () => {
   const source = readSource("app/workspaces/page.tsx");
 
   assert.doesNotMatch(source, /export default HomePage/);
-  assert.match(source, /fetchWorkspaces/);
-  assert.match(source, /logoutAuth/);
+  assert.match(source, /listWorkspaces/);
+  assert.match(source, /logout/);
+  assert.match(source, /getStoredUser/);
   assert.match(source, /router\.replace\("\/"\)/);
   assert.match(source, /\/workspaces\/gateway/);
   assert.match(source, /\/workspaces\/new/);
@@ -36,25 +37,25 @@ test("workspaces route owns the list flow instead of re-exporting home", () => {
   assert.match(source, /TASKS · ACTIVE/);
   assert.match(source, /AGENT ALLIES/);
   assert.match(source, /TASKS · DONE/);
-  assert.match(source, /W\$\{String\(index \+ 1\)\.padStart\(3, "0"\)\}/);
+  assert.match(source, /W\{String\(index \+ 1\)\.padStart\(3, "0"\)\}/);
   assert.match(source, /workspace\.agentCount/);
   assert.match(source, /workspace\.runningTaskCount/);
   assert.match(source, /ENTER/);
   assert.match(source, /no workspaces yet — start a new save to begin your work RPG/);
   assert.match(source, /CREATE WORKSPACE/);
-  assert.match(source, /목록을 불러오지 못했습니다/);
+  assert.match(source, /워크스페이스를 불러오지 못했습니다/);
 });
 
 test("new workspace route returns to the workspace list", () => {
   const source = readSource("app/workspaces/new/page.tsx");
 
   assert.match(source, /useRouter/);
-  assert.match(source, /readAuthTokens/);
+  assert.match(source, /getStoredUser/);
   assert.match(source, /router\.replace\("\/"\)/);
   assert.match(source, /href="\/workspaces"/);
   assert.doesNotMatch(source, /href="\/"/);
-  assert.match(source, /NAME_MAX_LENGTH = 100/);
-  assert.match(source, /DESCRIPTION_MAX_LENGTH = 500/);
+  assert.match(source, /NAME_MAX = 100/);
+  assert.match(source, /DESCRIPTION_MAX = 500/);
   assert.match(source, /name\.trim\(\)/);
   assert.match(source, /description\.trim\(\) \|\| undefined/);
   assert.match(source, /router\.replace\(`\/workspaces\/\$\{created\.workspaceId\}`\)/);

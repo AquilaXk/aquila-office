@@ -1,700 +1,734 @@
 "use client";
 
-import {
-  AlertCircle,
-  ArrowLeft,
-  Check,
-  Loader2,
-  RotateCcw,
-  Save,
-  UserRound,
-} from "lucide-react";
-import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useCallback, useEffect, useRef, useState, type FormEvent } from "react";
+import { Suspense, useEffect, useState } from "react";
+import { isAuthenticated } from "@/lib/auth";
 import {
+  getMyMemberProfile,
+  updateMyMemberProfile,
+  type MemberProfile,
+} from "@/lib/api/members";
+import {
+  GlyphText,
+  T4Screen,
+  T4Panel,
   PixelAvatar,
   PA_PALETTES,
-  type PixelAvatarKind,
   type PixelAvatarPaletteOverride,
+  type PixelAvatarKind,
 } from "@/components/arcade";
-import { ApiError } from "@/lib/api";
-import { resolveAccessToken } from "@/lib/auth";
-import { fetchMemberProfile, updateMemberProfile } from "@/lib/members";
+import { t4 } from "@/components/arcade/tokens";
 
-type AvatarColorKey = "skin" | "hair" | "shirt";
+interface AvatarOption {
+  kind: PixelAvatarKind;
+  role: string;
+  sub: string;
+}
+
+const AVATARS: AvatarOption[] = [
+  { kind: "alex", role: "Frontend", sub: "UI와 사용 흐름을 빠르게 다듬습니다." },
+  { kind: "mira", role: "Design", sub: "팀이 볼 화면과 인터랙션을 정리합니다." },
+  { kind: "kenji", role: "Backend", sub: "API와 데이터 흐름을 안정적으로 연결합니다." },
+  { kind: "yuna", role: "Product", sub: "작업 우선순위와 사용자 맥락을 챙깁니다." },
+  { kind: "diego", role: "DevOps", sub: "실행 환경과 배포 흐름을 관리합니다." },
+  { kind: "iris", role: "AI", sub: "에이전트와 협업해 작업을 진행합니다." },
+];
+
+type ColorTarget = "skin" | "hair" | "shirt";
 type ColorMode = "original" | "custom";
 
-type CharacterDraft = {
-  displayName: string;
-  avatarKind: PixelAvatarKind;
-  colorMode: ColorMode;
-  avatarColors: Record<AvatarColorKey, string>;
+interface ColorOption {
+  label: string;
+  value: string;
+  shade: string;
+}
+
+type AvatarColors = Record<ColorTarget, ColorOption>;
+
+const COLOR_OPTIONS: Record<ColorTarget, ColorOption[]> = {
+  skin: [
+    { label: "01", value: "#f8d4b0", shade: "#c8a47a" },
+    { label: "02", value: "#f0c098", shade: "#c08868" },
+    { label: "03", value: "#d8a878", shade: "#a87848" },
+    { label: "04", value: "#9a6a48", shade: "#6f472f" },
+  ],
+  hair: [
+    { label: "01", value: "#1a1a1a", shade: "#0a0a0a" },
+    { label: "02", value: "#3a2a1a", shade: "#1f1410" },
+    { label: "03", value: "#a83a3a", shade: "#6a1f1f" },
+    { label: "04", value: "#5a3a8a", shade: "#2a1a4a" },
+    { label: "05", value: "#d8a838", shade: "#a87808" },
+  ],
+  shirt: [
+    { label: "01", value: "#2a3a4a", shade: "#15202c" },
+    { label: "02", value: "#3a5a3a", shade: "#1a3a1a" },
+    { label: "03", value: "#5a3a8a", shade: "#2a1a4a" },
+    { label: "04", value: "#a83a6a", shade: "#681a3a" },
+    { label: "05", value: "#d8c89a", shade: "#a89868" },
+  ],
 };
 
-type StoredCharacter = CharacterDraft & {
-  kind: PixelAvatarKind;
-  name: string;
-  colors: Record<AvatarColorKey, string>;
-  paletteOverride?: PixelAvatarPaletteOverride;
-};
-
-type ProfileLoadState =
-  | { status: "loading"; error: null }
-  | { status: "ready"; error: null }
-  | { status: "error"; error: string };
-
-type ProfileSaveState = {
-  status: "idle" | "submitting" | "success" | "error";
-  message: string | null;
+const DEFAULT_COLORS: AvatarColors = {
+  skin: COLOR_OPTIONS.skin[0],
+  hair: COLOR_OPTIONS.hair[0],
+  shirt: COLOR_OPTIONS.shirt[0],
 };
 
 const CHARACTER_STORAGE_KEY = "ai-office.character";
+const AVATAR_KINDS = AVATARS.map((a) => a.kind);
 
-const CHARACTER_ARCHETYPES: Array<{
-  value: PixelAvatarKind;
-  label: string;
-  description: string;
-  detail: string;
-  sigil: string;
-}> = [
-  {
-    value: "alex",
-    label: "Frontend",
-    description: "UI와 사용 흐름을 빠르게 다듬습니다.",
-    detail: "UI와 상태 흐름",
-    sigil: "F",
-  },
-  {
-    value: "mira",
-    label: "Design",
-    description: "팀이 볼 화면과 인터랙션을 정리합니다.",
-    detail: "화면과 상호작용",
-    sigil: "D",
-  },
-  {
-    value: "kenji",
-    label: "Backend",
-    description: "API와 데이터 흐름을 안정적으로 연결합니다.",
-    detail: "API와 데이터",
-    sigil: "B",
-  },
-  {
-    value: "yuna",
-    label: "Product",
-    description: "작업 우선순위와 사용자 맥락을 챙깁니다.",
-    detail: "우선순위와 맥락",
-    sigil: "P",
-  },
-  {
-    value: "diego",
-    label: "DevOps",
-    description: "실행 환경과 배포 흐름을 관리합니다.",
-    detail: "환경과 배포",
-    sigil: "O",
-  },
-  {
-    value: "iris",
-    label: "AI",
-    description: "에이전트와 협업해 작업을 진행합니다.",
-    detail: "에이전트 협업",
-    sigil: "A",
-  },
-];
+function originalColorsFor(kind: PixelAvatarKind): AvatarColors {
+  const palette = PA_PALETTES[kind] ?? PA_PALETTES.mira;
+  return {
+    skin: { label: "ORIGINAL", value: palette.skin, shade: palette.skin2 },
+    hair: { label: "ORIGINAL", value: palette.hair, shade: palette.hair2 },
+    shirt: { label: "ORIGINAL", value: palette.shirt, shade: palette.shirt2 },
+  };
+}
 
-const AVATAR_OPTIONS = CHARACTER_ARCHETYPES;
+function isOriginalColorSet(
+  kind: PixelAvatarKind,
+  colors?: Partial<Record<ColorTarget, string>>,
+) {
+  const original = originalColorsFor(kind);
+  return (
+    colors?.skin === original.skin.value &&
+    colors?.hair === original.hair.value &&
+    colors?.shirt === original.shirt.value
+  );
+}
 
-const COLOR_MODE_OPTIONS: { value: ColorMode; label: string; description: string }[] = [
-  { value: "original", label: "Original", description: "서비스 기본 색상" },
-  { value: "custom", label: "Custom", description: "직접 색상 선택" },
-];
+function avatarColorsToPalette(colors: AvatarColors): PixelAvatarPaletteOverride {
+  return {
+    skin: colors.skin.value,
+    skin2: colors.skin.shade,
+    hair: colors.hair.value,
+    hair2: colors.hair.shade,
+    shirt: colors.shirt.value,
+    shirt2: colors.shirt.shade,
+  };
+}
 
-const COLOR_FIELDS: { key: AvatarColorKey; label: string }[] = [
-  { key: "skin", label: "피부" },
-  { key: "hair", label: "머리" },
-  { key: "shirt", label: "상의" },
-];
+function loadSavedCharacter(): {
+  kind: PixelAvatarKind;
+  name: string;
+  colors: AvatarColors;
+  colorMode: ColorMode;
+} {
+  if (typeof window === "undefined") {
+    return { kind: "mira", name: "", colors: DEFAULT_COLORS, colorMode: "original" };
+  }
+  try {
+    const raw = window.localStorage.getItem(CHARACTER_STORAGE_KEY);
+    if (!raw) return { kind: "mira", name: "", colors: DEFAULT_COLORS, colorMode: "original" };
+    const saved = JSON.parse(raw) as {
+      kind?: string;
+      name?: string;
+      colors?: Partial<Record<ColorTarget, string>>;
+      colorMode?: ColorMode;
+    };
+    const kind =
+      saved.kind && AVATAR_KINDS.includes(saved.kind as PixelAvatarKind)
+        ? (saved.kind as PixelAvatarKind)
+        : "mira";
+    const name = typeof saved.name === "string" ? saved.name : "";
+    const colorMode =
+      saved.colorMode === "original" || isOriginalColorSet(kind, saved.colors)
+        ? "original"
+        : "custom";
+    return {
+      kind,
+      name,
+      colorMode,
+      colors: {
+        skin: findColorOption("skin", saved.colors?.skin),
+        hair: findColorOption("hair", saved.colors?.hair),
+        shirt: findColorOption("shirt", saved.colors?.shirt),
+      },
+    };
+  } catch {
+    return { kind: "mira", name: "", colors: DEFAULT_COLORS, colorMode: "original" };
+  }
+}
 
-const COLOR_PALETTE: Record<AvatarColorKey, string[]> = {
-  skin: ["#f8d4b0", "#f0c098", "#d8a878", "#9a6a48"],
-  hair: ["#1a1a1a", "#3a2a1a", "#a83a3a", "#5a3a8a", "#d8a838"],
-  shirt: ["#2a3a4a", "#3a5a3a", "#5a3a8a", "#a83a6a", "#d8c89a"],
-};
+function characterFromProfile(profile: MemberProfile): {
+  kind: PixelAvatarKind;
+  name: string;
+  colors: AvatarColors;
+  colorMode: ColorMode;
+} {
+  const kind = AVATAR_KINDS.includes(profile.avatarKind as PixelAvatarKind)
+    ? (profile.avatarKind as PixelAvatarKind)
+    : "mira";
+  return {
+    kind,
+    name: profile.displayName,
+    colorMode: isOriginalColorSet(kind, profile.avatarColors) ? "original" : "custom",
+    colors: {
+      skin: findColorOption("skin", profile.avatarColors?.skin),
+      hair: findColorOption("hair", profile.avatarColors?.hair),
+      shirt: findColorOption("shirt", profile.avatarColors?.shirt),
+    },
+  };
+}
 
-const ORIGINAL_AVATAR_COLORS: Record<AvatarColorKey, string> = originalColorsFor("mira");
+function writeSavedCharacter(
+  kind: PixelAvatarKind,
+  name: string,
+  colors: AvatarColors,
+  colorMode: ColorMode,
+  paletteOverride?: PixelAvatarPaletteOverride,
+) {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(
+    CHARACTER_STORAGE_KEY,
+    JSON.stringify({
+      kind,
+      name,
+      colors: {
+        skin: colors.skin.value,
+        hair: colors.hair.value,
+        shirt: colors.shirt.value,
+      },
+      colorMode,
+      paletteOverride: colorMode === "custom" ? paletteOverride : undefined,
+    }),
+  );
+}
 
-const CUSTOM_AVATAR_COLORS: Record<AvatarColorKey, string> = {
-  skin: "#d8b48a",
-  hair: "#101820",
-  shirt: "#1f7a5f",
-};
+function findColorOption(target: ColorTarget, value?: string): ColorOption {
+  return COLOR_OPTIONS[target].find((option) => option.value === value) ?? DEFAULT_COLORS[target];
+}
 
-const DEFAULT_CHARACTER: CharacterDraft = {
-  displayName: "",
-  avatarKind: "mira",
-  colorMode: "original",
-  avatarColors: ORIGINAL_AVATAR_COLORS,
-};
-
-export default function CharacterProfilePage() {
+export default function CharacterPage() {
   return (
     <Suspense fallback={null}>
-      <CharacterProfileForm />
+      <CharacterInner />
     </Suspense>
   );
 }
 
-function CharacterProfileForm() {
+function CharacterInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const returnTo = safeReturnTo(searchParams.get("returnTo"));
-  const [draft, setDraft] = useState<CharacterDraft>(DEFAULT_CHARACTER);
-  const draftRef = useRef<CharacterDraft>(DEFAULT_CHARACTER);
-  const draftDirtyRef = useRef(false);
-  const loadRequestIdRef = useRef(0);
-  const [loadState, setLoadState] = useState<ProfileLoadState>({
-    status: "loading",
-    error: null,
-  });
-  const [saveState, setSaveState] = useState<ProfileSaveState>({
-    status: "idle",
-    message: null,
-  });
-
-  const setCharacterDraft = useCallback((nextDraft: CharacterDraft) => {
-    const normalizedDraft = normalizeCharacterDraft(nextDraft);
-    draftRef.current = normalizedDraft;
-    setDraft(normalizedDraft);
-  }, []);
-
-  const loadProfile = useCallback(async () => {
-    const requestId = loadRequestIdRef.current + 1;
-    loadRequestIdRef.current = requestId;
-    const storedCharacter = loadStoredCharacter();
-    if (storedCharacter) {
-      setCharacterDraft(storedCharacter);
-    }
-
-    setLoadState({ status: "loading", error: null });
-    try {
-      const profile = await fetchMemberProfile(resolveAccessToken());
-      if (requestId !== loadRequestIdRef.current || draftDirtyRef.current) {
-        setLoadState({ status: "ready", error: null });
-        return;
-      }
-      const nextDraft = normalizeCharacterDraft({
-        displayName: profile.displayName,
-        avatarKind: normalizeAvatarKind(profile.avatarKind),
-        colorMode: colorsMatchOriginal(normalizeAvatarKind(profile.avatarKind), profile.avatarColors)
-          ? "original"
-          : "custom",
-        avatarColors: profile.avatarColors,
-      });
-      setCharacterDraft(nextDraft);
-      saveStoredCharacter(nextDraft);
-      setLoadState({ status: "ready", error: null });
-    } catch (error) {
-      setLoadState({
-        status: "error",
-        error: messageFromError(error, "회원 프로필을 불러오지 못했습니다."),
-      });
-    }
-  }, [setCharacterDraft]);
+  const [kind, setKind] = useState<PixelAvatarKind>("mira");
+  const [name, setName] = useState("");
+  const [colors, setColors] = useState<AvatarColors>(DEFAULT_COLORS);
+  const [colorMode, setColorMode] = useState<ColorMode>("original");
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    queueMicrotask(() => {
-      void loadProfile();
-    });
-  }, [loadProfile]);
-
-  const updateDraft = (updater: (current: CharacterDraft) => CharacterDraft) => {
-    draftDirtyRef.current = true;
-    setCharacterDraft(updater(draftRef.current));
-    setSaveState({ status: "idle", message: null });
-  };
-
-  const selectAvatarKind = (avatarKind: PixelAvatarKind) => {
-    updateDraft((current) => ({
-      ...current,
-      avatarKind,
-      avatarColors:
-        current.colorMode === "original" ? originalColorsFor(avatarKind) : current.avatarColors,
-    }));
-  };
-
-  const selectColorMode = (colorMode: ColorMode) => {
-    const currentDraft = draftRef.current;
-    const avatarColors =
-      colorMode === "original"
-        ? originalColorsFor(currentDraft.avatarKind)
-        : currentDraft.colorMode === "original"
-          ? CUSTOM_AVATAR_COLORS
-          : currentDraft.avatarColors;
-    updateDraft((current) => ({ ...current, colorMode, avatarColors }));
-  };
-
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    loadRequestIdRef.current += 1;
-    draftDirtyRef.current = true;
-
-    const nextDraft = normalizeCharacterDraft({
-      ...draftRef.current,
-      displayName: draftRef.current.displayName.trim(),
-      avatarKind: normalizeAvatarKind(draftRef.current.avatarKind),
-      avatarColors: {
-        skin: draftRef.current.avatarColors.skin.trim(),
-        hair: draftRef.current.avatarColors.hair.trim(),
-        shirt: draftRef.current.avatarColors.shirt.trim(),
-      },
-    });
-
-    if (
-      !nextDraft.displayName ||
-      !nextDraft.avatarKind ||
-      !nextDraft.avatarColors.skin ||
-      !nextDraft.avatarColors.hair ||
-      !nextDraft.avatarColors.shirt
-    ) {
-      setSaveState({
-        status: "error",
-        message: "표시 이름, avatar kind, skin/hair/shirt 색상을 입력해 주세요.",
-      });
+    let cancelled = false;
+    if (!isAuthenticated()) {
+      router.replace("/auth");
       return;
     }
+    const saved = loadSavedCharacter();
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setKind(saved.kind);
+    setName(saved.name);
+    setColors(saved.colors);
+    setColorMode(saved.colorMode);
+    getMyMemberProfile()
+      .then((profile) => {
+        if (cancelled) return;
+        const next = characterFromProfile(profile);
+        setKind(next.kind);
+        setName(next.name);
+        setColors(next.colors);
+        setColorMode(next.colorMode);
+      })
+      .catch(() => {
+        // Keep local profile fallback when the backend profile is unavailable.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [router]);
 
-    setSaveState({ status: "submitting", message: null });
+  const trimmed = name.trim();
+  const canSubmit = trimmed.length > 0;
+  const selected = AVATARS.find((a) => a.kind === kind) ?? AVATARS[1];
+  const activeColors = colorMode === "original" ? originalColorsFor(kind) : colors;
+  const paletteOverride =
+    colorMode === "custom" ? avatarColorsToPalette(colors) : undefined;
+
+  const enterOffice = async () => {
+    if (!canSubmit || saving) return;
+    writeSavedCharacter(kind, trimmed, activeColors, colorMode, paletteOverride);
+    setSaving(true);
     try {
-      await updateMemberProfile(resolveAccessToken(), {
-        displayName: nextDraft.displayName,
-        avatarKind: nextDraft.avatarKind,
-        avatarColors: nextDraft.avatarColors,
+      const profile = await updateMyMemberProfile({
+        displayName: trimmed,
+        avatarKind: kind,
+        avatarColors: {
+          skin: activeColors.skin.value,
+          hair: activeColors.hair.value,
+          shirt: activeColors.shirt.value,
+        },
       });
-      saveStoredCharacter(nextDraft);
-      setCharacterDraft(nextDraft);
-      draftDirtyRef.current = false;
-      setSaveState({
-        status: "success",
-        message: "프로필이 저장되었습니다.",
-      });
+      const next = characterFromProfile(profile);
+      const nextColors =
+        next.colorMode === "original" ? originalColorsFor(next.kind) : next.colors;
+      writeSavedCharacter(
+        next.kind,
+        next.name,
+        nextColors,
+        next.colorMode,
+        next.colorMode === "custom" ? avatarColorsToPalette(next.colors) : undefined,
+      );
+    } catch {
+      // Local storage still keeps the selected profile for this browser.
+    } finally {
+      setSaving(false);
       router.replace(returnTo);
-    } catch (error) {
-      setSaveState({
-        status: "error",
-        message: messageFromError(error, "프로필을 저장하지 못했습니다."),
-      });
     }
   };
 
-  const isSubmitting = saveState.status === "submitting";
-  const canSubmit =
-    draft.displayName.trim().length > 0 && draft.avatarKind.trim().length > 0 && !isSubmitting;
-  const selectedArchetype =
-    AVATAR_OPTIONS.find((option) => option.value === draft.avatarKind) ?? AVATAR_OPTIONS[0];
-  const paletteOverride =
-    draft.colorMode === "custom" ? avatarColorsToPalette(draft.avatarColors) : undefined;
-
   return (
-    <main className="workspace-create-shell">
-      <section className="workspace-create-panel" aria-label="캐릭터 프로필 설정">
-        <div className="workspace-create-header">
-          <div className="workspace-create-icon">
-            <UserRound aria-hidden="true" />
+    <T4Screen title="PROFILE · OFFICE AVATAR">
+      <div
+        style={{
+          padding: 20,
+          height: "100%",
+          boxSizing: "border-box",
+          display: "flex",
+          flexDirection: "column",
+          gap: 14,
+        }}
+      >
+        <div style={{ flex: "0 0 auto" }}>
+          <div
+            style={{
+              fontFamily: "var(--font-pixel)",
+              fontSize: 9,
+              color: t4.pink,
+              letterSpacing: 3,
+              marginBottom: 6,
+              textShadow: `0 0 8px ${t4.pink}`,
+            }}
+          >
+            <GlyphText glyph="◆">CHOOSE YOUR AVATAR</GlyphText>
           </div>
-          <div className="workspace-create-title">
-            <p className="eyebrow">Profile</p>
-            <h1>캐릭터 프로필</h1>
-            <p>표시 이름, avatar 종류, 색상 모드를 설정합니다.</p>
+          <h2
+            style={{
+              fontFamily: "var(--font-pixel)",
+              fontSize: 20,
+              letterSpacing: 2,
+              margin: 0,
+              color: t4.ink,
+              textShadow: `0 0 12px ${t4.pink}80`,
+            }}
+          >
+            SET UP YOUR OFFICE PROFILE
+          </h2>
+          <div
+            style={{
+              fontFamily: "var(--font-mono-arcade)",
+              fontSize: 11,
+              color: t4.dim,
+              marginTop: 4,
+            }}
+          >
+            워크스페이스에서 팀원들에게 보일 아바타와 이름을 설정하세요.
           </div>
         </div>
 
-        {loadState.status === "loading" ? (
-          <div className="workspace-task-notice">
-            <Loader2 className="spin" aria-hidden="true" />
-            <span>프로필을 불러오고 있습니다.</span>
-          </div>
-        ) : null}
-        {loadState.status === "error" ? (
-          <div className="workspace-task-notice character-notice-row" role="alert">
-            <AlertCircle aria-hidden="true" />
-            <span>{loadState.error}</span>
-            <button
-              className="secondary-action workspace-task-refresh"
-              type="button"
-              onClick={() => void loadProfile()}
-            >
-              <RotateCcw aria-hidden="true" />
-              <span>다시 시도</span>
-            </button>
-          </div>
-        ) : null}
-
-        <form className="workspace-create-form" onSubmit={handleSubmit}>
-          <label className="form-field">
-            <span>
-              <strong>표시 이름</strong>
-              <small>displayName</small>
-            </span>
-            <input
-              aria-label="표시 이름"
-              value={draft.displayName}
-              onChange={(event) => {
-                updateDraft((current) => ({ ...current, displayName: event.target.value }));
-              }}
-              maxLength={40}
-              disabled={isSubmitting}
-            />
-          </label>
-
-          <fieldset className="character-option-group" aria-label="Avatar 종류 선택">
-            <legend className="eyebrow">Avatar kind</legend>
-            <div className="character-option-grid" role="radiogroup" aria-label="Avatar 종류 선택">
-              {AVATAR_OPTIONS.map((option) => {
-                const isActive = draft.avatarKind === option.value;
-                return (
-                  <button
-                    className={`character-option ${isActive ? "character-option-active" : ""}`}
-                    type="button"
-                    role="radio"
-                    aria-checked={isActive}
-                    key={option.value}
-                    onClick={() => selectAvatarKind(option.value)}
-                    disabled={isSubmitting}
+        <div
+          style={{
+            flex: "0 0 auto",
+            display: "grid",
+            gridTemplateColumns: "repeat(6, 1fr)",
+            gap: 10,
+          }}
+        >
+          {AVATARS.map((a) => {
+            const sel = a.kind === kind;
+            return (
+              <button
+                key={a.kind}
+                type="button"
+                onClick={() => setKind(a.kind)}
+                style={{
+                  position: "relative",
+                  background: sel
+                    ? "rgba(255,122,220,0.06)"
+                    : "rgba(20,28,55,0.5)",
+                  border: `1px solid ${sel ? t4.pink : t4.line}`,
+                  boxShadow: sel ? `0 0 16px ${t4.pink}60` : "none",
+                  padding: "10px 6px",
+                  cursor: "pointer",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  gap: 6,
+                  fontFamily: "var(--font-sans)",
+                  color: t4.ink,
+                }}
+              >
+                {sel && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: -1,
+                      left: -1,
+                      background: t4.pink,
+                      color: "#000",
+                      fontFamily: "var(--font-pixel)",
+                      fontSize: 7,
+                      letterSpacing: 1,
+                      padding: "2px 6px",
+                    }}
                   >
-                    <span className="character-option-check">
-                      {isActive ? <Check aria-hidden="true" /> : null}
-                    </span>
-                    <span className="character-option-sigil" aria-hidden="true">
-                      <PixelAvatar
-                        kind={option.value}
-                        size={2}
-                        paletteOverride={isActive ? paletteOverride : undefined}
-                      />
-                    </span>
-                    <strong>{option.label}</strong>
-                    <small>{option.description}</small>
-                    <span className="character-option-detail">{option.detail}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </fieldset>
+                    ◆
+                  </div>
+                )}
+                <div
+                  style={{
+                    background: "rgba(0,0,0,0.4)",
+                    padding: 8,
+                    border: `1px solid ${sel ? t4.pink : t4.line}`,
+                    boxShadow: sel ? `0 0 10px ${t4.pink}40` : "none",
+                  }}
+                >
+                  <PixelAvatar
+                    kind={a.kind}
+                    size={3}
+                    paletteOverride={a.kind === kind ? paletteOverride : undefined}
+                  />
+                </div>
+                <div
+                  style={{
+                    fontFamily: "var(--font-pixel)",
+                    fontSize: 9,
+                    letterSpacing: 1.5,
+                    color: sel ? t4.pink : t4.ink,
+                    textAlign: "center",
+                  }}
+                >
+                  {a.kind.toUpperCase()}
+                </div>
+                <div
+                  style={{
+                    fontFamily: "var(--font-mono-arcade)",
+                    fontSize: 9,
+                    fontStyle: "italic",
+                    color: t4.dim,
+                    textAlign: "center",
+                    lineHeight: 1.3,
+                  }}
+                >
+                  {a.role}
+                </div>
+              </button>
+            );
+          })}
+        </div>
 
-          <fieldset className="character-option-group" aria-label="색상 모드 선택">
-            <legend className="eyebrow">Color mode</legend>
-            <div className="character-segmented" role="radiogroup" aria-label="색상 모드 선택">
-              {COLOR_MODE_OPTIONS.map((option) => {
-                const isActive = draft.colorMode === option.value;
-                return (
-                  <button
-                    className={`character-segment ${isActive ? "character-segment-active" : ""}`}
-                    type="button"
-                    role="radio"
-                    aria-checked={isActive}
-                    key={option.value}
-                    onClick={() => selectColorMode(option.value)}
-                    disabled={isSubmitting}
-                  >
-                    <strong>{option.label}</strong>
-                    <small>{option.description}</small>
-                  </button>
-                );
-              })}
-            </div>
-          </fieldset>
-
-          <fieldset className="character-option-group" aria-label="Avatar 색상 설정">
-            <legend className="eyebrow">Avatar colors</legend>
-            <div className="character-color-grid">
-              {COLOR_FIELDS.map((field) => (
-                <label className="form-field character-color-field" key={field.key}>
-                  <span>
-                    <strong>{field.label}</strong>
-                    <small>{`avatarColors.${field.key}`}</small>
-                  </span>
-                  <span className="character-color-input">
-                    <span
-                      className="character-color-swatch"
-                      style={{ background: draft.avatarColors[field.key] }}
-                      aria-hidden="true"
-                    />
-                    <span className="character-color-palette" role="radiogroup" aria-label={`${field.label} 색상`}>
-                      {COLOR_PALETTE[field.key].map((color, index) => {
-                        const selected = draft.avatarColors[field.key].toLowerCase() === color;
-                        return (
-                          <button
-                            aria-label={`${field.label} 색상 ${index + 1}`}
-                            aria-checked={selected}
-                            className={`character-color-token ${selected ? "character-color-token-active" : ""}`}
-                            disabled={isSubmitting || draft.colorMode === "original"}
-                            key={color}
-                            onClick={() => {
-                              updateDraft((current) => ({
-                                ...current,
-                                colorMode: "custom",
-                                avatarColors: {
-                                  ...current.avatarColors,
-                                  [field.key]: color,
-                                },
-                              }));
-                            }}
-                            role="radio"
-                            style={{ background: color }}
-                            type="button"
-                          />
-                        );
-                      })}
-                    </span>
-                    <input
-                      aria-label={`${field.label} 색상`}
-                      type="color"
-                      value={draft.avatarColors[field.key]}
-                      onChange={(event) => {
-                        updateDraft((current) => ({
-                          ...current,
-                          colorMode: "custom",
-                          avatarColors: {
-                            ...current.avatarColors,
-                            [field.key]: event.target.value,
-                          },
-                        }));
-                      }}
-                      disabled={isSubmitting || draft.colorMode === "original"}
-                    />
-                  </span>
-                </label>
-              ))}
-            </div>
-          </fieldset>
-
-          <div className="character-preview character-preview-gothic" aria-label="캐릭터 미리보기">
+        <T4Panel
+          label="PROFILE"
+          accent={t4.pink}
+          style={{
+            position: "relative",
+            padding: 14,
+            flex: "0 0 auto",
+            display: "grid",
+            gridTemplateColumns: "150px 1fr",
+            gap: 20,
+            alignItems: "stretch",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: 8,
+              width: 150,
+              flexShrink: 0,
+            }}
+          >
             <div
-              className={`character-preview-avatar character-preview-gothic-avatar character-preview-${draft.avatarKind}`}
+              style={{
+                width: 96,
+                height: 96,
+                background: "rgba(0,0,0,0.4)",
+                border: `1px solid ${t4.pink}`,
+                boxShadow: `0 0 18px ${t4.pink}40`,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexShrink: 0,
+              }}
             >
-              <PixelAvatar
-                kind={draft.avatarKind}
-                size={5}
-                paletteOverride={paletteOverride}
-              />
-              <span className="character-avatar-halo" aria-hidden="true" />
-              <span
-                className="character-avatar-mantle"
-                style={{ background: draft.avatarColors.shirt }}
-                aria-hidden="true"
-              />
-              <span
-                className="character-avatar-armor"
-                style={{ background: draft.avatarColors.shirt }}
-                aria-hidden="true"
-              />
-              <span
-                className="character-avatar-face"
-                style={{ background: draft.avatarColors.skin }}
-                aria-hidden="true"
-              />
-              <span
-                className="character-avatar-helm"
-                style={{ background: draft.avatarColors.hair }}
-                aria-hidden="true"
-              />
-              <span className="character-avatar-visor" aria-hidden="true" />
-              <span className="character-avatar-sigil" aria-hidden="true">
-                {selectedArchetype.sigil}
-              </span>
+              <PixelAvatar kind={kind} size={5} paletteOverride={paletteOverride} />
             </div>
-            <div className="character-preview-copy">
-              <span className="character-preview-kicker">Profile preview</span>
-              <strong>{draft.displayName || "표시 이름"}</strong>
-              <p>{`${selectedArchetype.label} / ${draft.colorMode}`}</p>
-              <div className="character-preview-status" aria-label="캐릭터 상태">
-                <span>{selectedArchetype.detail}</span>
-                <span>{draft.colorMode === "original" ? "기본 색상" : "사용자 색상"}</span>
-              </div>
+            <div
+              style={{
+                fontFamily: "var(--font-pixel)",
+                fontSize: 11,
+                color: t4.ink,
+                letterSpacing: 1,
+                textAlign: "center",
+                height: 14,
+                lineHeight: "14px",
+              }}
+            >
+              {kind.toUpperCase()}
+            </div>
+            <div
+              style={{
+                fontFamily: "var(--font-mono-arcade)",
+                fontSize: 10,
+                fontStyle: "italic",
+                color: t4.dim,
+                textAlign: "center",
+                lineHeight: 1.4,
+                width: 130,
+                minHeight: 28,
+              }}
+            >
+              <span style={{ color: t4.ink }}>{selected.role}</span>
+              <br />
+              {selected.sub}
             </div>
           </div>
 
-          {saveState.status === "error" && saveState.message ? (
-            <div className="workspace-task-notice" role="alert">
-              <AlertCircle aria-hidden="true" />
-              <span>{saveState.message}</span>
-            </div>
-          ) : null}
-          {saveState.status === "success" && saveState.message ? (
-            <div className="workspace-task-notice">
-              <Save aria-hidden="true" />
-              <span>{saveState.message}</span>
-            </div>
-          ) : null}
-
-          <div className="workspace-modal-actions">
-            <Link className="secondary-action" href={returnTo}>
-              <ArrowLeft aria-hidden="true" />
-              <span>돌아가기</span>
-            </Link>
-            <button
-              className="primary-action primary-action-active"
-              type="submit"
-              disabled={!canSubmit}
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 10,
+              minWidth: 0,
+            }}
+          >
+            <div
+              style={{
+                fontFamily: "var(--font-pixel)",
+                fontSize: 7,
+                color: t4.dim,
+                letterSpacing: 2,
+              }}
             >
-              {isSubmitting ? <Loader2 className="spin" aria-hidden="true" /> : <Save aria-hidden="true" />}
-              <span>{isSubmitting ? "저장 중" : "프로필 저장"}</span>
+              DISPLAY NAME
+            </div>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="type your name…"
+              maxLength={24}
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === "Enter") enterOffice();
+              }}
+              style={{
+                width: "100%",
+                boxSizing: "border-box",
+                background: "rgba(0,0,0,0.4)",
+                border: `1px solid ${t4.line}`,
+                color: t4.ink,
+                fontFamily: "var(--font-mono-arcade)",
+                fontSize: 13,
+                letterSpacing: 1,
+                padding: "10px 12px",
+                outline: "none",
+              }}
+              onFocus={(e) => {
+                e.currentTarget.style.borderColor = t4.pink;
+                e.currentTarget.style.boxShadow = `0 0 10px ${t4.pink}40`;
+              }}
+              onBlur={(e) => {
+                e.currentTarget.style.borderColor = t4.line;
+                e.currentTarget.style.boxShadow = "none";
+              }}
+            />
+
+            <div
+              style={{
+                fontFamily: "var(--font-mono-arcade)",
+                fontSize: 9,
+                color: t4.dim,
+                letterSpacing: 1,
+                lineHeight: 1.6,
+              }}
+            >
+              <GlyphText glyph="›">
+                워크스페이스와 채팅에서 표시되는 이름입니다.
+              </GlyphText>
+              <br />
+              <GlyphText glyph="›">
+                실제 작업 성과와 순위는 워크스페이스 입장 후 프로필 HUD에 표시됩니다.
+              </GlyphText>
+            </div>
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+                gap: 6,
+              }}
+            >
+              <ModeButton active={colorMode === "original"} onClick={() => setColorMode("original")}>
+                ORIGINAL
+              </ModeButton>
+              <ModeButton active={colorMode === "custom"} onClick={() => setColorMode("custom")}>
+                CUSTOM
+              </ModeButton>
+            </div>
+
+            {colorMode === "custom" ? (
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+                  gap: 8,
+                }}
+              >
+                <ColorPicker
+                  label="SKIN"
+                  target="skin"
+                  value={colors.skin.value}
+                  onChange={(next) => setColors((prev) => ({ ...prev, skin: next }))}
+                />
+                <ColorPicker
+                  label="HAIR"
+                  target="hair"
+                  value={colors.hair.value}
+                  onChange={(next) => setColors((prev) => ({ ...prev, hair: next }))}
+                />
+                <ColorPicker
+                  label="OUTFIT"
+                  target="shirt"
+                  value={colors.shirt.value}
+                  onChange={(next) => setColors((prev) => ({ ...prev, shirt: next }))}
+                />
+              </div>
+            ) : (
+              <div
+                style={{
+                  border: `1px solid ${t4.line}`,
+                  background: "rgba(0,0,0,0.25)",
+                  padding: "10px 12px",
+                  fontFamily: "var(--font-mono-arcade)",
+                  fontSize: 10,
+                  color: t4.dim,
+                  lineHeight: 1.5,
+                }}
+              >
+                기존 캐릭터의 기본 색상을 그대로 사용합니다.
+              </div>
+            )}
+
+            <button
+              type="button"
+              onClick={enterOffice}
+              disabled={!canSubmit || saving}
+              style={{
+                marginTop: "auto",
+                fontFamily: "var(--font-pixel)",
+                fontSize: 11,
+                letterSpacing: 3,
+                color: canSubmit && !saving ? "#000" : t4.dim,
+                background: canSubmit && !saving ? t4.pink : "transparent",
+                border: `1px solid ${canSubmit && !saving ? t4.pink : t4.line}`,
+                padding: "12px 0",
+                boxShadow: canSubmit && !saving ? `0 0 18px ${t4.pink}80` : "none",
+                cursor: canSubmit && !saving ? "pointer" : "not-allowed",
+                width: "100%",
+              }}
+            >
+              <GlyphText glyph="▶">{saving ? "SAVING" : "ENTER OFFICE"}</GlyphText>
             </button>
           </div>
-        </form>
-      </section>
-    </main>
+        </T4Panel>
+      </div>
+    </T4Screen>
   );
 }
 
-function normalizeCharacterDraft(value: CharacterDraft): CharacterDraft {
-  const colorMode: ColorMode = value.colorMode === "custom" ? "custom" : "original";
-  const normalizedKind = normalizeAvatarKind(value.avatarKind);
-  return {
-    displayName: typeof value.displayName === "string" ? value.displayName : "",
-    avatarKind: normalizedKind,
-    colorMode,
-    avatarColors:
-      colorMode === "original"
-        ? originalColorsFor(normalizedKind)
-        : normalizeAvatarColors(value.avatarColors, CUSTOM_AVATAR_COLORS),
-  };
+function ModeButton({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      style={{
+        fontFamily: "var(--font-pixel)",
+        fontSize: 9,
+        letterSpacing: 2,
+        color: active ? "#000" : t4.dim,
+        background: active ? t4.pink : "rgba(0,0,0,0.25)",
+        border: `1px solid ${active ? t4.pink : t4.line}`,
+        padding: "9px 0",
+        boxShadow: active ? `0 0 12px ${t4.pink}70` : "none",
+        cursor: "pointer",
+      }}
+    >
+      {children}
+    </button>
+  );
 }
 
-function normalizeAvatarColors(
-  colors: Partial<Record<AvatarColorKey, string>> | null | undefined,
-  fallback: Record<AvatarColorKey, string>,
-): Record<AvatarColorKey, string> {
-  return {
-    skin: validColor(colors?.skin) ? colors.skin : fallback.skin,
-    hair: validColor(colors?.hair) ? colors.hair : fallback.hair,
-    shirt: validColor(colors?.shirt) ? colors.shirt : fallback.shirt,
-  };
+function ColorPicker({
+  label,
+  target,
+  value,
+  onChange,
+}: {
+  label: string;
+  target: ColorTarget;
+  value: string;
+  onChange: (option: ColorOption) => void;
+}) {
+  return (
+    <div>
+      <div
+        style={{
+          fontFamily: "var(--font-pixel)",
+          fontSize: 7,
+          color: t4.dim,
+          letterSpacing: 1.5,
+          marginBottom: 6,
+        }}
+      >
+        {label}
+      </div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
+        {COLOR_OPTIONS[target].map((option) => {
+          const selected = option.value === value;
+          return (
+            <button
+              key={option.value}
+              type="button"
+              aria-label={`${label} ${option.label}`}
+              onClick={() => onChange(option)}
+              style={{
+                width: 22,
+                height: 22,
+                border: `1px solid ${selected ? t4.pink : t4.line}`,
+                background: option.value,
+                boxShadow: selected ? `0 0 10px ${t4.pink}80` : "none",
+                cursor: "pointer",
+              }}
+            />
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
-function loadStoredCharacter(): CharacterDraft | null {
-  if (typeof window === "undefined") {
-    return null;
-  }
-
-  try {
-    const rawCharacter = window.localStorage.getItem(CHARACTER_STORAGE_KEY);
-    if (!rawCharacter) {
-      return null;
-    }
-    const parsedCharacter = JSON.parse(rawCharacter) as Partial<StoredCharacter>;
-    const colors = parsedCharacter.colors ?? parsedCharacter.avatarColors;
-    return normalizeCharacterDraft({
-      displayName:
-        typeof parsedCharacter.name === "string"
-          ? parsedCharacter.name
-          : typeof parsedCharacter.displayName === "string"
-            ? parsedCharacter.displayName
-            : "",
-      avatarKind: normalizeAvatarKind(
-        typeof parsedCharacter.kind === "string"
-          ? parsedCharacter.kind
-          : typeof parsedCharacter.avatarKind === "string"
-            ? parsedCharacter.avatarKind
-            : "mira",
-      ),
-      colorMode: parsedCharacter.colorMode === "custom" ? "custom" : "original",
-      avatarColors: normalizeAvatarColors(colors, originalColorsFor(normalizeAvatarKind(
-        typeof parsedCharacter.kind === "string"
-          ? parsedCharacter.kind
-          : typeof parsedCharacter.avatarKind === "string"
-            ? parsedCharacter.avatarKind
-            : "mira",
-      ))),
-    });
-  } catch {
-    return null;
-  }
-}
-
-function saveStoredCharacter(character: CharacterDraft) {
-  if (typeof window === "undefined") {
-    return;
-  }
-
-  const normalizedCharacter = normalizeCharacterDraft(character);
-  const storedCharacter: StoredCharacter = {
-    ...normalizedCharacter,
-    kind: normalizedCharacter.avatarKind,
-    name: normalizedCharacter.displayName,
-    colors: normalizedCharacter.avatarColors,
-    colorMode: normalizedCharacter.colorMode,
-    paletteOverride:
-      normalizedCharacter.colorMode === "custom"
-        ? avatarColorsToPalette(normalizedCharacter.avatarColors)
-        : undefined,
-  };
-  window.localStorage.setItem(CHARACTER_STORAGE_KEY, JSON.stringify(storedCharacter));
-}
-
-function originalColorsFor(kind: PixelAvatarKind): Record<AvatarColorKey, string> {
-  const palette = PA_PALETTES[kind] ?? PA_PALETTES.mira;
-  return {
-    skin: palette.skin,
-    hair: palette.hair,
-    shirt: palette.shirt,
-  };
-}
-
-function avatarColorsToPalette(
-  colors: Record<AvatarColorKey, string>,
-): PixelAvatarPaletteOverride {
-  return {
-    skin: colors.skin,
-    hair: colors.hair,
-    shirt: colors.shirt,
-  };
-}
-
-function colorsMatchOriginal(
-  kind: PixelAvatarKind,
-  colors: Partial<Record<AvatarColorKey, string>>,
-): boolean {
-  const original = originalColorsFor(kind);
-  return COLOR_FIELDS.every((field) => colors[field.key]?.toLowerCase() === original[field.key]);
-}
-
-function validColor(value: string | undefined): value is string {
-  return Boolean(value && /^#[0-9a-f]{6}$/i.test(value));
-}
-
-function normalizeAvatarKind(value: string): PixelAvatarKind {
-  if (AVATAR_OPTIONS.some((option) => option.value === value)) {
-    return value as PixelAvatarKind;
-  }
-
-  const legacyKindMap: Record<string, string> = {
-    frontend: "alex",
-    design: "mira",
-    backend: "kenji",
-    product: "yuna",
-    devops: "diego",
-    ai: "iris",
-    operator: "alex",
-    analyst: "mira",
-    builder: "kenji",
-    designer: "yuna",
-  };
-  return (legacyKindMap[value] ?? "mira") as PixelAvatarKind;
-}
-
-function safeReturnTo(value: string | null): string {
-  if (!value || !value.startsWith("/") || value.startsWith("//")) {
-    return "/workspaces";
-  }
-  return value;
-}
-
-function messageFromError(error: unknown, fallback: string): string {
-  if (error instanceof ApiError) {
-    return error.message;
-  }
-  if (error instanceof Error && error.message) {
-    return error.message;
-  }
-  return fallback;
+function safeReturnTo(raw: string | null): string {
+  if (!raw) return "/workspaces";
+  if (!raw.startsWith("/") || raw.startsWith("//")) return "/workspaces";
+  return raw;
 }
