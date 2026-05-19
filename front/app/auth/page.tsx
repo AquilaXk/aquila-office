@@ -28,9 +28,9 @@ function AuthContent() {
 
   useEffect(() => {
     if (isAuthenticated()) {
-      router.replace(returnTo);
+      window.location.replace(returnTo);
     }
-  }, [returnTo, router]);
+  }, [returnTo]);
 
   const handleCredential = async (credential?: string) => {
     if (!credential) {
