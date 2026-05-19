@@ -2266,8 +2266,8 @@ export default function WorkspaceDetailPage({
   };
 
   return (
-    <main className="workspace-detail-shell">
-      <section className="workspace-detail-panel" aria-label="워크스페이스 상세">
+    <main className="workspace-detail-shell workspace-stage-route">
+      <section className="workspace-detail-panel workspace-stage-panel" aria-label="워크스페이스 상세">
         <header className="workspace-detail-header">
           <nav className="workspace-detail-actions" aria-label="워크스페이스 내비게이션">
             <Link className="secondary-action workspace-detail-back" href="/workspaces">
@@ -2340,7 +2340,10 @@ export default function WorkspaceDetailPage({
 
         {workspace ? (
           <section className="workspace-detail-content" aria-label="워크스페이스 정보">
-            <section className="workspace-office-scene workspace-2d-section" aria-label="워크스페이스 오피스 씬">
+            <section
+              className="workspace-office-scene workspace-2d-section workspace-stage-surface"
+              aria-label="워크스페이스 오피스 씬"
+            >
               <nav className="workspace-office-nav" aria-label="워크스페이스 오피스 씬 메뉴">
                 {officeSceneNavItems.map((item) => {
                   const Icon = item.icon;
@@ -2382,6 +2385,7 @@ export default function WorkspaceDetailPage({
                 agents={workspaceAgents}
                 members={members}
                 presenceMembers={onlinePresenceMembers}
+                variant="fullscreen"
                 playerPosition={playerPosition}
                 playerAvatar={storedCharacterProfile}
                 playerMemberId={currentMemberId}

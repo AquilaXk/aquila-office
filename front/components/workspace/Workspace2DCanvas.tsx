@@ -62,6 +62,7 @@ export type Workspace2DCanvasProps = {
   agents: WorkspaceAgent[];
   members: WorkspaceMember[];
   presenceMembers: WorkspacePresenceMember[];
+  variant?: "panel" | "fullscreen";
   playerPosition?: StageActorPosition | null;
   playerAvatar?: {
     kind: PixelAvatarKind;
@@ -105,6 +106,7 @@ export default function Workspace2DCanvas({
   agents,
   members,
   presenceMembers,
+  variant = "panel",
   playerPosition = null,
   playerAvatar = null,
   playerMemberId = null,
@@ -115,6 +117,8 @@ export default function Workspace2DCanvas({
   onOpenTasks,
 }: Workspace2DCanvasProps) {
   const frameRef = useRef<HTMLDivElement | null>(null);
+  const isFullscreenStage = variant === "fullscreen";
+  const initialStageZoom = isFullscreenStage ? 0.75 : 1;
   const engineeringRows = useMemo(() => getEngineeringRows(agents.length), [agents.length]);
   const stageWorldSize = useMemo(() => getStageWorldSize(engineeringRows), [engineeringRows]);
   const stageRooms = useMemo(
@@ -123,7 +127,7 @@ export default function Workspace2DCanvas({
   );
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [contextMenu, setContextMenu] = useState<WorkspaceContextMenuState | null>(null);
-  const [stageZoom, setStageZoom] = useState(1);
+  const [stageZoom, setStageZoom] = useState(initialStageZoom);
   const [stagePan, setStagePan] = useState<StagePan>({ x: 0, y: 0 });
   const initialCameraRef = useRef(false);
 
@@ -274,7 +278,10 @@ export default function Workspace2DCanvas({
   );
 
   return (
-    <div className="workspace-2d-frame" ref={frameRef}>
+    <div
+      className={`workspace-2d-frame ${isFullscreenStage ? "workspace-2d-frame-fullscreen" : ""}`}
+      ref={frameRef}
+    >
       <div className="workspace-2d-header">
         <div>
           <span className="workspace-detail-label">2D Workspace</span>
@@ -302,8 +309,11 @@ export default function Workspace2DCanvas({
             className="secondary-action workspace-task-refresh"
             type="button"
             onClick={() => {
-              setStageZoom(1);
-              setStagePan(playerPosition ? getStagePanForPosition(playerPosition, stageWorldSize, 1) : { x: 0, y: 0 });
+              setStageZoom(initialStageZoom);
+              const resetPan = playerPosition
+                ? getStagePanForPosition(playerPosition, stageWorldSize, initialStageZoom)
+                : { x: 0, y: 0 };
+              setStagePan(resetPan);
             }}
           >
             <Maximize2 aria-hidden="true" />
@@ -388,7 +398,7 @@ export default function Workspace2DCanvas({
           <MapZoomControls
             zoom={stageZoom}
             onZoomOut={() => updateStageZoom(stageZoom - STAGE_ZOOM_STEP)}
-            onReset={() => updateStageZoom(1)}
+            onReset={() => updateStageZoom(initialStageZoom)}
             onZoomIn={() => updateStageZoom(stageZoom + STAGE_ZOOM_STEP)}
           />
           {contextMenu ? <WorkspaceContextMenu menu={contextMenu} onAction={handleContextMenuAction} /> : null}
