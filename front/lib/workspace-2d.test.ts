@@ -153,7 +153,7 @@ test("workspace stage movement respects player bounds and room walls", () => {
       width: "30%",
       height: "30%",
       variant: "engineering",
-      doorSide: "right",
+      doorSide: "top",
       doorAt: 0.5,
     },
   ];
@@ -165,7 +165,7 @@ test("workspace stage movement respects player bounds and room walls", () => {
   );
   assert.deepEqual(
     resolveStageMove({ left: "49%", top: "35%" }, 5, 0, walls),
-    { left: "50.6%", top: "35%" },
+    { left: "49.4%", top: "35%" },
   );
   assert.deepEqual(getPlayerMoveDirection("ArrowLeft"), { x: -1, y: 0 });
   assert.deepEqual(getPlayerMoveDirection("w"), { x: 0, y: -1 });
