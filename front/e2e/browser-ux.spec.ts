@@ -133,6 +133,20 @@ test.describe("브라우저 UI UX 회귀", () => {
     await expect(page.getByRole("heading", { name: "AQUILA OFFICE" })).toBeVisible();
   });
 
+  test("title screen은 미인증 CONTINUE를 막고 LOGIN으로 인증 화면에 진입한다", async ({ page }) => {
+    await installMockApi(page);
+
+    await page.goto("/");
+    await page.getByRole("menuitem", { name: /CONTINUE/ }).click();
+
+    await expect(page).toHaveURL((url) => url.pathname === "/");
+    await expect(page.getByRole("status")).toHaveText("로그인이 필요합니다. LOGIN을 선택하세요.");
+
+    await page.getByRole("menuitem", { name: /LOGIN/ }).click();
+    await page.waitForURL((url) => url.pathname === "/auth");
+    await expect(page.getByRole("heading", { name: "AQUILA OFFICE" })).toBeVisible();
+  });
+
   test("title screen에서 워크스페이스 목록으로 이동하고 워크스페이스를 생성한다", async ({ page }) => {
     await installMockApi(page);
     await seedAuthTokens(page);
@@ -219,6 +233,25 @@ test.describe("브라우저 UI UX 회귀", () => {
     expect(storedCharacter).toContain("Aquila Pilot");
     expect(storedCharacter).toContain("backend");
     expect(storedCharacter).toContain("#1f7a5f");
+  });
+
+  test("워크스페이스 목록 logout은 세션을 지우고 title screen으로 돌아간다", async ({ page }) => {
+    await installMockApi(page);
+    await seedAuthTokens(page);
+
+    await page.goto("/workspaces");
+    await expect(page.getByRole("heading", { name: "WORKSPACES" })).toBeVisible();
+
+    const logoutRequest = page.waitForRequest((request) => {
+      const url = new URL(request.url());
+      return request.method() === "POST" && url.pathname === "/api/v1/auth/logout";
+    });
+    await page.getByRole("button", { name: "LOGOUT" }).click();
+    await logoutRequest;
+
+    await page.waitForURL((url) => url.pathname === "/");
+    await expect(page.getByRole("heading", { name: "AQUILA OFFICE" })).toBeVisible();
+    await expect.poll(() => page.evaluate(() => window.localStorage.getItem("aquila-office.auth"))).toBeNull();
   });
 
   test("워크스페이스 상세, Task 모달, artifact, 2D canvas 상호작용을 검증한다", async ({ page }) => {
