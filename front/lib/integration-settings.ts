@@ -10,11 +10,12 @@ export type IntegrationSettingsSectionState = "empty" | "attention" | "ready";
 
 export type IntegrationSettingsActionId =
   | "slack-install"
+  | "discord-status"
   | "github-credential"
   | "gateway-binding"
   | "channel-mapping";
 
-export type IntegrationSettingsActionTarget = "oauth" | "form";
+export type IntegrationSettingsActionTarget = "oauth" | "form" | "status";
 
 export type IntegrationSettingsListItem = {
   active?: boolean;
@@ -137,6 +138,13 @@ export function createIntegrationSettingsActions(
       detail: sectionById.get("slack")?.detail ?? "Slack 설정을 확인합니다.",
       state: sectionById.get("slack")?.state === "ready" ? "ready" : "attention",
       target: "oauth",
+    },
+    {
+      id: "discord-status",
+      label: "Discord 준비 중",
+      detail: "Discord 연결은 같은 설정 흐름에서 상태를 확인합니다.",
+      state: "attention",
+      target: "status",
     },
     {
       id: "github-credential",

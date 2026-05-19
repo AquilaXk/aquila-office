@@ -105,6 +105,7 @@ test("integration settings actions expose expected route and form entries", () =
     actions.map((action) => [action.id, action.state, action.target]),
     [
       ["slack-install", "attention", "oauth"],
+      ["discord-status", "attention", "status"],
       ["github-credential", "ready", "form"],
       ["gateway-binding", "ready", "form"],
       ["channel-mapping", "ready", "form"],

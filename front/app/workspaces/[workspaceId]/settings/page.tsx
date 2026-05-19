@@ -96,7 +96,7 @@ const DESCRIPTION_MAX_LENGTH = 500;
 const EMPTY_GITHUB_CREDENTIALS: GithubCredential[] = [];
 const EMPTY_SLACK_INTEGRATIONS: SlackIntegration[] = [];
 const EMPTY_SLACK_CHANNEL_MAPPINGS: SlackChannelMapping[] = [];
-const SHOW_CONNECTION_SETTINGS = false;
+const SHOW_CONNECTION_SETTINGS = true;
 
 type WorkspaceSettingsState =
   | { status: "loading"; workspace: null; members: []; error: null }
@@ -179,6 +179,32 @@ const workspaceSettingsSections: {
   { id: "invite", label: "Invite", ariaLabel: "초대 생성" },
   { id: "invites", label: "Invites", ariaLabel: "초대 목록" },
 ];
+
+const integrationSettingsActionTargets: Record<
+  IntegrationSettingsAction["id"],
+  { sectionId: string; buttonLabel: string }
+> = {
+  "slack-install": {
+    sectionId: "workspace-slack-integration-settings",
+    buttonLabel: "Slack 설정으로",
+  },
+  "discord-status": {
+    sectionId: "workspace-discord-settings",
+    buttonLabel: "Discord 상태 보기",
+  },
+  "github-credential": {
+    sectionId: "workspace-github-credential-settings",
+    buttonLabel: "GitHub 설정으로",
+  },
+  "gateway-binding": {
+    sectionId: "workspace-gateway-settings",
+    buttonLabel: "Gateway 설정으로",
+  },
+  "channel-mapping": {
+    sectionId: "workspace-slack-channel-mapping-settings",
+    buttonLabel: "Slack 채널 매핑으로",
+  },
+};
 
 export default function WorkspaceSettingsPage({
   params,
@@ -643,6 +669,12 @@ export default function WorkspaceSettingsPage({
     slackChannelMappings,
     gatewayStatus,
   });
+  const activateIntegrationSettingsAction = useCallback((action: IntegrationSettingsAction) => {
+    const target = integrationSettingsActionTargets[action.id];
+    const section = document.getElementById(target.sectionId);
+    section?.scrollIntoView({ behavior: "smooth", block: "start" });
+    section?.focus({ preventScroll: true });
+  }, []);
   const normalizedGatewayForm = useMemo(
     () =>
       normalizeGatewayForm({
@@ -1528,8 +1560,8 @@ export default function WorkspaceSettingsPage({
     <main className="workspace-settings-shell">
       <section className="workspace-settings-panel" aria-label="워크스페이스 설정">
         <header className="workspace-settings-header">
-          <div className="workspace-settings-nav">
-            <Link className="secondary-action workspace-settings-back" href="/">
+          <nav className="workspace-settings-nav" aria-label="워크스페이스 내비게이션">
+            <Link className="secondary-action workspace-settings-back" href="/workspaces">
               <ArrowLeft aria-hidden="true" />
               <span>목록으로</span>
             </Link>
@@ -1542,7 +1574,7 @@ export default function WorkspaceSettingsPage({
                 <span>상세로</span>
               </Link>
             ) : null}
-          </div>
+          </nav>
 
           <div className="workspace-settings-title">
             <div className="workspace-settings-icon">
@@ -1682,7 +1714,11 @@ export default function WorkspaceSettingsPage({
 
               <div className="workspace-integration-action-grid">
                 {integrationSettingsActions.map((action) => (
-                  <IntegrationSettingsActionCard action={action} key={action.id} />
+                  <IntegrationSettingsActionCard
+                    action={action}
+                    key={action.id}
+                    onActivate={activateIntegrationSettingsAction}
+                  />
                 ))}
               </div>
             </section>
@@ -2284,9 +2320,30 @@ export default function WorkspaceSettingsPage({
             </section>
 
             <section
+              id="workspace-discord-settings"
+              className="workspace-settings-section"
+              aria-label="Discord 설정"
+              hidden={!SHOW_CONNECTION_SETTINGS}
+              tabIndex={-1}
+            >
+              <div className="workspace-section-title">
+                <div>
+                  <span className="workspace-detail-label">Discord</span>
+                  <h2>연결 상태</h2>
+                </div>
+                <span className="workspace-lock-badge">준비 중</span>
+              </div>
+              <SettingsNotice tone="success" icon={<Link2 aria-hidden="true" />}>
+                Discord 연결은 같은 설정 흐름에서 제공될 예정입니다.
+              </SettingsNotice>
+            </section>
+
+            <section
+              id="workspace-slack-integration-settings"
               className="workspace-settings-section"
               aria-label="Slack 연동 설정"
               hidden={!SHOW_CONNECTION_SETTINGS}
+              tabIndex={-1}
             >
               <div className="workspace-section-title">
                 <div>
@@ -2304,13 +2361,12 @@ export default function WorkspaceSettingsPage({
                 </p>
               ) : null}
 
-              {isAdmin ? (
-                <div className="workspace-invite-management-toolbar">
+              <div className="workspace-invite-management-toolbar">
                   <button
                     className="secondary-action workspace-invite-refresh"
                     type="button"
                     onClick={() => void handleOpenSlackInstallUrl()}
-                    disabled={isOpeningSlackInstall}
+                    disabled={!isAdmin || isOpeningSlackInstall}
                   >
                     {isOpeningSlackInstall ? (
                       <Loader2 className="spin" aria-hidden="true" />
@@ -2323,7 +2379,7 @@ export default function WorkspaceSettingsPage({
                     className="secondary-action workspace-invite-refresh"
                     type="button"
                     onClick={() => void reloadSlackIntegrations()}
-                    disabled={isSlackIntegrationLoading}
+                    disabled={!isAdmin || isSlackIntegrationLoading}
                   >
                     <RefreshCw
                       className={isSlackIntegrationLoading ? "spin" : undefined}
@@ -2331,8 +2387,7 @@ export default function WorkspaceSettingsPage({
                     />
                     <span>목록 새로고침</span>
                   </button>
-                </div>
-              ) : null}
+              </div>
 
               {isAdmin && slackInstallState.status === "error" ? (
                 <SettingsNotice tone="danger" icon={<AlertCircle aria-hidden="true" />}>
@@ -2641,9 +2696,11 @@ export default function WorkspaceSettingsPage({
             </section>
 
             <section
+              id="workspace-slack-channel-mapping-settings"
               className="workspace-settings-section"
               aria-label="Slack 채널 매핑 설정"
               hidden={!SHOW_CONNECTION_SETTINGS}
+              tabIndex={-1}
             >
               <div className="workspace-section-title">
                 <div>
@@ -2834,9 +2891,11 @@ export default function WorkspaceSettingsPage({
             </section>
 
             <section
+              id="workspace-gateway-settings"
               className="workspace-settings-section"
               aria-label="Gateway 설정"
               hidden={!SHOW_CONNECTION_SETTINGS}
+              tabIndex={-1}
             >
               <div className="workspace-section-title">
                 <div>
@@ -2854,8 +2913,7 @@ export default function WorkspaceSettingsPage({
                 </p>
               ) : null}
 
-              {isAdmin ? (
-                <form
+              <form
                   className="workspace-settings-form workspace-gateway-form"
                   onSubmit={handleCreateGatewayBinding}
                 >
@@ -2963,8 +3021,7 @@ export default function WorkspaceSettingsPage({
                       <span>{isBindingGateway ? "등록 중" : "Binding 등록"}</span>
                     </button>
                   </div>
-                </form>
-              ) : null}
+              </form>
 
               {isAdmin ? (
                 <div className="workspace-invite-management-toolbar">
@@ -3030,9 +3087,11 @@ export default function WorkspaceSettingsPage({
             </section>
 
             <section
+              id="workspace-github-credential-settings"
               className="workspace-settings-section"
               aria-label="GitHub 자격 증명 관리"
               hidden={!SHOW_CONNECTION_SETTINGS}
+              tabIndex={-1}
             >
               <div className="workspace-section-title">
                 <div>
@@ -3050,8 +3109,7 @@ export default function WorkspaceSettingsPage({
                 </p>
               ) : null}
 
-              {isAdmin ? (
-                <form
+              <form
                   className="workspace-settings-form"
                   onSubmit={handleCreateGithubCredential}
                 >
@@ -3114,8 +3172,7 @@ export default function WorkspaceSettingsPage({
                       <span>{isCreatingGithubCredential ? "등록 중" : "등록"}</span>
                     </button>
                   </div>
-                </form>
-              ) : null}
+              </form>
 
               {isAdmin && isGithubCredentialLoading ? (
                 <div className="workspace-member-empty">
@@ -3361,18 +3418,29 @@ function SettingsNotice({
   );
 }
 
-function IntegrationSettingsActionCard({ action }: { action: IntegrationSettingsAction }) {
+function IntegrationSettingsActionCard({
+  action,
+  onActivate,
+}: {
+  action: IntegrationSettingsAction;
+  onActivate: (action: IntegrationSettingsAction) => void;
+}) {
   return (
     <article className="workspace-integration-action-card">
       <div>
         <strong>{action.label}</strong>
         <p>{action.detail}</p>
       </div>
-      <span
-        className={`workspace-integration-action-state workspace-integration-action-state-${action.state}`}
-      >
-        {formatIntegrationSettingsActionState(action)}
-      </span>
+      <div className="workspace-settings-member-actions">
+        <span
+          className={`workspace-integration-action-state workspace-integration-action-state-${action.state}`}
+        >
+          {formatIntegrationSettingsActionState(action)}
+        </span>
+        <button className="secondary-action" type="button" onClick={() => onActivate(action)}>
+          <span>{integrationSettingsActionTargets[action.id].buttonLabel}</span>
+        </button>
+      </div>
     </article>
   );
 }
