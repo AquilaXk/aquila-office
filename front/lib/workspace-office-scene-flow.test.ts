@@ -42,9 +42,15 @@ test("workspace 2d canvas exposes HUD, minimap, dialogue, and keyboard stage con
   assert.match(canvasSource, /workspace-2d-minimap/);
   assert.match(canvasSource, /workspace-2d-dialogue/);
   assert.match(canvasSource, /workspace-2d-actor-layer/);
+  assert.match(canvasSource, /workspace-2d-hero-hud/);
   assert.match(canvasSource, /StageActor/);
   assert.match(canvasSource, /PixelAvatar/);
   assert.match(canvasSource, /stage-actor--\$\{actor\.motion\}/);
+  assert.match(canvasSource, /getStageMiniMapRooms/);
+  assert.match(canvasSource, /focusWorkspaceViewportOnStagePosition/);
+  assert.match(canvasSource, /workspace-2d-minimap-room-button/);
+  assert.match(canvasSource, /Move view to/);
+  assert.match(canvasSource, /workspace-2d-minimap-actor/);
   assert.match(canvasSource, /aria-label="Office scene minimap"/);
   assert.match(canvasSource, /aria-label="Stage keyboard controls"/);
   assert.match(canvasSource, /onKeyDown/);
@@ -64,6 +70,9 @@ test("workspace office scene styles define full screen surface", () => {
   assert.match(cssSource, /\.workspace-office-scene/);
   assert.match(cssSource, /min-height:\s*calc\(100vh - 64px\)/);
   assert.match(cssSource, /\.workspace-2d-minimap/);
+  assert.match(cssSource, /\.workspace-2d-hero-hud/);
+  assert.match(cssSource, /\.workspace-2d-minimap-room-button/);
+  assert.match(cssSource, /\.workspace-2d-minimap-actor/);
   assert.match(cssSource, /\.workspace-2d-dialogue/);
   assert.match(cssSource, /\.stage-actor/);
   assert.match(cssSource, /@keyframes stage-actor-working/);
