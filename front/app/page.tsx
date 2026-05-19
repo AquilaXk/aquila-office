@@ -4,21 +4,22 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { BRAND_MASCOT_PATH, SERVICE_NAME } from "@/lib/branding";
-import { isAuthenticated } from "@/lib/auth";
+import { AUTH_STORAGE_KEYS, isAuthenticated, readAuthUser, type AuthUser } from "@/lib/auth";
 
 const MENU = [
-  { label: "LOGIN", href: "/auth", action: "login" as const },
+  { label: "START", href: "/auth", action: "start" as const },
   { label: "CONTINUE", href: "/workspaces", action: "continue" as const },
+  { label: "SETTINGS", href: "/auth/character", action: "settings" as const },
 ];
 
 export default function Home() {
   const router = useRouter();
   const [selected, setSelected] = useState(0);
-  const [notice, setNotice] = useState("");
+  const [user, setUser] = useState<AuthUser | null>(null);
 
   const activate = useCallback((item: (typeof MENU)[number]) => {
-    if (item.action === "continue" && !isAuthenticated()) {
-      setNotice("로그인이 필요합니다. LOGIN을 선택하세요.");
+    if (item.action !== "start" && !isAuthenticated()) {
+      router.push("/");
       return;
     }
 
@@ -30,12 +31,10 @@ export default function Home() {
       if (event.key === "ArrowDown" || event.key === "ArrowRight") {
         event.preventDefault();
         setSelected((current) => (current + 1) % MENU.length);
-        setNotice("");
       }
       if (event.key === "ArrowUp" || event.key === "ArrowLeft") {
         event.preventDefault();
         setSelected((current) => (current - 1 + MENU.length) % MENU.length);
-        setNotice("");
       }
       if (event.key === "Enter") {
         event.preventDefault();
@@ -46,6 +45,19 @@ export default function Home() {
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [activate, selected]);
+
+  useEffect(() => {
+    const refreshUser = () => setUser(readAuthUser());
+    const onStorage = (event: StorageEvent) => {
+      if (event.key === null || AUTH_STORAGE_KEYS.includes(event.key)) {
+        refreshUser();
+      }
+    };
+
+    refreshUser();
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
 
   return (
     <main className="title-screen" aria-label="타이틀 화면">
@@ -62,6 +74,7 @@ export default function Home() {
         <p className="eyebrow">PRESS START</p>
         <h1>{SERVICE_NAME.toUpperCase()}</h1>
         <p className="title-screen-subtitle">cooperative workspace operations</p>
+        <p className="title-screen-subtitle">HERO {user?.name ?? "PLAYER"}</p>
 
         <div className="title-menu" role="menu" aria-label="시작 메뉴">
           {MENU.map((item, index) => {
@@ -72,10 +85,7 @@ export default function Home() {
                 type="button"
                 role="menuitem"
                 className={active ? "title-menu-item title-menu-item-active" : "title-menu-item"}
-                onMouseEnter={() => {
-                  setSelected(index);
-                  setNotice("");
-                }}
+                onMouseEnter={() => setSelected(index)}
                 onClick={() => activate(item)}
               >
                 <span aria-hidden="true">{active ? ">" : ""}</span>
@@ -85,11 +95,6 @@ export default function Home() {
           })}
         </div>
 
-        {notice ? (
-          <p className="title-screen-notice" role="status">
-            {notice}
-          </p>
-        ) : null}
         <p className="title-screen-hint">[ ↑↓ SELECT ] [ ENTER CONFIRM ]</p>
       </section>
     </main>
