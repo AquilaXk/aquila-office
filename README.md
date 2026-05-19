@@ -221,9 +221,9 @@ gh issue list --repo AquilaXk/aquila-office --state open --limit 50
 gh run list --repo AquilaXk/aquila-office --branch main --limit 10
 ```
 
-Current release evidence is recorded in `COMPLETION_CHECKLIST.md` with `main` commit `5722c551d727b25fbdb7815a7b1142875613a2c3` and CI run `26070864190`.
+Current release evidence is recorded in `COMPLETION_CHECKLIST.md` with pre-PR `main` commit `f6487d110b3cfb1710912297caea38666732ea30` and CI workflow run `26092492917`.
 
-Before release, the issue list should be empty after the release-evidence PR is merged, the latest `main` CI run should show only passing jobs, and `COMPLETION_CHECKLIST.md` should have no unresolved release blocker or unchecked final-state item.
+Before release, the issue list should be empty after the release-evidence PR is merged, the latest `main` CI workflow run should show only passing jobs, and `COMPLETION_CHECKLIST.md` should have no unresolved release blocker or unchecked final-state item.
 
 Runtime safety notes:
 
