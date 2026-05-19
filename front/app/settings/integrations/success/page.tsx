@@ -4,10 +4,13 @@ import { ArrowLeft, CheckCircle2, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { resolveAccessToken } from "@/lib/auth";
-import { fetchSlackIntegrations, type SlackIntegration } from "@/lib/slack";
-
-const RETURN_TO_KEYS = ["aquila-office.pendingSlackReturnTo", "aio.slack.returnTo"];
-const PENDING_WORKSPACE_KEYS = ["aquila-office.pendingSlackWorkspaceId", "aio.slack.pendingWorkspaceId"];
+import {
+  clearSlackPendingConnectionState,
+  fetchSlackIntegrations,
+  readPendingSlackWorkspaceId,
+  readSlackReturnTo,
+  writeStoredSlackIntegration,
+} from "@/lib/slack";
 
 export default function SlackIntegrationSuccessPage() {
   const router = useRouter();
@@ -20,16 +23,16 @@ export default function SlackIntegrationSuccessPage() {
     let redirectTimer: ReturnType<typeof setTimeout> | null = null;
 
     async function refreshIntegration() {
-      const nextReturnTo = safeReturnTo(firstStoredValue(RETURN_TO_KEYS));
+      const nextReturnTo = readSlackReturnTo(window.localStorage);
       setReturnTo(nextReturnTo);
 
       const params = new URLSearchParams(window.location.search);
       const workspaceId = parseWorkspaceId(
-        params.get("workspaceId") ?? firstStoredValue(PENDING_WORKSPACE_KEYS),
+        params.get("workspaceId") ?? readPendingSlackWorkspaceId(window.localStorage),
       );
 
       if (workspaceId === null) {
-        clearPendingSlackStorage();
+        clearSlackPendingConnectionState(window.localStorage);
         setRefreshing(false);
         setMessage("Slack 연동이 완료되었습니다.");
         redirectTimer = setTimeout(() => router.push(nextReturnTo), 2500);
@@ -44,9 +47,9 @@ export default function SlackIntegrationSuccessPage() {
 
         const latestIntegration = integrations[0] ?? null;
         if (latestIntegration) {
-          writeSlackIntegration(workspaceId, latestIntegration);
+          writeStoredSlackIntegration(window.localStorage, workspaceId, latestIntegration);
         }
-        clearPendingSlackStorage();
+        clearSlackPendingConnectionState(window.localStorage);
         setRefreshing(false);
         setMessage("Slack 연동이 완료되었습니다.");
         redirectTimer = setTimeout(() => router.push(nextReturnTo), 2500);
@@ -96,38 +99,7 @@ export default function SlackIntegrationSuccessPage() {
   );
 }
 
-function safeReturnTo(value: string | null): string {
-  if (!value || !value.startsWith("/") || value.startsWith("//")) {
-    return "/workspaces";
-  }
-  return value;
-}
-
-function firstStoredValue(keys: string[]): string | null {
-  for (const key of keys) {
-    const value = window.localStorage.getItem(key);
-    if (value) {
-      return value;
-    }
-  }
-
-  return null;
-}
-
 function parseWorkspaceId(value: string | null): number | null {
   const workspaceId = Number(value);
   return Number.isFinite(workspaceId) && workspaceId > 0 ? workspaceId : null;
-}
-
-function clearPendingSlackStorage() {
-  for (const key of [...RETURN_TO_KEYS, ...PENDING_WORKSPACE_KEYS]) {
-    window.localStorage.removeItem(key);
-  }
-}
-
-function writeSlackIntegration(workspaceId: number, integration: SlackIntegration) {
-  window.localStorage.setItem(
-    `aio.workspace.${workspaceId}.integrations.slack`,
-    JSON.stringify(integration),
-  );
 }
