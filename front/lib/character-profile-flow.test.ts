@@ -1,11 +1,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 
 const appRoot = process.cwd();
 const source = readFileSync(path.join(appRoot, "app/auth/character/page.tsx"), "utf8");
 const cssSource = readFileSync(path.join(appRoot, "app/globals.css"), "utf8");
+const workspaceSource = readFileSync(path.join(appRoot, "app/workspaces/[workspaceId]/page.tsx"), "utf8");
+const pixelAvatarPath = path.join(appRoot, "components/arcade/PixelAvatar.tsx");
 
 test("character profile flow restores local and API profile state", () => {
   assert.match(source, /CHARACTER_STORAGE_KEY\s*=\s*"ai-office\.character"/);
@@ -83,5 +85,55 @@ test("character profile exposes grimdark gothic sci-fi avatar art direction", ()
 
   for (const term of [...disallowedProductMarks, ...disallowedGenreNames]) {
     assert.doesNotMatch(source, new RegExp(term));
+  }
+});
+
+test("pixel avatar component exposes the required character sprite contract", () => {
+  assert.equal(existsSync(pixelAvatarPath), true, "PixelAvatar.tsx must exist");
+  const pixelAvatarSource = readFileSync(pixelAvatarPath, "utf8");
+
+  for (const kind of ["alex", "mira", "kenji", "yuna", "diego", "iris", "agent"]) {
+    assert.match(pixelAvatarSource, new RegExp(`["']${kind}["']`));
+  }
+
+  assert.match(pixelAvatarSource, /export type PixelAvatarKind/);
+  assert.match(pixelAvatarSource, /export type PixelAvatarDirection\s*=\s*"S"\s*\|\s*"N"\s*\|\s*"E"\s*\|\s*"W"/);
+  assert.match(pixelAvatarSource, /export const PA_PALETTES/);
+  assert.match(pixelAvatarSource, /HERO_FRAMES/);
+  assert.match(pixelAvatarSource, /HERO_WALK_FRAMES/);
+  assert.match(pixelAvatarSource, /paletteOverride/);
+});
+
+test("character profile uses pixel avatar kinds and storage shape", () => {
+  assert.match(source, /PixelAvatar/);
+  assert.match(source, /PA_PALETTES/);
+  assert.match(source, /type PixelAvatarKind/);
+  assert.match(source, /DEFAULT_CHARACTER[\s\S]*avatarKind:\s*"mira"/);
+
+  for (const kind of ["alex", "mira", "kenji", "yuna", "diego", "iris"]) {
+    assert.match(source, new RegExp(`value:\\s*["']${kind}["']`));
+  }
+
+  for (const legacyKind of ["frontend", "design", "backend", "product", "devops"]) {
+    assert.doesNotMatch(source, new RegExp(`value:\\s*["']${legacyKind}["']`));
+  }
+
+  assert.match(source, /kind:\s*normalizedCharacter\.avatarKind/);
+  assert.match(source, /name:\s*normalizedCharacter\.displayName/);
+  assert.match(source, /colors:\s*normalizedCharacter\.avatarColors/);
+  assert.match(source, /colorMode:\s*normalizedCharacter\.colorMode/);
+  assert.match(source, /paletteOverride/);
+});
+
+test("workspace detail consumes stored pixel avatar profiles", () => {
+  assert.match(workspaceSource, /PixelAvatar/);
+  assert.match(workspaceSource, /type PixelAvatarKind/);
+  assert.match(workspaceSource, /CHARACTER_STORAGE_KEY\s*=\s*"ai-office\.character"/);
+  assert.match(workspaceSource, /loadStoredCharacterProfile/);
+  assert.match(workspaceSource, /memberProfileToStoredCharacter/);
+  assert.match(workspaceSource, /pickAvatarKind/);
+
+  for (const kind of ["mira", "alex", "kenji", "yuna", "diego", "iris"]) {
+    assert.match(workspaceSource, new RegExp(`["']${kind}["']`));
   }
 });

@@ -26,6 +26,11 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { use, useCallback, useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
+import {
+  PixelAvatar,
+  type PixelAvatarKind,
+  type PixelAvatarPaletteOverride,
+} from "@/components/arcade";
 import Workspace2DCanvas from "@/components/workspace/Workspace2DCanvas";
 import { MarkdownContent } from "@/components/ui";
 import { ApiError } from "@/lib/api";
@@ -251,6 +256,13 @@ type ModalLoadState =
   | { status: "ready"; error: null }
   | { status: "error"; error: string };
 
+type AvatarColorKey = "skin" | "hair" | "shirt";
+
+interface StoredCharacterProfile {
+  kind: PixelAvatarKind;
+  paletteOverride?: PixelAvatarPaletteOverride;
+}
+
 type TaskGroup = {
   key: string;
   label: string;
@@ -314,6 +326,7 @@ type OfficeSceneNavItemId = (typeof officeSceneNavItems)[number]["id"];
 
 const EMPTY_WORKSPACE_MEMBERS: WorkspaceMember[] = [];
 const EMPTY_PRESENCE_MEMBERS: WorkspacePresenceMessage["members"] = [];
+const CHARACTER_STORAGE_KEY = "ai-office.character";
 
 export default function WorkspaceDetailPage({
   params,
@@ -1543,6 +1556,7 @@ export default function WorkspaceDetailPage({
   );
   const onlinePresenceMembers = presenceLiveState.members ?? EMPTY_PRESENCE_MEMBERS;
   const isUpdatingPresence = presenceMutation.status === "submitting";
+  const storedCharacterProfile = useMemo(() => loadStoredCharacterProfile(), []);
   const canCreateInvite = workspace?.myRole === "ADMIN";
   const isCreatingInvite = inviteState.status === "submitting";
   const canSubmitInvite = canCreateInvite && inviteEmail.trim().length > 0 && !isCreatingInvite;
@@ -2385,7 +2399,7 @@ export default function WorkspaceDetailPage({
                   {memberStats.map((stat) => (
                     <article className="workspace-member-row" key={stat.memberId}>
                       <div className="workspace-member-avatar">
-                        <UserRound aria-hidden="true" />
+                        <PixelAvatar kind={pickAvatarKind(stat.memberName)} size={2} />
                       </div>
                       <div className="workspace-member-main">
                         <strong>{stat.memberName}</strong>
@@ -2539,7 +2553,7 @@ export default function WorkspaceDetailPage({
                   {workspaceAgents.map((agent) => (
                     <article className="workspace-member-row" key={agent.agentId}>
                       <div className="workspace-member-avatar">
-                        <UserRound aria-hidden="true" />
+                        <PixelAvatar kind="agent" size={2} walking={agent.status === "READY"} />
                       </div>
                       <div className="workspace-member-main">
                         <strong>{agent.name}</strong>
@@ -2838,21 +2852,31 @@ export default function WorkspaceDetailPage({
 
               {members.length > 0 ? (
                 <div className="workspace-member-list">
-                  {members.map((member) => (
-                    <article className="workspace-member-row" key={member.memberId}>
-                      <div className="workspace-member-avatar">
-                        <UserRound aria-hidden="true" />
-                      </div>
-                      <div className="workspace-member-main">
-                        <strong>{member.name}</strong>
-                        <p>{member.email}</p>
-                      </div>
-                      <div className="workspace-member-meta">
-                        <span className="role-badge">{formatRole(member.role)}</span>
-                        <span>{formatDateTime(member.joinedAt)}</span>
-                      </div>
-                    </article>
-                  ))}
+                  {members.map((member, index) => {
+                    const memberAvatar =
+                      index === 0 && storedCharacterProfile
+                        ? storedCharacterProfile
+                        : memberProfileToStoredCharacter({ avatarKind: pickAvatarKind(member.name) });
+                    return (
+                      <article className="workspace-member-row" key={member.memberId}>
+                        <div className="workspace-member-avatar">
+                          <PixelAvatar
+                            kind={memberAvatar?.kind ?? pickAvatarKind(member.name)}
+                            size={2}
+                            paletteOverride={memberAvatar?.paletteOverride}
+                          />
+                        </div>
+                        <div className="workspace-member-main">
+                          <strong>{member.name}</strong>
+                          <p>{member.email}</p>
+                        </div>
+                        <div className="workspace-member-meta">
+                          <span className="role-badge">{formatRole(member.role)}</span>
+                          <span>{formatDateTime(member.joinedAt)}</span>
+                        </div>
+                      </article>
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="workspace-member-empty">
@@ -4063,10 +4087,14 @@ function ActorTaskPanel({
   }
 
   const isAgent = actor.kind === "agent";
+  const actorAvatarKind = pickAvatarKind(actor.label, isAgent);
 
   return (
     <aside className="workspace-actor-panel" aria-label="Agent 대화와 Task 대시보드">
       <header className="workspace-actor-header">
+        <div className="workspace-member-avatar">
+          <PixelAvatar kind={actorAvatarKind} size={2} walking={isAgent} />
+        </div>
         <div>
           <span className="workspace-detail-label">{isAgent ? "Agent actor" : "Member actor"}</span>
           <h2>{actor.label}</h2>
@@ -5282,6 +5310,65 @@ function messageFromError(error: unknown, fallback: string): string {
     return error.message;
   }
   return fallback;
+}
+
+function pickAvatarKind(name: string, agent = false): PixelAvatarKind {
+  if (agent) {
+    return "agent";
+  }
+  const kinds: PixelAvatarKind[] = ["mira", "alex", "kenji", "yuna", "diego", "iris"];
+  const hash = [...name].reduce((sum, char) => sum + char.charCodeAt(0), 0);
+  return kinds[hash % kinds.length];
+}
+
+function memberProfileToStoredCharacter(profile?: {
+  avatarKind?: string | null;
+  avatarColors?: Partial<Record<AvatarColorKey, string>> | null;
+}): StoredCharacterProfile | undefined {
+  if (!profile?.avatarKind || !isPixelAvatarKind(profile.avatarKind)) {
+    return undefined;
+  }
+  const { skin, hair, shirt } = profile.avatarColors ?? {};
+  if (!skin && !hair && !shirt) {
+    return { kind: profile.avatarKind };
+  }
+  return {
+    kind: profile.avatarKind,
+    paletteOverride: {
+      ...(skin ? { skin } : {}),
+      ...(hair ? { hair } : {}),
+      ...(shirt ? { shirt } : {}),
+    },
+  };
+}
+
+function loadStoredCharacterProfile(): StoredCharacterProfile | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+  try {
+    const raw = window.localStorage.getItem(CHARACTER_STORAGE_KEY);
+    if (!raw) {
+      return null;
+    }
+    const saved = JSON.parse(raw) as {
+      kind?: string;
+      paletteOverride?: PixelAvatarPaletteOverride;
+    };
+    if (!saved.kind || !isPixelAvatarKind(saved.kind)) {
+      return null;
+    }
+    return {
+      kind: saved.kind,
+      paletteOverride: saved.paletteOverride,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function isPixelAvatarKind(value: string): value is PixelAvatarKind {
+  return ["mira", "alex", "kenji", "yuna", "diego", "iris", "agent"].includes(value);
 }
 
 function defaultAgentIdForTask(task: WorkspaceTask, agents: WorkspaceAgent[]): string {
