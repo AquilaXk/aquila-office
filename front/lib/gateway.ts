@@ -49,6 +49,86 @@ export type TestGatewayConnectionInput = Pick<
   "gatewayUrl" | "token"
 >;
 
+export type OpenClawIntegrationStorage = Pick<Storage, "getItem" | "setItem" | "removeItem">;
+
+export function openClawIntegrationStorageKey(workspaceId: number): string {
+  return `aio.workspace.${workspaceId}.integrations.openclaw`;
+}
+
+export function normalizeWorkspaceGatewayStatus(
+  status: WorkspaceGatewayStatus,
+): WorkspaceGatewayStatus {
+  return {
+    ...status,
+    bound: Boolean(status.bound),
+    status: status.status ?? (status.bound ? "BOUND" : "UNBOUND"),
+    bindingId: status.bindingId ?? null,
+    mode: status.mode ?? null,
+    gatewayUrl: status.gatewayUrl ?? null,
+    maskedToken: status.maskedToken ?? null,
+    lastStatus: status.lastStatus ?? null,
+    lastCheckedAt: status.lastCheckedAt ?? null,
+    lastError: status.lastError ?? null,
+    updatedAt: status.updatedAt ?? null,
+  };
+}
+
+export function gatewayBindingToStatus(
+  binding: WorkspaceGatewayBinding,
+): WorkspaceGatewayStatus {
+  return {
+    status: "BOUND",
+    bound: true,
+    bindingId: binding.id,
+    mode: binding.mode,
+    gatewayUrl: binding.gatewayUrl,
+    maskedToken: binding.maskedToken,
+    lastStatus: null,
+    lastCheckedAt: null,
+    lastError: null,
+    updatedAt: null,
+  };
+}
+
+export function readStoredOpenClawGatewayStatus(
+  storage: OpenClawIntegrationStorage | null | undefined,
+  workspaceId: number,
+): WorkspaceGatewayStatus | null {
+  if (!storage) {
+    return null;
+  }
+
+  const raw = storage.getItem(openClawIntegrationStorageKey(workspaceId));
+  if (!raw) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as WorkspaceGatewayStatus | WorkspaceGatewayBinding;
+    if ("bound" in parsed) {
+      return normalizeWorkspaceGatewayStatus(parsed);
+    }
+    return gatewayBindingToStatus(parsed);
+  } catch {
+    return null;
+  }
+}
+
+export function writeStoredOpenClawGatewayStatus(
+  storage: OpenClawIntegrationStorage | null | undefined,
+  workspaceId: number,
+  gateway: WorkspaceGatewayStatus,
+): void {
+  storage?.setItem(openClawIntegrationStorageKey(workspaceId), JSON.stringify(gateway));
+}
+
+export function deleteStoredOpenClawGatewayStatus(
+  storage: OpenClawIntegrationStorage | null | undefined,
+  workspaceId: number,
+): void {
+  storage?.removeItem(openClawIntegrationStorageKey(workspaceId));
+}
+
 export async function fetchWorkspaceGatewayStatus(
   accessToken: string,
   workspaceId: number,

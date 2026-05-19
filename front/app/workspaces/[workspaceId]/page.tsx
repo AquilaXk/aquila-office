@@ -64,8 +64,13 @@ import {
 } from "@/lib/chat";
 import {
   createWorkspaceGatewayBinding,
+  deleteStoredOpenClawGatewayStatus,
   fetchWorkspaceGatewayStatus,
+  gatewayBindingToStatus,
+  normalizeWorkspaceGatewayStatus,
+  readStoredOpenClawGatewayStatus,
   testWorkspaceGatewayConnection,
+  writeStoredOpenClawGatewayStatus,
   type WorkspaceGatewayConnectionTest,
   type WorkspaceGatewayStatus,
 } from "@/lib/gateway";
@@ -76,9 +81,12 @@ import {
 } from "@/lib/gateway-utils";
 import {
   createGithubCredential,
+  deleteStoredGithubCredential,
   deleteGithubCredential,
   fetchGithubCredentials,
+  readStoredGithubCredential,
   updateGithubCredential,
+  writeStoredGithubCredential,
   type GithubCredential,
 } from "@/lib/github";
 import { createWorkspaceInvite, type WorkspaceInvite } from "@/lib/invites";
@@ -113,10 +121,14 @@ import {
   type WorkspaceDetailActionItem,
 } from "@/lib/workspace-detail";
 import {
+  deleteStoredSlackIntegration,
   deleteSlackIntegration,
   fetchSlackInstallUrl,
   fetchSlackIntegrations,
+  readStoredSlackIntegration,
+  saveSlackPendingConnectionState,
   type SlackIntegration,
+  writeStoredSlackIntegration,
 } from "@/lib/slack";
 import type { WorkspaceSceneNode } from "@/lib/workspace-2d";
 import {
@@ -212,17 +224,17 @@ type ConnectionMutationState = {
 type SlackConnectionState =
   | { status: "idle" | "loading"; integrations: []; error: null }
   | { status: "ready"; integrations: SlackIntegration[]; error: null }
-  | { status: "error"; integrations: []; error: string };
+  | { status: "error"; integrations: SlackIntegration[]; error: string };
 
 type GithubConnectionState =
   | { status: "idle" | "loading"; credentials: []; error: null }
   | { status: "ready"; credentials: GithubCredential[]; error: null }
-  | { status: "error"; credentials: []; error: string };
+  | { status: "error"; credentials: GithubCredential[]; error: string };
 
 type GatewayConnectionState =
   | { status: "idle" | "loading"; gateway: null; error: null }
   | { status: "ready"; gateway: WorkspaceGatewayStatus; error: null }
-  | { status: "error"; gateway: null; error: string };
+  | { status: "error"; gateway: WorkspaceGatewayStatus | null; error: string };
 
 type GatewayConnectionTestState =
   | { status: "idle"; result: null; message: null }
@@ -298,9 +310,6 @@ const TASK_TYPE_OPTIONS: TaskType[] = [
 const TASK_PRIORITY_OPTIONS: TaskPriority[] = ["LOW", "MEDIUM", "HIGH", "URGENT"];
 const EMPTY_GITHUB_CREDENTIALS: GithubCredential[] = [];
 const EMPTY_SLACK_INTEGRATIONS: SlackIntegration[] = [];
-const PENDING_SLACK_WORKSPACE_STORAGE_KEY = "aquila-office.pendingSlackWorkspaceId";
-const PENDING_SLACK_RETURN_TO_STORAGE_KEY = "aquila-office.pendingSlackReturnTo";
-const GATEWAY_URL_STORAGE_KEY_PREFIX = "aquila-office.gatewayUrl";
 
 const TASK_STATUS_OPTIONS: TaskStatus[] = [
   "REQUESTED",
@@ -476,10 +485,14 @@ export default function WorkspaceDetailPage({
     error: null,
   });
   const [connectionModal, setConnectionModal] = useState<ConnectionModalKind>(null);
-  const [slackConnectionState, setSlackConnectionState] = useState<SlackConnectionState>({
-    status: "idle",
-    integrations: [],
-    error: null,
+  const [slackConnectionState, setSlackConnectionState] = useState<SlackConnectionState>(() => {
+    if (typeof window === "undefined") {
+      return { status: "idle", integrations: [], error: null };
+    }
+    const stored = readStoredSlackIntegration(window.localStorage, numericWorkspaceId);
+    return stored
+      ? { status: "ready", integrations: [stored], error: null }
+      : { status: "idle", integrations: [], error: null };
   });
   const [slackConnectionMutation, setSlackConnectionMutation] =
     useState<ConnectionMutationState>({
@@ -489,15 +502,24 @@ export default function WorkspaceDetailPage({
   const [slackConnectionAction, setSlackConnectionAction] =
     useState<SlackConnectionAction | null>(null);
   const [githubConnectionState, setGithubConnectionState] =
-    useState<GithubConnectionState>({
-      status: "idle",
-      credentials: [],
-      error: null,
+    useState<GithubConnectionState>(() => {
+      if (typeof window === "undefined") {
+        return { status: "idle", credentials: [], error: null };
+      }
+      const stored = readStoredGithubCredential(window.localStorage, numericWorkspaceId);
+      return stored
+        ? { status: "ready", credentials: [stored], error: null }
+        : { status: "idle", credentials: [], error: null };
     });
   const [githubDisplayNameInput, setGithubDisplayNameInput] = useState("");
   const [githubTokenInput, setGithubTokenInput] = useState("");
   const [selectedGithubCredentialId, setSelectedGithubCredentialId] =
-    useState<number | null>(null);
+    useState<number | null>(() => {
+      if (typeof window === "undefined") {
+        return null;
+      }
+      return readStoredGithubCredential(window.localStorage, numericWorkspaceId)?.credentialId ?? null;
+    });
   const [editingGithubCredentialId, setEditingGithubCredentialId] =
     useState<number | null>(null);
   const [githubEditDisplayNameInput, setGithubEditDisplayNameInput] = useState("");
@@ -515,12 +537,21 @@ export default function WorkspaceDetailPage({
   const [githubConnectionAction, setGithubConnectionAction] =
     useState<GithubConnectionAction | null>(null);
   const [gatewayConnectionState, setGatewayConnectionState] =
-    useState<GatewayConnectionState>({
-      status: "idle",
-      gateway: null,
-      error: null,
+    useState<GatewayConnectionState>(() => {
+      if (typeof window === "undefined") {
+        return { status: "idle", gateway: null, error: null };
+      }
+      const stored = readStoredOpenClawGatewayStatus(window.localStorage, numericWorkspaceId);
+      return stored
+        ? { status: "ready", gateway: stored, error: null }
+        : { status: "idle", gateway: null, error: null };
     });
-  const [gatewayUrlInput, setGatewayUrlInput] = useState("");
+  const [gatewayUrlInput, setGatewayUrlInput] = useState(() => {
+    if (typeof window === "undefined") {
+      return "";
+    }
+    return readStoredOpenClawGatewayStatus(window.localStorage, numericWorkspaceId)?.gatewayUrl ?? "";
+  });
   const [gatewayTokenInput, setGatewayTokenInput] = useState("");
   const [gatewayConnectionTestState, setGatewayConnectionTestState] =
     useState<GatewayConnectionTestState>({
@@ -1254,11 +1285,22 @@ export default function WorkspaceDetailPage({
         resolveAccessToken(),
         numericWorkspaceId,
       );
+      if (typeof window !== "undefined") {
+        if (integrations[0]) {
+          writeStoredSlackIntegration(window.localStorage, numericWorkspaceId, integrations[0]);
+        } else {
+          deleteStoredSlackIntegration(window.localStorage, numericWorkspaceId);
+        }
+      }
       setSlackConnectionState({ status: "ready", integrations, error: null });
     } catch (error) {
+      const stored =
+        typeof window === "undefined"
+          ? null
+          : readStoredSlackIntegration(window.localStorage, numericWorkspaceId);
       setSlackConnectionState({
         status: "error",
-        integrations: [],
+        integrations: stored ? [stored] : [],
         error: messageFromError(error, "Slack 연동 목록을 확인하지 못했습니다."),
       });
     }
@@ -1283,6 +1325,13 @@ export default function WorkspaceDetailPage({
         resolveAccessToken(),
         numericWorkspaceId,
       );
+      if (typeof window !== "undefined") {
+        if (credentials[0]) {
+          writeStoredGithubCredential(window.localStorage, numericWorkspaceId, credentials[0]);
+        } else {
+          deleteStoredGithubCredential(window.localStorage, numericWorkspaceId);
+        }
+      }
       setGithubConnectionState({ status: "ready", credentials, error: null });
       setSelectedGithubCredentialId((current) =>
         current && credentials.some((credential) => credential.credentialId === current)
@@ -1290,11 +1339,16 @@ export default function WorkspaceDetailPage({
           : credentials[0]?.credentialId ?? null,
       );
     } catch (error) {
+      const stored =
+        typeof window === "undefined"
+          ? null
+          : readStoredGithubCredential(window.localStorage, numericWorkspaceId);
       setGithubConnectionState({
         status: "error",
-        credentials: [],
+        credentials: stored ? [stored] : [],
         error: messageFromError(error, "GitHub 자격 증명 목록을 확인하지 못했습니다."),
       });
+      setSelectedGithubCredentialId((current) => current ?? stored?.credentialId ?? null);
     }
   }, [numericWorkspaceId]);
 
@@ -1317,17 +1371,29 @@ export default function WorkspaceDetailPage({
         resolveAccessToken(),
         numericWorkspaceId,
       );
-      setGatewayConnectionState({ status: "ready", gateway, error: null });
+      const normalizedGateway = normalizeWorkspaceGatewayStatus(gateway);
+      if (typeof window !== "undefined") {
+        if (normalizedGateway.bound) {
+          writeStoredOpenClawGatewayStatus(window.localStorage, numericWorkspaceId, normalizedGateway);
+        } else {
+          deleteStoredOpenClawGatewayStatus(window.localStorage, numericWorkspaceId);
+        }
+      }
+      setGatewayConnectionState({ status: "ready", gateway: normalizedGateway, error: null });
       setGatewayUrlInput((current) =>
-        current || gateway.gatewayUrl || loadGatewayUrlFallback(numericWorkspaceId),
+        current || normalizedGateway.gatewayUrl || "",
       );
     } catch (error) {
+      const stored =
+        typeof window === "undefined"
+          ? null
+          : readStoredOpenClawGatewayStatus(window.localStorage, numericWorkspaceId);
       setGatewayConnectionState({
         status: "error",
-        gateway: null,
-        error: messageFromError(error, "gateway 상태를 확인하지 못했습니다."),
+        gateway: stored,
+        error: messageFromError(error, "OpenClaw Gateway 상태를 확인하지 못했습니다."),
       });
-      setGatewayUrlInput((current) => current || loadGatewayUrlFallback(numericWorkspaceId));
+      setGatewayUrlInput((current) => current || stored?.gatewayUrl || "");
     }
   }, [numericWorkspaceId]);
 
@@ -1656,11 +1722,11 @@ export default function WorkspaceDetailPage({
     actorChatMutation.status !== "submitting";
   const canManageConnections = workspace?.myRole === "ADMIN";
   const slackConnectionIntegrations =
-    slackConnectionState.status === "ready"
+    slackConnectionState.status === "ready" || slackConnectionState.status === "error"
       ? slackConnectionState.integrations
       : EMPTY_SLACK_INTEGRATIONS;
   const githubConnectionCredentials =
-    githubConnectionState.status === "ready"
+    githubConnectionState.status === "ready" || githubConnectionState.status === "error"
       ? githubConnectionState.credentials
       : EMPTY_GITHUB_CREDENTIALS;
   const selectedGithubCredential =
@@ -1708,7 +1774,9 @@ export default function WorkspaceDetailPage({
     }
 
     setSlackConnectionMutation({ status: "submitting", message: "Slack 설치 URL 확인 중" });
-    saveSlackPendingConnectionState(numericWorkspaceId);
+    if (typeof window !== "undefined") {
+      saveSlackPendingConnectionState(window.localStorage, numericWorkspaceId);
+    }
 
     try {
       const installUrl = await fetchSlackInstallUrl(resolveAccessToken(), numericWorkspaceId);
@@ -1737,16 +1805,17 @@ export default function WorkspaceDetailPage({
 
     try {
       await deleteSlackIntegration(resolveAccessToken(), numericWorkspaceId, integration.id);
-      setSlackConnectionState((previous) =>
-        previous.status === "ready"
-          ? {
-              ...previous,
-              integrations: previous.integrations.filter(
-                (currentIntegration) => currentIntegration.id !== integration.id,
-              ),
-            }
-          : previous,
+      const nextIntegrations = slackConnectionIntegrations.filter(
+        (currentIntegration) => currentIntegration.id !== integration.id,
       );
+      if (typeof window !== "undefined") {
+        if (nextIntegrations[0]) {
+          writeStoredSlackIntegration(window.localStorage, numericWorkspaceId, nextIntegrations[0]);
+        } else {
+          deleteStoredSlackIntegration(window.localStorage, numericWorkspaceId);
+        }
+      }
+      setSlackConnectionState({ status: "ready", integrations: nextIntegrations, error: null });
       setSlackConnectionMutation({
         status: "success",
         message: "Slack 연동이 삭제되었습니다.",
@@ -1799,6 +1868,9 @@ export default function WorkspaceDetailPage({
           : { status: "ready", credentials: [createdCredential], error: null },
       );
       setSelectedGithubCredentialId(createdCredential.credentialId);
+      if (typeof window !== "undefined") {
+        writeStoredGithubCredential(window.localStorage, numericWorkspaceId, createdCredential);
+      }
       setGithubDisplayNameInput("");
       setGithubTokenInput("");
       setGithubConnectionCreateMutation({
@@ -1886,6 +1958,9 @@ export default function WorkspaceDetailPage({
       setEditingGithubCredentialId(null);
       setGithubEditDisplayNameInput("");
       setGithubEditTokenInput("");
+      if (typeof window !== "undefined") {
+        writeStoredGithubCredential(window.localStorage, numericWorkspaceId, updatedCredential);
+      }
       setGithubConnectionActionMutation({
         status: "success",
         message: "GitHub 자격 증명이 수정되었습니다.",
@@ -1926,6 +2001,13 @@ export default function WorkspaceDetailPage({
           : previous,
       );
       setSelectedGithubCredentialId(nextCredentials[0]?.credentialId ?? null);
+      if (typeof window !== "undefined") {
+        if (nextCredentials[0]) {
+          writeStoredGithubCredential(window.localStorage, numericWorkspaceId, nextCredentials[0]);
+        } else {
+          deleteStoredGithubCredential(window.localStorage, numericWorkspaceId);
+        }
+      }
       if (editingGithubCredentialId === credential.credentialId) {
         setEditingGithubCredentialId(null);
         setGithubEditDisplayNameInput("");
@@ -1957,7 +2039,7 @@ export default function WorkspaceDetailPage({
         message:
           normalizedConnectionGatewayForm.urlError ??
           normalizedConnectionGatewayForm.tokenError ??
-          "gateway 연결 정보를 확인해 주세요.",
+          "OpenClaw Gateway 연결 정보를 확인해 주세요.",
       });
       return;
     }
@@ -1972,7 +2054,6 @@ export default function WorkspaceDetailPage({
           token: normalizedConnectionGatewayForm.token,
         },
       );
-      saveGatewayUrlFallback(numericWorkspaceId, normalizedConnectionGatewayForm.gatewayUrl);
       setGatewayConnectionTestState({
         status: "success",
         result,
@@ -1982,7 +2063,7 @@ export default function WorkspaceDetailPage({
       setGatewayConnectionTestState({
         status: "error",
         result: null,
-        message: messageFromError(error, "gateway 연결 테스트를 처리하지 못했습니다."),
+        message: messageFromError(error, "OpenClaw Gateway 연결 테스트를 처리하지 못했습니다."),
       });
     }
   };
@@ -2002,38 +2083,48 @@ export default function WorkspaceDetailPage({
         message:
           normalizedConnectionGatewayForm.urlError ??
           normalizedConnectionGatewayForm.tokenError ??
-          "gateway 연결 정보를 확인해 주세요.",
+          "OpenClaw Gateway 연결 정보를 확인해 주세요.",
       });
       return;
     }
 
     setGatewayBindingMutation({
       status: "submitting",
-      message: "Gateway binding 등록 중",
+      message: "OpenClaw Gateway binding 등록 중",
     });
 
     try {
-      await createWorkspaceGatewayBinding(resolveAccessToken(), numericWorkspaceId, {
+      const binding = await createWorkspaceGatewayBinding(resolveAccessToken(), numericWorkspaceId, {
         gatewayUrl: normalizedConnectionGatewayForm.gatewayUrl,
         token: normalizedConnectionGatewayForm.token,
         validateConnection: normalizedConnectionGatewayForm.validateConnection,
       });
-      const gateway = await fetchWorkspaceGatewayStatus(
-        resolveAccessToken(),
-        numericWorkspaceId,
-      );
-      saveGatewayUrlFallback(numericWorkspaceId, normalizedConnectionGatewayForm.gatewayUrl);
+      let gateway = gatewayBindingToStatus(binding);
+      try {
+        gateway = normalizeWorkspaceGatewayStatus(
+          await fetchWorkspaceGatewayStatus(resolveAccessToken(), numericWorkspaceId),
+        );
+      } catch {
+        // 상태 재조회가 실패해도 방금 저장한 binding 응답으로 화면과 캐시를 갱신한다.
+      }
+      if (typeof window !== "undefined") {
+        if (gateway.bound) {
+          writeStoredOpenClawGatewayStatus(window.localStorage, numericWorkspaceId, gateway);
+        } else {
+          deleteStoredOpenClawGatewayStatus(window.localStorage, numericWorkspaceId);
+        }
+      }
       setGatewayConnectionState({ status: "ready", gateway, error: null });
       setGatewayUrlInput(normalizedConnectionGatewayForm.gatewayUrl);
       setGatewayTokenInput("");
       setGatewayBindingMutation({
         status: "success",
-        message: "Gateway binding이 등록되었습니다.",
+        message: "OpenClaw Gateway 정보를 저장했습니다.",
       });
     } catch (error) {
       setGatewayBindingMutation({
         status: "error",
-        message: messageFromError(error, "Gateway binding을 등록하지 못했습니다."),
+        message: messageFromError(error, "OpenClaw Gateway 정보를 저장하지 못했습니다."),
       });
     }
   };
@@ -3391,7 +3482,10 @@ function ConnectionSettingsModal({
   const isSlackLoading = slackState.status === "loading";
   const isGithubLoading = githubState.status === "loading";
   const isGatewayLoading = gatewayState.status === "loading";
-  const currentGateway = gatewayState.status === "ready" ? gatewayState.gateway : null;
+  const currentGateway =
+    gatewayState.status === "ready" || gatewayState.status === "error"
+      ? gatewayState.gateway
+      : null;
 
   return (
     <div className="workspace-modal-backdrop" role="presentation">
@@ -3461,12 +3555,12 @@ function ConnectionSettingsModal({
               <button
                 className="workspace-connection-card"
                 type="button"
-                aria-label="Gateway"
+                aria-label="AI / OpenClaw"
                 onClick={() => onOpen("gateway")}
               >
                 <ShieldCheck aria-hidden="true" />
-                <span>Gateway</span>
-                <strong>외부 실행 연결</strong>
+                <span>AI / OpenClaw</span>
+                <strong>OpenClaw Gateway와 Agent 실행 환경</strong>
               </button>
             </div>
           ) : null}
@@ -3830,7 +3924,7 @@ function ConnectionSettingsModal({
                     ) : (
                       <KeyRound aria-hidden="true" />
                     )}
-                    <span>{gatewayBindingMutation.status === "submitting" ? "등록 중" : "Gateway binding 등록"}</span>
+                    <span>{gatewayBindingMutation.status === "submitting" ? "등록 중" : "OpenClaw binding 등록"}</span>
                   </button>
                 </div>
                 {gatewayTestState.status === "error" ? (
@@ -5329,40 +5423,8 @@ function connectionModalTitle(modal: Exclude<ConnectionModalKind, null>): string
     case "github":
       return "GitHub";
     case "gateway":
-      return "Gateway";
+      return "AI / OpenClaw";
   }
-}
-
-function saveSlackPendingConnectionState(workspaceId: number): void {
-  if (typeof window === "undefined") {
-    return;
-  }
-
-  window.localStorage.setItem(PENDING_SLACK_WORKSPACE_STORAGE_KEY, String(workspaceId));
-  window.localStorage.setItem(
-    PENDING_SLACK_RETURN_TO_STORAGE_KEY,
-    `/workspaces/${workspaceId}`,
-  );
-}
-
-function gatewayUrlStorageKey(workspaceId: number): string {
-  return `${GATEWAY_URL_STORAGE_KEY_PREFIX}.${workspaceId}`;
-}
-
-function loadGatewayUrlFallback(workspaceId: number): string {
-  if (typeof window === "undefined") {
-    return "";
-  }
-
-  return window.localStorage.getItem(gatewayUrlStorageKey(workspaceId)) ?? "";
-}
-
-function saveGatewayUrlFallback(workspaceId: number, gatewayUrl: string): void {
-  if (typeof window === "undefined") {
-    return;
-  }
-
-  window.localStorage.setItem(gatewayUrlStorageKey(workspaceId), gatewayUrl);
 }
 
 function toFailureState(error: unknown, fallback: string): WorkspaceDetailState {

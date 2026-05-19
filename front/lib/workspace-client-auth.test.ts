@@ -164,14 +164,14 @@ test("frontend exposes slack integration result routes", () => {
   const failSource = readSource("app/settings/integrations/fail/page.tsx");
 
   assert.match(successSource, /SlackIntegrationSuccessPage/);
-  assert.match(successSource, /aquila-office\.pendingSlackReturnTo/);
-  assert.match(successSource, /aquila-office\.pendingSlackWorkspaceId/);
+  assert.match(successSource, /readSlackReturnTo/);
+  assert.match(successSource, /readPendingSlackWorkspaceId/);
   assert.match(successSource, /fetchSlackIntegrations/);
-  assert.match(successSource, /aio\.workspace\.\$\{workspaceId\}\.integrations\.slack/);
+  assert.match(successSource, /writeStoredSlackIntegration/);
   assert.match(successSource, /setTimeout\(\(\) => router\.push\(nextReturnTo\), 2500\)/);
   assert.match(successSource, /연동 목록으로 이동/);
   assert.match(failSource, /SlackIntegrationFailPage/);
-  assert.match(failSource, /aquila-office\.pendingSlackReturnTo/);
+  assert.match(failSource, /readSlackReturnTo/);
   assert.match(failSource, /재시도/);
 });
 

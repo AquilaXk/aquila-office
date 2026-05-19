@@ -2,8 +2,7 @@
 
 import { ArrowLeft, ShieldAlert } from "lucide-react";
 import { useRouter } from "next/navigation";
-
-const RETURN_TO_KEYS = ["aquila-office.pendingSlackReturnTo", "aio.slack.returnTo"];
+import { readSlackReturnTo } from "@/lib/slack";
 
 export default function SlackIntegrationFailPage() {
   const router = useRouter();
@@ -12,7 +11,7 @@ export default function SlackIntegrationFailPage() {
     const returnTo =
       typeof window === "undefined"
         ? "/workspaces"
-        : safeReturnTo(firstStoredValue(RETURN_TO_KEYS));
+        : readSlackReturnTo(window.localStorage);
     router.push(returnTo);
   }
 
@@ -41,22 +40,4 @@ export default function SlackIntegrationFailPage() {
       </section>
     </main>
   );
-}
-
-function safeReturnTo(value: string | null): string {
-  if (!value || !value.startsWith("/") || value.startsWith("//")) {
-    return "/workspaces";
-  }
-  return value;
-}
-
-function firstStoredValue(keys: string[]): string | null {
-  for (const key of keys) {
-    const value = window.localStorage.getItem(key);
-    if (value) {
-      return value;
-    }
-  }
-
-  return null;
 }

@@ -312,7 +312,7 @@ test.describe("브라우저 UI UX 회귀", () => {
     await expect(connectionDialog.getByRole("button", { name: "Slack 설치 열기" })).toBeVisible();
     await connectionDialog.getByRole("button", { name: "Slack 설치 열기" }).click();
     await expect
-      .poll(() => page.evaluate(() => localStorage.getItem("aquila-office.pendingSlackWorkspaceId")))
+      .poll(() => page.evaluate(() => localStorage.getItem("aio.slack.pendingWorkspaceId")))
       .toBe(String(workspaceId));
     await connectionDialog.getByRole("button", { name: "뒤로" }).click();
     await connectionDialog.getByRole("button", { name: "GitHub", exact: true }).click();
@@ -323,14 +323,24 @@ test.describe("브라우저 UI UX 회귀", () => {
     await expect(
       connectionDialog.locator(".workspace-connection-select").filter({ hasText: "Deploy token" }),
     ).toBeVisible();
+    await expect
+      .poll(() =>
+        page.evaluate((id) => window.localStorage.getItem(`aio.workspace.${id}.integrations.github`), workspaceId),
+      )
+      .toContain("Deploy token");
     await connectionDialog.getByRole("button", { name: "뒤로" }).click();
-    await connectionDialog.getByRole("button", { name: "Gateway", exact: true }).click();
+    await connectionDialog.getByRole("button", { name: "AI / OpenClaw", exact: true }).click();
     await connectionDialog.getByLabel("Gateway URL").fill("https://gateway.example.test");
     await connectionDialog.getByLabel("Token").fill("gateway-secret");
     await connectionDialog.getByRole("button", { name: "연결 테스트" }).click();
     await expect(connectionDialog.getByText("연결 가능").first()).toBeVisible();
-    await connectionDialog.getByRole("button", { name: "Gateway binding 등록" }).click();
-    await expect(connectionDialog.getByText("Gateway binding이 등록되었습니다.")).toBeVisible();
+    await connectionDialog.getByRole("button", { name: "OpenClaw binding 등록" }).click();
+    await expect(connectionDialog.getByText("OpenClaw Gateway 정보를 저장했습니다.")).toBeVisible();
+    await expect
+      .poll(() =>
+        page.evaluate((id) => window.localStorage.getItem(`aio.workspace.${id}.integrations.openclaw`), workspaceId),
+      )
+      .toContain("https://gateway.example.test");
     await closeTopDialog(page);
 
     await expect(page.getByRole("heading", { name: "운영 요약" })).toBeVisible();
@@ -550,8 +560,8 @@ test.describe("브라우저 UI UX 회귀", () => {
     await expect(page.getByRole("heading", { name: "WORKSPACES" })).toBeVisible();
 
     await page.evaluate((id) => {
-      window.localStorage.setItem("aquila-office.pendingSlackWorkspaceId", String(id));
-      window.localStorage.setItem("aquila-office.pendingSlackReturnTo", `/workspaces/${id}`);
+      window.localStorage.setItem("aio.slack.pendingWorkspaceId", String(id));
+      window.localStorage.setItem("aio.slack.returnTo", `/workspaces/${id}`);
     }, workspaceId);
     await page.goto("/settings/integrations/success");
     await expect(page.locator('section[aria-label="Slack 연동 성공"]')).toBeVisible();
@@ -562,12 +572,12 @@ test.describe("브라우저 UI UX 회귀", () => {
       )
       .toContain("T123");
     await expect
-      .poll(() => page.evaluate(() => window.localStorage.getItem("aquila-office.pendingSlackWorkspaceId")))
+      .poll(() => page.evaluate(() => window.localStorage.getItem("aio.slack.pendingWorkspaceId")))
       .toBeNull();
     await page.waitForURL((url) => url.pathname === `/workspaces/${workspaceId}`);
 
     await page.evaluate((id) => {
-      window.localStorage.setItem("aquila-office.pendingSlackReturnTo", `/workspaces/${id}`);
+      window.localStorage.setItem("aio.slack.returnTo", `/workspaces/${id}`);
     }, workspaceId);
     await page.goto("/settings/integrations/fail");
     await expect(page.locator('section[aria-label="Slack 연동 실패"]')).toBeVisible();
