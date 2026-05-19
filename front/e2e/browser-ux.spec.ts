@@ -535,18 +535,19 @@ test.describe("브라우저 UI UX 회귀", () => {
     await expect(inviteCreate.getByLabel("이메일")).toHaveCount(0);
     await inviteCreate.getByLabel("만료").fill("14");
     await inviteCreate.getByRole("button", { name: "초대 생성" }).click();
-    await expect(page.getByText("초대가 생성되었습니다.")).toBeVisible();
-    await page.locator(".workspace-invite-created-card").getByRole("button", { name: "복사" }).click();
     await expect(page.getByText("초대 링크가 복사되었습니다.")).toBeVisible();
+    await expect(
+      page.locator(".workspace-invite-created-card").getByRole("button", { name: "COPIED" }),
+    ).toBeVisible();
 
     await page.getByRole("button", { name: "초대 목록" }).click();
     const inviteList = page.locator('section[aria-label="워크스페이스 초대 관리"]');
     await expect(inviteList).toBeVisible();
-    await inviteList.getByRole("button", { name: "연장" }).click();
+    await inviteList.getByRole("button", { name: "+7D" }).click();
     await expect(inviteList.getByText("초대 만료일이 연장되었습니다.")).toBeVisible();
-    await inviteList.getByRole("button", { name: "복사" }).click();
+    await inviteList.getByRole("button", { name: "COPY" }).click();
     await expect(inviteList.getByText("초대 링크가 복사되었습니다.")).toBeVisible();
-    await inviteList.getByRole("button", { name: "취소/삭제" }).click();
+    await inviteList.getByRole("button", { name: "DEL" }).click();
     await expect(inviteList.getByText("초대가 취소되었습니다.")).toBeVisible();
 
     await page.goto(`/invites/${inviteToken}`);
@@ -801,9 +802,13 @@ async function installMockApi(page: Page, options: MockApiOptions = {}) {
 
     if (method === "POST" && path === `/api/v1/workspaces/${workspaceId}/invites`) {
       const body = (request.postDataJSON() ?? {}) as Record<string, unknown>;
+      if ("email" in body || "mode" in body) {
+        await fulfillJson(route, { message: "legacy invite payload" }, 422);
+        return;
+      }
       await fulfillJson(route, {
         ...workspaceInvite(),
-        email: typeof body.email === "string" ? body.email : workspaceInvite().email,
+        targetEmail: typeof body.targetEmail === "string" ? body.targetEmail : null,
       });
       return;
     }
@@ -1323,7 +1328,9 @@ function workspaceInvite() {
     workspaceId,
     workspaceName: "Product Engineering",
     token: inviteToken,
-    email: "invitee@example.com",
+    targetEmail: "invitee@example.com",
+    inviteUrl: `/invites/${inviteToken}`,
+    emailStatus: "PENDING",
     role: "MEMBER",
     status: "PENDING",
     expired: false,

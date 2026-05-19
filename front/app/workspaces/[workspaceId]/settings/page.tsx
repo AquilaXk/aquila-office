@@ -162,11 +162,11 @@ type SlackIntegrationAction =
   | { type: "delete"; integrationId: number };
 
 const INVITE_STATUS_FILTERS: { value: InviteStatusFilter; label: string }[] = [
-  { value: "PENDING", label: "대기" },
-  { value: "ACCEPTED", label: "수락" },
-  { value: "EXPIRED", label: "만료" },
-  { value: "REVOKED", label: "취소" },
-  { value: "ALL", label: "전체" },
+  { value: "ALL", label: "ALL" },
+  { value: "PENDING", label: "PENDING" },
+  { value: "ACCEPTED", label: "ACCEPTED" },
+  { value: "EXPIRED", label: "EXPIRED" },
+  { value: "REVOKED", label: "REVOKED" },
 ];
 
 const workspaceSettingsSections: {
@@ -253,6 +253,8 @@ export default function WorkspaceSettingsPage({
     message: null,
   });
   const [createdInvite, setCreatedInvite] = useState<WorkspaceInvite | null>(null);
+  const [createdInviteUrl, setCreatedInviteUrl] = useState("");
+  const [createdInviteCopied, setCreatedInviteCopied] = useState(false);
   const [copiedInviteToken, setCopiedInviteToken] = useState<string | null>(null);
   const [inviteFilter, setInviteFilter] = useState<InviteStatusFilter>("PENDING");
   const [inviteActionId, setInviteActionId] = useState<number | null>(null);
@@ -878,16 +880,31 @@ export default function WorkspaceSettingsPage({
     }
 
     setInviteCreateState({ status: "submitting", message: null });
+    setCreatedInvite(null);
+    setCreatedInviteUrl("");
+    setCreatedInviteCopied(false);
+    setCopiedInviteToken(null);
     try {
       const invite = await createWorkspaceInvite(resolveAccessToken(), numericWorkspaceId, {
-        ...(inviteCreateMode === "email" ? { email: trimmedInviteEmail } : {}),
-        mode: inviteCreateMode,
+        ...(inviteCreateMode === "email" ? { targetEmail: trimmedInviteEmail } : {}),
         role: inviteRole,
         expiresInDays: parsedInviteExpiresInDays,
       });
+      const inviteUrl = createInviteUrl(invite);
+      let inviteCopied = false;
+      try {
+        await writeClipboardText(inviteUrl);
+        inviteCopied = true;
+      } catch {
+        inviteCopied = false;
+      }
       setCreatedInvite(invite);
-      setCopiedInviteToken(null);
-      setInviteCreateState({ status: "success", message: "초대가 생성되었습니다." });
+      setCreatedInviteUrl(inviteUrl);
+      setCreatedInviteCopied(inviteCopied);
+      setInviteCreateState({
+        status: "success",
+        message: inviteCopied ? "초대 링크가 복사되었습니다." : "초대가 생성되었습니다.",
+      });
       setInviteEmailInput("");
       setInviteLogState((previous) =>
         previous.status === "ready"
@@ -914,8 +931,8 @@ export default function WorkspaceSettingsPage({
     }
 
     try {
-      await writeClipboardText(createInviteUrl(createdInvite));
-      setCopiedInviteToken(createdInvite.token);
+      await writeClipboardText(createdInviteUrl || createInviteUrl(createdInvite));
+      setCreatedInviteCopied(true);
       setInviteCreateState({ status: "success", message: "초대 링크가 복사되었습니다." });
     } catch {
       setInviteCreateState({ status: "error", message: "초대 링크를 복사하지 못했습니다." });
@@ -937,11 +954,6 @@ export default function WorkspaceSettingsPage({
       return;
     }
 
-    if (parsedInviteExpiresInDays === null) {
-      setInviteActionState({ status: "error", message: "연장 기간은 1일부터 30일까지 입력해 주세요." });
-      return;
-    }
-
     setInviteActionId(invite.inviteId);
     setInviteActionState({ status: "submitting", message: null });
     try {
@@ -950,7 +962,7 @@ export default function WorkspaceSettingsPage({
         numericWorkspaceId,
         invite.inviteId,
         {
-          additionalDays: parsedInviteExpiresInDays,
+          additionalDays: 7,
         },
       );
       setInviteLogState((previous) =>
@@ -973,7 +985,7 @@ export default function WorkspaceSettingsPage({
   };
 
   const handleDeleteInvite = async (invite: WorkspaceInviteManagement) => {
-    if (!isAdmin || invite.status !== "PENDING" || hasInviteAction) {
+    if (!isAdmin || invite.status === "ACCEPTED" || hasInviteAction) {
       return;
     }
 
@@ -1054,7 +1066,7 @@ export default function WorkspaceSettingsPage({
     setDeleteState({ status: "submitting", message: null });
     try {
       await deleteWorkspace(resolveAccessToken(), numericWorkspaceId);
-      router.replace("/");
+      router.replace("/workspaces");
     } catch (error) {
       setDeleteState({
         status: "error",
@@ -2046,6 +2058,9 @@ export default function WorkspaceSettingsPage({
                       onClick={() => {
                         setInviteCreateMode("email");
                         setInviteCreateState({ status: "idle", message: null });
+                        setCreatedInvite(null);
+                        setCreatedInviteUrl("");
+                        setCreatedInviteCopied(false);
                       }}
                     >
                       <Mail aria-hidden="true" />
@@ -2062,6 +2077,9 @@ export default function WorkspaceSettingsPage({
                       onClick={() => {
                         setInviteCreateMode("link");
                         setInviteCreateState({ status: "idle", message: null });
+                        setCreatedInvite(null);
+                        setCreatedInviteUrl("");
+                        setCreatedInviteCopied(false);
                       }}
                     >
                       <Link2 aria-hidden="true" />
@@ -2167,8 +2185,8 @@ export default function WorkspaceSettingsPage({
               {isAdmin && createdInvite ? (
                 <article className="workspace-invite-created-card">
                   <div className="workspace-member-main">
-                    <strong>{createdInvite.email}</strong>
-                    <p>{createInvitePath(createdInvite)}</p>
+                    <strong>{formatInviteTarget(createdInvite)}</strong>
+                    <p>{createdInviteUrl || createInvitePath(createdInvite)}</p>
                     <span>만료 {formatDateTime(createdInvite.expiresAt)}</span>
                   </div>
                   <button
@@ -2177,9 +2195,11 @@ export default function WorkspaceSettingsPage({
                     onClick={() => void copyCreatedInviteUrl()}
                   >
                     <Copy aria-hidden="true" />
-                    <span>
-                      {copiedInviteToken === createdInvite.token ? "복사됨" : "복사"}
-                    </span>
+                    {createdInviteCopied || copiedInviteToken === createdInvite.token ? (
+                      <span>COPIED</span>
+                    ) : (
+                      <span>COPY</span>
+                    )}
                   </button>
                 </article>
               ) : null}
@@ -2278,8 +2298,8 @@ export default function WorkspaceSettingsPage({
                         <Mail aria-hidden="true" />
                       </div>
                       <div className="workspace-member-main">
-                        <strong>{invite.email}</strong>
-                        <p>{`/invites/${invite.token}`}</p>
+                        <strong>{formatInviteTarget(invite)}</strong>
+                        <p>{invite.inviteUrl ?? createInvitePath(invite)}</p>
                         <span>생성 {formatDateTime(invite.createdAt)}</span>
                       </div>
                       <div className="workspace-settings-member-actions">
@@ -2295,7 +2315,11 @@ export default function WorkspaceSettingsPage({
                           onClick={() => void copyInviteManagementUrl(invite)}
                         >
                           <Copy aria-hidden="true" />
-                          <span>{copiedInviteToken === invite.token ? "복사됨" : "복사"}</span>
+                          {copiedInviteToken === invite.token ? (
+                            <span>COPIED</span>
+                          ) : (
+                            <span>COPY</span>
+                          )}
                         </button>
                         <button
                           className="secondary-action workspace-invite-extend"
@@ -2304,24 +2328,34 @@ export default function WorkspaceSettingsPage({
                           disabled={!isAdmin || invite.status !== "PENDING" || hasInviteAction}
                         >
                           {inviteActionId === invite.inviteId ? (
-                            <Loader2 className="spin" aria-hidden="true" />
+                            <>
+                              <Loader2 className="spin" aria-hidden="true" />
+                              <span>PROCESSING</span>
+                            </>
                           ) : (
-                            <CalendarDays aria-hidden="true" />
+                            <>
+                              <CalendarDays aria-hidden="true" />
+                              <span>+7D</span>
+                            </>
                           )}
-                          <span>{inviteActionId === invite.inviteId ? "처리 중" : "연장"}</span>
                         </button>
                         <button
                           className="danger-action workspace-invite-delete"
                           type="button"
                           onClick={() => void handleDeleteInvite(invite)}
-                          disabled={!isAdmin || invite.status !== "PENDING" || hasInviteAction}
+                          disabled={!isAdmin || invite.status === "ACCEPTED" || hasInviteAction}
                         >
                           {inviteActionId === invite.inviteId ? (
-                            <Loader2 className="spin" aria-hidden="true" />
+                            <>
+                              <Loader2 className="spin" aria-hidden="true" />
+                              <span>PROCESSING</span>
+                            </>
                           ) : (
-                            <Trash2 aria-hidden="true" />
+                            <>
+                              <Trash2 aria-hidden="true" />
+                              <span>DEL</span>
+                            </>
                           )}
-                          <span>{inviteActionId === invite.inviteId ? "처리 중" : "취소/삭제"}</span>
                         </button>
                       </div>
                     </article>
@@ -3573,6 +3607,15 @@ function formatInviteStatus(status: WorkspaceInviteManagementStatus): string {
     case "REVOKED":
       return "취소";
   }
+}
+
+function formatInviteTarget(
+  invite: Pick<WorkspaceInvite, "token"> & {
+    targetEmail?: string | null;
+    inviteUrl?: string | null;
+  },
+): string {
+  return invite.targetEmail?.trim() || "SHARE LINK";
 }
 
 function toInviteStatusParam(
