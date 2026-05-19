@@ -110,6 +110,7 @@ export default function NewWorkspacePage() {
         </div>
 
         <form className="workspace-create-form" onSubmit={handleSubmit}>
+          <div className="workspace-create-card-label">WORKSPACE DETAILS</div>
           <label className="form-field">
             <span>
               <strong>WORKSPACE NAME</strong>
@@ -119,7 +120,7 @@ export default function NewWorkspacePage() {
               value={name}
               onChange={(event) => setName(event.target.value)}
               maxLength={NAME_MAX_LENGTH}
-              placeholder="예: Product Engineering"
+              placeholder="예: 백엔드 엔지니어링 길드"
               autoFocus
               disabled={isSubmitting}
             />
@@ -134,8 +135,8 @@ export default function NewWorkspacePage() {
               value={description}
               onChange={(event) => setDescription(event.target.value)}
               maxLength={DESCRIPTION_MAX_LENGTH}
-              placeholder="워크스페이스 목적이나 팀 설명을 입력하세요."
-              rows={5}
+              placeholder="워크스페이스의 미션, 진행 중인 작업 등을 설명해 주세요."
+              rows={4}
               disabled={isSubmitting}
             />
           </label>
@@ -158,11 +159,6 @@ export default function NewWorkspacePage() {
           </div>
         </form>
       </section>
-
-      <aside className="workspace-create-side" aria-label="생성 정보">
-        <strong>{resolveAccessToken() ? "SESSION READY" : "SESSION EMPTY"}</strong>
-        <span>access token</span>
-      </aside>
     </main>
   );
 }

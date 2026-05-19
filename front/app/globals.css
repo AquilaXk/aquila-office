@@ -735,11 +735,31 @@ h2 {
 .workspace-list {
   display: grid;
   gap: 10px;
+  max-height: min(58vh, 640px);
+  overflow-y: auto;
+  padding-right: 6px;
+}
+
+.workspace-list-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.workspace-scroll-indicator {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+}
+
+.workspace-scroll-indicator-active {
+  color: var(--green);
 }
 
 .workspace-row {
   display: grid;
-  grid-template-columns: 44px minmax(0, 1fr) auto;
+  grid-template-columns: 60px minmax(0, 1fr) 140px 90px;
   align-items: center;
   gap: 14px;
   min-height: 82px;
@@ -804,6 +824,19 @@ h2 {
   color: var(--text-muted);
   font-size: 13px;
   white-space: nowrap;
+}
+
+.workspace-row-enter {
+  display: inline-flex;
+  min-height: 34px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #c6eadc;
+  border-radius: 8px;
+  color: #08764f;
+  font-size: 12px;
+  font-weight: 900;
+  padding: 0 10px;
 }
 
 .role-badge {
@@ -1153,7 +1186,7 @@ h2 {
 
 .workspace-create-shell {
   display: grid;
-  grid-template-columns: minmax(0, 680px) minmax(220px, 300px);
+  grid-template-columns: minmax(0, 720px);
   gap: 18px;
   min-height: 100vh;
   align-items: center;
@@ -1204,6 +1237,13 @@ h2 {
 .workspace-create-form {
   display: grid;
   gap: 16px;
+}
+
+.workspace-create-card-label {
+  color: var(--green);
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
 }
 
 .form-field {
