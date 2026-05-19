@@ -36,7 +36,7 @@ export type AcceptedWorkspaceInvite = {
 };
 
 export type CreateWorkspaceInviteInput = {
-  email: string;
+  email?: string;
   mode?: "email" | "link";
   role?: WorkspaceMemberRole;
   expiresInDays?: number;

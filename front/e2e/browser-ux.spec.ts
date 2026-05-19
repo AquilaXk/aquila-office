@@ -115,6 +115,15 @@ test.describe("브라우저 UI UX 회귀", () => {
     await expect(page.getByRole("heading", { name: "AQUILA OFFICE" })).toBeVisible();
   });
 
+  test("인증 없는 settings 접근은 title screen으로 되돌린다", async ({ page }) => {
+    await installMockApi(page);
+
+    await page.goto(`/workspaces/${workspaceId}/settings`);
+
+    await page.waitForURL((url) => url.pathname === "/");
+    await expect(page.getByRole("heading", { name: "AQUILA OFFICE" })).toBeVisible();
+  });
+
   test("title screen에서 워크스페이스 목록으로 이동하고 워크스페이스를 생성한다", async ({ page }) => {
     await installMockApi(page);
     await seedAuthTokens(page);
@@ -395,7 +404,7 @@ test.describe("브라우저 UI UX 회귀", () => {
     await closeTopDialog(page);
   });
 
-  test("Gateway, 통합 설정, 초대 화면을 검증한다", async ({ page }) => {
+  test("Gateway registry와 workspace settings 초대 화면을 검증한다", async ({ page }) => {
     await installMockApi(page);
     await seedAuthTokens(page);
     await page.addInitScript(() => {
@@ -440,14 +449,12 @@ test.describe("브라우저 UI UX 회귀", () => {
     await expect(page.getByRole("button", { name: "멤버 관리" })).toBeVisible();
     await expect(page.getByRole("button", { name: "초대 생성" })).toBeVisible();
     await expect(page.getByRole("button", { name: "초대 목록" })).toBeVisible();
-    await page.getByRole("button", { name: "Slack 설정으로" }).click();
-    await expect(page.locator('section[aria-label="Slack 연동 설정"]')).toBeVisible();
-    await page.getByRole("button", { name: "Discord 상태 보기" }).click();
-    await expect(page.locator('section[aria-label="Discord 설정"]')).toBeVisible();
-    await page.getByRole("button", { name: "GitHub 설정으로" }).click();
-    await expect(page.locator('section[aria-label="GitHub 자격 증명 관리"]')).toBeVisible();
-    await page.getByRole("button", { name: "Gateway 설정으로" }).click();
-    await expect(page.locator('section[aria-label="Gateway 설정"]')).toBeVisible();
+    await expect(page.getByRole("button", { name: "Slack 설정으로" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "GitHub 설정으로" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Gateway 설정으로" })).toHaveCount(0);
+    await expect(page.locator('section[aria-label="Slack 연동 설정"]')).toBeHidden();
+    await expect(page.locator('section[aria-label="GitHub 자격 증명 관리"]')).toBeHidden();
+    await expect(page.locator('section[aria-label="Gateway 설정"]')).toBeHidden();
 
     await page.getByRole("button", { name: "멤버 관리" }).click();
     await expect(page.locator('section[aria-label="멤버 현황"]')).toBeVisible();
@@ -457,7 +464,8 @@ test.describe("브라우저 UI UX 회귀", () => {
     const inviteCreate = page.locator('section[aria-label="워크스페이스 초대 생성"]');
     await expect(inviteCreate).toBeVisible();
     await inviteCreate.getByRole("button", { name: "Link" }).click();
-    await inviteCreate.getByLabel("이메일").fill("invitee@example.com");
+    await expect(inviteCreate.getByLabel("공유 링크 모드")).toBeVisible();
+    await expect(inviteCreate.getByLabel("이메일")).toHaveCount(0);
     await inviteCreate.getByLabel("만료").fill("14");
     await inviteCreate.getByRole("button", { name: "초대 생성" }).click();
     await expect(page.getByText("초대가 생성되었습니다.")).toBeVisible();
@@ -483,6 +491,7 @@ test.describe("브라우저 UI UX 회귀", () => {
 
   test("MEMBER 권한의 설정 화면은 navigation을 유지하고 관리 action을 잠근다", async ({ page }) => {
     await installMockApi(page, { workspaceRole: "MEMBER" });
+    await seedAuthTokens(page);
 
     await page.goto(`/workspaces/${workspaceId}/settings`);
 
@@ -493,16 +502,9 @@ test.describe("브라우저 UI UX 회귀", () => {
       `/workspaces/${workspaceId}`,
     );
     await expect(page.getByText("MEMBER").first()).toBeVisible();
-    await expect(page.getByRole("button", { name: "Slack 설정으로" })).toBeVisible();
-    await expect(
-      page.locator('section[aria-label="Slack 연동 설정"]').getByRole("button", { name: "Slack 설치 열기" }),
-    ).toBeDisabled();
-    await expect(
-      page.locator('section[aria-label="Gateway 설정"]').getByRole("button", { name: "연결 테스트" }),
-    ).toBeDisabled();
-    await expect(
-      page.locator('section[aria-label="GitHub 자격 증명 관리"]').getByRole("button", { name: "등록" }),
-    ).toBeDisabled();
+    await expect(page.getByRole("button", { name: "Slack 설정으로" })).toHaveCount(0);
+    await page.getByRole("button", { name: "초대 생성" }).click();
+    await expect(page.getByText("관리자 역할만 초대를 생성할 수 있습니다.")).toBeVisible();
   });
 });
 

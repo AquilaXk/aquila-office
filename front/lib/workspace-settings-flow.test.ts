@@ -24,6 +24,12 @@ test("workspace settings exposes the four primary management sections", () => {
   assert.match(settingsSource, /activeSettingsSection === "invites"/);
 });
 
+test("workspace settings redirects without stored auth and keeps connections out of settings", () => {
+  assert.match(settingsSource, /isAuthenticated/);
+  assert.match(settingsSource, /router\.replace\("\/"\)/);
+  assert.match(settingsSource, /const SHOW_CONNECTION_SETTINGS = false;/);
+});
+
 test("workspace settings keeps destructive workspace actions inside a confirmation modal", () => {
   assert.match(settingsSource, /deleteWorkspaceModalOpen/);
   assert.match(settingsSource, /workspace-settings-delete-modal/);
@@ -36,6 +42,8 @@ test("workspace settings supports invite creation and invite list actions", () =
   assert.match(settingsSource, /inviteCreateMode/);
   assert.match(settingsSource, /inviteRole/);
   assert.match(settingsSource, /inviteExpiresInDays/);
+  assert.match(settingsSource, /inviteCreateMode === "link" \|\| trimmedInviteEmail\.length > 0/);
+  assert.match(settingsSource, /aria-label="공유 링크 모드"/);
   assert.match(settingsSource, /createWorkspaceInvite/);
   assert.match(settingsSource, /copyCreatedInviteUrl/);
   assert.match(settingsSource, /createdInvite/);
@@ -50,6 +58,7 @@ test("workspace settings supports invite creation and invite list actions", () =
 });
 
 test("invite client exposes management endpoints used by settings", () => {
+  assert.match(inviteApiSource, /email\?: string/);
   assert.match(inviteApiSource, /type ExtendWorkspaceInviteInput/);
   assert.match(inviteApiSource, /additionalDays/);
   assert.match(inviteApiSource, /extendWorkspaceInvite/);

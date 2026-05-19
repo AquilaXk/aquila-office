@@ -15,26 +15,13 @@ test("workspace detail and settings expose shared navigation routes", () => {
   assert.match(detailSource, /<span>Connection settings<\/span>/);
 });
 
-test("workspace settings exposes integration entry actions", () => {
-  assert.match(settingsSource, /const SHOW_CONNECTION_SETTINGS = true;/);
-  assert.match(settingsSource, /activateIntegrationSettingsAction/);
-
-  for (const actionLabel of [
-    "Slack 설정으로",
-    "Discord 상태 보기",
-    "GitHub 설정으로",
-    "Gateway 설정으로",
-  ]) {
-    assert.match(settingsSource, new RegExp(escapeRegExp(actionLabel)));
-  }
-
-  assert.match(settingsSource, /aria-label="Discord 설정"/);
+test("workspace integrations are entered from the office scene instead of settings", () => {
+  assert.match(settingsSource, /const SHOW_CONNECTION_SETTINGS = false;/);
+  assert.match(detailSource, /officeSceneNavItems/);
+  assert.match(detailSource, /connections/);
+  assert.match(detailSource, /openConnectionModal\("selector"\)/);
 });
 
 function readSource(relativePath: string): string {
   return readFileSync(path.join(appRoot, relativePath), "utf8");
-}
-
-function escapeRegExp(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }

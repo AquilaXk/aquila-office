@@ -34,7 +34,7 @@ import {
   type ReactNode,
 } from "react";
 import { ApiError } from "@/lib/api";
-import { resolveAccessToken } from "@/lib/auth";
+import { isAuthenticated, resolveAccessToken } from "@/lib/auth";
 import {
   createWorkspaceGatewayBinding,
   fetchWorkspaceGatewayStatus,
@@ -96,7 +96,7 @@ const DESCRIPTION_MAX_LENGTH = 500;
 const EMPTY_GITHUB_CREDENTIALS: GithubCredential[] = [];
 const EMPTY_SLACK_INTEGRATIONS: SlackIntegration[] = [];
 const EMPTY_SLACK_CHANNEL_MAPPINGS: SlackChannelMapping[] = [];
-const SHOW_CONNECTION_SETTINGS = true;
+const SHOW_CONNECTION_SETTINGS = false;
 
 type WorkspaceSettingsState =
   | { status: "loading"; workspace: null; members: []; error: null }
@@ -339,6 +339,16 @@ export default function WorkspaceSettingsPage({
   });
 
   const fetchSettings = useCallback(async () => {
+    if (!isAuthenticated()) {
+      router.replace("/");
+      return {
+        status: "loading",
+        workspace: null,
+        members: [],
+        error: null,
+      } satisfies WorkspaceSettingsState;
+    }
+
     if (!isValidWorkspaceId(numericWorkspaceId)) {
       return {
         status: "error",
@@ -357,7 +367,7 @@ export default function WorkspaceSettingsPage({
     } catch (error) {
       return toFailureState(error, "워크스페이스 설정을 확인하지 못했습니다.");
     }
-  }, [numericWorkspaceId]);
+  }, [numericWorkspaceId, router]);
 
   const fetchInviteLog = useCallback(
     async (status: WorkspaceInviteManagementStatus | undefined = "PENDING") => {
@@ -636,7 +646,7 @@ export default function WorkspaceSettingsPage({
   const hasInviteAction = inviteActionId !== null;
   const canCreateInvite =
     isAdmin &&
-    trimmedInviteEmail.length > 0 &&
+    (inviteCreateMode === "link" || trimmedInviteEmail.length > 0) &&
     parsedInviteExpiresInDays !== null &&
     !isCreatingInvite &&
     !hasInviteAction;
@@ -857,7 +867,7 @@ export default function WorkspaceSettingsPage({
       return;
     }
 
-    if (!trimmedInviteEmail) {
+    if (inviteCreateMode === "email" && !trimmedInviteEmail) {
       setInviteCreateState({ status: "error", message: "초대 이메일을 입력해 주세요." });
       return;
     }
@@ -870,7 +880,7 @@ export default function WorkspaceSettingsPage({
     setInviteCreateState({ status: "submitting", message: null });
     try {
       const invite = await createWorkspaceInvite(resolveAccessToken(), numericWorkspaceId, {
-        email: trimmedInviteEmail,
+        ...(inviteCreateMode === "email" ? { email: trimmedInviteEmail } : {}),
         mode: inviteCreateMode,
         role: inviteRole,
         expiresInDays: parsedInviteExpiresInDays,
@@ -2060,22 +2070,31 @@ export default function WorkspaceSettingsPage({
                   </div>
 
                   <div className="workspace-gateway-form-grid">
-                    <label className="form-field">
-                      <span>
-                        <strong>이메일</strong>
-                        <small>{inviteCreateMode === "email" ? "email" : "link"}</small>
-                      </span>
-                      <input
-                        value={inviteEmailInput}
-                        onChange={(event) => {
-                          setInviteEmailInput(event.target.value);
-                          setInviteCreateState({ status: "idle", message: null });
-                        }}
-                        type="email"
-                        disabled={!isAdmin || isCreatingInvite}
-                      />
-                    </label>
-
+                    {inviteCreateMode === "email" ? (
+                      <label className="form-field">
+                        <span>
+                          <strong>이메일</strong>
+                          <small>email</small>
+                        </span>
+                        <input
+                          value={inviteEmailInput}
+                          onChange={(event) => {
+                            setInviteEmailInput(event.target.value);
+                            setInviteCreateState({ status: "idle", message: null });
+                          }}
+                          type="email"
+                          disabled={!isAdmin || isCreatingInvite}
+                        />
+                      </label>
+                    ) : (
+                      <div className="workspace-invite-link-mode" aria-label="공유 링크 모드">
+                        <Link2 aria-hidden="true" />
+                        <div>
+                          <strong>공유 링크 모드</strong>
+                          <p>이메일 발송 없이 복사 가능한 초대 링크를 생성합니다.</p>
+                        </div>
+                      </div>
+                    )}
                     <label className="form-field">
                       <span>
                         <strong>만료</strong>

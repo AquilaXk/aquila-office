@@ -4181,6 +4181,42 @@ h2 {
   color: #1d4ed8;
 }
 
+.workspace-invite-link-mode {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-height: 72px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgba(31, 35, 39, 0.58);
+  color: var(--text);
+  padding: 12px;
+}
+
+.workspace-invite-link-mode svg {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+  color: var(--blue);
+}
+
+.workspace-invite-link-mode strong,
+.workspace-invite-link-mode p {
+  margin: 0;
+}
+
+.workspace-invite-link-mode strong {
+  display: block;
+  font-size: 14px;
+}
+
+.workspace-invite-link-mode p {
+  margin-top: 4px;
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
 .workspace-invite-created-card {
   display: flex;
   align-items: center;
