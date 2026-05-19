@@ -38,12 +38,38 @@ type ProfileSaveState = {
 
 const CHARACTER_STORAGE_KEY = "ai-office.character";
 
-const AVATAR_OPTIONS = [
-  { value: "operator", label: "Operator", description: "운영 중심" },
-  { value: "analyst", label: "Analyst", description: "분석 중심" },
-  { value: "builder", label: "Builder", description: "구축 중심" },
-  { value: "designer", label: "Designer", description: "설계 중심" },
+const CHARACTER_ARCHETYPES = [
+  {
+    value: "operator",
+    label: "Operator",
+    description: "운영 중심",
+    detail: "운영 프로필",
+    sigil: "O",
+  },
+  {
+    value: "analyst",
+    label: "Analyst",
+    description: "분석 중심",
+    detail: "분석 프로필",
+    sigil: "A",
+  },
+  {
+    value: "builder",
+    label: "Builder",
+    description: "구축 중심",
+    detail: "구축 프로필",
+    sigil: "B",
+  },
+  {
+    value: "designer",
+    label: "Designer",
+    description: "설계 중심",
+    detail: "설계 프로필",
+    sigil: "D",
+  },
 ] as const;
+
+const AVATAR_OPTIONS = CHARACTER_ARCHETYPES;
 
 const COLOR_MODE_OPTIONS: { value: ColorMode; label: string; description: string }[] = [
   { value: "original", label: "Original", description: "서비스 기본 색상" },
@@ -221,6 +247,8 @@ function CharacterProfileForm() {
   const isSubmitting = saveState.status === "submitting";
   const canSubmit =
     draft.displayName.trim().length > 0 && draft.avatarKind.trim().length > 0 && !isSubmitting;
+  const selectedArchetype =
+    AVATAR_OPTIONS.find((option) => option.value === draft.avatarKind) ?? AVATAR_OPTIONS[0];
 
   return (
     <main className="workspace-create-shell">
@@ -292,8 +320,12 @@ function CharacterProfileForm() {
                     <span className="character-option-check">
                       {isActive ? <Check aria-hidden="true" /> : null}
                     </span>
+                    <span className="character-option-sigil" aria-hidden="true">
+                      {option.sigil}
+                    </span>
                     <strong>{option.label}</strong>
                     <small>{option.description}</small>
+                    <span className="character-option-detail">{option.detail}</span>
                   </button>
                 );
               })}
@@ -360,15 +392,44 @@ function CharacterProfileForm() {
             </div>
           </fieldset>
 
-          <div className="character-preview" aria-label="캐릭터 미리보기">
-            <div className={`character-preview-avatar character-preview-${draft.avatarKind}`}>
-              <span style={{ background: draft.avatarColors.skin }} />
-              <span style={{ background: draft.avatarColors.hair }} />
-              <span style={{ background: draft.avatarColors.shirt }} />
+          <div className="character-preview character-preview-gothic" aria-label="캐릭터 미리보기">
+            <div
+              className={`character-preview-avatar character-preview-gothic-avatar character-preview-${draft.avatarKind}`}
+            >
+              <span className="character-avatar-halo" aria-hidden="true" />
+              <span
+                className="character-avatar-mantle"
+                style={{ background: draft.avatarColors.shirt }}
+                aria-hidden="true"
+              />
+              <span
+                className="character-avatar-armor"
+                style={{ background: draft.avatarColors.shirt }}
+                aria-hidden="true"
+              />
+              <span
+                className="character-avatar-face"
+                style={{ background: draft.avatarColors.skin }}
+                aria-hidden="true"
+              />
+              <span
+                className="character-avatar-helm"
+                style={{ background: draft.avatarColors.hair }}
+                aria-hidden="true"
+              />
+              <span className="character-avatar-visor" aria-hidden="true" />
+              <span className="character-avatar-sigil" aria-hidden="true">
+                {selectedArchetype.sigil}
+              </span>
             </div>
-            <div>
+            <div className="character-preview-copy">
+              <span className="character-preview-kicker">Profile preview</span>
               <strong>{draft.displayName || "표시 이름"}</strong>
-              <p>{`${draft.avatarKind} / ${draft.colorMode}`}</p>
+              <p>{`${selectedArchetype.label} / ${draft.colorMode}`}</p>
+              <div className="character-preview-status" aria-label="캐릭터 상태">
+                <span>{selectedArchetype.detail}</span>
+                <span>{draft.colorMode === "original" ? "기본 색상" : "사용자 색상"}</span>
+              </div>
             </div>
           </div>
 
