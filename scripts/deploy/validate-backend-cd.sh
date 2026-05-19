@@ -10,6 +10,7 @@ OCI_HOOK_SCRIPT="$ROOT_DIR/scripts/deploy/oci-backend-hook.sh"
 OCI_FRONTEND_HOOK_SCRIPT="$ROOT_DIR/scripts/deploy/oci-frontend-hook.sh"
 ENV_SCRIPT="$ROOT_DIR/scripts/deploy/materialize-backend-env.sh"
 FRONTEND_ENV_SCRIPT="$ROOT_DIR/scripts/deploy/materialize-frontend-env.sh"
+VERTEX_KEY_SCRIPT="$ROOT_DIR/scripts/deploy/materialize-vertex-key.sh"
 DOCTOR_SCRIPT="$ROOT_DIR/scripts/deploy/oci-staging-doctor.sh"
 POSTGRES_SCRIPT="$ROOT_DIR/scripts/deploy/ensure-postgres-service.sh"
 CONTRACT_SCRIPT="$ROOT_DIR/tools/test/check-staging-cd-contract.sh"
@@ -52,6 +53,7 @@ require_file "$OCI_HOOK_SCRIPT"
 require_file "$OCI_FRONTEND_HOOK_SCRIPT"
 require_file "$ENV_SCRIPT"
 require_file "$FRONTEND_ENV_SCRIPT"
+require_file "$VERTEX_KEY_SCRIPT"
 require_file "$DOCTOR_SCRIPT"
 require_file "$POSTGRES_SCRIPT"
 require_file "$CONTRACT_SCRIPT"
@@ -66,6 +68,7 @@ bash -n \
     "$OCI_FRONTEND_HOOK_SCRIPT" \
     "$ENV_SCRIPT" \
     "$FRONTEND_ENV_SCRIPT" \
+    "$VERTEX_KEY_SCRIPT" \
     "$DOCTOR_SCRIPT" \
     "$POSTGRES_SCRIPT" \
     "$CONTRACT_SCRIPT" \
@@ -92,8 +95,10 @@ require_pattern 'scripts/deploy/oci-frontend-hook.sh' "$WORKFLOW_FILE"
 require_pattern 'scripts/deploy/oci-staging-doctor.sh' "$WORKFLOW_FILE"
 require_pattern 'scripts/deploy/materialize-backend-env.sh' "$WORKFLOW_FILE"
 require_pattern 'scripts/deploy/materialize-frontend-env.sh' "$WORKFLOW_FILE"
+require_pattern 'scripts/deploy/materialize-vertex-key.sh' "$WORKFLOW_FILE"
 require_pattern 'OCI_A1_BACKEND_ENV_B64|BACKEND_ENV_B64' "$WORKFLOW_FILE"
 require_pattern 'OCI_A1_FRONTEND_ENV_B64|FRONTEND_ENV_B64' "$WORKFLOW_FILE"
+require_pattern 'OCI_A1_VERTEX_KEY_JSON_B64|VERTEX_KEY_JSON_B64' "$WORKFLOW_FILE"
 require_pattern 'deploy-debug' "$WORKFLOW_FILE"
 require_pattern 'GITHUB_STEP_SUMMARY' "$WORKFLOW_FILE"
 reject_pattern 'OCI_SSH_PRIVATE_KEY|OCI_BACKEND_HOST|OCI_BACKEND_USER|scp ' "$WORKFLOW_FILE"
@@ -103,9 +108,11 @@ log "checking workflow contract gate"
 
 backend_env_fixture="$(mktemp)"
 frontend_env_fixture="$(mktemp)"
+vertex_key_fixture="$(mktemp)"
 materialized_env="$(mktemp)"
 materialized_frontend_env="$(mktemp)"
-trap 'rm -f "$backend_env_fixture" "$frontend_env_fixture" "$materialized_env" "$materialized_frontend_env"' EXIT
+materialized_vertex_key="$(mktemp)"
+trap 'rm -f "$backend_env_fixture" "$frontend_env_fixture" "$vertex_key_fixture" "$materialized_env" "$materialized_frontend_env" "$materialized_vertex_key"' EXIT
 cat > "$backend_env_fixture" <<ENV
 SPRING_DATASOURCE_URL=jdbc:postgresql://aquila-postgres:5432/aquila
 SPRING_DATASOURCE_USERNAME=aquila
@@ -118,6 +125,15 @@ NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8080
 NEXT_PUBLIC_GOOGLE_CLIENT_ID=local-google-client.apps.googleusercontent.com
 NEXT_PUBLIC_SITE_URL=http://127.0.0.1:3000
 ENV
+cat > "$vertex_key_fixture" <<'JSON'
+{
+  "type": "service_account",
+  "project_id": "local-project",
+  "private_key_id": "local-private-key-id",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nLOCAL\n-----END PRIVATE KEY-----\n",
+  "client_email": "vertex-local@local-project.iam.gserviceaccount.com"
+}
+JSON
 
 log "checking backend env materialization"
 BACKEND_ENV_B64="$(base64 < "$backend_env_fixture" | tr -d '\n')" "$ENV_SCRIPT" --output "$materialized_env"
@@ -128,8 +144,11 @@ log "running managed Postgres dry-run"
 log "checking frontend env materialization"
 FRONTEND_ENV_B64="$(base64 < "$frontend_env_fixture" | tr -d '\n')" "$FRONTEND_ENV_SCRIPT" --output "$materialized_frontend_env"
 
+log "checking Vertex key materialization"
+VERTEX_KEY_JSON_B64="$(base64 < "$vertex_key_fixture" | tr -d '\n')" "$VERTEX_KEY_SCRIPT" --output "$materialized_vertex_key"
+
 log "running blue/green entrypoint dry-run"
-"$BLUE_GREEN_ENTRYPOINT" --dry-run --image aquila-office-back:dry-run
+"$BLUE_GREEN_SCRIPT" --dry-run --image aquila-office-back:dry-run --vertex-key-file "$materialized_vertex_key"
 
 log "running OCI hook dry-run"
 "$OCI_HOOK_SCRIPT" \
@@ -137,6 +156,7 @@ log "running OCI hook dry-run"
     --image aquila-office-back:dry-run \
     --image-tar /tmp/aquila-office-back-dry-run.tar \
     --env-file "$materialized_env" \
+    --vertex-key-file "$materialized_vertex_key" \
     --doctor-script "$DOCTOR_SCRIPT"
 
 log "running frontend OCI hook dry-run"

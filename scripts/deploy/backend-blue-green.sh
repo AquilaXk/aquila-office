@@ -5,6 +5,8 @@ APP_NAME="${APP_NAME:-aquila-office-back}"
 IMAGE_REF="${IMAGE_REF:-aquila-office-back:local}"
 ACTIVE_SLOT_FILE="${ACTIVE_SLOT_FILE:-/opt/aquila-office/backend/active-slot}"
 ENV_FILE="${ENV_FILE:-/opt/aquila-office/backend/.env}"
+VERTEX_KEY_FILE="${VERTEX_KEY_FILE:-}"
+VERTEX_KEY_CONTAINER_PATH="${VERTEX_KEY_CONTAINER_PATH:-/run/secrets/vertex-key.json}"
 BLUE_PORT="${BLUE_PORT:-18081}"
 GREEN_PORT="${GREEN_PORT:-18082}"
 CONTAINER_PORT="${CONTAINER_PORT:-8080}"
@@ -20,13 +22,15 @@ TARGET_SLOT=""
 
 usage() {
     cat <<USAGE
-Usage: backend-blue-green.sh [--dry-run] [--slot blue|green] [--image IMAGE]
+Usage: backend-blue-green.sh [--dry-run] [--slot blue|green] [--image IMAGE] [--vertex-key-file PATH]
 
 Environment:
   APP_NAME                     Default: aquila-office-back
   IMAGE_REF                    Default: aquila-office-back:local
   ACTIVE_SLOT_FILE             Default: /opt/aquila-office/backend/active-slot
   ENV_FILE                     Default: /opt/aquila-office/backend/.env
+  VERTEX_KEY_FILE              Optional host path mounted read-only into the container
+  VERTEX_KEY_CONTAINER_PATH    Default: /run/secrets/vertex-key.json
   BLUE_PORT                    Default: 18081
   GREEN_PORT                   Default: 18082
   CONTAINER_PORT               Default: 8080
@@ -52,6 +56,10 @@ while [[ $# -gt 0 ]]; do
             IMAGE_REF="${2:?--image requires an image reference}"
             shift 2
             ;;
+        --vertex-key-file)
+            VERTEX_KEY_FILE="${2:?--vertex-key-file requires a path}"
+            shift 2
+            ;;
         -h|--help)
             usage
             exit 0
@@ -67,6 +75,11 @@ done
 if [[ "$TARGET_SLOT" != "" && "$TARGET_SLOT" != "blue" && "$TARGET_SLOT" != "green" ]]; then
     echo "--slot must be blue or green" >&2
     exit 2
+fi
+
+if [[ -n "$VERTEX_KEY_FILE" && "$DRY_RUN" != "true" && ! -f "$VERTEX_KEY_FILE" ]]; then
+    echo "Vertex key file not found: $VERTEX_KEY_FILE" >&2
+    exit 1
 fi
 
 log() {
@@ -198,6 +211,10 @@ docker_run_args=(
 
 if [[ -f "$ENV_FILE" || "$DRY_RUN" == "true" ]]; then
     docker_run_args+=(--env-file "$ENV_FILE")
+fi
+
+if [[ -n "$VERTEX_KEY_FILE" ]]; then
+    docker_run_args+=(-v "${VERTEX_KEY_FILE}:${VERTEX_KEY_CONTAINER_PATH}:ro")
 fi
 
 docker_run_args+=("$IMAGE_REF")
