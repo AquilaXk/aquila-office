@@ -12,6 +12,12 @@ import {
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useRef, useState, type FormEvent } from "react";
+import {
+  PixelAvatar,
+  PA_PALETTES,
+  type PixelAvatarKind,
+  type PixelAvatarPaletteOverride,
+} from "@/components/arcade";
 import { ApiError } from "@/lib/api";
 import { resolveAccessToken } from "@/lib/auth";
 import { fetchMemberProfile, updateMemberProfile } from "@/lib/members";
@@ -21,16 +27,16 @@ type ColorMode = "original" | "custom";
 
 type CharacterDraft = {
   displayName: string;
-  avatarKind: string;
+  avatarKind: PixelAvatarKind;
   colorMode: ColorMode;
   avatarColors: Record<AvatarColorKey, string>;
 };
 
 type StoredCharacter = CharacterDraft & {
-  kind: string;
+  kind: PixelAvatarKind;
   name: string;
   colors: Record<AvatarColorKey, string>;
-  paletteOverride?: Record<AvatarColorKey, string>;
+  paletteOverride?: PixelAvatarPaletteOverride;
 };
 
 type ProfileLoadState =
@@ -45,50 +51,56 @@ type ProfileSaveState = {
 
 const CHARACTER_STORAGE_KEY = "ai-office.character";
 
-const CHARACTER_ARCHETYPES = [
+const CHARACTER_ARCHETYPES: Array<{
+  value: PixelAvatarKind;
+  label: string;
+  description: string;
+  detail: string;
+  sigil: string;
+}> = [
   {
-    value: "frontend",
+    value: "alex",
     label: "Frontend",
     description: "UI와 사용 흐름을 빠르게 다듬습니다.",
     detail: "UI와 상태 흐름",
     sigil: "F",
   },
   {
-    value: "design",
+    value: "mira",
     label: "Design",
     description: "팀이 볼 화면과 인터랙션을 정리합니다.",
     detail: "화면과 상호작용",
     sigil: "D",
   },
   {
-    value: "backend",
+    value: "kenji",
     label: "Backend",
     description: "API와 데이터 흐름을 안정적으로 연결합니다.",
     detail: "API와 데이터",
     sigil: "B",
   },
   {
-    value: "product",
+    value: "yuna",
     label: "Product",
     description: "작업 우선순위와 사용자 맥락을 챙깁니다.",
     detail: "우선순위와 맥락",
     sigil: "P",
   },
   {
-    value: "devops",
+    value: "diego",
     label: "DevOps",
     description: "실행 환경과 배포 흐름을 관리합니다.",
     detail: "환경과 배포",
     sigil: "O",
   },
   {
-    value: "ai",
+    value: "iris",
     label: "AI",
     description: "에이전트와 협업해 작업을 진행합니다.",
     detail: "에이전트 협업",
     sigil: "A",
   },
-] as const;
+];
 
 const AVATAR_OPTIONS = CHARACTER_ARCHETYPES;
 
@@ -109,11 +121,7 @@ const COLOR_PALETTE: Record<AvatarColorKey, string[]> = {
   shirt: ["#2a3a4a", "#3a5a3a", "#5a3a8a", "#a83a6a", "#d8c89a"],
 };
 
-const ORIGINAL_AVATAR_COLORS: Record<AvatarColorKey, string> = {
-  skin: "#c8916b",
-  hair: "#2b1f1a",
-  shirt: "#27364a",
-};
+const ORIGINAL_AVATAR_COLORS: Record<AvatarColorKey, string> = originalColorsFor("mira");
 
 const CUSTOM_AVATAR_COLORS: Record<AvatarColorKey, string> = {
   skin: "#d8b48a",
@@ -123,7 +131,7 @@ const CUSTOM_AVATAR_COLORS: Record<AvatarColorKey, string> = {
 
 const DEFAULT_CHARACTER: CharacterDraft = {
   displayName: "",
-  avatarKind: "frontend",
+  avatarKind: "mira",
   colorMode: "original",
   avatarColors: ORIGINAL_AVATAR_COLORS,
 };
@@ -176,8 +184,10 @@ function CharacterProfileForm() {
       }
       const nextDraft = normalizeCharacterDraft({
         displayName: profile.displayName,
-        avatarKind: profile.avatarKind,
-        colorMode: colorsMatchOriginal(profile.avatarColors) ? "original" : "custom",
+        avatarKind: normalizeAvatarKind(profile.avatarKind),
+        colorMode: colorsMatchOriginal(normalizeAvatarKind(profile.avatarKind), profile.avatarColors)
+          ? "original"
+          : "custom",
         avatarColors: profile.avatarColors,
       });
       setCharacterDraft(nextDraft);
@@ -203,15 +213,20 @@ function CharacterProfileForm() {
     setSaveState({ status: "idle", message: null });
   };
 
-  const selectAvatarKind = (avatarKind: string) => {
-    updateDraft((current) => ({ ...current, avatarKind }));
+  const selectAvatarKind = (avatarKind: PixelAvatarKind) => {
+    updateDraft((current) => ({
+      ...current,
+      avatarKind,
+      avatarColors:
+        current.colorMode === "original" ? originalColorsFor(avatarKind) : current.avatarColors,
+    }));
   };
 
   const selectColorMode = (colorMode: ColorMode) => {
     const currentDraft = draftRef.current;
     const avatarColors =
       colorMode === "original"
-        ? ORIGINAL_AVATAR_COLORS
+        ? originalColorsFor(currentDraft.avatarKind)
         : currentDraft.colorMode === "original"
           ? CUSTOM_AVATAR_COLORS
           : currentDraft.avatarColors;
@@ -226,7 +241,7 @@ function CharacterProfileForm() {
     const nextDraft = normalizeCharacterDraft({
       ...draftRef.current,
       displayName: draftRef.current.displayName.trim(),
-      avatarKind: draftRef.current.avatarKind.trim(),
+      avatarKind: normalizeAvatarKind(draftRef.current.avatarKind),
       avatarColors: {
         skin: draftRef.current.avatarColors.skin.trim(),
         hair: draftRef.current.avatarColors.hair.trim(),
@@ -276,6 +291,8 @@ function CharacterProfileForm() {
     draft.displayName.trim().length > 0 && draft.avatarKind.trim().length > 0 && !isSubmitting;
   const selectedArchetype =
     AVATAR_OPTIONS.find((option) => option.value === draft.avatarKind) ?? AVATAR_OPTIONS[0];
+  const paletteOverride =
+    draft.colorMode === "custom" ? avatarColorsToPalette(draft.avatarColors) : undefined;
 
   return (
     <main className="workspace-create-shell">
@@ -348,7 +365,11 @@ function CharacterProfileForm() {
                       {isActive ? <Check aria-hidden="true" /> : null}
                     </span>
                     <span className="character-option-sigil" aria-hidden="true">
-                      {option.sigil}
+                      <PixelAvatar
+                        kind={option.value}
+                        size={2}
+                        paletteOverride={isActive ? paletteOverride : undefined}
+                      />
                     </span>
                     <strong>{option.label}</strong>
                     <small>{option.description}</small>
@@ -450,6 +471,11 @@ function CharacterProfileForm() {
             <div
               className={`character-preview-avatar character-preview-gothic-avatar character-preview-${draft.avatarKind}`}
             >
+              <PixelAvatar
+                kind={draft.avatarKind}
+                size={5}
+                paletteOverride={paletteOverride}
+              />
               <span className="character-avatar-halo" aria-hidden="true" />
               <span
                 className="character-avatar-mantle"
@@ -529,7 +555,7 @@ function normalizeCharacterDraft(value: CharacterDraft): CharacterDraft {
     colorMode,
     avatarColors:
       colorMode === "original"
-        ? ORIGINAL_AVATAR_COLORS
+        ? originalColorsFor(normalizedKind)
         : normalizeAvatarColors(value.avatarColors, CUSTOM_AVATAR_COLORS),
   };
 }
@@ -564,14 +590,21 @@ function loadStoredCharacter(): CharacterDraft | null {
           : typeof parsedCharacter.displayName === "string"
             ? parsedCharacter.displayName
             : "",
-      avatarKind:
+      avatarKind: normalizeAvatarKind(
         typeof parsedCharacter.kind === "string"
           ? parsedCharacter.kind
           : typeof parsedCharacter.avatarKind === "string"
             ? parsedCharacter.avatarKind
-            : "frontend",
+            : "mira",
+      ),
       colorMode: parsedCharacter.colorMode === "custom" ? "custom" : "original",
-      avatarColors: normalizeAvatarColors(colors, ORIGINAL_AVATAR_COLORS),
+      avatarColors: normalizeAvatarColors(colors, originalColorsFor(normalizeAvatarKind(
+        typeof parsedCharacter.kind === "string"
+          ? parsedCharacter.kind
+          : typeof parsedCharacter.avatarKind === "string"
+            ? parsedCharacter.avatarKind
+            : "mira",
+      ))),
     });
   } catch {
     return null;
@@ -589,34 +622,64 @@ function saveStoredCharacter(character: CharacterDraft) {
     kind: normalizedCharacter.avatarKind,
     name: normalizedCharacter.displayName,
     colors: normalizedCharacter.avatarColors,
+    colorMode: normalizedCharacter.colorMode,
     paletteOverride:
       normalizedCharacter.colorMode === "custom"
-        ? normalizedCharacter.avatarColors
+        ? avatarColorsToPalette(normalizedCharacter.avatarColors)
         : undefined,
   };
   window.localStorage.setItem(CHARACTER_STORAGE_KEY, JSON.stringify(storedCharacter));
 }
 
-function colorsMatchOriginal(colors: Partial<Record<AvatarColorKey, string>>): boolean {
-  return COLOR_FIELDS.every((field) => colors[field.key]?.toLowerCase() === ORIGINAL_AVATAR_COLORS[field.key]);
+function originalColorsFor(kind: PixelAvatarKind): Record<AvatarColorKey, string> {
+  const palette = PA_PALETTES[kind] ?? PA_PALETTES.mira;
+  return {
+    skin: palette.skin,
+    hair: palette.hair,
+    shirt: palette.shirt,
+  };
+}
+
+function avatarColorsToPalette(
+  colors: Record<AvatarColorKey, string>,
+): PixelAvatarPaletteOverride {
+  return {
+    skin: colors.skin,
+    hair: colors.hair,
+    shirt: colors.shirt,
+  };
+}
+
+function colorsMatchOriginal(
+  kind: PixelAvatarKind,
+  colors: Partial<Record<AvatarColorKey, string>>,
+): boolean {
+  const original = originalColorsFor(kind);
+  return COLOR_FIELDS.every((field) => colors[field.key]?.toLowerCase() === original[field.key]);
 }
 
 function validColor(value: string | undefined): value is string {
   return Boolean(value && /^#[0-9a-f]{6}$/i.test(value));
 }
 
-function normalizeAvatarKind(value: string): string {
+function normalizeAvatarKind(value: string): PixelAvatarKind {
   if (AVATAR_OPTIONS.some((option) => option.value === value)) {
-    return value;
+    return value as PixelAvatarKind;
   }
 
   const legacyKindMap: Record<string, string> = {
-    operator: "frontend",
-    analyst: "design",
-    builder: "backend",
-    designer: "product",
+    frontend: "alex",
+    design: "mira",
+    backend: "kenji",
+    product: "yuna",
+    devops: "diego",
+    ai: "iris",
+    operator: "alex",
+    analyst: "mira",
+    builder: "kenji",
+    designer: "yuna",
   };
-  return legacyKindMap[value] ?? "frontend";
+  return (legacyKindMap[value] ?? "mira") as PixelAvatarKind;
 }
 
 function safeReturnTo(value: string | null): string {
