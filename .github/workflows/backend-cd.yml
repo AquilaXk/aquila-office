@@ -33,6 +33,7 @@ on:
 permissions:
   contents: read
   deployments: write
+  packages: write
 
 concurrency:
   group: staging-cd
@@ -114,8 +115,10 @@ jobs:
           fi
 
           short_sha="${deploy_sha:0:12}"
-          backend_image_ref="${BACKEND_IMAGE_NAME}:${short_sha}"
-          frontend_image_ref="${FRONTEND_IMAGE_NAME}:${short_sha}"
+          image_owner="${GITHUB_REPOSITORY_OWNER:-${GITHUB_REPOSITORY%%/*}}"
+          image_owner="${image_owner,,}"
+          backend_image_ref="ghcr.io/${image_owner}/${BACKEND_IMAGE_NAME}:${short_sha}"
+          frontend_image_ref="ghcr.io/${image_owner}/${FRONTEND_IMAGE_NAME}:${short_sha}"
 
           {
             echo "backend_image_ref=$backend_image_ref"
@@ -187,27 +190,33 @@ jobs:
       - name: Build backend artifact
         run: ./back/gradlew -p back bootJar --stacktrace
 
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
       - name: Prepare ARM64 buildx
         run: |
           docker run --privileged --rm tonistiigi/binfmt --install arm64
           docker buildx create --name aquila-staging-builder --driver docker-container --use
           docker buildx inspect --bootstrap
 
-      - name: Build backend Docker image tar
+      - name: Build and push backend Docker image
         run: |
           docker buildx build \
             --platform linux/arm64 \
             -f docker/Dockerfile \
             -t "$BACKEND_IMAGE_REF" \
-            --output type=docker,dest=backend-image.tar \
+            --push \
             .
 
       - name: Collect backend image diagnostics
         shell: bash
         run: |
           mkdir -p deploy-debug
-          sha256sum backend-image.tar | tee deploy-debug/backend-image.sha256
-          du -h backend-image.tar | tee deploy-debug/backend-image-size.txt
+          docker buildx imagetools inspect "$BACKEND_IMAGE_REF" | tee deploy-debug/backend-image-inspect.txt
           {
             echo "### Backend image"
             echo ""
@@ -217,13 +226,6 @@ jobs:
             echo "| platform | linux/arm64 |"
             echo "| sha | ${{ needs.prepare.outputs.deploy_sha }} |"
           } >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Upload backend image artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: backend-image-${{ needs.prepare.outputs.short_sha }}
-          path: backend-image.tar
-          retention-days: 7
 
       - name: Upload backend build diagnostics
         uses: actions/upload-artifact@v4
@@ -254,13 +256,20 @@ jobs:
         shell: bash
         run: scripts/deploy/materialize-frontend-env.sh --output deploy-debug/frontend.env
 
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
       - name: Prepare ARM64 buildx
         run: |
           docker run --privileged --rm tonistiigi/binfmt --install arm64
           docker buildx create --name aquila-staging-builder --driver docker-container --use
           docker buildx inspect --bootstrap
 
-      - name: Build frontend Docker image tar
+      - name: Build and push frontend Docker image
         shell: bash
         run: |
           set -euo pipefail
@@ -275,15 +284,14 @@ jobs:
             --build-arg NEXT_PUBLIC_GOOGLE_CLIENT_ID="$NEXT_PUBLIC_GOOGLE_CLIENT_ID" \
             --build-arg NEXT_PUBLIC_SITE_URL="$NEXT_PUBLIC_SITE_URL" \
             -t "$FRONTEND_IMAGE_REF" \
-            --output type=docker,dest=frontend-image.tar \
+            --push \
             .
 
       - name: Collect frontend image diagnostics
         shell: bash
         run: |
           rm -f deploy-debug/frontend.env
-          sha256sum frontend-image.tar | tee deploy-debug/frontend-image.sha256
-          du -h frontend-image.tar | tee deploy-debug/frontend-image-size.txt
+          docker buildx imagetools inspect "$FRONTEND_IMAGE_REF" | tee deploy-debug/frontend-image-inspect.txt
           {
             echo "### Frontend image"
             echo ""
@@ -293,13 +301,6 @@ jobs:
             echo "| platform | linux/arm64 |"
             echo "| sha | ${{ needs.prepare.outputs.deploy_sha }} |"
           } >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Upload frontend image artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: frontend-image-${{ needs.prepare.outputs.short_sha }}
-          path: frontend-image.tar
-          retention-days: 7
 
       - name: Upload frontend build diagnostics
         uses: actions/upload-artifact@v4
@@ -333,15 +334,12 @@ jobs:
         with:
           ref: ${{ needs.prepare.outputs.deploy_sha }}
 
-      - name: Download backend image artifact
-        uses: actions/download-artifact@v4
+      - name: Login to GHCR
+        uses: docker/login-action@v3
         with:
-          name: backend-image-${{ needs.prepare.outputs.short_sha }}
-
-      - name: Download frontend image artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: frontend-image-${{ needs.prepare.outputs.short_sha }}
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
 
       - name: Prepare deploy debug directory
         run: mkdir -p deploy-debug
@@ -427,7 +425,6 @@ jobs:
           scripts/deploy/oci-backend-hook.sh \
             "${dry_run_arg[@]}" \
             --image "$BACKEND_IMAGE_REF" \
-            --image-tar backend-image.tar \
             --env-file deploy-debug/backend.env \
             --vertex-key-file deploy-debug/vertex-key.json \
             --doctor-script scripts/deploy/oci-staging-doctor.sh \
@@ -450,7 +447,6 @@ jobs:
           scripts/deploy/oci-frontend-hook.sh \
             "${dry_run_arg[@]}" \
             --image "$FRONTEND_IMAGE_REF" \
-            --image-tar frontend-image.tar \
             --env-file deploy-debug/frontend.env \
             --doctor-script scripts/deploy/oci-staging-doctor.sh \
             "${slot_arg[@]}" \
