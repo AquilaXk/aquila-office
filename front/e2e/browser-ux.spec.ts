@@ -292,6 +292,48 @@ test.describe("브라우저 UI UX 회귀", () => {
     await expect(page.getByText("reports/fallback.md")).toBeVisible();
     await expect(page.getByText("Demo workspace artifact")).toBeVisible();
     await closeTopDialog(page);
+
+    const dailyRow = filesDialog.locator(".workspace-artifact-row-directory").filter({ hasText: "daily" });
+    await dailyRow.click();
+    await expect(filesDialog.getByRole("button", { name: /summary.md/ })).toBeVisible();
+    await filesDialog.getByRole("button", { name: /summary.md/ }).click();
+    await expect(page.getByRole("dialog", { name: "Artifact file" })).toBeVisible();
+    await expect(page.getByText("Daily summary")).toBeVisible();
+    await closeTopDialog(page);
+
+    const logsRow = filesDialog.locator(".workspace-artifact-row-directory").filter({ hasText: "logs" });
+    await logsRow.click();
+    await expect(filesDialog.getByRole("button", { name: /plain-output.log/ })).toBeVisible();
+    await filesDialog.getByRole("button", { name: /plain-output.log/ }).click();
+    await expect(page.getByRole("dialog", { name: "Artifact file" })).toBeVisible();
+    await expect(page.getByText("fallback artifact")).toBeVisible();
+    await expect(page.getByText("demo workspace plain text")).toBeVisible();
+    await closeTopDialog(page);
+
+    await filesDialog.getByRole("button", { name: /missing-file.log/ }).click();
+    await expect(page.getByRole("dialog", { name: "Artifact file" })).toBeVisible();
+    await expect(page.getByText("파일을 찾을 수 없습니다.")).toBeVisible();
+    await closeTopDialog(page);
+    await closeTopDialog(page);
+  });
+
+  test("워크스페이스 파일 탐색 API tree와 reload preview를 검증한다", async ({ page }) => {
+    await installMockApi(page);
+
+    await page.goto(`/workspaces/${workspaceId}`);
+
+    const officeScene = page.locator('section[aria-label="워크스페이스 오피스 씬"]');
+    await officeScene.getByRole("button", { name: "Files", exact: true }).click();
+    const filesDialog = page.getByRole("dialog", { name: "Workspace files" });
+    await expect(filesDialog).toBeVisible();
+    await expect(filesDialog.getByRole("button", { name: /result.md/ })).toBeVisible();
+    await filesDialog.getByRole("button", { name: "새로고침" }).click();
+    await expect(filesDialog.getByRole("button", { name: /result.md/ })).toBeVisible();
+    await filesDialog.getByRole("button", { name: /result.md/ }).click();
+    await expect(page.getByRole("dialog", { name: "Artifact file" })).toBeVisible();
+    await expect(page.getByText("reports/result.md")).toBeVisible();
+    await expect(page.getByText("검증 결과")).toBeVisible();
+    await closeTopDialog(page);
     await closeTopDialog(page);
   });
 

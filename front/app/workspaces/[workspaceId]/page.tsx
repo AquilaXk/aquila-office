@@ -1095,7 +1095,12 @@ export default function WorkspaceDetailPage({
         setArtifactFile(file);
         setArtifactFileState({ status: "ready", error: null });
       } catch {
-        setArtifactFile(demoWorkspaceArtifactFile(numericWorkspaceId, path));
+        const fallbackFile = demoWorkspaceArtifactFile(numericWorkspaceId, path);
+        if (!fallbackFile) {
+          setArtifactFileState({ status: "error", error: "파일을 찾을 수 없습니다." });
+          return;
+        }
+        setArtifactFile(fallbackFile);
         setArtifactNotice("파일 API 응답 대신 demo workspace 파일을 표시합니다.");
         setArtifactFileState({ status: "ready", error: null });
       }
@@ -5295,11 +5300,39 @@ function demoWorkspaceArtifactTree(workspaceId: number): ArtifactTree {
             sizeBytes: 168,
           },
           {
-            name: "plain-output.log",
-            path: "reports/plain-output.log",
-            type: "FILE",
-            contentType: "text/plain",
-            sizeBytes: 96,
+            name: "daily",
+            path: "reports/daily",
+            type: "DIRECTORY",
+            children: [
+              {
+                name: "summary.md",
+                path: "reports/daily/summary.md",
+                type: "FILE",
+                contentType: "text/markdown",
+                sizeBytes: 144,
+              },
+            ],
+          },
+          {
+            name: "logs",
+            path: "reports/logs",
+            type: "DIRECTORY",
+            children: [
+              {
+                name: "plain-output.log",
+                path: "reports/logs/plain-output.log",
+                type: "FILE",
+                contentType: "text/plain",
+                sizeBytes: 96,
+              },
+              {
+                name: "missing-file.log",
+                path: "reports/logs/missing-file.log",
+                type: "FILE",
+                contentType: "text/plain",
+                sizeBytes: 0,
+              },
+            ],
           },
         ],
       },
@@ -5310,19 +5343,36 @@ function demoWorkspaceArtifactTree(workspaceId: number): ArtifactTree {
 function demoWorkspaceArtifactFile(
   workspaceId: number,
   path: string,
-): ArtifactFileContent {
+): ArtifactFileContent | null {
   const name = path.split("/").pop() || "fallback.md";
-  const plainText = name.endsWith(".log") || name.endsWith(".txt");
+  const fallbackFiles: Record<string, Pick<ArtifactFileContent, "contentType" | "sizeBytes" | "content">> = {
+    "reports/fallback.md": {
+      contentType: "text/markdown",
+      sizeBytes: 168,
+      content: "# Demo workspace artifact\n\n파일 API 응답 대신 demo workspace 파일을 표시합니다.",
+    },
+    "reports/daily/summary.md": {
+      contentType: "text/markdown",
+      sizeBytes: 144,
+      content: "# Daily summary\n\nsample workspace nested directory markdown preview입니다.",
+    },
+    "reports/logs/plain-output.log": {
+      contentType: "text/plain",
+      sizeBytes: 96,
+      content: "fallback artifact\nAPI 응답이 없어 demo workspace plain text를 표시합니다.",
+    },
+  };
+  const fallbackFile = fallbackFiles[path];
+
+  if (!fallbackFile) {
+    return null;
+  }
 
   return {
     workspaceId,
     path,
     name,
-    contentType: plainText ? "text/plain" : "text/markdown",
-    sizeBytes: plainText ? 96 : 168,
-    content: plainText
-      ? "fallback artifact\nAPI 응답이 없어 demo workspace plain text를 표시합니다."
-      : "# Demo workspace artifact\n\n파일 API 응답 대신 demo workspace 파일을 표시합니다.",
+    ...fallbackFile,
   };
 }
 
