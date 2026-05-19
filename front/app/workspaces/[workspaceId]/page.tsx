@@ -42,7 +42,7 @@ import {
   type WorkspaceAgentCategory,
   type WorkspaceAgentSkillFileInput,
 } from "@/lib/agents";
-import { resolveAccessToken } from "@/lib/auth";
+import { readAuthUser, resolveAccessToken } from "@/lib/auth";
 import {
   fetchArtifactFile,
   fetchArtifactTree,
@@ -1690,6 +1690,7 @@ export default function WorkspaceDetailPage({
   const onlinePresenceMembers = presenceLiveState.members ?? EMPTY_PRESENCE_MEMBERS;
   const isUpdatingPresence = presenceMutation.status === "submitting";
   const storedCharacterProfile = useMemo(() => loadStoredCharacterProfile(), []);
+  const currentMemberId = useMemo(() => readAuthUser()?.memberId ?? null, []);
   const canCreateInvite = workspace?.myRole === "ADMIN";
   const isCreatingInvite = inviteState.status === "submitting";
   const canSubmitInvite = canCreateInvite && inviteEmail.trim().length > 0 && !isCreatingInvite;
@@ -2383,6 +2384,7 @@ export default function WorkspaceDetailPage({
                 presenceMembers={onlinePresenceMembers}
                 playerPosition={playerPosition}
                 playerAvatar={storedCharacterProfile}
+                playerMemberId={currentMemberId}
                 onPlayerPositionChange={handlePlayerPositionChange}
                 onActorSelect={handleSelectActor}
                 onOpenTasks={() => {
@@ -3030,9 +3032,10 @@ export default function WorkspaceDetailPage({
 
               {members.length > 0 ? (
                 <div className="workspace-member-list">
-                  {members.map((member, index) => {
+                  {members.map((member) => {
+                    const isCurrentMember = currentMemberId != null && member.memberId === currentMemberId;
                     const memberAvatar =
-                      index === 0 && storedCharacterProfile
+                      isCurrentMember && storedCharacterProfile
                         ? storedCharacterProfile
                         : memberProfileToStoredCharacter({ avatarKind: pickAvatarKind(member.name) });
                     return (

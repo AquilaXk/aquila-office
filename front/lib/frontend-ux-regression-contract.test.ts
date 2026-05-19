@@ -60,6 +60,8 @@ test("browser regression covers routes and interactions without screenshot asser
     'page.getByRole("menuitem", { name: /LOGIN/ }).click()',
     'page.getByRole("status")',
     'page.keyboard.press("ArrowDown")',
+    'page.keyboard.press("d")',
+    'page.keyboard.down("Shift")',
     'page.keyboard.press("ArrowRight")',
     'page.getByRole("button", { name: "LOGOUT" }).click()',
     'getByRole("dialog", { name: "Connection settings" })',
@@ -84,6 +86,10 @@ test("browser regression covers routes and interactions without screenshot asser
     'path === `/api/v1/invites/${inviteToken}/accept`',
     'window.localStorage.getItem("aquila-office.auth.accessToken")',
     'window.localStorage.getItem("aquila-office.auth.user")',
+    'workspaceMembers: "current-user-second"',
+    'memberId: 2',
+    'getByRole("button", { name: /Aquila User 플레이어/ })',
+    'getByRole("button", { name: /First Member 채팅/ })',
   ]) {
     assert.match(browserSpec, new RegExp(escapeRegExp(interactionEvidence)));
   }

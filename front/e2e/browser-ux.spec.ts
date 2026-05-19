@@ -6,22 +6,33 @@ const agentId = 501;
 const inviteToken = "team-token";
 
 type WorkspaceListFixture = "default" | "empty" | "error" | "many";
+type WorkspaceMemberFixture = "default" | "current-user-second";
 
 type MockApiOptions = {
   workspaceList?: WorkspaceListFixture;
   workspaceListGate?: Promise<void>;
+  workspaceMembers?: WorkspaceMemberFixture;
   artifactFailureMode?: boolean;
   workspaceRole?: "ADMIN" | "MEMBER";
 };
 
-const authTokens = {
+type AuthTokenFixture = {
+  memberId: number;
+  name: string;
+  email: string;
+  role: "ADMIN" | "MEMBER";
+  accessToken: string;
+  refreshToken: string;
+};
+
+const authTokens: AuthTokenFixture = {
   memberId: 1,
   name: "Aquila User",
   email: "aquila@example.com",
   role: "ADMIN",
   accessToken: "e2e-access-token",
   refreshToken: "e2e-refresh-token",
-} as const;
+};
 
 const primaryWorkspace = {
   workspaceId,
@@ -43,6 +54,21 @@ const workspaceMember = {
   name: "Aquila User",
   role: "ADMIN",
   joinedAt: "2026-05-18T09:00:00Z",
+} as const;
+
+const firstListedWorkspaceMember = {
+  memberId: 1,
+  memberGoogleSub: "google-fallback",
+  email: "first@example.com",
+  name: "First Member",
+  role: "MEMBER",
+  joinedAt: "2026-05-18T08:59:00Z",
+} as const;
+
+const secondListedCurrentWorkspaceMember = {
+  ...workspaceMember,
+  memberId: 2,
+  memberGoogleSub: "google-2",
 } as const;
 
 const readyAgent = {
@@ -427,6 +453,34 @@ test.describe("브라우저 UI UX 회귀", () => {
     await expect(page.getByText(`Task #${taskId} chat 메시지가 전송되었습니다.`)).toBeVisible();
   });
 
+  test("2D workspace는 인증된 멤버를 player actor로 쓰고 저장된 avatar를 적용한다", async ({ page }) => {
+    await installMockApi(page, { workspaceMembers: "current-user-second" });
+    await seedAuthTokens(page, { memberId: 2 });
+    await seedCharacterProfile(page);
+
+    await page.goto(`/workspaces/${workspaceId}`);
+
+    const actorLayer = page.locator(".workspace-2d-actor-layer");
+    await expect(actorLayer.getByRole("button", { name: /Aquila User 플레이어/ })).toBeVisible();
+    await expect(actorLayer.getByRole("button", { name: /First Member 플레이어/ })).toHaveCount(0);
+    await expect(actorLayer.getByRole("button", { name: /First Member 채팅/ })).toBeVisible();
+    await expect(
+      actorLayer.getByRole("button", { name: /Aquila User 플레이어/ }).locator(".pixel-avatar__frame"),
+    ).toHaveCSS("box-shadow", /rgb\(31, 122, 95\)/);
+
+    const memberRows = page.locator('section[aria-label="워크스페이스 멤버"]').locator(".workspace-member-row");
+    await expect(memberRows).toHaveCount(2);
+    await expect(memberRows.nth(0)).toContainText("First Member");
+    await expect(memberRows.nth(1)).toContainText("Aquila User");
+    const firstMemberRow = memberRows.nth(0);
+    const currentMemberRow = memberRows.nth(1);
+    await expect(currentMemberRow.locator(".pixel-avatar__frame")).toHaveCSS("box-shadow", /rgb\(31, 122, 95\)/);
+    await expect(firstMemberRow.locator(".pixel-avatar__frame")).not.toHaveCSS(
+      "box-shadow",
+      /rgb\(31, 122, 95\)/,
+    );
+  });
+
   test("워크스페이스 파일 탐색 fallback과 directory toggle을 검증한다", async ({ page }) => {
     await installMockApi(page, { artifactFailureMode: true });
 
@@ -616,6 +670,10 @@ async function installMockApi(page: Page, options: MockApiOptions = {}) {
   const workspaceRole = options.workspaceRole ?? "ADMIN";
   const currentWorkspace = { ...primaryWorkspace, myRole: workspaceRole };
   const currentMember = { ...workspaceMember, role: workspaceRole };
+  const workspaceMembers =
+    options.workspaceMembers === "current-user-second"
+      ? [firstListedWorkspaceMember, { ...secondListedCurrentWorkspaceMember, role: workspaceRole }]
+      : [currentMember];
 
   await page.route("**/api/health", (route) =>
     fulfillJson(route, {
@@ -707,7 +765,7 @@ async function installMockApi(page: Page, options: MockApiOptions = {}) {
     }
 
     if (method === "GET" && path === `/api/v1/workspaces/${workspaceId}/members`) {
-      await fulfillJson(route, [currentMember]);
+      await fulfillJson(route, workspaceMembers);
       return;
     }
 
@@ -951,7 +1009,8 @@ async function fulfillJson(route: Route, body: unknown, status = 200) {
   });
 }
 
-async function seedAuthTokens(page: Page) {
+async function seedAuthTokens(page: Page, overrides: Partial<AuthTokenFixture> = {}) {
+  const nextTokens = { ...authTokens, ...overrides };
   const storeTokens = (tokens: typeof authTokens) => {
     window.localStorage.setItem("aquila-office.auth.accessToken", tokens.accessToken);
     window.localStorage.setItem("aquila-office.auth.refreshToken", tokens.refreshToken);
@@ -966,9 +1025,9 @@ async function seedAuthTokens(page: Page) {
     );
   };
 
-  await page.addInitScript(storeTokens, authTokens);
+  await page.addInitScript(storeTokens, nextTokens);
   if (page.url() !== "about:blank") {
-    await page.evaluate(storeTokens, authTokens);
+    await page.evaluate(storeTokens, nextTokens);
   }
 }
 
@@ -1041,8 +1100,13 @@ async function expectKeyboardToMovePlayer(page: Page, frame: Locator, playerHudV
   const initialPlayerPosition = await playerHudValue.textContent();
 
   await frame.focus();
-  await page.keyboard.press("ArrowRight");
+  await page.keyboard.press("d");
   await expect.poll(() => playerHudValue.textContent()).not.toBe(initialPlayerPosition);
+  const wasdPlayerPosition = await playerHudValue.textContent();
+  await page.keyboard.down("Shift");
+  await page.keyboard.press("ArrowRight");
+  await page.keyboard.up("Shift");
+  await expect.poll(() => playerHudValue.textContent()).not.toBe(wasdPlayerPosition);
 }
 
 async function openAndAssert2DContextMenu(page: Page, frame: Locator) {

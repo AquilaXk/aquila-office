@@ -18,6 +18,19 @@ test("workspace 2d canvas component wires DOM stage, pan zoom, and context menu"
   assert.doesNotMatch(source, /createWorkspace2DGame/);
 });
 
+test("workspace 2d stage keeps authenticated player and keyboard interaction contracts", () => {
+  const canvasSource = readSource("components/workspace/Workspace2DCanvas.tsx");
+  const detailSource = readSource("app/workspaces/[workspaceId]/page.tsx");
+
+  assert.match(canvasSource, /playerMemberId/);
+  assert.match(canvasSource, /members\.find\(\(member\) => member\.memberId === playerMemberId\)/);
+  assert.match(canvasSource, /keys\.shift \? PLAYER_MOVE_FAST_SPEED_PX : PLAYER_MOVE_SPEED_PX/);
+  assert.match(canvasSource, /key === "\/"/);
+  assert.match(canvasSource, /isNearQuestMarker\(keyboardPosition\)/);
+  assert.match(canvasSource, /findNearestInteractableStageActor/);
+  assert.match(detailSource, /playerMemberId=\{currentMemberId\}/);
+});
+
 test("workspace stage helper boundary lives outside the react component", () => {
   assert.match(readSource("lib/workspace-2d.ts"), /computeAgentPath/);
   assert.match(readSource("lib/workspace-2d.ts"), /findNearestInteractableStageActor/);
