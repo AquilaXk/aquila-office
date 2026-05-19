@@ -11,6 +11,7 @@ ENV_SOURCE="${ENV_SOURCE:-}"
 DOCKER_NETWORK="${DOCKER_NETWORK:-aquila-office}"
 BLUE_GREEN_SCRIPT="${BLUE_GREEN_SCRIPT:-$SCRIPT_DIR/backend-blue-green.sh}"
 DOCTOR_SCRIPT="${DOCTOR_SCRIPT:-$SCRIPT_DIR/oci-staging-doctor.sh}"
+POSTGRES_SCRIPT="${POSTGRES_SCRIPT:-$SCRIPT_DIR/ensure-postgres-service.sh}"
 DRY_RUN="${DRY_RUN:-false}"
 TARGET_SLOT=""
 
@@ -125,6 +126,21 @@ ensure_network() {
     fi
 }
 
+ensure_postgres_service() {
+    local postgres_env_file="$DEPLOY_ROOT/backend/.env"
+    if [[ ! -f "$POSTGRES_SCRIPT" ]]; then
+        echo "Postgres service script not found: $POSTGRES_SCRIPT" >&2
+        exit 1
+    fi
+    if [[ "$DRY_RUN" == "true" && -n "$ENV_SOURCE" ]]; then
+        postgres_env_file="$ENV_SOURCE"
+    fi
+    ENV_FILE="$postgres_env_file" \
+    DOCKER_NETWORK="$DOCKER_NETWORK" \
+    DRY_RUN="$DRY_RUN" \
+    bash "$POSTGRES_SCRIPT" --env-file "$postgres_env_file" --network "$DOCKER_NETWORK"
+}
+
 if [[ "$DRY_RUN" != "true" && ! -x "$BLUE_GREEN_SCRIPT" ]]; then
     echo "blue/green script is not executable: $BLUE_GREEN_SCRIPT" >&2
     exit 1
@@ -145,6 +161,7 @@ if [[ -n "$IMAGE_TAR" ]]; then
 fi
 
 ensure_network
+ensure_postgres_service
 
 blue_green_args=(
     "$BLUE_GREEN_SCRIPT"
