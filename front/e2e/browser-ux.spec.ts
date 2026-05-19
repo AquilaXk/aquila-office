@@ -226,12 +226,12 @@ test.describe("브라우저 UI UX 회귀", () => {
     await page.getByRole("button", { name: "프로필 저장" }).click();
     const profileUpdateBody = (await profileUpdateRequest).postData() ?? "";
     expect(profileUpdateBody).toContain("Aquila Pilot");
-    expect(profileUpdateBody).toContain("backend");
+    expect(profileUpdateBody).toContain("kenji");
 
     await page.waitForURL((url) => url.pathname === "/workspaces");
     const storedCharacter = await page.evaluate(() => window.localStorage.getItem("ai-office.character"));
     expect(storedCharacter).toContain("Aquila Pilot");
-    expect(storedCharacter).toContain("backend");
+    expect(storedCharacter).toContain("kenji");
     expect(storedCharacter).toContain("#1f7a5f");
   });
 
@@ -920,9 +920,21 @@ async function seedCharacterProfile(page: Page) {
     window.localStorage.setItem(
       "ai-office.character",
       JSON.stringify({
-        displayName: "Local Builder",
-        avatarKind: "builder",
+        kind: "kenji",
+        name: "Local Builder",
+        colors: {
+          skin: "#d8b48a",
+          hair: "#101820",
+          shirt: "#1f7a5f",
+        },
         colorMode: "custom",
+        paletteOverride: {
+          skin: "#d8b48a",
+          hair: "#101820",
+          shirt: "#1f7a5f",
+        },
+        displayName: "Local Builder",
+        avatarKind: "kenji",
         avatarColors: {
           skin: "#d8b48a",
           hair: "#101820",
@@ -1045,7 +1057,7 @@ function memberProfile() {
   return {
     memberId: 1,
     displayName: "Aquila User",
-    avatarKind: "operator",
+    avatarKind: "alex",
     avatarColors: {
       skin: "#c8916b",
       hair: "#2b1f1a",
