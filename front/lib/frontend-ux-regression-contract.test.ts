@@ -56,8 +56,12 @@ test("browser regression covers routes and interactions without screenshot asser
   }
 
   for (const interactionEvidence of [
+    'page.getByRole("menuitem", { name: /CONTINUE/ }).click()',
+    'page.getByRole("menuitem", { name: /LOGIN/ }).click()',
+    'page.getByRole("status")',
     'page.keyboard.press("ArrowDown")',
     'page.keyboard.press("ArrowRight")',
+    'page.getByRole("button", { name: "LOGOUT" }).click()',
     'getByRole("dialog", { name: "Connection settings" })',
     'getByRole("dialog", { name: "Task dashboard" })',
     'getByRole("dialog", { name: "Workspace files" })',
@@ -71,12 +75,14 @@ test("browser regression covers routes and interactions without screenshot asser
     'getByRole("button", { name: "초대 목록" })',
     'getByRole("button", { name: "초대 수락" })',
     'path === "/api/v1/auth/google/login"',
+    'path === "/api/v1/auth/logout"',
     'path === "/api/v1/members/me/profile"',
     'path === `/api/v1/workspaces/${workspaceId}/invites`',
     'path === `/api/v1/workspaces/${workspaceId}/gateway/connection-test`',
     'path === `/api/v1/workspaces/${workspaceId}/tasks/${taskId}/status`',
     'path === `/api/v1/invites/${inviteToken}`',
     'path === `/api/v1/invites/${inviteToken}/accept`',
+    'window.localStorage.getItem("aquila-office.auth")',
   ]) {
     assert.match(browserSpec, new RegExp(escapeRegExp(interactionEvidence)));
   }
