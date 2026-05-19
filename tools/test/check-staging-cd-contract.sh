@@ -10,6 +10,7 @@ DOCTOR_SCRIPT="$ROOT_DIR/scripts/deploy/oci-staging-doctor.sh"
 HOOK_SCRIPT="$ROOT_DIR/scripts/deploy/oci-backend-hook.sh"
 FRONTEND_HOOK_SCRIPT="$ROOT_DIR/scripts/deploy/oci-frontend-hook.sh"
 FRONTEND_BLUE_GREEN_SCRIPT="$ROOT_DIR/scripts/deploy/frontend-blue-green.sh"
+POSTGRES_SCRIPT="$ROOT_DIR/scripts/deploy/ensure-postgres-service.sh"
 BOOTSTRAP_SCRIPT="$ROOT_DIR/scripts/deploy/bootstrap-oci-staging-host.sh"
 
 relative_path() {
@@ -51,6 +52,7 @@ require_file "$DOCTOR_SCRIPT"
 require_file "$HOOK_SCRIPT"
 require_file "$FRONTEND_HOOK_SCRIPT"
 require_file "$FRONTEND_BLUE_GREEN_SCRIPT"
+require_file "$POSTGRES_SCRIPT"
 require_file "$BOOTSTRAP_SCRIPT"
 
 require_pattern '^  workflow_run:' "$CD_WORKFLOW" "CI completion trigger"
@@ -102,12 +104,18 @@ require_pattern 'aquila-office-front' "$DOCTOR_SCRIPT" "frontend container diagn
 require_pattern 'docker logs' "$DOCTOR_SCRIPT" "container log capture hint"
 
 require_pattern 'oci-staging-doctor.sh' "$HOOK_SCRIPT" "hook doctor integration"
+require_pattern 'ensure-postgres-service.sh' "$HOOK_SCRIPT" "managed Postgres hook integration"
 require_pattern 'SKIP_IMAGE_PULL' "$HOOK_SCRIPT" "backend tar-loaded image pull skip"
 require_pattern 'frontend-blue-green.sh' "$FRONTEND_HOOK_SCRIPT" "frontend hook integration"
 require_pattern 'aquila-office-front' "$FRONTEND_BLUE_GREEN_SCRIPT" "frontend app name"
 require_pattern '13001' "$FRONTEND_BLUE_GREEN_SCRIPT" "frontend blue port"
 require_pattern '13002' "$FRONTEND_BLUE_GREEN_SCRIPT" "frontend green port"
 require_pattern '3000' "$FRONTEND_BLUE_GREEN_SCRIPT" "frontend container port"
+
+require_pattern 'SPRING_DATASOURCE_URL' "$POSTGRES_SCRIPT" "datasource URL parsing"
+require_pattern 'aquila-postgres' "$POSTGRES_SCRIPT" "staging Postgres container name"
+require_pattern 'postgres:17-alpine' "$POSTGRES_SCRIPT" "Postgres runtime image"
+require_pattern 'pg_isready' "$POSTGRES_SCRIPT" "Postgres readiness check"
 
 require_pattern 'docker.io' "$BOOTSTRAP_SCRIPT" "Docker runtime install"
 require_pattern 'nginx' "$BOOTSTRAP_SCRIPT" "Nginx runtime install"

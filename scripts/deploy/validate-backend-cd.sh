@@ -11,6 +11,7 @@ OCI_FRONTEND_HOOK_SCRIPT="$ROOT_DIR/scripts/deploy/oci-frontend-hook.sh"
 ENV_SCRIPT="$ROOT_DIR/scripts/deploy/materialize-backend-env.sh"
 FRONTEND_ENV_SCRIPT="$ROOT_DIR/scripts/deploy/materialize-frontend-env.sh"
 DOCTOR_SCRIPT="$ROOT_DIR/scripts/deploy/oci-staging-doctor.sh"
+POSTGRES_SCRIPT="$ROOT_DIR/scripts/deploy/ensure-postgres-service.sh"
 CONTRACT_SCRIPT="$ROOT_DIR/tools/test/check-staging-cd-contract.sh"
 BOOTSTRAP_SCRIPT="$ROOT_DIR/scripts/deploy/bootstrap-oci-staging-host.sh"
 
@@ -52,6 +53,7 @@ require_file "$OCI_FRONTEND_HOOK_SCRIPT"
 require_file "$ENV_SCRIPT"
 require_file "$FRONTEND_ENV_SCRIPT"
 require_file "$DOCTOR_SCRIPT"
+require_file "$POSTGRES_SCRIPT"
 require_file "$CONTRACT_SCRIPT"
 require_file "$BOOTSTRAP_SCRIPT"
 
@@ -65,6 +67,7 @@ bash -n \
     "$ENV_SCRIPT" \
     "$FRONTEND_ENV_SCRIPT" \
     "$DOCTOR_SCRIPT" \
+    "$POSTGRES_SCRIPT" \
     "$CONTRACT_SCRIPT" \
     "$BOOTSTRAP_SCRIPT" \
     "$0"
@@ -104,7 +107,7 @@ materialized_env="$(mktemp)"
 materialized_frontend_env="$(mktemp)"
 trap 'rm -f "$backend_env_fixture" "$frontend_env_fixture" "$materialized_env" "$materialized_frontend_env"' EXIT
 cat > "$backend_env_fixture" <<ENV
-SPRING_DATASOURCE_URL=jdbc:postgresql://127.0.0.1:5432/aquila
+SPRING_DATASOURCE_URL=jdbc:postgresql://aquila-postgres:5432/aquila
 SPRING_DATASOURCE_USERNAME=aquila
 SPRING_DATASOURCE_PASSWORD=secret
 AQUILA_AUTH_TOKEN_SECRET=secret-secret-secret-secret-secret-1
@@ -116,6 +119,9 @@ ENV
 
 log "checking backend env materialization"
 BACKEND_ENV_B64="$(base64 < "$backend_env_fixture" | tr -d '\n')" "$ENV_SCRIPT" --output "$materialized_env"
+
+log "running managed Postgres dry-run"
+"$POSTGRES_SCRIPT" --dry-run --env-file "$materialized_env" --network aquila-office
 
 log "checking frontend env materialization"
 FRONTEND_ENV_B64="$(base64 < "$frontend_env_fixture" | tr -d '\n')" "$FRONTEND_ENV_SCRIPT" --output "$materialized_frontend_env"
