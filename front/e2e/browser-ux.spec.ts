@@ -375,11 +375,17 @@ test.describe("브라우저 UI UX 회귀", () => {
     await expect(page.locator(".workspace-2d-hud")).toBeVisible();
     await expect(page.locator(".workspace-2d-minimap")).toBeVisible();
     await expect(page.locator(".workspace-2d-dialogue")).toBeVisible();
+    const actorLayer = page.locator(".workspace-2d-actor-layer");
+    await expect(actorLayer.getByRole("button", { name: /Aquila User 플레이어/ })).toBeVisible();
+    await expect(actorLayer.getByRole("button", { name: /QA Agent agent/ })).toBeVisible();
+    await expect(actorLayer.locator(".stage-actor__player-marker")).toBeVisible();
+    const playerHudValue = page.locator(".workspace-2d-hud div").filter({ hasText: "Player" }).locator("strong");
+    await expect(playerHudValue).not.toHaveText("No signal");
     const canvas = page.locator(".workspace-2d-canvas canvas");
     const stageFrame = page.locator(".workspace-2d-stage").first();
     await expect(canvas).toBeVisible();
     await expectCanvasNotBlank(canvas);
-    await expectKeyboardToMoveViewport(page, canvasFrame);
+    await expectKeyboardToMovePlayer(page, canvasFrame, playerHudValue);
     await expectPanAndZoomToMoveViewport(page, stageFrame);
     await openAndAssert2DContextMenu(page, stageFrame);
 
@@ -1084,13 +1090,12 @@ async function expectPanAndZoomToMoveViewport(page: Page, frame: Locator) {
   await expect.poll(() => statusLabel.textContent()).not.toBe(initialStatus);
 }
 
-async function expectKeyboardToMoveViewport(page: Page, frame: Locator) {
-  const statusLabel = page.locator(".workspace-2d-status span").first();
-  const initialStatus = await statusLabel.textContent();
+async function expectKeyboardToMovePlayer(page: Page, frame: Locator, playerHudValue: Locator) {
+  const initialPlayerPosition = await playerHudValue.textContent();
 
   await frame.focus();
   await page.keyboard.press("ArrowRight");
-  await expect.poll(() => statusLabel.textContent()).not.toBe(initialStatus);
+  await expect.poll(() => playerHudValue.textContent()).not.toBe(initialPlayerPosition);
 }
 
 async function openAndAssert2DContextMenu(page: Page, frame: Locator) {
