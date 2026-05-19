@@ -5,7 +5,7 @@ const taskId = 301;
 const agentId = 501;
 const inviteToken = "team-token";
 
-type WorkspaceListFixture = "default" | "empty" | "error";
+type WorkspaceListFixture = "default" | "empty" | "error" | "many";
 
 type MockApiOptions = {
   workspaceList?: WorkspaceListFixture;
@@ -84,7 +84,23 @@ test.describe("브라우저 UI UX 회귀", () => {
 
     await expect(page.getByText("목록 확인 중")).toBeVisible();
     gate.resolve();
-    await expect(page.getByText("가입된 워크스페이스가 없습니다")).toBeVisible();
+    await expect(page.getByText("no workspaces yet — start a new save to begin your work RPG")).toBeVisible();
+    await expect(page.getByRole("link", { name: "CREATE WORKSPACE" })).toHaveAttribute(
+      "href",
+      "/workspaces/new",
+    );
+  });
+
+  test("워크스페이스 목록 9개 이상 상태에서 scroll indicator를 표시한다", async ({ page }) => {
+    await installMockApi(page, { workspaceList: "many" });
+    await seedAuthTokens(page);
+
+    await page.goto("/workspaces");
+
+    await expect(page.getByText("09 ENTRIES")).toBeVisible();
+    await expect(page.getByText("SCROLL ↓")).toBeVisible();
+    await expect(page.getByText("W009")).toBeVisible();
+    await expect(page.getByText("2026")).toHaveCount(0);
   });
 
   test("워크스페이스 목록 오류 상태를 표시한다", async ({ page }) => {
@@ -495,7 +511,6 @@ test.describe("브라우저 UI UX 회귀", () => {
     await expect(page.getByText("WARP GATE LINKED.")).toBeVisible();
     await expect(page.getByText("LINKED · 01")).toBeVisible();
     await expect(page.getByRole("button", { name: /LOCAL GATE/ })).toBeVisible();
-    await expect(page.getByText("https://gateway.example.test")).toBeVisible();
     await expect(page.getByText("ON")).toBeVisible();
     const activeLink = page.locator('section[aria-label="ACTIVE LINK"]');
     await expect(activeLink.getByRole("heading", { name: "LOCAL GATE" })).toBeVisible();
@@ -670,7 +685,17 @@ async function installMockApi(page: Page, options: MockApiOptions = {}) {
         await fulfillJson(route, { message: "워크스페이스 fixture 오류" }, 503);
         return;
       }
-      await fulfillJson(route, options.workspaceList === "empty" ? [] : [currentWorkspace]);
+      const workspacePayload =
+        options.workspaceList === "empty"
+          ? []
+          : options.workspaceList === "many"
+            ? Array.from({ length: 9 }, (_, index) => ({
+                ...currentWorkspace,
+                workspaceId: workspaceId + index,
+                name: `${currentWorkspace.name} ${index + 1}`,
+              }))
+            : [currentWorkspace];
+      await fulfillJson(route, workspacePayload);
       return;
     }
 

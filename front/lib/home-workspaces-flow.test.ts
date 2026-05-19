@@ -38,7 +38,8 @@ test("workspaces route owns the list flow instead of re-exporting home", () => {
   assert.match(source, /workspace\.agentCount/);
   assert.match(source, /workspace\.runningTaskCount/);
   assert.match(source, /ENTER/);
-  assert.match(source, /가입된 워크스페이스가 없습니다/);
+  assert.match(source, /no workspaces yet — start a new save to begin your work RPG/);
+  assert.match(source, /CREATE WORKSPACE/);
   assert.match(source, /목록을 불러오지 못했습니다/);
 });
 

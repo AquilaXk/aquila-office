@@ -69,7 +69,7 @@ export default function WorkspacesPage() {
       setWorkspaces({
         status: "offline",
         data: null,
-        error: messageFromError(error, "워크스페이스 목록을 확인하지 못했습니다."),
+        error: messageFromError(error, "워크스페이스를 불러오지 못했습니다."),
       });
     }
   }, [router]);
@@ -209,7 +209,7 @@ export default function WorkspacesPage() {
               <span>TASKS · ACTIVE</span>
             </div>
             <strong>{String(activeTaskCount).padStart(2, "0")}</strong>
-            <p>진행 중인 Task</p>
+            <p>진행 중인 태스크</p>
           </article>
           <article className="status-panel">
             <div className="panel-header">
@@ -217,7 +217,7 @@ export default function WorkspacesPage() {
               <span>AGENT ALLIES</span>
             </div>
             <strong>{String(agentCount).padStart(2, "0")}</strong>
-            <p>소환된 Agent</p>
+            <p>소환된 에이전트</p>
           </article>
           <article className="status-panel">
             <div className="panel-header">
@@ -235,11 +235,22 @@ export default function WorkspacesPage() {
               <p className="eyebrow">ACTIVE WORKPLACES</p>
               <h2>참여 중인 워크스페이스</h2>
             </div>
-            <span className="role-badge">
-              {workspaces.status === "ready"
-                ? `${String(workspaces.data.length).padStart(2, "0")} ENTRIES`
-                : workspaces.status}
-            </span>
+            <div className="workspace-list-meta">
+              <span className="role-badge">
+                {workspaces.status === "ready"
+                  ? `${String(workspaces.data.length).padStart(2, "0")} ENTRIES`
+                  : workspaces.status}
+              </span>
+              <span
+                className={
+                  workspaces.status === "ready" && workspaces.data.length > 8
+                    ? "workspace-scroll-indicator workspace-scroll-indicator-active"
+                    : "workspace-scroll-indicator"
+                }
+              >
+                {workspaces.status === "ready" && workspaces.data.length > 8 ? "SCROLL ↓" : "—"}
+              </span>
+            </div>
           </div>
 
           {workspaces.status === "ready" && workspaces.data.length > 0 ? (
@@ -262,8 +273,9 @@ export default function WorkspacesPage() {
                   <div className="workspace-row-meta">
                     <span>{workspace.agentCount ?? 0} agents</span>
                     <span>{workspace.runningTaskCount ?? 0} active</span>
-                    <span>{formatDate(workspace.joinedAt)}</span>
-                    <span className="role-badge">ENTER</span>
+                  </div>
+                  <div className="workspace-row-enter">
+                    <span>ENTER</span>
                   </div>
                 </Link>
               ))}
@@ -301,18 +313,16 @@ function WorkspaceStatePanel({ state }: { state: WorkspaceState }) {
   return (
     <div className="state-panel">
       <UserRound aria-hidden="true" />
-      <strong>가입된 워크스페이스가 없습니다</strong>
+      <strong>no workspaces yet — start a new save to begin your work RPG</strong>
       <p>새 워크스페이스를 만들면 이곳에서 바로 확인할 수 있습니다.</p>
+      <Link className="primary-action primary-action-active" href="/workspaces/new">
+        <Plus aria-hidden="true" />
+        <span>CREATE WORKSPACE</span>
+      </Link>
     </div>
   );
 }
 
 function messageFromError(error: unknown, fallback: string): string {
   return error instanceof ApiError ? error.message : fallback;
-}
-
-function formatDate(value: string): string {
-  return new Intl.DateTimeFormat("ko-KR", {
-    dateStyle: "medium",
-  }).format(new Date(value));
 }
