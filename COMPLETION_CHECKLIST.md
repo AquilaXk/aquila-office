@@ -33,7 +33,7 @@ Aquila Office는 다음 조건을 모두 만족할 때 100% 완료로 본다.
 
 ## 최종 출시 검증 근거
 
-2026-05-18 기준 완료 판정은 아래 근거를 함께 확인한다. 이 문서는 민감값, 로컬 전용 상태 파일, 개인 credential을 포함하지 않는다.
+2026-05-19 기준 완료 판정은 아래 근거를 함께 확인한다. 이 문서는 민감값, 로컬 전용 상태 파일, 개인 credential을 포함하지 않는다.
 
 | 영역 | 최종 상태 | 검증 근거 |
 | --- | --- | --- |
@@ -44,6 +44,12 @@ Aquila Office는 다음 조건을 모두 만족할 때 100% 완료로 본다.
 | Smoke journey | 완료 | `tools/test/run-k6-smoke.sh`, `node tools/perf/validate-k6-smoke.mjs`, PR CI `Smoke Definition Gate` |
 | Infra/CI | 완료 | Terraform format/init/validate, PR CI `Terraform Infra Gate` |
 | Docs/release | 완료 | `node tools/readme/validate-readme.mjs`, open issue/failed CI/checklist scan 절차 |
+
+최신 검증 snapshot:
+
+- `main` commit: `5722c551d727b25fbdb7815a7b1142875613a2c3`
+- `main` CI: `26070864190`, `Backend Quality Gate`, `Frontend Quality Gate`, `Smoke Definition Gate`, `Terraform Infra Gate` 모두 success
+- issue scan: 이 문서 갱신 PR merge 전에는 `#375`만 open이며, 해당 PR merge 후 open issue 0개를 최종 상태로 확인한다.
 
 출시 직전 preflight는 다음 순서로 실행한다.
 
