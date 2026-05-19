@@ -124,6 +124,15 @@ test.describe("브라우저 UI UX 회귀", () => {
     await expect(page.getByRole("heading", { name: "AQUILA OFFICE" })).toBeVisible();
   });
 
+  test("인증 없는 invite 접근은 title screen으로 되돌린다", async ({ page }) => {
+    await installMockApi(page);
+
+    await page.goto(`/invites/${inviteToken}`);
+
+    await page.waitForURL((url) => url.pathname === "/");
+    await expect(page.getByRole("heading", { name: "AQUILA OFFICE" })).toBeVisible();
+  });
+
   test("title screen에서 워크스페이스 목록으로 이동하고 워크스페이스를 생성한다", async ({ page }) => {
     await installMockApi(page);
     await seedAuthTokens(page);
@@ -484,9 +493,38 @@ test.describe("브라우저 UI UX 회귀", () => {
 
     await page.goto(`/invites/${inviteToken}`);
     await expect(page.getByRole("heading", { name: "워크스페이스 초대" })).toBeVisible();
-    await expect(page.getByText("invitee@example.com")).toBeVisible();
+    await expect(page.getByText("Product Engineering")).toBeVisible();
+    await expect(page.getByText("MEMBER")).toBeVisible();
+    await expect(page.getByText("PENDING")).toBeVisible();
+    await expect(page.getByText("NO")).toBeVisible();
     await page.getByRole("button", { name: "초대 수락" }).click();
-    await expect(page.getByText("google-1 계정이 MEMBER 역할로 참여했습니다.")).toBeVisible();
+    await page.waitForURL((url) => url.pathname === "/workspaces");
+    await expect(page.getByRole("heading", { name: "WORKSPACES" })).toBeVisible();
+
+    await page.evaluate((id) => {
+      window.localStorage.setItem("aquila-office.pendingSlackWorkspaceId", String(id));
+      window.localStorage.setItem("aquila-office.pendingSlackReturnTo", `/workspaces/${id}`);
+    }, workspaceId);
+    await page.goto("/settings/integrations/success");
+    await expect(page.locator('section[aria-label="Slack 연동 성공"]')).toBeVisible();
+    await expect(page.getByText("Slack 연동이 완료되었습니다.")).toBeVisible();
+    await expect
+      .poll(() =>
+        page.evaluate((id) => window.localStorage.getItem(`aio.workspace.${id}.integrations.slack`), workspaceId),
+      )
+      .toContain("T123");
+    await expect
+      .poll(() => page.evaluate(() => window.localStorage.getItem("aquila-office.pendingSlackWorkspaceId")))
+      .toBeNull();
+    await page.waitForURL((url) => url.pathname === `/workspaces/${workspaceId}`);
+
+    await page.evaluate((id) => {
+      window.localStorage.setItem("aquila-office.pendingSlackReturnTo", `/workspaces/${id}`);
+    }, workspaceId);
+    await page.goto("/settings/integrations/fail");
+    await expect(page.locator('section[aria-label="Slack 연동 실패"]')).toBeVisible();
+    await page.getByRole("button", { name: "재시도" }).click();
+    await page.waitForURL((url) => url.pathname === `/workspaces/${workspaceId}`);
   });
 
   test("MEMBER 권한의 설정 화면은 navigation을 유지하고 관리 action을 잠근다", async ({ page }) => {
@@ -1178,10 +1216,12 @@ function workspaceInvite() {
   return {
     inviteId: 901,
     workspaceId,
+    workspaceName: "Product Engineering",
     token: inviteToken,
     email: "invitee@example.com",
     role: "MEMBER",
     status: "PENDING",
+    expired: false,
     expiresAt: "2026-05-19T09:00:00Z",
     createdAt: "2026-05-18T09:00:00Z",
     acceptedAt: null,

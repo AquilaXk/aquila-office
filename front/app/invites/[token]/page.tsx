@@ -2,7 +2,6 @@
 
 import {
   AlertCircle,
-  CheckCircle2,
   Clock3,
   Loader2,
   Mail,
@@ -11,9 +10,10 @@ import {
   UserPlus,
   WifiOff,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { use, useCallback, useEffect, useMemo, useState } from "react";
 import { ApiError } from "@/lib/api";
-import { resolveAccessToken } from "@/lib/auth";
+import { isAuthenticated, resolveAccessToken } from "@/lib/auth";
 import {
   acceptWorkspaceInvite,
   fetchWorkspaceInvite,
@@ -33,6 +33,7 @@ export default function WorkspaceInviteAcceptPage({
   params: Promise<{ token: string }>;
 }) {
   const { token } = use(params);
+  const router = useRouter();
   const [state, setState] = useState<InviteState>({
     status: "loading",
     invite: null,
@@ -43,6 +44,11 @@ export default function WorkspaceInviteAcceptPage({
   const [acceptError, setAcceptError] = useState<string | null>(null);
 
   const reloadInvite = useCallback(async () => {
+    if (!isAuthenticated()) {
+      router.replace("/");
+      return;
+    }
+
     setState({ status: "loading", invite: null, accepted: null, error: null });
     setAcceptError(null);
 
@@ -52,12 +58,17 @@ export default function WorkspaceInviteAcceptPage({
     } catch (error) {
       setState(toFailureState(error, "초대 정보를 확인하지 못했습니다."));
     }
-  }, [token]);
+  }, [router, token]);
 
   useEffect(() => {
     let ignore = false;
 
     async function loadInitialInvite() {
+      if (!isAuthenticated()) {
+        router.replace("/");
+        return;
+      }
+
       try {
         const invite = await fetchWorkspaceInvite(token);
         if (!ignore) {
@@ -75,19 +86,25 @@ export default function WorkspaceInviteAcceptPage({
     return () => {
       ignore = true;
     };
-  }, [token]);
+  }, [router, token]);
 
   const invite = state.invite;
-  const isPending = invite?.status === "PENDING";
+  const expired = invite ? isInviteExpired(invite) : false;
+  const isPending = invite?.status === "PENDING" && !expired;
+  const inviteRole = invite?.role ?? "MEMBER";
+  const workspaceName = invite?.workspaceName ?? (invite ? `Workspace #${invite.workspaceId}` : "-");
   const blockedReason = useMemo(() => {
-    if (!invite || invite.status === "PENDING") {
+    if (!invite || (invite.status === "PENDING" && !expired)) {
       return null;
     }
     if (invite.status === "ACCEPTED") {
       return "이미 수락된 초대입니다.";
     }
+    if (invite.status === "REVOKED") {
+      return "취소된 초대입니다.";
+    }
     return "만료된 초대입니다.";
-  }, [invite]);
+  }, [expired, invite]);
 
   const acceptInvite = async () => {
     if (!isPending) {
@@ -98,12 +115,8 @@ export default function WorkspaceInviteAcceptPage({
     setAcceptError(null);
 
     try {
-      const accepted = await acceptWorkspaceInvite(token, resolveAccessToken());
-      setState((current) =>
-        current.invite
-          ? { status: "accepted", invite: current.invite, accepted, error: null }
-          : current,
-      );
+      await acceptWorkspaceInvite(token, resolveAccessToken());
+      router.replace("/workspaces");
     } catch (error) {
       setAcceptError(messageFromError(error, "초대를 수락하지 못했습니다."));
     } finally {
@@ -161,15 +174,16 @@ export default function WorkspaceInviteAcceptPage({
                 <Mail aria-hidden="true" />
               </div>
               <div>
-                <span className="invite-label">초대 대상</span>
-                <strong>{invite.email}</strong>
+                <span className="invite-label">Workspace</span>
+                <strong>{workspaceName}</strong>
+                <p>{invite.email}</p>
               </div>
             </div>
 
             <dl className="invite-meta">
               <div>
-                <dt>Workspace ID</dt>
-                <dd>{invite.workspaceId}</dd>
+                <dt>Role</dt>
+                <dd>{inviteRole}</dd>
               </div>
               <div>
                 <dt>Status</dt>
@@ -182,6 +196,10 @@ export default function WorkspaceInviteAcceptPage({
               <div>
                 <dt>Expires</dt>
                 <dd>{formatDateTime(invite.expiresAt)}</dd>
+              </div>
+              <div>
+                <dt>Expired</dt>
+                <dd>{expired ? "YES" : "NO"}</dd>
               </div>
             </dl>
 
@@ -199,24 +217,15 @@ export default function WorkspaceInviteAcceptPage({
               </div>
             ) : null}
 
-            {state.status === "accepted" ? (
-              <div className="invite-notice invite-notice-success">
-                <CheckCircle2 aria-hidden="true" />
-                <span>
-                  {state.accepted.memberGoogleSub} 계정이 {state.accepted.role} 역할로 참여했습니다.
-                </span>
-              </div>
-            ) : (
-              <button
-                className="invite-accept-button"
-                type="button"
-                onClick={() => void acceptInvite()}
-                disabled={!isPending || isAccepting}
-              >
-                {isAccepting ? <Loader2 className="spin" aria-hidden="true" /> : <ShieldCheck aria-hidden="true" />}
-                <span>{isAccepting ? "수락 중" : "초대 수락"}</span>
-              </button>
-            )}
+            <button
+              className="invite-accept-button"
+              type="button"
+              onClick={() => void acceptInvite()}
+              disabled={!isPending || isAccepting}
+            >
+              {isAccepting ? <Loader2 className="spin" aria-hidden="true" /> : <ShieldCheck aria-hidden="true" />}
+              <span>{isAccepting ? "수락 중" : "초대 수락"}</span>
+            </button>
           </section>
         ) : null}
       </section>
@@ -283,6 +292,15 @@ function messageFromError(error: unknown, fallback: string): string {
     return error.message;
   }
   return fallback;
+}
+
+function isInviteExpired(invite: WorkspaceInvite): boolean {
+  if (typeof invite.expired === "boolean") {
+    return invite.expired;
+  }
+
+  const expiresAt = new Date(invite.expiresAt);
+  return !Number.isNaN(expiresAt.getTime()) && expiresAt.getTime() <= Date.now();
 }
 
 function formatDateTime(value: string): string {
