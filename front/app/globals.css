@@ -182,7 +182,7 @@ button {
   align-items: center;
   border: 1px solid transparent;
   border-radius: 8px;
-  background: rgba(16, 18, 20, 0.01);
+  background: transparent;
   color: var(--text-muted);
   cursor: pointer;
   padding: 0 18px;
@@ -2024,8 +2024,58 @@ h2 {
 
 .workspace-2d-hud {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 8px;
+}
+
+.workspace-2d-hero-hud {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  border: 1px solid rgba(227, 198, 130, 0.42);
+  border-radius: 8px;
+  background: rgba(16, 18, 20, 0.78);
+  box-shadow: inset 0 0 22px rgba(194, 163, 91, 0.08);
+  padding: 10px;
+}
+
+.workspace-2d-hero-avatar {
+  display: grid;
+  width: 56px;
+  height: 56px;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid rgba(194, 163, 91, 0.34);
+  border-radius: 8px;
+  background: rgba(31, 35, 39, 0.78);
+}
+
+.workspace-2d-hero-avatar svg {
+  width: 22px;
+  height: 22px;
+  color: var(--gothic-brass);
+}
+
+.workspace-2d-hero-hud span,
+.workspace-2d-hero-hud small {
+  display: block;
+  overflow: hidden;
+  color: var(--gothic-muted);
+  font-size: 12px;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workspace-2d-hero-hud strong {
+  display: block;
+  overflow: hidden;
+  color: var(--gothic-parchment);
+  font-size: 16px;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .workspace-2d-hud > div {
@@ -2074,13 +2124,39 @@ h2 {
   border-radius: 4px;
 }
 
-.workspace-2d-minimap-room {
+.workspace-2d-minimap-room-button {
   border: 1px solid rgba(194, 163, 91, 0.42);
   background: rgba(194, 163, 91, 0.08);
+  cursor: pointer;
+  padding: 0;
+}
+
+.workspace-2d-minimap-room-button:hover,
+.workspace-2d-minimap-room-button:focus-visible {
+  border-color: rgba(227, 198, 130, 0.72);
+  background: rgba(194, 163, 91, 0.18);
+  outline: none;
 }
 
 .workspace-2d-minimap-desk {
   background: rgba(111, 159, 121, 0.28);
+}
+
+.workspace-2d-minimap-actor {
+  position: absolute;
+  z-index: 2;
+  width: 7px;
+  height: 7px;
+  border: 1px solid rgba(16, 18, 20, 0.9);
+  border-radius: 999px;
+  background: var(--gothic-brass);
+  box-shadow: 0 0 7px rgba(227, 198, 130, 0.72);
+  transform: translate(-50%, -50%);
+}
+
+.workspace-2d-minimap-actor-member {
+  background: var(--green);
+  box-shadow: 0 0 7px rgba(111, 159, 121, 0.72);
 }
 
 .workspace-2d-minimap-view {

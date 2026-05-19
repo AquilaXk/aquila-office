@@ -17,14 +17,15 @@ import type { WorkspaceAgent } from "@/lib/agents";
 import type { WorkspacePresenceMember, WorkspacePresencePosition } from "@/lib/presence";
 import {
   createInitialWorkspaceViewport,
-  createWorkspaceSceneZones,
   createWorkspaceStageActors,
   createWorkspaceAvatarNodes,
   createWorkspaceContextMenuState,
   createWorkspaceSceneEventBus,
   buildStageWalls,
+  focusWorkspaceViewportOnStagePosition,
   getEngineeringRows,
   getPlayerMoveDirection,
+  getStageMiniMapRooms,
   getStageRooms,
   getStageWorldSize,
   getWorkspaceActorScreenPosition,
@@ -75,7 +76,6 @@ export default function Workspace2DCanvas({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const dragStateRef = useRef<DragState | null>(null);
   const eventBus = useMemo(() => createWorkspaceSceneEventBus(), []);
-  const zones = useMemo(() => createWorkspaceSceneZones(), []);
   const engineeringRows = useMemo(() => getEngineeringRows(agents.length), [agents.length]);
   const stageWorldSize = useMemo(() => getStageWorldSize(engineeringRows), [engineeringRows]);
   const stageRooms = useMemo(
@@ -108,7 +108,10 @@ export default function Workspace2DCanvas({
       }),
     [agents, members, presenceMembers, stageRooms, stageWorldSize],
   );
+  const miniMapRooms = useMemo(() => getStageMiniMapRooms(stageRooms), [stageRooms]);
   const selectedNode = nodes.find((node) => node.id === selectedNodeId) ?? null;
+  const selectedStageActor =
+    stageActors.find((actor) => actor.id === selectedNodeId) ?? stageActors[0] ?? null;
 
   const selectNode = useCallback(
     (node: WorkspaceSceneNode) => {
@@ -318,6 +321,19 @@ export default function Workspace2DCanvas({
     [publishViewport],
   );
 
+  const focusMiniMapRoom = useCallback(
+    (room: { x: string; y: string; w: string; h: string }) => {
+      const center = {
+        left: `${Number.parseFloat(room.x) + Number.parseFloat(room.w) / 2}%`,
+        top: `${Number.parseFloat(room.y) + Number.parseFloat(room.h) / 2}%`,
+      };
+      setViewport((current) =>
+        publishViewport(focusWorkspaceViewportOnStagePosition(current, center)),
+      );
+    },
+    [publishViewport],
+  );
+
   const handleKeyDown = useCallback(
     (event: ReactKeyboardEvent<HTMLDivElement>) => {
       const moveDirection = getPlayerMoveDirection(event.key);
@@ -374,6 +390,25 @@ export default function Workspace2DCanvas({
             <Maximize2 aria-hidden="true" />
             <span>Reset</span>
           </button>
+        </div>
+      </div>
+
+      <div className="workspace-2d-hero-hud" aria-label="Selected actor HUD">
+        <div className="workspace-2d-hero-avatar">
+          {selectedStageActor ? (
+            <PixelAvatar
+              kind={selectedStageActor.avatarKind}
+              size={2}
+              walking={selectedStageActor.motion === "working"}
+            />
+          ) : (
+            <Users aria-hidden="true" />
+          )}
+        </div>
+        <div>
+          <span>{selectedStageActor ? (selectedStageActor.kind === "agent" ? "Agent" : "Member") : "Actor"}</span>
+          <strong>{selectedNode?.label ?? selectedStageActor?.label ?? "None"}</strong>
+          <small>{selectedNode?.detail ?? selectedStageActor?.detail ?? "No actor selected"}</small>
         </div>
       </div>
 
@@ -452,16 +487,30 @@ export default function Workspace2DCanvas({
             <WorkspaceContextMenu menu={contextMenu} />
           ) : null}
           <div className="workspace-2d-minimap" aria-label="Office scene minimap">
-            {zones.map((zone) => (
-              <span
-                className={`workspace-2d-minimap-zone workspace-2d-minimap-${zone.kind}`}
-                key={zone.id}
-                title={zone.label}
+            {miniMapRooms.map((room) => (
+              <button
+                aria-label={`Move view to ${room.label}`}
+                className={`workspace-2d-minimap-zone workspace-2d-minimap-room-button workspace-2d-minimap-${room.variant}`}
+                key={room.id}
+                onClick={() => focusMiniMapRoom(room)}
+                title={room.label}
+                type="button"
                 style={{
-                  left: `${(zone.x / viewport.worldWidth) * 100}%`,
-                  top: `${(zone.y / viewport.worldHeight) * 100}%`,
-                  width: `${(zone.width / viewport.worldWidth) * 100}%`,
-                  height: `${(zone.height / viewport.worldHeight) * 100}%`,
+                  left: room.x,
+                  top: room.y,
+                  width: room.w,
+                  height: room.h,
+                }}
+              />
+            ))}
+            {stageActors.map((actor) => (
+              <span
+                aria-hidden="true"
+                className={`workspace-2d-minimap-actor workspace-2d-minimap-actor-${actor.kind}`}
+                key={`map-${actor.id}`}
+                style={{
+                  left: actor.position.left,
+                  top: actor.position.top,
                 }}
               />
             ))}

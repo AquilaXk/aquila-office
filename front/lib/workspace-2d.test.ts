@@ -13,8 +13,11 @@ import {
   getPlayerMoveDirection,
   getStageRooms,
   getStagePanForPosition,
+  getStageMiniMapRooms,
   getStageWorldSize,
   getWorkspaceActorSpeech,
+  getWorkspaceActorScreenPosition,
+  focusWorkspaceViewportOnStagePosition,
   isNearQuestMarker,
   mapWorkspaceAgentStatusToActorStatus,
   panWorkspaceViewport,
@@ -236,4 +239,37 @@ test("workspace stage actors match office placement, status, and speech contract
   });
   assert.equal(actors[2].avatarKind, "mira");
   assert.deepEqual(actors[2].position, { left: "45.1%", top: "23.5%" });
+});
+
+test("workspace minimap maps rooms, actor markers, and focus viewport", () => {
+  const rows = getEngineeringRows(1);
+  const worldSize = getStageWorldSize(rows);
+  const rooms = getStageRooms(rows, worldSize, 1);
+  const minimapRooms = getStageMiniMapRooms(rooms);
+
+  assert.equal(minimapRooms.length, 4);
+  assert.deepEqual(minimapRooms[0], {
+    id: "room-engineering",
+    label: "ENGINEERING",
+    x: rooms[0].left,
+    y: rooms[0].top,
+    w: rooms[0].width,
+    h: rooms[0].height,
+    variant: "engineering",
+  });
+
+  const viewport = createInitialWorkspaceViewport({
+    width: 960,
+    height: 520,
+    worldWidth: worldSize.width,
+    worldHeight: worldSize.height,
+  });
+  const focused = focusWorkspaceViewportOnStagePosition(viewport, { left: "90%", top: "75%" });
+  assert.ok(focused.x > viewport.x);
+  assert.ok(focused.y > viewport.y);
+
+  assert.deepEqual(
+    getWorkspaceActorScreenPosition({ left: "50%", top: "50%" }, viewport),
+    { left: 900, top: 515 },
+  );
 });
