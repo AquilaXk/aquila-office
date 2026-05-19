@@ -25,7 +25,7 @@ import {
   X,
 } from "lucide-react";
 import Link from "next/link";
-import { use, useCallback, useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
+import { use, useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 import {
   PixelAvatar,
   type PixelAvatarKind,
@@ -250,7 +250,7 @@ type SlackConnectionAction = { type: "delete"; integrationId: number };
 
 type ActorChatMessage = {
   id: string;
-  sender: "user" | "agent";
+  sender: "user" | "agent" | "system";
   text: string;
   optimistic: boolean;
   taskId?: number | null;
@@ -1133,6 +1133,15 @@ export default function WorkspaceDetailPage({
     [actorChatSessionIds, pollActorChatMessages, selectedActor?.id],
   );
 
+  const handleCloseActorPanel = useCallback(() => {
+    setActorPanelOpen(false);
+    setSelectedActor(null);
+    setActorPanelTab("chat");
+    setActorChatInput("");
+    setActorChatSessionId(null);
+    setActorChatMutation({ status: "idle", message: null });
+  }, []);
+
   const handleSendActorChatMessage = async () => {
     if (!selectedActor) {
       setActorChatMutation({ status: "error", message: "actor를 선택해 주세요." });
@@ -1156,7 +1165,7 @@ export default function WorkspaceDetailPage({
         },
         {
           id: `member-system-${Date.now()}`,
-          sender: "agent",
+          sender: "system",
           text: "현재 멤버 대화는 화면 내 대화로 표시됩니다.",
           optimistic: false,
         },
@@ -2400,7 +2409,7 @@ export default function WorkspaceDetailPage({
                   setActorChatMutation({ status: "idle", message: null });
                 }}
                 onSend={() => void handleSendActorChatMessage()}
-                onClose={() => setActorPanelOpen(false)}
+                onClose={handleCloseActorPanel}
                 onOpenDashboard={(task) => {
                   setSelectedDashboardTask(task);
                   setTaskDashboardTab("board");
@@ -3515,7 +3524,7 @@ function ConnectionSettingsModal({
   return (
     <div className="workspace-modal-backdrop" role="presentation">
       <section
-        className={`workspace-modal workspace-connection-modal${
+        className={`workspace-modal workspace-connection-modal workspace-connection-modal-${modal}${
           modal === "selector" ? " workspace-connection-selector-modal" : ""
         }`}
         role="dialog"
@@ -4258,12 +4267,37 @@ function ActorTaskPanel({
   onOpenChat: (task: WorkspaceTask) => void;
   onOpenPlan: (planId: number) => void;
 }) {
+  const isAgent = actor?.kind === "agent";
+  const activeTab = isAgent ? tab : "chat";
+  const actorMessagesEndRef = useRef<HTMLDivElement | null>(null);
+  const sortedTasks = useMemo(() => [...tasks].sort(compareActorPanelTasks), [tasks]);
+
+  useEffect(() => {
+    if (!open || activeTab !== "chat") {
+      return;
+    }
+    actorMessagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+  }, [activeTab, messages.length, mutation.status, open]);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    function handleEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        onClose();
+      }
+    }
+
+    document.addEventListener("keydown", handleEscape);
+    return () => document.removeEventListener("keydown", handleEscape);
+  }, [onClose, open]);
+
   if (!open || !actor) {
     return null;
   }
 
-  const isAgent = actor.kind === "agent";
-  const activeTab = isAgent ? tab : "chat";
   const actorAvatarKind = pickAvatarKind(actor.label, isAgent);
 
   return (
@@ -4292,16 +4326,17 @@ function ActorTaskPanel({
         >
           Chat
         </button>
-        <button
-          className={activeTab === "tasks" ? "workspace-actor-tab-active" : ""}
-          type="button"
-          role="tab"
-          aria-selected={activeTab === "tasks"}
-          onClick={() => onTabChange("tasks")}
-          disabled={isAgent === false}
-        >
-          Tasks
-        </button>
+        {isAgent ? (
+          <button
+            className={activeTab === "tasks" ? "workspace-actor-tab-active" : ""}
+            type="button"
+            role="tab"
+            aria-selected={activeTab === "tasks"}
+            onClick={() => onTabChange("tasks")}
+          >
+            Tasks
+          </button>
+        ) : null}
       </div>
 
       {activeTab === "chat" ? (
@@ -4313,7 +4348,7 @@ function ActorTaskPanel({
                   className={`workspace-actor-message workspace-actor-message-${message.sender}`}
                   key={message.id}
                 >
-                  <strong>{message.sender === "user" ? "User" : "Agent"}</strong>
+                  <strong>{actorChatSenderLabel(message.sender)}</strong>
                   <p>{message.text}</p>
                   {message.taskId || message.taskExecutionId || message.orchestrationPlanId ? (
                     <div className="workspace-actor-message-links">
@@ -4343,6 +4378,13 @@ function ActorTaskPanel({
                 <p>선택한 Agent에게 바로 요청을 보낼 수 있습니다.</p>
               </div>
             )}
+            {mutation.status === "submitting" && isAgent ? (
+              <article className="workspace-actor-message workspace-actor-message-agent" aria-label={`${actor.label} 응답 대기 중`}>
+                <strong>Agent</strong>
+                <p>응답을 기다리는 중...</p>
+              </article>
+            ) : null}
+            <div ref={actorMessagesEndRef} />
           </div>
 
           <form
@@ -4395,9 +4437,9 @@ function ActorTaskPanel({
         </div>
       ) : (
         <div className="workspace-actor-content" role="tabpanel">
-          {tasks.length > 0 ? (
+          {sortedTasks.length > 0 ? (
             <div className="workspace-actor-task-list">
-              {tasks.map((task) => (
+              {sortedTasks.map((task) => (
                 <article className="workspace-actor-task-card" key={task.taskId}>
                   <div>
                     <strong>{task.title}</strong>
@@ -5591,7 +5633,7 @@ function agentIdFromActorNode(node: WorkspaceSceneNode): number | null {
 function actorMessageFromChatMessage(message: ChatMessage): ActorChatMessage {
   return {
     id: `message-${message.messageId}`,
-    sender: message.role === "USER" ? "user" : "agent",
+    sender: message.role === "USER" ? "user" : message.role === "SYSTEM" ? "system" : "agent",
     text: message.content,
     optimistic: false,
     taskId: message.taskId,
@@ -5600,12 +5642,55 @@ function actorMessageFromChatMessage(message: ChatMessage): ActorChatMessage {
   };
 }
 
+function actorChatSenderLabel(sender: ActorChatMessage["sender"]): string {
+  if (sender === "user") {
+    return "Me";
+  }
+  if (sender === "system") {
+    return "System";
+  }
+  return "Agent";
+}
+
 function isTaskAssignedToAgent(task: WorkspaceTask, agentId: number): boolean {
   const assignedAgentId =
     typeof task.assignedAgentId === "string"
       ? Number.parseInt(task.assignedAgentId, 10)
       : task.assignedAgentId;
   return assignedAgentId === agentId;
+}
+
+const ACTOR_PANEL_STATUS_ORDER: TaskStatus[] = [
+  "IN_PROGRESS",
+  "WAITING_USER",
+  "ASSIGNED",
+  "REQUESTED",
+  "FAILED",
+  "CANCELED",
+  "COMPLETED",
+];
+
+const ACTOR_PANEL_PRIORITY_ORDER: TaskPriority[] = ["URGENT", "HIGH", "MEDIUM", "LOW"];
+
+function compareActorPanelTasks(a: WorkspaceTask, b: WorkspaceTask): number {
+  const statusDelta = ACTOR_PANEL_STATUS_ORDER.indexOf(a.status) - ACTOR_PANEL_STATUS_ORDER.indexOf(b.status);
+  if (statusDelta !== 0) {
+    return statusDelta;
+  }
+
+  const priorityDelta = actorPanelPriorityRank(a.priority) - actorPanelPriorityRank(b.priority);
+  if (priorityDelta !== 0) {
+    return priorityDelta;
+  }
+
+  const bTime = Date.parse(b.updatedAt ?? b.createdAt ?? "");
+  const aTime = Date.parse(a.updatedAt ?? a.createdAt ?? "");
+  return (Number.isFinite(bTime) ? bTime : 0) - (Number.isFinite(aTime) ? aTime : 0);
+}
+
+function actorPanelPriorityRank(priority: TaskPriority | undefined): number {
+  const index = priority ? ACTOR_PANEL_PRIORITY_ORDER.indexOf(priority) : -1;
+  return index >= 0 ? index : ACTOR_PANEL_PRIORITY_ORDER.length;
 }
 
 function createLocalDashboardSummary(

@@ -3462,6 +3462,16 @@ h2 {
   border-color: rgba(227, 198, 130, 0.42);
 }
 
+.workspace-actor-message-system {
+  border-color: rgba(255, 216, 74, 0.44);
+  background: rgba(255, 216, 74, 0.08);
+  text-align: center;
+}
+
+.workspace-actor-message-system strong {
+  color: var(--t4-xp);
+}
+
 .workspace-actor-message span {
   width: fit-content;
   border: 1px solid rgba(227, 198, 130, 0.36);
