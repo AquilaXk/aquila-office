@@ -124,10 +124,10 @@ test.describe("브라우저 UI UX 회귀", () => {
       .poll(() => page.evaluate(() => window.localStorage.getItem("aquila-office.auth")))
       .toContain("e2e-access-token");
     await Promise.all([
-      page.waitForURL((url) => url.pathname === "/workspaces/new"),
+      page.waitForURL((url) => url.pathname === "/auth/character" && url.searchParams.get("returnTo") === "/workspaces/new"),
       page.reload(),
     ]);
-    await expect(page.getByPlaceholder("예: Product Engineering")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "캐릭터 프로필" })).toBeVisible();
   });
 
   test("캐릭터 프로필 설정에서 avatar와 색상 저장 흐름을 검증한다", async ({ page }) => {
@@ -138,14 +138,14 @@ test.describe("브라우저 UI UX 회귀", () => {
     await page.goto("/auth/character?returnTo=/workspaces");
     await expect(page.getByRole("heading", { name: "캐릭터 프로필" })).toBeVisible();
     await expect(page.getByLabel("표시 이름")).toHaveValue("Aquila User");
-    await expect(page.getByRole("radio", { name: /Operator/ })).toHaveAttribute("aria-checked", "true");
+    await expect(page.getByRole("radio", { name: /Frontend/ })).toHaveAttribute("aria-checked", "true");
 
-    await page.getByRole("radio", { name: /Builder/ }).click();
+    await page.getByRole("radio", { name: /Backend/ }).click();
     await page.getByRole("radio", { name: /Custom/ }).click();
-    await page.getByLabel("상의 색상").fill("#1f7a5f");
+    await page.getByRole("textbox", { name: "상의 색상" }).fill("#1f7a5f");
     await page.getByLabel("표시 이름").fill("Aquila Pilot");
     await expect(page.getByLabel("표시 이름")).toHaveValue("Aquila Pilot");
-    await expect(page.getByRole("radio", { name: /Builder/ })).toHaveAttribute("aria-checked", "true");
+    await expect(page.getByRole("radio", { name: /Backend/ })).toHaveAttribute("aria-checked", "true");
     await expect(page.getByRole("radio", { name: /Custom/ })).toHaveAttribute("aria-checked", "true");
     const profileUpdateRequest = page.waitForRequest((request) => {
       const url = new URL(request.url());
@@ -154,12 +154,12 @@ test.describe("브라우저 UI UX 회귀", () => {
     await page.getByRole("button", { name: "프로필 저장" }).click();
     const profileUpdateBody = (await profileUpdateRequest).postData() ?? "";
     expect(profileUpdateBody).toContain("Aquila Pilot");
-    expect(profileUpdateBody).toContain("builder");
+    expect(profileUpdateBody).toContain("backend");
 
     await page.waitForURL((url) => url.pathname === "/workspaces");
     const storedCharacter = await page.evaluate(() => window.localStorage.getItem("ai-office.character"));
     expect(storedCharacter).toContain("Aquila Pilot");
-    expect(storedCharacter).toContain("builder");
+    expect(storedCharacter).toContain("backend");
     expect(storedCharacter).toContain("#1f7a5f");
   });
 

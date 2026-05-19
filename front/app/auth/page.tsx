@@ -28,9 +28,9 @@ function AuthContent() {
 
   useEffect(() => {
     if (isAuthenticated()) {
-      window.location.replace(returnTo);
+      router.replace(nextStep(returnTo));
     }
-  }, [returnTo]);
+  }, [router, returnTo]);
 
   const handleCredential = async (credential?: string) => {
     if (!credential) {
@@ -42,7 +42,7 @@ function AuthContent() {
     try {
       const tokens = await loginWithGoogle(credential);
       saveAuthTokens(tokens);
-      router.replace(returnTo);
+      router.replace(nextStep(returnTo));
     } catch (error) {
       setState({
         status: "error",
@@ -133,4 +133,9 @@ function safeReturnTo(raw: string | null): string {
     return "/workspaces";
   }
   return raw;
+}
+
+function nextStep(returnTo: string): string {
+  const params = new URLSearchParams({ returnTo });
+  return `/auth/character?${params.toString()}`;
 }
