@@ -1,10 +1,12 @@
 "use client";
 
 import { GoogleLogin } from "@react-oauth/google";
-import { AlertCircle, Loader2, LogIn } from "lucide-react";
+import Image from "next/image";
+import { AlertCircle, Loader2 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useState, type ReactNode } from "react";
 import { isAuthenticated, loginWithGoogle, saveAuthTokens } from "@/lib/auth";
+import { BRAND_MASCOT_PATH, SERVICE_NAME } from "@/lib/branding";
 
 export default function AuthPage() {
   return (
@@ -26,9 +28,9 @@ function AuthContent() {
 
   useEffect(() => {
     if (isAuthenticated()) {
-      router.replace(returnTo);
+      window.location.replace(returnTo);
     }
-  }, [returnTo, router]);
+  }, [returnTo]);
 
   const handleCredential = async (credential?: string) => {
     if (!credential) {
@@ -50,52 +52,77 @@ function AuthContent() {
   };
 
   return (
-    <main className="auth-page">
-      <section className="auth-panel" aria-labelledby="auth-title">
-        <div className="auth-panel-heading">
-          <LogIn aria-hidden="true" />
-          <div>
-            <span className="workspace-detail-label">Authentication</span>
-            <h1 id="auth-title">Google 로그인</h1>
-          </div>
-        </div>
+    <AuthLayout>
+      <div className="auth-menu-line" aria-hidden="true">
+        <span>&gt;</span>
+        <strong>GOOGLE LOGIN</strong>
+      </div>
 
-        <div className="auth-google-action">
-          <GoogleLogin
-            onSuccess={(response) => void handleCredential(response.credential)}
-            onError={() => setState({ status: "error", error: "Google 로그인이 취소되었거나 실패했습니다." })}
-            size="large"
-            shape="rectangular"
-            text="continue_with"
-            useOneTap={false}
-          />
-        </div>
+      <div className="auth-google-action">
+        <GoogleLogin
+          onSuccess={(response) => void handleCredential(response.credential)}
+          onError={() => setState({ status: "error", error: "Google 로그인이 취소되었거나 실패했습니다." })}
+          theme="filled_black"
+          size="large"
+          shape="rectangular"
+          text="continue_with"
+          logo_alignment="left"
+          width="280"
+          useOneTap={false}
+        />
+      </div>
 
-        {state.status === "submitting" ? (
-          <p className="auth-state" role="status">
-            <Loader2 className="spin" aria-hidden="true" />
-            인증 세션을 저장하고 있습니다.
-          </p>
-        ) : null}
-        {state.status === "error" ? (
-          <p className="auth-state auth-state-error" role="alert">
-            <AlertCircle aria-hidden="true" />
-            {state.error}
-          </p>
-        ) : null}
-      </section>
-    </main>
+      {state.status === "submitting" ? (
+        <p className="auth-state" role="status">
+          <Loader2 className="spin" aria-hidden="true" />
+          인증 세션을 저장하고 있습니다.
+        </p>
+      ) : null}
+      {state.status === "error" ? (
+        <p className="auth-state auth-state-error" role="alert">
+          <AlertCircle aria-hidden="true" />
+          {state.error}
+        </p>
+      ) : null}
+    </AuthLayout>
   );
 }
 
 function AuthFallback() {
   return (
-    <main className="auth-page">
-      <section className="auth-panel" aria-busy="true">
-        <p className="auth-state" role="status">
-          <Loader2 className="spin" aria-hidden="true" />
-          로그인 화면을 준비하고 있습니다.
-        </p>
+    <AuthLayout busy>
+      <p className="auth-state" role="status">
+        <Loader2 className="spin" aria-hidden="true" />
+        로그인 화면을 준비하고 있습니다.
+      </p>
+    </AuthLayout>
+  );
+}
+
+function AuthLayout({
+  busy = false,
+  children,
+}: {
+  busy?: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <main className="auth-page" aria-label="인증 화면">
+      <section className="auth-panel" aria-labelledby="auth-title" aria-busy={busy || undefined}>
+        <div className="auth-crest">
+          <Image
+            src={BRAND_MASCOT_PATH}
+            alt={`${SERVICE_NAME} crest`}
+            width={88}
+            height={88}
+            priority
+          />
+        </div>
+        <p className="eyebrow">AUTHENTICATION</p>
+        <h1 id="auth-title">{SERVICE_NAME.toUpperCase()}</h1>
+        <p className="auth-subtitle">secure workspace access</p>
+        <div className="auth-panel-body">{children}</div>
+        <p className="auth-screen-hint">[ GOOGLE ACCOUNT REQUIRED ]</p>
       </section>
     </main>
   );

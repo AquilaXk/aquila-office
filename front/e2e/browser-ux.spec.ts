@@ -114,12 +114,19 @@ test.describe("브라우저 UI UX 회귀", () => {
     await installMockApi(page);
 
     await page.goto("/auth?returnTo=/workspaces/new");
-    await expect(page.getByRole("heading", { name: "Google 로그인" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "AQUILA OFFICE" })).toBeVisible();
+    await expect(page.locator(".auth-crest")).toBeVisible();
+    await expect(page.locator(".auth-menu-line")).toContainText("GOOGLE LOGIN");
     await expect(page.locator(".auth-google-action")).toBeVisible();
 
     await seedAuthTokens(page);
-    await page.goto("/auth?returnTo=/workspaces/new");
-    await page.waitForURL((url) => url.pathname === "/workspaces/new");
+    await expect
+      .poll(() => page.evaluate(() => window.localStorage.getItem("aquila-office.auth")))
+      .toContain("e2e-access-token");
+    await Promise.all([
+      page.waitForURL((url) => url.pathname === "/workspaces/new"),
+      page.reload(),
+    ]);
     await expect(page.getByPlaceholder("예: Product Engineering")).toBeVisible();
   });
 
@@ -765,9 +772,14 @@ async function fulfillJson(route: Route, body: unknown, status = 200) {
 }
 
 async function seedAuthTokens(page: Page) {
-  await page.addInitScript((tokens) => {
+  const storeTokens = (tokens: typeof authTokens) => {
     window.localStorage.setItem("aquila-office.auth", JSON.stringify(tokens));
-  }, authTokens);
+  };
+
+  await page.addInitScript(storeTokens, authTokens);
+  if (page.url() !== "about:blank") {
+    await page.evaluate(storeTokens, authTokens);
+  }
 }
 
 async function seedCharacterProfile(page: Page) {
