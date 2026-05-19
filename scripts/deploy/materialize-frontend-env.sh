@@ -78,6 +78,8 @@ else
 fi
 
 require_key NEXT_PUBLIC_API_BASE_URL "$tmp_file"
+require_key NEXT_PUBLIC_GOOGLE_CLIENT_ID "$tmp_file"
+require_key NEXT_PUBLIC_SITE_URL "$tmp_file"
 
 mkdir -p "$(dirname "$OUTPUT_FILE")"
 install -m 600 "$tmp_file" "$OUTPUT_FILE"

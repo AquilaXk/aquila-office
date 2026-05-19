@@ -115,6 +115,8 @@ AQUILA_EXTERNAL_TOKEN_KEY=external-secret-secret-secret-1
 ENV
 cat > "$frontend_env_fixture" <<ENV
 NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8080
+NEXT_PUBLIC_GOOGLE_CLIENT_ID=local-google-client.apps.googleusercontent.com
+NEXT_PUBLIC_SITE_URL=http://127.0.0.1:3000
 ENV
 
 log "checking backend env materialization"

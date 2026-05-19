@@ -272,6 +272,8 @@ jobs:
             --platform linux/arm64 \
             -f front/Dockerfile \
             --build-arg NEXT_PUBLIC_API_BASE_URL="$NEXT_PUBLIC_API_BASE_URL" \
+            --build-arg NEXT_PUBLIC_GOOGLE_CLIENT_ID="$NEXT_PUBLIC_GOOGLE_CLIENT_ID" \
+            --build-arg NEXT_PUBLIC_SITE_URL="$NEXT_PUBLIC_SITE_URL" \
             -t "$FRONTEND_IMAGE_REF" \
             --output type=docker,dest=frontend-image.tar \
             .
