@@ -6,15 +6,43 @@ import { cn } from "./utils";
 
 export type ModalProps = {
   open: boolean;
-  title: string;
-  children: ReactNode;
   onClose: () => void;
+  title?: ReactNode;
+  size?: "sm" | "md" | "lg" | "full";
+  disableEscapeClose?: boolean;
+  children: ReactNode;
   className?: string;
 };
 
-export default function Modal({ open, title, children, onClose, className }: ModalProps) {
+export type ModalBodyProps = {
+  children: ReactNode;
+  className?: string;
+};
+
+export type ModalFooterProps = {
+  children?: ReactNode;
+  className?: string;
+};
+
+function ModalBody({ children, className }: ModalBodyProps) {
+  return <div className={cn("ao-modal-body", className)}>{children}</div>;
+}
+
+function ModalFooter({ children, className }: ModalFooterProps) {
+  return <footer className={cn("ao-modal-footer", className)}>{children}</footer>;
+}
+
+function ModalRoot({
+  open,
+  title,
+  children,
+  onClose,
+  size = "md",
+  disableEscapeClose = false,
+  className,
+}: ModalProps) {
   useEffect(() => {
-    if (!open) {
+    if (!open || disableEscapeClose) {
       return;
     }
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -24,11 +52,13 @@ export default function Modal({ open, title, children, onClose, className }: Mod
     };
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [onClose, open]);
+  }, [disableEscapeClose, onClose, open]);
 
   if (!open) {
     return null;
   }
+
+  const label = typeof title === "string" ? title : "Modal";
 
   return (
     <div className="ao-modal-backdrop" onMouseDown={(event) => {
@@ -38,18 +68,25 @@ export default function Modal({ open, title, children, onClose, className }: Mod
     }}>
       <section
         aria-modal="true"
-        className={cn("ao-modal", className)}
+        className={cn("ao-modal", `ao-modal-${size}`, className)}
         role="dialog"
-        aria-label={title}
+        aria-label={label}
       >
         <header className="ao-modal-header">
-          <h2>{title}</h2>
+          {title ? <h2>{title}</h2> : <span aria-hidden="true" />}
           <button type="button" aria-label="닫기" className="ao-modal-close" onClick={onClose}>
             <X aria-hidden="true" />
           </button>
         </header>
-        <div className="ao-modal-body">{children}</div>
+        <ModalBody>{children}</ModalBody>
       </section>
     </div>
   );
 }
+
+const Modal = Object.assign(ModalRoot, {
+  Body: ModalBody,
+  Footer: ModalFooter,
+});
+
+export default Modal;

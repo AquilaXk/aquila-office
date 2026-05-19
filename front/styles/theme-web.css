@@ -1,0 +1,85 @@
+/* styles/theme-web.css - shared layout effects for the gothic operations theme */
+
+.theme-web,
+:root {
+  --bg: var(--t4-bg);
+  --bg-deep: #090a0b;
+  --surface: var(--t4-panel);
+  --surface-raised: var(--t4-panel-2);
+  --border: var(--t4-line);
+  --border-subtle: var(--t4-line-soft);
+
+  --t4-tile-bg: rgba(31, 35, 39, 0.72);
+}
+
+.theme-web {
+  background: var(--t4-bg);
+  color: var(--text);
+}
+
+/* Screen overlays used by the imported workspace shell. */
+.t4-scanlines {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0.04) 0,
+    rgba(255, 255, 255, 0.04) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+  mix-blend-mode: overlay;
+  opacity: 0.55;
+}
+
+.t4-vignette {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(
+    ellipse at center,
+    transparent 55%,
+    rgba(0, 0, 0, 0.55) 100%
+  );
+}
+
+.t4-glow-pink {
+  box-shadow:
+    0 0 0 1px rgba(194, 163, 91, 0.6),
+    0 0 18px rgba(194, 163, 91, 0.28),
+    inset 0 0 12px rgba(194, 163, 91, 0.08);
+}
+
+.t4-glow-blue {
+  box-shadow:
+    0 0 0 1px rgba(183, 170, 142, 0.55),
+    0 0 18px rgba(183, 170, 142, 0.24),
+    inset 0 0 12px rgba(183, 170, 142, 0.08);
+}
+
+.t4-glow-purple {
+  box-shadow:
+    0 0 0 1px rgba(139, 124, 101, 0.58),
+    0 0 18px rgba(139, 124, 101, 0.26),
+    inset 0 0 12px rgba(139, 124, 101, 0.08);
+}
+
+.t4-glow-yellow {
+  box-shadow:
+    0 0 0 1px rgba(227, 198, 130, 0.62),
+    0 0 18px rgba(227, 198, 130, 0.28),
+    inset 0 0 12px rgba(227, 198, 130, 0.08);
+}
+
+.t4-glow-green {
+  box-shadow:
+    0 0 0 1px rgba(111, 159, 121, 0.6),
+    0 0 18px rgba(111, 159, 121, 0.28),
+    inset 0 0 12px rgba(111, 159, 121, 0.08);
+}
+
+.t4-pixel-border {
+  border: 1px solid var(--t4-line);
+  background: linear-gradient(180deg, rgba(31, 35, 39, 0.95), rgba(17, 19, 21, 0.95));
+}

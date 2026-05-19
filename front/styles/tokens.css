@@ -1,0 +1,61 @@
+/* styles/tokens.css - shared UI tokens mapped onto the gothic operations palette */
+
+:root {
+  /* t4 compatibility names keep the imported UI contract stable. */
+  --t4-bg: #101214;
+  --t4-bg2: #171a1d;
+  --t4-panel: #171a1d;
+  --t4-panel-2: #1f2327;
+  --t4-ink: #f1e6cc;
+  --t4-dim: #a99f8a;
+  --t4-line: rgba(194, 163, 91, 0.26);
+  --t4-line-soft: rgba(227, 198, 130, 0.5);
+
+  /* Stat / accent colors */
+  --t4-hp: #d06a5e;
+  --t4-mp: #c2a35b;
+  --t4-xp: #e3c682;
+  --t4-ok: #6f9f79;
+  --t4-agent: #8b7c65;
+  --t4-pink: #c2a35b;
+  --t4-orange: #b4763f;
+
+  /* Neon accent (used for borders / glows) */
+  --neon-pink: var(--t4-mp);
+  --neon-blue: #b7aa8e;
+  --neon-purple: var(--t4-agent);
+  --neon-yellow: var(--t4-xp);
+  --neon-green: var(--t4-ok);
+  --neon-red: var(--t4-hp);
+  --neon-border: var(--t4-mp);
+
+  /* Legacy semantic mapping (so existing components keep working) */
+  --color-primary: var(--t4-pink);
+  --color-primary-light: var(--t4-mp);
+  --color-primary-hover: var(--t4-agent);
+  --color-primary-muted: rgba(194, 163, 91, 0.16);
+
+  --color-agent: var(--t4-agent);
+  --color-agent-dark: #5f5647;
+
+  --color-danger: var(--t4-hp);
+  --color-danger-hover: #a84f46;
+  --color-danger-bg: rgba(208, 106, 94, 0.18);
+  --color-info: var(--t4-mp);
+  --color-success: var(--t4-ok);
+  --color-meeting: var(--t4-agent);
+  --color-warning: var(--t4-xp);
+  --color-working: var(--t4-mp);
+  --color-stalled: var(--t4-orange);
+
+  /* Text */
+  --text: var(--t4-ink);
+  --text-secondary: #d9cba8;
+  --text-muted: var(--t4-dim);
+  --text-dim: #706958;
+
+  /* Spacing aliases */
+  --gap-tight: 4px;
+  --gap-normal: 8px;
+  --gap-loose: 16px;
+}
