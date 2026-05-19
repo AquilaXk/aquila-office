@@ -22,6 +22,10 @@
   --red: #d06a5e;
   --yellow: var(--gothic-brass);
   --shadow: 0 20px 70px rgba(0, 0, 0, 0.38);
+  --title-shell-width: min(100%, 620px);
+  --title-shell-min-height: 446px;
+  --title-shell-gap: 18px;
+  --title-heading-size: clamp(36px, 7vw, 64px);
 }
 
 * {
@@ -116,11 +120,14 @@ button {
     var(--gothic-page);
 }
 
-.title-screen-panel {
+.title-screen-panel,
+.auth-panel {
   display: grid;
-  width: min(100%, 620px);
+  width: var(--title-shell-width);
+  min-height: var(--title-shell-min-height);
+  align-content: start;
   justify-items: center;
-  gap: 18px;
+  gap: var(--title-shell-gap);
   text-align: center;
 }
 
@@ -141,9 +148,10 @@ button {
   object-fit: contain;
 }
 
-.title-screen h1 {
+.title-screen h1,
+.auth-panel h1 {
   max-width: 100%;
-  font-size: clamp(36px, 7vw, 64px);
+  font-size: var(--title-heading-size);
   font-weight: 900;
   text-transform: uppercase;
 }
@@ -206,14 +214,6 @@ button {
     var(--gothic-page);
 }
 
-.auth-panel {
-  display: grid;
-  width: min(100%, 480px);
-  justify-items: center;
-  gap: 16px;
-  text-align: center;
-}
-
 .auth-crest {
   display: grid;
   width: 112px;
@@ -232,11 +232,7 @@ button {
 }
 
 .auth-panel h1 {
-  max-width: 100%;
   color: var(--text);
-  font-size: clamp(32px, 7vw, 54px);
-  font-weight: 900;
-  text-transform: uppercase;
 }
 
 .auth-subtitle,

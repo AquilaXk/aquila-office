@@ -182,6 +182,20 @@ test.describe("브라우저 UI UX 회귀", () => {
     await page.waitForURL((url) => url.pathname === `/workspaces/${workspaceId}`);
   });
 
+  test("타이틀 shell이 홈과 인증 화면에서 같은 위치와 크기를 유지한다", async ({ page }) => {
+    await page.goto("/");
+    const homeMetrics = await readTitleShellMetrics(page);
+
+    await page.goto("/auth");
+    const authMetrics = await readTitleShellMetrics(page);
+
+    expect(authMetrics.heading.fontSize).toBe(homeMetrics.heading.fontSize);
+    expect(authMetrics.panel.width).toBeCloseTo(homeMetrics.panel.width, 0);
+    expect(authMetrics.panel.gap).toBe(homeMetrics.panel.gap);
+    expect(authMetrics.crest.top).toBeCloseTo(homeMetrics.crest.top, 0);
+    expect(authMetrics.heading.top).toBeCloseTo(homeMetrics.heading.top, 0);
+  });
+
   test("인증 라우트가 Google 로그인과 인증 후 returnTo 이동을 유지한다", async ({ page }) => {
     await installMockApi(page);
 
@@ -956,6 +970,37 @@ function deferred() {
 
 async function closeTopDialog(page: Page) {
   await page.getByRole("button", { name: "닫기" }).last().click();
+}
+
+async function readTitleShellMetrics(page: Page) {
+  return page.evaluate(() => {
+    const heading = document.querySelector("h1");
+    const panel = document.querySelector(".title-screen-panel, .auth-panel");
+    const crest = document.querySelector(".title-crest, .auth-crest");
+    if (!heading || !panel || !crest) {
+      throw new Error("title shell elements are missing");
+    }
+
+    const rectOf = (element: Element) => {
+      const rect = element.getBoundingClientRect();
+      return {
+        top: rect.top,
+        width: rect.width,
+      };
+    };
+
+    return {
+      heading: {
+        ...rectOf(heading),
+        fontSize: getComputedStyle(heading).fontSize,
+      },
+      panel: {
+        ...rectOf(panel),
+        gap: getComputedStyle(panel).gap,
+      },
+      crest: rectOf(crest),
+    };
+  });
 }
 
 async function expectPanAndZoomToMoveViewport(page: Page, frame: Locator) {
