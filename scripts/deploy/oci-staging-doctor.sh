@@ -1,13 +1,22 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-APP_NAME="${APP_NAME:-aquila-office-back}"
+APP_NAME="${APP_NAME:-}"
+APP_NAMES="${APP_NAMES:-}"
 DEPLOY_ROOT="${DEPLOY_ROOT:-/opt/aquila-office}"
 DOCKER_DATA_ROOT="${DOCKER_DATA_ROOT:-/var/lib/aquila-data}"
 IMAGE_REF="${IMAGE_REF:-}"
 INCLUDE_LOGS=false
 LOG_TAIL="${LOG_TAIL:-120}"
 PHASE="manual"
+
+if [[ -z "$APP_NAMES" ]]; then
+    if [[ -n "$APP_NAME" ]]; then
+        APP_NAMES="$APP_NAME"
+    else
+        APP_NAMES="aquila-office-back aquila-office-front"
+    fi
+fi
 
 usage() {
     cat <<USAGE
@@ -56,7 +65,7 @@ run_optional() {
 
 echo "# OCI staging doctor"
 echo "- phase: $PHASE"
-echo "- app: $APP_NAME"
+echo "- apps: $APP_NAMES"
 if [[ -n "$IMAGE_REF" ]]; then
     echo "- image: $IMAGE_REF"
 fi
@@ -76,36 +85,48 @@ else
 fi
 
 section "Blue/green state"
-active_slot_file="$DEPLOY_ROOT/backend/active-slot"
-if [[ -f "$active_slot_file" ]]; then
-    printf 'active-slot='
-    tr -d '[:space:]' < "$active_slot_file"
-    printf '\n'
-else
-    echo "active-slot file is missing"
-fi
+for app_dir in backend frontend; do
+    active_slot_file="$DEPLOY_ROOT/$app_dir/active-slot"
+    if [[ -f "$active_slot_file" ]]; then
+        printf '%s active-slot=' "$app_dir"
+        tr -d '[:space:]' < "$active_slot_file"
+        printf '\n'
+    else
+        echo "$app_dir active-slot file is missing"
+    fi
+done
 
 section "Container inventory"
-docker ps -a \
-    --filter "name=${APP_NAME}" \
-    --format 'table {{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}'
+for app in $APP_NAMES; do
+    echo ""
+    echo "app=$app"
+    docker ps -a \
+        --filter "name=${app}" \
+        --format 'table {{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}'
+done
 
-for slot in blue green; do
-    container="${APP_NAME}-${slot}"
-    if docker inspect "$container" >/dev/null 2>&1; then
-        echo ""
-        echo "container=$container"
-        docker inspect "$container" \
-            --format 'status={{.State.Status}} health={{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}} started={{.State.StartedAt}} finished={{.State.FinishedAt}}'
-        if [[ "$INCLUDE_LOGS" == "true" ]]; then
-            echo "docker logs --tail $LOG_TAIL $container"
-            docker logs --tail "$LOG_TAIL" "$container" 2>&1 || true
+for app in $APP_NAMES; do
+    for slot in blue green; do
+        container="${app}-${slot}"
+        if docker inspect "$container" >/dev/null 2>&1; then
+            echo ""
+            echo "container=$container"
+            docker inspect "$container" \
+                --format 'status={{.State.Status}} health={{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}} started={{.State.StartedAt}} finished={{.State.FinishedAt}}'
+            if [[ "$INCLUDE_LOGS" == "true" ]]; then
+                echo "docker logs --tail $LOG_TAIL $container"
+                docker logs --tail "$LOG_TAIL" "$container" 2>&1 || true
+            fi
         fi
-    fi
+    done
 done
 
 section "Image inventory"
 if [[ -n "$IMAGE_REF" ]]; then
     docker image inspect "$IMAGE_REF" --format 'image={{.RepoTags}} id={{.Id}} created={{.Created}}' || true
 fi
-docker images "$APP_NAME" --format 'table {{.Repository}}\t{{.Tag}}\t{{.ID}}\t{{.CreatedSince}}\t{{.Size}}' || true
+for app in $APP_NAMES; do
+    echo ""
+    echo "images=$app"
+    docker images "$app" --format 'table {{.Repository}}\t{{.Tag}}\t{{.ID}}\t{{.CreatedSince}}\t{{.Size}}' || true
+done

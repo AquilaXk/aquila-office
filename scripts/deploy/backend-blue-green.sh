@@ -123,11 +123,15 @@ write_active_slot() {
 
 write_upstream() {
     local port="$1"
+    local upstream_dir
+    upstream_dir="$(dirname "$UPSTREAM_FILE")"
     if [[ "$DRY_RUN" == "true" ]]; then
         log "would write nginx upstream $UPSTREAM_FILE -> 127.0.0.1:$port"
         return
     fi
-    install -d "$(dirname "$UPSTREAM_FILE")"
+    if [[ ! -d "$upstream_dir" ]]; then
+        install -d "$upstream_dir"
+    fi
     cat > "$UPSTREAM_FILE" <<UPSTREAM
 upstream aquila_office_backend {
     server 127.0.0.1:$port;

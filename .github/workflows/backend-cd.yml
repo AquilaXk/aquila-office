@@ -1,4 +1,4 @@
-name: Backend CD
+name: Staging CD
 
 on:
   workflow_run:
@@ -8,12 +8,12 @@ on:
   workflow_dispatch:
     inputs:
       dry_run:
-        description: Run deployment checks without changing the OCI host
+        description: Run deployment checks without changing running containers
         required: true
         type: boolean
         default: true
       target_slot:
-        description: Optional blue/green slot override
+        description: Optional blue/green slot override for both apps
         required: true
         type: choice
         default: auto
@@ -35,22 +35,24 @@ permissions:
   deployments: write
 
 concurrency:
-  group: backend-cd-staging
+  group: staging-cd
   cancel-in-progress: false
 
 env:
+  BACKEND_IMAGE_NAME: aquila-office-back
   DEPLOY_ENVIRONMENT: staging
-  DEPLOY_PAYLOAD_DIR: /tmp/aquila-office-deploy
-  IMAGE_NAME: aquila-office-back
+  FRONTEND_IMAGE_NAME: aquila-office-front
+  RELOAD_COMMAND: "sudo nginx -t && sudo nginx -s reload"
 
 jobs:
   prepare:
     name: Resolve Deployment Context
     runs-on: ubuntu-latest
     outputs:
+      backend_image_ref: ${{ steps.context.outputs.backend_image_ref }}
       deploy_sha: ${{ steps.context.outputs.deploy_sha }}
       dry_run: ${{ steps.context.outputs.dry_run }}
-      image_ref: ${{ steps.context.outputs.image_ref }}
+      frontend_image_ref: ${{ steps.context.outputs.frontend_image_ref }}
       short_sha: ${{ steps.context.outputs.short_sha }}
       should_deploy: ${{ steps.context.outputs.should_deploy }}
       skip_reason: ${{ steps.context.outputs.skip_reason }}
@@ -112,12 +114,14 @@ jobs:
           fi
 
           short_sha="${deploy_sha:0:12}"
-          image_ref="${IMAGE_NAME}:${short_sha}"
+          backend_image_ref="${BACKEND_IMAGE_NAME}:${short_sha}"
+          frontend_image_ref="${FRONTEND_IMAGE_NAME}:${short_sha}"
 
           {
+            echo "backend_image_ref=$backend_image_ref"
             echo "deploy_sha=$deploy_sha"
             echo "dry_run=$dry_run"
-            echo "image_ref=$image_ref"
+            echo "frontend_image_ref=$frontend_image_ref"
             echo "short_sha=$short_sha"
             echo "should_deploy=$should_deploy"
             echo "skip_reason=$skip_reason"
@@ -125,7 +129,7 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
           {
-            echo "### Backend CD context"
+            echo "### Staging CD context"
             echo ""
             echo "| key | value |"
             echo "| --- | --- |"
@@ -151,18 +155,18 @@ jobs:
         shell: bash
         run: |
           {
-            echo "### Backend CD skipped"
+            echo "### Staging CD skipped"
             echo ""
             echo "${{ needs.prepare.outputs.skip_reason }}"
           } >> "$GITHUB_STEP_SUMMARY"
 
-  build-image:
-    name: Build Backend Image
+  build-backend-image:
+    name: Build Backend ARM64 Image
     runs-on: ubuntu-latest
     needs: prepare
     if: needs.prepare.outputs.should_deploy == 'true'
     env:
-      IMAGE_REF: ${{ needs.prepare.outputs.image_ref }}
+      BACKEND_IMAGE_REF: ${{ needs.prepare.outputs.backend_image_ref }}
 
     steps:
       - name: Checkout deployment SHA
@@ -183,17 +187,25 @@ jobs:
       - name: Build backend artifact
         run: ./back/gradlew -p back bootJar --stacktrace
 
-      - name: Build backend Docker image
-        run: docker build -f docker/Dockerfile -t "$IMAGE_REF" .
+      - name: Prepare ARM64 buildx
+        run: |
+          docker run --privileged --rm tonistiigi/binfmt --install arm64
+          docker buildx create --name aquila-staging-builder --driver docker-container --use
+          docker buildx inspect --bootstrap
 
-      - name: Save backend Docker image
-        run: docker save "$IMAGE_REF" -o backend-image.tar
+      - name: Build backend Docker image tar
+        run: |
+          docker buildx build \
+            --platform linux/arm64 \
+            -f docker/Dockerfile \
+            -t "$BACKEND_IMAGE_REF" \
+            --output type=docker,dest=backend-image.tar \
+            .
 
-      - name: Collect image diagnostics
+      - name: Collect backend image diagnostics
         shell: bash
         run: |
           mkdir -p deploy-debug
-          docker image inspect "$IMAGE_REF" > deploy-debug/image-inspect.json
           sha256sum backend-image.tar | tee deploy-debug/backend-image.sha256
           du -h backend-image.tar | tee deploy-debug/backend-image-size.txt
           {
@@ -201,7 +213,8 @@ jobs:
             echo ""
             echo "| key | value |"
             echo "| --- | --- |"
-            echo "| image | $IMAGE_REF |"
+            echo "| image | $BACKEND_IMAGE_REF |"
+            echo "| platform | linux/arm64 |"
             echo "| sha | ${{ needs.prepare.outputs.deploy_sha }} |"
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -212,29 +225,102 @@ jobs:
           path: backend-image.tar
           retention-days: 7
 
-      - name: Upload build diagnostics
+      - name: Upload backend build diagnostics
         uses: actions/upload-artifact@v4
         with:
-          name: deploy-debug-build-${{ needs.prepare.outputs.short_sha }}
+          name: deploy-debug-backend-build-${{ needs.prepare.outputs.short_sha }}
+          path: deploy-debug/
+          retention-days: 14
+
+  build-frontend-image:
+    name: Build Frontend ARM64 Image
+    runs-on: ubuntu-latest
+    needs: prepare
+    if: needs.prepare.outputs.should_deploy == 'true'
+    env:
+      FRONTEND_ENV_B64: ${{ secrets.OCI_A1_FRONTEND_ENV_B64 || secrets.FRONTEND_ENV_B64 }}
+      FRONTEND_IMAGE_REF: ${{ needs.prepare.outputs.frontend_image_ref }}
+
+    steps:
+      - name: Checkout deployment SHA
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.deploy_sha }}
+
+      - name: Prepare deploy debug directory
+        run: mkdir -p deploy-debug
+
+      - name: Validate frontend build env
+        shell: bash
+        run: scripts/deploy/materialize-frontend-env.sh --output deploy-debug/frontend.env
+
+      - name: Prepare ARM64 buildx
+        run: |
+          docker run --privileged --rm tonistiigi/binfmt --install arm64
+          docker buildx create --name aquila-staging-builder --driver docker-container --use
+          docker buildx inspect --bootstrap
+
+      - name: Build frontend Docker image tar
+        shell: bash
+        run: |
+          set -euo pipefail
+          set -a
+          source deploy-debug/frontend.env
+          set +a
+
+          docker buildx build \
+            --platform linux/arm64 \
+            -f front/Dockerfile \
+            --build-arg NEXT_PUBLIC_API_BASE_URL="$NEXT_PUBLIC_API_BASE_URL" \
+            -t "$FRONTEND_IMAGE_REF" \
+            --output type=docker,dest=frontend-image.tar \
+            .
+
+      - name: Collect frontend image diagnostics
+        shell: bash
+        run: |
+          rm -f deploy-debug/frontend.env
+          sha256sum frontend-image.tar | tee deploy-debug/frontend-image.sha256
+          du -h frontend-image.tar | tee deploy-debug/frontend-image-size.txt
+          {
+            echo "### Frontend image"
+            echo ""
+            echo "| key | value |"
+            echo "| --- | --- |"
+            echo "| image | $FRONTEND_IMAGE_REF |"
+            echo "| platform | linux/arm64 |"
+            echo "| sha | ${{ needs.prepare.outputs.deploy_sha }} |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload frontend image artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-image-${{ needs.prepare.outputs.short_sha }}
+          path: frontend-image.tar
+          retention-days: 7
+
+      - name: Upload frontend build diagnostics
+        uses: actions/upload-artifact@v4
+        with:
+          name: deploy-debug-frontend-build-${{ needs.prepare.outputs.short_sha }}
           path: deploy-debug/
           retention-days: 14
 
   deploy:
-    name: Deploy Backend to Staging
-    runs-on: ubuntu-latest
+    name: Deploy Backend and Frontend to Staging
+    runs-on: [self-hosted, oci-a1-staging]
     needs:
       - prepare
-      - build-image
+      - build-backend-image
+      - build-frontend-image
     if: needs.prepare.outputs.should_deploy == 'true'
     env:
       BACKEND_ENV_B64: ${{ secrets.OCI_A1_BACKEND_ENV_B64 || secrets.BACKEND_ENV_B64 }}
+      BACKEND_IMAGE_REF: ${{ needs.prepare.outputs.backend_image_ref }}
       DEPLOY_SHA: ${{ needs.prepare.outputs.deploy_sha }}
       DRY_RUN: ${{ needs.prepare.outputs.dry_run }}
-      IMAGE_REF: ${{ needs.prepare.outputs.image_ref }}
-      KNOWN_HOSTS_B64: ${{ secrets.OCI_A1_SSH_KNOWN_HOSTS_B64 || secrets.OCI_SSH_KNOWN_HOSTS_B64 }}
-      OCI_BACKEND_HOST: ${{ secrets.OCI_BACKEND_HOST }}
-      OCI_BACKEND_USER: ${{ secrets.OCI_BACKEND_USER }}
-      OCI_SSH_PRIVATE_KEY: ${{ secrets.OCI_SSH_PRIVATE_KEY }}
+      FRONTEND_ENV_B64: ${{ secrets.OCI_A1_FRONTEND_ENV_B64 || secrets.FRONTEND_ENV_B64 }}
+      FRONTEND_IMAGE_REF: ${{ needs.prepare.outputs.frontend_image_ref }}
       SHORT_SHA: ${{ needs.prepare.outputs.short_sha }}
       TARGET_SLOT: ${{ needs.prepare.outputs.target_slot }}
 
@@ -249,84 +335,25 @@ jobs:
         with:
           name: backend-image-${{ needs.prepare.outputs.short_sha }}
 
+      - name: Download frontend image artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-image-${{ needs.prepare.outputs.short_sha }}
+
       - name: Prepare deploy debug directory
         run: mkdir -p deploy-debug
 
-      - name: Validate and materialize backend env
-        id: backend-env
+      - name: Validate and materialize deploy env
         shell: bash
         run: |
           set -euo pipefail
-          if [[ "$DRY_RUN" == "true" && -z "${BACKEND_ENV_B64:-}" ]]; then
-            echo "env_file=" >> "$GITHUB_OUTPUT"
-            echo "### Backend env" >> "$GITHUB_STEP_SUMMARY"
-            echo "Dry-run skipped env materialization because no backend env secret is configured." >> "$GITHUB_STEP_SUMMARY"
-            exit 0
-          fi
-
           scripts/deploy/materialize-backend-env.sh --output deploy-debug/backend.env
-          echo "env_file=deploy-debug/backend.env" >> "$GITHUB_OUTPUT"
+          scripts/deploy/materialize-frontend-env.sh --output deploy-debug/frontend.env
           {
-            echo "### Backend env"
+            echo "### Deploy env"
             echo ""
-            echo "Backend env file was decoded and validated. Values are not printed."
+            echo "Backend and frontend env files were decoded and validated. Values are not printed or uploaded."
           } >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Run local deployment dry-run
-        if: env.DRY_RUN == 'true'
-        shell: bash
-        run: |
-          set -euo pipefail
-          slot_arg=()
-          env_arg=()
-          if [[ "$TARGET_SLOT" != "auto" ]]; then
-            slot_arg=(--slot "$TARGET_SLOT")
-          fi
-          if [[ -n "${{ steps.backend-env.outputs.env_file }}" ]]; then
-            env_arg=(--env-file "${{ steps.backend-env.outputs.env_file }}")
-          fi
-
-          scripts/deploy/oci-backend-hook.sh \
-            --dry-run \
-            --image "$IMAGE_REF" \
-            --image-tar backend-image.tar \
-            --doctor-script scripts/deploy/oci-staging-doctor.sh \
-            "${env_arg[@]}" \
-            "${slot_arg[@]}" | tee deploy-debug/dry-run-hook.log
-
-      - name: Verify remote deployment secrets
-        if: env.DRY_RUN != 'true'
-        shell: bash
-        run: |
-          set -euo pipefail
-          missing=()
-          for name in OCI_SSH_PRIVATE_KEY OCI_BACKEND_HOST OCI_BACKEND_USER BACKEND_ENV_B64; do
-            if [[ -z "${!name:-}" ]]; then
-              missing+=("$name")
-            fi
-          done
-          if (( ${#missing[@]} > 0 )); then
-            printf 'Missing required secret/env values: %s\n' "${missing[*]}" >&2
-            exit 1
-          fi
-
-      - name: Prepare SSH key and known hosts
-        if: env.DRY_RUN != 'true'
-        shell: bash
-        run: |
-          set -euo pipefail
-          install -m 700 -d ~/.ssh
-          printf '%s\n' "$OCI_SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
-          chmod 600 ~/.ssh/id_ed25519
-
-          if [[ -n "${KNOWN_HOSTS_B64:-}" ]]; then
-            if ! printf '%s' "$KNOWN_HOSTS_B64" | base64 --decode > ~/.ssh/known_hosts 2>/dev/null; then
-              printf '%s' "$KNOWN_HOSTS_B64" | base64 -D > ~/.ssh/known_hosts
-            fi
-          else
-            ssh-keyscan -H "$OCI_BACKEND_HOST" > ~/.ssh/known_hosts
-          fi
-          chmod 600 ~/.ssh/known_hosts
 
       - name: Create GitHub deployment
         id: deployment
@@ -336,6 +363,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
+          api_url="${GITHUB_API_URL:-https://api.github.com}"
           payload="$(jq -n \
             --arg ref "$DEPLOY_SHA" \
             --arg environment "$DEPLOY_ENVIRONMENT" \
@@ -346,92 +374,101 @@ jobs:
               required_contexts: [],
               production_environment: false,
               transient_environment: false,
-              description: "Backend staging deployment"
+              description: "Staging backend/frontend deployment"
             }')"
-          deployment="$(printf '%s' "$payload" | gh api "repos/${GITHUB_REPOSITORY}/deployments" --method POST --input -)"
+          deployment="$(curl -fsSL \
+            -X POST \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "$api_url/repos/${GITHUB_REPOSITORY}/deployments" \
+            -d "$payload")"
           deployment_id="$(jq -r '.id' <<< "$deployment")"
           echo "deployment_id=$deployment_id" >> "$GITHUB_OUTPUT"
-          gh api "repos/${GITHUB_REPOSITORY}/deployments/${deployment_id}/statuses" \
-            --method POST \
-            -f state=in_progress \
-            -f environment="$DEPLOY_ENVIRONMENT" \
-            -f log_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" \
-            -f description="Backend deployment started"
+          status_payload="$(jq -n \
+            --arg state in_progress \
+            --arg environment "$DEPLOY_ENVIRONMENT" \
+            --arg log_url "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" \
+            --arg description "Staging deployment started" \
+            '{state: $state, environment: $environment, log_url: $log_url, description: $description}')"
+          curl -fsSL \
+            -X POST \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "$api_url/repos/${GITHUB_REPOSITORY}/deployments/${deployment_id}/statuses" \
+            -d "$status_payload" >/dev/null
 
-      - name: Upload deployment payload
-        if: env.DRY_RUN != 'true'
+      - name: Run preflight doctor
         shell: bash
         run: |
           set -euo pipefail
-          remote="${OCI_BACKEND_USER}@${OCI_BACKEND_HOST}"
-          ssh_opts=(-i ~/.ssh/id_ed25519 -o UserKnownHostsFile="$HOME/.ssh/known_hosts" -o StrictHostKeyChecking=yes)
-
-          ssh "${ssh_opts[@]}" "$remote" "install -d -m 700 '$DEPLOY_PAYLOAD_DIR'"
-          scp "${ssh_opts[@]}" \
-            backend-image.tar \
-            deploy-debug/backend.env \
-            scripts/deploy-bluegreen.sh \
-            scripts/deploy/backend-blue-green.sh \
-            scripts/deploy/oci-backend-hook.sh \
-            scripts/deploy/oci-staging-doctor.sh \
-            "$remote:$DEPLOY_PAYLOAD_DIR/"
-
-      - name: Run remote preflight doctor
-        if: env.DRY_RUN != 'true'
-        shell: bash
-        run: |
-          set -euo pipefail
-          remote="${OCI_BACKEND_USER}@${OCI_BACKEND_HOST}"
-          ssh_opts=(-i ~/.ssh/id_ed25519 -o UserKnownHostsFile="$HOME/.ssh/known_hosts" -o StrictHostKeyChecking=yes)
-          ssh "${ssh_opts[@]}" "$remote" \
-            "cd '$DEPLOY_PAYLOAD_DIR' && chmod +x *.sh && ./oci-staging-doctor.sh --phase before --image '$IMAGE_REF'" \
+          chmod +x scripts/deploy/*.sh scripts/deploy-bluegreen.sh
+          scripts/deploy/oci-staging-doctor.sh --phase before --image "$BACKEND_IMAGE_REF" \
             | tee deploy-debug/doctor-before.log
 
-      - name: Run remote backend hook
-        if: env.DRY_RUN != 'true'
+      - name: Deploy backend
         shell: bash
         run: |
           set -euo pipefail
-          remote="${OCI_BACKEND_USER}@${OCI_BACKEND_HOST}"
-          ssh_opts=(-i ~/.ssh/id_ed25519 -o UserKnownHostsFile="$HOME/.ssh/known_hosts" -o StrictHostKeyChecking=yes)
-          slot_arg=""
+          slot_arg=()
           if [[ "$TARGET_SLOT" != "auto" ]]; then
-            slot_arg=" --slot $TARGET_SLOT"
+            slot_arg=(--slot "$TARGET_SLOT")
           fi
-          ssh "${ssh_opts[@]}" "$remote" \
-            "cd '$DEPLOY_PAYLOAD_DIR' && chmod +x *.sh && ./oci-backend-hook.sh --image '$IMAGE_REF' --image-tar backend-image.tar --env-file backend.env --doctor-script ./oci-staging-doctor.sh$slot_arg" \
-            | tee deploy-debug/deploy-hook.log
+          dry_run_arg=()
+          if [[ "$DRY_RUN" == "true" ]]; then
+            dry_run_arg=(--dry-run)
+          fi
 
-      - name: Run remote postflight doctor
-        if: env.DRY_RUN != 'true'
+          scripts/deploy/oci-backend-hook.sh \
+            "${dry_run_arg[@]}" \
+            --image "$BACKEND_IMAGE_REF" \
+            --image-tar backend-image.tar \
+            --env-file deploy-debug/backend.env \
+            --doctor-script scripts/deploy/oci-staging-doctor.sh \
+            "${slot_arg[@]}" \
+            | tee deploy-debug/backend-deploy.log
+
+      - name: Deploy frontend
         shell: bash
         run: |
           set -euo pipefail
-          remote="${OCI_BACKEND_USER}@${OCI_BACKEND_HOST}"
-          ssh_opts=(-i ~/.ssh/id_ed25519 -o UserKnownHostsFile="$HOME/.ssh/known_hosts" -o StrictHostKeyChecking=yes)
-          ssh "${ssh_opts[@]}" "$remote" \
-            "cd '$DEPLOY_PAYLOAD_DIR' && ./oci-staging-doctor.sh --phase after --image '$IMAGE_REF'" \
+          slot_arg=()
+          if [[ "$TARGET_SLOT" != "auto" ]]; then
+            slot_arg=(--slot "$TARGET_SLOT")
+          fi
+          dry_run_arg=()
+          if [[ "$DRY_RUN" == "true" ]]; then
+            dry_run_arg=(--dry-run)
+          fi
+
+          scripts/deploy/oci-frontend-hook.sh \
+            "${dry_run_arg[@]}" \
+            --image "$FRONTEND_IMAGE_REF" \
+            --image-tar frontend-image.tar \
+            --env-file deploy-debug/frontend.env \
+            --doctor-script scripts/deploy/oci-staging-doctor.sh \
+            "${slot_arg[@]}" \
+            | tee deploy-debug/frontend-deploy.log
+
+      - name: Run postflight doctor
+        shell: bash
+        run: |
+          scripts/deploy/oci-staging-doctor.sh --phase after --image "$BACKEND_IMAGE_REF" \
             | tee deploy-debug/doctor-after.log
 
-      - name: Collect remote failure diagnostics
-        if: failure() && env.DRY_RUN != 'true'
+      - name: Collect failure diagnostics
+        if: failure()
         continue-on-error: true
         shell: bash
         run: |
-          remote="${OCI_BACKEND_USER}@${OCI_BACKEND_HOST}"
-          ssh_opts=(-i ~/.ssh/id_ed25519 -o UserKnownHostsFile="$HOME/.ssh/known_hosts" -o StrictHostKeyChecking=yes)
-          ssh "${ssh_opts[@]}" "$remote" \
-            "cd '$DEPLOY_PAYLOAD_DIR' && ./oci-staging-doctor.sh --phase failure --include-logs --image '$IMAGE_REF'" \
+          scripts/deploy/oci-staging-doctor.sh --phase failure --include-logs --image "$BACKEND_IMAGE_REF" \
             | tee deploy-debug/doctor-failure.log
 
-      - name: Remove transient remote env file
-        if: always() && env.DRY_RUN != 'true'
-        continue-on-error: true
+      - name: Remove transient env files
+        if: always()
         shell: bash
-        run: |
-          remote="${OCI_BACKEND_USER}@${OCI_BACKEND_HOST}"
-          ssh_opts=(-i ~/.ssh/id_ed25519 -o UserKnownHostsFile="$HOME/.ssh/known_hosts" -o StrictHostKeyChecking=yes)
-          ssh "${ssh_opts[@]}" "$remote" "rm -f '$DEPLOY_PAYLOAD_DIR/backend.env'"
+        run: rm -f deploy-debug/backend.env deploy-debug/frontend.env
 
       - name: Mark deployment success
         if: success() && steps.deployment.outputs.deployment_id != ''
@@ -439,12 +476,21 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh api "repos/${GITHUB_REPOSITORY}/deployments/${{ steps.deployment.outputs.deployment_id }}/statuses" \
-            --method POST \
-            -f state=success \
-            -f environment="$DEPLOY_ENVIRONMENT" \
-            -f log_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" \
-            -f description="Backend deployment completed"
+          set -euo pipefail
+          api_url="${GITHUB_API_URL:-https://api.github.com}"
+          status_payload="$(jq -n \
+            --arg state success \
+            --arg environment "$DEPLOY_ENVIRONMENT" \
+            --arg log_url "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" \
+            --arg description "Staging deployment completed" \
+            '{state: $state, environment: $environment, log_url: $log_url, description: $description}')"
+          curl -fsSL \
+            -X POST \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "$api_url/repos/${GITHUB_REPOSITORY}/deployments/${{ steps.deployment.outputs.deployment_id }}/statuses" \
+            -d "$status_payload" >/dev/null
 
       - name: Mark deployment failure
         if: failure() && steps.deployment.outputs.deployment_id != ''
@@ -452,12 +498,21 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh api "repos/${GITHUB_REPOSITORY}/deployments/${{ steps.deployment.outputs.deployment_id }}/statuses" \
-            --method POST \
-            -f state=failure \
-            -f environment="$DEPLOY_ENVIRONMENT" \
-            -f log_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" \
-            -f description="Backend deployment failed; inspect deploy-debug artifact"
+          set -euo pipefail
+          api_url="${GITHUB_API_URL:-https://api.github.com}"
+          status_payload="$(jq -n \
+            --arg state failure \
+            --arg environment "$DEPLOY_ENVIRONMENT" \
+            --arg log_url "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" \
+            --arg description "Staging deployment failed; inspect deploy-debug artifact" \
+            '{state: $state, environment: $environment, log_url: $log_url, description: $description}')"
+          curl -fsSL \
+            -X POST \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "$api_url/repos/${GITHUB_REPOSITORY}/deployments/${{ steps.deployment.outputs.deployment_id }}/statuses" \
+            -d "$status_payload" >/dev/null
 
       - name: Upload deploy debug artifact
         if: always()
