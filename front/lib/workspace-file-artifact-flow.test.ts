@@ -21,7 +21,12 @@ test("artifact fetch failures use demo workspace fallback content", () => {
   assert.match(detailSource, /demoWorkspaceArtifactFile/);
   assert.match(detailSource, /파일 API 응답 대신 demo workspace 파일을 표시합니다/);
   assert.match(detailSource, /setArtifactTree\(demoWorkspaceArtifactTree\(numericWorkspaceId\)\)/);
-  assert.match(detailSource, /setArtifactFile\(demoWorkspaceArtifactFile\(numericWorkspaceId, path\)\)/);
+  assert.match(detailSource, /path: "reports\/daily"/);
+  assert.match(detailSource, /path: "reports\/daily\/summary.md"/);
+  assert.match(detailSource, /path: "reports\/logs\/plain-output.log"/);
+  assert.match(detailSource, /path: "reports\/logs\/missing-file.log"/);
+  assert.match(detailSource, /const fallbackFile = demoWorkspaceArtifactFile\(numericWorkspaceId, path\)/);
+  assert.match(detailSource, /파일을 찾을 수 없습니다/);
 });
 
 test("report and orchestration artifacts open the same file modal", () => {
@@ -39,7 +44,11 @@ test("artifact modal distinguishes markdown and plain text rendering", () => {
 
 test("browser regression covers artifact fallback and directory toggles", () => {
   assert.match(browserSource, /artifactFailureMode/);
+  assert.match(browserSource, /reports\/result.md/);
   assert.match(browserSource, /reports\/fallback.md/);
+  assert.match(browserSource, /plain-output\.log/);
+  assert.match(browserSource, /missing-file\.log/);
+  assert.match(browserSource, /getByRole\("button", \{ name: "새로고침" \}\)\.click/);
   assert.match(browserSource, /workspace-artifact-row-expanded/);
 });
 
