@@ -45,7 +45,7 @@ test("workspace 2d canvas exposes HUD, minimap, dialogue, and keyboard stage con
   assert.match(canvasSource, /workspace-2d-hero-hud/);
   assert.match(canvasSource, /StageActor/);
   assert.match(canvasSource, /PixelAvatar/);
-  assert.match(canvasSource, /stage-actor--\$\{actor\.motion\}/);
+  assert.match(canvasSource, /stage-actor--\$\{isPlayer && playerWalking \? "walking" : actor\.motion\}/);
   assert.match(canvasSource, /getStageMiniMapRooms/);
   assert.match(canvasSource, /focusWorkspaceViewportOnStagePosition/);
   assert.match(canvasSource, /workspace-2d-minimap-room-button/);
@@ -56,6 +56,25 @@ test("workspace 2d canvas exposes HUD, minimap, dialogue, and keyboard stage con
   assert.match(canvasSource, /onKeyDown/);
   assert.match(canvasSource, /tabIndex=\{0\}/);
   assert.match(canvasSource, /moveWorkspaceViewportByKey/);
+});
+
+test("workspace detail passes the current player into the 2d workspace", () => {
+  assert.match(detailSource, /playerPositionOverride/);
+  assert.match(detailSource, /defaultPlayerPosition/);
+  assert.match(detailSource, /handlePlayerPositionChange/);
+  assert.match(detailSource, /playerPosition=\{playerPosition\}/);
+  assert.match(detailSource, /playerAvatar=\{storedCharacterProfile\}/);
+  assert.match(detailSource, /onPlayerPositionChange=\{handlePlayerPositionChange\}/);
+});
+
+test("workspace 2d canvas renders a distinct player actor contract", () => {
+  assert.match(canvasSource, /type PixelAvatarDirection/);
+  assert.match(canvasSource, /playerAvatar/);
+  assert.match(canvasSource, /playerDirection/);
+  assert.match(canvasSource, /isPlayer/);
+  assert.match(canvasSource, /stage-actor__player-marker/);
+  assert.match(canvasSource, /플레이어/);
+  assert.match(canvasSource, /direction=\{isPlayer \? playerDirection : "S"\}/);
 });
 
 test("workspace scene helpers model rooms and desks for office placement", () => {

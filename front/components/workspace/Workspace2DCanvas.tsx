@@ -12,7 +12,12 @@ import {
   type PointerEvent as ReactPointerEvent,
   type WheelEvent as ReactWheelEvent,
 } from "react";
-import { PixelAvatar } from "@/components/arcade";
+import {
+  PixelAvatar,
+  type PixelAvatarDirection,
+  type PixelAvatarKind,
+  type PixelAvatarPaletteOverride,
+} from "@/components/arcade";
 import type { WorkspaceAgent } from "@/lib/agents";
 import type { WorkspacePresenceMember, WorkspacePresencePosition } from "@/lib/presence";
 import {
@@ -49,6 +54,10 @@ export type Workspace2DCanvasProps = {
   members: WorkspaceMember[];
   presenceMembers: WorkspacePresenceMember[];
   playerPosition?: StageActorPosition | null;
+  playerAvatar?: {
+    kind: PixelAvatarKind;
+    paletteOverride?: PixelAvatarPaletteOverride;
+  } | null;
   rooms?: StageRoomSpec[];
   onPresenceMove?: (position: WorkspacePresencePosition) => void | Promise<void>;
   onPlayerPositionChange?: (position: StageActorPosition) => void | Promise<void>;
@@ -68,6 +77,7 @@ export default function Workspace2DCanvas({
   members,
   presenceMembers,
   playerPosition = null,
+  playerAvatar = null,
   rooms = [],
   onPresenceMove,
   onPlayerPositionChange,
@@ -85,6 +95,8 @@ export default function Workspace2DCanvas({
   const stageWalls = useMemo(() => buildStageWalls(stageRooms), [stageRooms]);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [contextMenu, setContextMenu] = useState<WorkspaceContextMenuState | null>(null);
+  const [playerDirection, setPlayerDirection] = useState<PixelAvatarDirection>("S");
+  const [playerWalking, setPlayerWalking] = useState(false);
   const [viewport, setViewport] = useState<WorkspaceViewport>(() =>
     createInitialWorkspaceViewport({
       width: SCENE_WIDTH,
@@ -108,10 +120,24 @@ export default function Workspace2DCanvas({
       }),
     [agents, members, presenceMembers, stageRooms, stageWorldSize],
   );
+  const playerActorId = members[0] ? `member-${members[0].memberId}` : null;
+  const renderedStageActors = useMemo(
+    () =>
+      stageActors.map((actor) =>
+        actor.id === playerActorId && playerPosition
+          ? {
+              ...actor,
+              position: playerPosition,
+              avatarKind: playerAvatar?.kind ?? actor.avatarKind,
+            }
+          : actor,
+      ),
+    [playerActorId, playerAvatar?.kind, playerPosition, stageActors],
+  );
   const miniMapRooms = useMemo(() => getStageMiniMapRooms(stageRooms), [stageRooms]);
   const selectedNode = nodes.find((node) => node.id === selectedNodeId) ?? null;
   const selectedStageActor =
-    stageActors.find((actor) => actor.id === selectedNodeId) ?? stageActors[0] ?? null;
+    renderedStageActors.find((actor) => actor.id === selectedNodeId) ?? renderedStageActors[0] ?? null;
 
   const selectNode = useCallback(
     (node: WorkspaceSceneNode) => {
@@ -345,7 +371,10 @@ export default function Workspace2DCanvas({
           moveDirection.y * 2,
           stageWalls,
         );
+        setPlayerDirection(playerDirectionFromMove(moveDirection));
+        setPlayerWalking(true);
         void onPlayerPositionChange(nextPosition);
+        window.setTimeout(() => setPlayerWalking(false), 240);
         return;
       }
 
@@ -455,10 +484,14 @@ export default function Workspace2DCanvas({
             onKeyDown={handleKeyDown}
           />
           <div className="workspace-2d-actor-layer" aria-label="Workspace actors">
-            {stageActors.map((actor) => (
+            {renderedStageActors.map((actor) => (
               <StageActor
                 actor={actor}
+                isPlayer={actor.id === playerActorId}
                 key={actor.id}
+                playerAvatar={actor.id === playerActorId ? playerAvatar : null}
+                playerDirection={playerDirection}
+                playerWalking={playerWalking}
                 selected={selectedNodeId === actor.id}
                 viewport={viewport}
                 onSelect={selectStageActor}
@@ -503,7 +536,7 @@ export default function Workspace2DCanvas({
                 }}
               />
             ))}
-            {stageActors.map((actor) => (
+            {renderedStageActors.map((actor) => (
               <span
                 aria-hidden="true"
                 className={`workspace-2d-minimap-actor workspace-2d-minimap-actor-${actor.kind}`}
@@ -579,12 +612,23 @@ export default function Workspace2DCanvas({
 
 function StageActor({
   actor,
+  isPlayer,
+  playerAvatar,
+  playerDirection,
+  playerWalking,
   selected,
   viewport,
   onSelect,
   onContextMenu,
 }: {
   actor: WorkspaceStageActor;
+  isPlayer: boolean;
+  playerAvatar: {
+    kind: PixelAvatarKind;
+    paletteOverride?: PixelAvatarPaletteOverride;
+  } | null;
+  playerDirection: PixelAvatarDirection;
+  playerWalking: boolean;
   selected: boolean;
   viewport: WorkspaceViewport;
   onSelect: (actor: WorkspaceStageActor) => void;
@@ -594,18 +638,21 @@ function StageActor({
   ) => void;
 }) {
   const screenPosition = getWorkspaceActorScreenPosition(actor.position, viewport);
-  const speech = getWorkspaceActorSpeech(actor);
+  const speech = isPlayer ? null : getWorkspaceActorSpeech(actor);
+  const avatarKind = isPlayer && playerAvatar ? playerAvatar.kind : actor.avatarKind;
   return (
     <button
       type="button"
-      className={`stage-actor stage-actor--${actor.motion} stage-actor-${actor.kind} ${
+      className={`stage-actor stage-actor--${isPlayer && playerWalking ? "walking" : actor.motion} stage-actor-${actor.kind} ${
+        isPlayer ? "stage-actor-player" : ""
+      } ${
         selected ? "stage-actor-selected" : ""
       }`}
       style={{
         left: `${screenPosition.left}px`,
         top: `${screenPosition.top}px`,
       }}
-      aria-label={`${actor.label} ${actor.kind}`}
+      aria-label={isPlayer ? `${actor.label} 플레이어` : `${actor.label} ${actor.kind}`}
       onClick={() => onSelect(actor)}
       onContextMenu={(event) => {
         event.preventDefault();
@@ -617,15 +664,35 @@ function StageActor({
           {speech.label}
         </span>
       ) : null}
+      {isPlayer ? <span className="stage-actor__player-marker">YOU</span> : null}
       <span className="stage-actor__badge">
         <span className={`stage-actor__dot stage-actor__dot-${actor.status}`} />
-        <span>{actor.label}</span>
+        <span>{isPlayer ? "YOU" : actor.label}</span>
       </span>
       <span className="stage-actor__avatar">
-        <PixelAvatar kind={actor.avatarKind} size={3} walking={actor.motion === "walking"} />
+        <PixelAvatar
+          kind={avatarKind}
+          size={3}
+          walking={isPlayer ? playerWalking : actor.motion === "walking"}
+          direction={isPlayer ? playerDirection : "S"}
+          paletteOverride={isPlayer ? playerAvatar?.paletteOverride : undefined}
+        />
       </span>
     </button>
   );
+}
+
+function playerDirectionFromMove(moveDirection: { x: number; y: number }): PixelAvatarDirection {
+  if (moveDirection.x > 0) {
+    return "E";
+  }
+  if (moveDirection.x < 0) {
+    return "W";
+  }
+  if (moveDirection.y < 0) {
+    return "N";
+  }
+  return "S";
 }
 
 function WorkspaceContextMenu({ menu }: { menu: WorkspaceContextMenuState }) {

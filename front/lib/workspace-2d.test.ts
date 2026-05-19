@@ -241,6 +241,37 @@ test("workspace stage actors match office placement, status, and speech contract
   assert.deepEqual(actors[2].position, { left: "45.1%", top: "23.5%" });
 });
 
+test("workspace stage actors normalize numeric presence coordinates into stage percentages", () => {
+  const rows = getEngineeringRows(1);
+  const worldSize = getStageWorldSize(rows);
+  const rooms = getStageRooms(rows, worldSize, 1);
+  const actors = createWorkspaceStageActors({
+    agents: [],
+    members: [
+      {
+        memberId: 11,
+        name: "Kim Admin",
+        email: "kim@example.com",
+        role: "ADMIN",
+      },
+    ],
+    presenceMembers: [
+      {
+        memberId: 11,
+        position: { left: "360", top: "260" },
+        status: "ACTIVE",
+      },
+    ],
+    rooms,
+    worldSize,
+  });
+
+  assert.match(actors[0].position.left, /%$/);
+  assert.match(actors[0].position.top, /%$/);
+  assert.equal(actors[0].position.left, "20%");
+  assert.equal(actors[0].position.top, "25.24%");
+});
+
 test("workspace minimap maps rooms, actor markers, and focus viewport", () => {
   const rows = getEngineeringRows(1);
   const worldSize = getStageWorldSize(rows);

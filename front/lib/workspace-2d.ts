@@ -262,6 +262,36 @@ export function parseStagePct(value: string): number {
   return Number.isFinite(parsed) ? parsed : 50;
 }
 
+export function normalizeStageActorPosition(
+  position: StageActorPosition | null | undefined,
+  worldSize: StageSize,
+  fallback: StageActorPosition,
+): StageActorPosition {
+  if (!position) {
+    return fallback;
+  }
+
+  return {
+    left: normalizeStageCoordinate(position.left, worldSize.width, fallback.left),
+    top: normalizeStageCoordinate(position.top, worldSize.height, fallback.top),
+  };
+}
+
+function normalizeStageCoordinate(value: string, size: number, fallback: string): string {
+  const parsed = Number.parseFloat(value);
+  if (!Number.isFinite(parsed) || size <= 0) {
+    return fallback;
+  }
+  if (value.trim().endsWith("%")) {
+    return pct(clampStagePercent(parsed));
+  }
+  return pct(clampStagePercent((parsed / size) * 100));
+}
+
+function clampStagePercent(value: number): number {
+  return Math.max(0, Math.min(100, value));
+}
+
 export function getEngineeringRows(agentCount: number): number {
   return Math.max(2, Math.ceil(Math.max(agentCount, 1) / AGENT_DESK_COL_CENTERS.length));
 }
@@ -515,7 +545,11 @@ export function createWorkspaceStageActors(input: WorkspaceStageActorsInput): Wo
       sourceStatus: presence?.status ?? "OFFLINE",
       status,
       motion: getWorkspaceActorMotion(status),
-      position: presence?.position ?? MEMBER_POSITIONS[index % MEMBER_POSITIONS.length],
+      position: normalizeStageActorPosition(
+        presence?.position,
+        worldSize,
+        MEMBER_POSITIONS[index % MEMBER_POSITIONS.length],
+      ),
       avatarKind: pickWorkspaceAvatarKind(member.name),
     };
   });
