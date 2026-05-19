@@ -90,6 +90,48 @@ test("workspace list exposes auth token session actions", () => {
   assert.match(source, /AUTH_STORAGE_KEY/);
 });
 
+test("workspace list matches quest list metadata and empty states", () => {
+  const source = readSource("app/workspaces/page.tsx");
+
+  assert.match(source, /GATEWAY/);
+  assert.match(source, /NEW WORKSPACE/);
+  assert.match(source, /LOGOUT/);
+  assert.match(source, /WORKPLACES JOINED/);
+  assert.match(source, /TASKS · ACTIVE/);
+  assert.match(source, /AGENT ALLIES/);
+  assert.match(source, /TASKS · DONE/);
+  assert.match(source, /진행 중인 태스크/);
+  assert.match(source, /소환된 에이전트/);
+  assert.match(source, /ENTRIES/);
+  assert.match(source, /SCROLL ↓/);
+  assert.match(source, /workspaces\.data\.length > 8/);
+  assert.match(source, /no workspaces yet — start a new save to begin your work RPG/);
+  assert.match(source, /CREATE WORKSPACE/);
+  assert.match(source, /워크스페이스를 불러오지 못했습니다\./);
+  assert.match(source, /workspace\.description \|\| "no description"/);
+  assert.match(source, /workspace\.agentCount \?\? 0}\s*agents/);
+  assert.match(source, /workspace\.runningTaskCount \?\? 0}\s*active/);
+  assert.match(source, /ENTER/);
+  assert.doesNotMatch(source, /formatDate/);
+  assert.doesNotMatch(source, /workspace\.joinedAt/);
+});
+
+test("new workspace form matches creation contract without session side panel", () => {
+  const source = readSource("app/workspaces/new/page.tsx");
+
+  assert.match(source, /WORKSPACE DETAILS/);
+  assert.match(source, /NAME_MAX_LENGTH = 100/);
+  assert.match(source, /DESCRIPTION_MAX_LENGTH = 500/);
+  assert.match(source, /placeholder="예: 백엔드 엔지니어링 길드"/);
+  assert.match(source, /placeholder="워크스페이스의 미션, 진행 중인 작업 등을 설명해 주세요\."/);
+  assert.match(source, /router\.replace\(`\/workspaces\/\$\{created\.workspaceId\}`\)/);
+  assert.match(source, /FORM WORKSPACE/);
+  assert.match(source, /워크스페이스 생성에 실패했습니다\./);
+  assert.doesNotMatch(source, /workspace-create-side/);
+  assert.doesNotMatch(source, /SESSION READY/);
+  assert.doesNotMatch(source, />access token</);
+});
+
 test("frontend route aliases expose workspace and auth entries", () => {
   assert.match(readSource("app/page.tsx"), /MENU/);
   assert.match(readSource("app/workspaces/page.tsx"), /WorkspacesPage/);
