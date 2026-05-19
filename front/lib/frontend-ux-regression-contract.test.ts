@@ -57,7 +57,7 @@ test("browser regression covers routes and interactions without screenshot asser
 
   for (const interactionEvidence of [
     'page.getByRole("menuitem", { name: /CONTINUE/ }).click()',
-    'page.getByRole("menuitem", { name: /LOGIN/ }).click()',
+    'page.getByRole("menuitem", { name: /START/ }).click()',
     'page.getByRole("status")',
     'page.keyboard.press("ArrowDown")',
     'page.keyboard.press("ArrowRight")',
@@ -82,7 +82,8 @@ test("browser regression covers routes and interactions without screenshot asser
     'path === `/api/v1/workspaces/${workspaceId}/tasks/${taskId}/status`',
     'path === `/api/v1/invites/${inviteToken}`',
     'path === `/api/v1/invites/${inviteToken}/accept`',
-    'window.localStorage.getItem("aquila-office.auth")',
+    'window.localStorage.getItem("aquila-office.auth.accessToken")',
+    'window.localStorage.getItem("aquila-office.auth.user")',
   ]) {
     assert.match(browserSpec, new RegExp(escapeRegExp(interactionEvidence)));
   }

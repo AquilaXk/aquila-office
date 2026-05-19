@@ -14,7 +14,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { ApiError } from "@/lib/api";
 import {
-  AUTH_STORAGE_KEY,
+  AUTH_STORAGE_KEYS,
   clearAuthTokens,
   logoutAuth,
   readAuthTokens,
@@ -84,7 +84,7 @@ export default function WorkspacesPage() {
     });
 
     const onStorage = (event: StorageEvent) => {
-      if (event.key === AUTH_STORAGE_KEY) {
+      if (event.key === null || AUTH_STORAGE_KEYS.includes(event.key)) {
         void loadWorkspaces();
       }
     };

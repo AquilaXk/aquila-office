@@ -87,7 +87,8 @@ test("workspace list exposes auth token session actions", () => {
   assert.match(source, /logoutAuth/);
   assert.match(source, /clearAuthTokens/);
   assert.match(source, /readAuthTokens/);
-  assert.match(source, /AUTH_STORAGE_KEY/);
+  assert.match(source, /AUTH_STORAGE_KEYS/);
+  assert.match(source, /event\.key === null \|\| AUTH_STORAGE_KEYS\.includes\(event\.key\)/);
 });
 
 test("workspace list matches quest list metadata and empty states", () => {

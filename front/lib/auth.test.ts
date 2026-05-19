@@ -1,10 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  AUTH_ACCESS_TOKEN_KEY,
+  AUTH_REFRESH_TOKEN_KEY,
+  AUTH_USER_KEY,
   clearAuthTokens,
   loginWithGoogle,
   logoutAuth,
   readAuthTokens,
+  readAuthUser,
   refreshAuthToken,
   resolveAccessToken,
   saveAuthTokens,
@@ -120,18 +124,33 @@ test("loginWithGoogle rejects failed auth envelope with ApiError", async () => {
 
 test("auth token storage saves reads resolves and clears tokens", () => {
   const storage = new MemoryStorage();
+  const authUser = {
+    memberId: authTokens.memberId,
+    name: authTokens.name,
+    email: authTokens.email,
+    role: authTokens.role,
+  };
 
   assert.equal(readAuthTokens(storage), null);
+  assert.equal(readAuthUser(storage), null);
   assert.equal(resolveAccessToken(storage), "");
 
   saveAuthTokens(authTokens, storage);
 
+  assert.equal(storage.getItem(AUTH_ACCESS_TOKEN_KEY), "aquila-access.token");
+  assert.equal(storage.getItem(AUTH_REFRESH_TOKEN_KEY), "aquila-refresh.token");
+  assert.deepEqual(JSON.parse(storage.getItem(AUTH_USER_KEY) ?? "{}"), authUser);
   assert.deepEqual(readAuthTokens(storage), authTokens);
+  assert.deepEqual(readAuthUser(storage), authUser);
   assert.equal(resolveAccessToken(storage), "aquila-access.token");
 
   clearAuthTokens(storage);
 
   assert.equal(readAuthTokens(storage), null);
+  assert.equal(readAuthUser(storage), null);
+  assert.equal(storage.getItem(AUTH_ACCESS_TOKEN_KEY), null);
+  assert.equal(storage.getItem(AUTH_REFRESH_TOKEN_KEY), null);
+  assert.equal(storage.getItem(AUTH_USER_KEY), null);
 });
 
 function jsonResponse(data: unknown): Response {

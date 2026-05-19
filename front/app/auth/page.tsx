@@ -5,7 +5,7 @@ import Image from "next/image";
 import { AlertCircle, Loader2 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState, type ReactNode } from "react";
-import { isAuthenticated, loginWithGoogle, saveAuthTokens } from "@/lib/auth";
+import { isAuthenticated, loginWithGoogle } from "@/lib/auth";
 import { BRAND_MASCOT_PATH, SERVICE_NAME } from "@/lib/branding";
 
 export default function AuthPage() {
@@ -34,19 +34,18 @@ function AuthContent() {
 
   const handleCredential = async (credential?: string) => {
     if (!credential) {
-      setState({ status: "error", error: "Google 인증 토큰을 받지 못했습니다." });
+      setState({ status: "error", error: "Google 토큰을 받지 못했습니다." });
       return;
     }
 
     setState({ status: "submitting", error: null });
     try {
-      const tokens = await loginWithGoogle(credential);
-      saveAuthTokens(tokens);
+      await loginWithGoogle(credential);
       router.replace(nextStep(returnTo));
     } catch (error) {
       setState({
         status: "error",
-        error: error instanceof Error ? error.message : "Google 로그인에 실패했습니다.",
+        error: error instanceof Error ? error.message : "로그인에 실패했습니다.",
       });
     }
   };
@@ -55,13 +54,17 @@ function AuthContent() {
     <AuthLayout>
       <div className="auth-menu-line" aria-hidden="true">
         <span>&gt;</span>
-        <strong>GOOGLE LOGIN</strong>
+        <strong>SIGN IN TO CONTINUE</strong>
+      </div>
+      <div className="auth-copy">
+        <strong>WORKSPACE MEMBER VERIFICATION</strong>
+        <p>Sign in with your work Google account. Only invited heroes may enter.</p>
       </div>
 
       <div className="auth-google-action">
         <GoogleLogin
           onSuccess={(response) => void handleCredential(response.credential)}
-          onError={() => setState({ status: "error", error: "Google 로그인이 취소되었거나 실패했습니다." })}
+          onError={() => setState({ status: "error", error: "로그인에 실패했습니다." })}
           theme="filled_black"
           size="large"
           shape="rectangular"
@@ -75,7 +78,7 @@ function AuthContent() {
       {state.status === "submitting" ? (
         <p className="auth-state" role="status">
           <Loader2 className="spin" aria-hidden="true" />
-          인증 세션을 저장하고 있습니다.
+          LOADING SAVE FILE...
         </p>
       ) : null}
       {state.status === "error" ? (
@@ -93,7 +96,7 @@ function AuthFallback() {
     <AuthLayout busy>
       <p className="auth-state" role="status">
         <Loader2 className="spin" aria-hidden="true" />
-        로그인 화면을 준비하고 있습니다.
+        LOADING SAVE FILE...
       </p>
     </AuthLayout>
   );
@@ -122,7 +125,7 @@ function AuthLayout({
         <h1 id="auth-title">{SERVICE_NAME.toUpperCase()}</h1>
         <p className="auth-subtitle">secure workspace access</p>
         <div className="auth-panel-body">{children}</div>
-        <p className="auth-screen-hint">[ GOOGLE ACCOUNT REQUIRED ]</p>
+        <p className="auth-screen-hint">PRESS TO CONTINUE</p>
       </section>
     </main>
   );
