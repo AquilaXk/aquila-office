@@ -485,7 +485,7 @@ test.describe("브라우저 UI UX 회귀", () => {
     const filesDialog = page.getByRole("dialog", { name: "Workspace files" });
     await expect(filesDialog).toBeVisible();
     await expect(filesDialog.getByRole("button", { name: /result.md/ })).toBeVisible();
-    await filesDialog.getByRole("button", { name: "새로고침" }).click();
+    await filesDialog.getByRole("button", { name: "RELOAD" }).click();
     await expect(filesDialog.getByRole("button", { name: /result.md/ })).toBeVisible();
     await filesDialog.getByRole("button", { name: /result.md/ }).click();
     await expect(page.getByRole("dialog", { name: "Artifact file" })).toBeVisible();

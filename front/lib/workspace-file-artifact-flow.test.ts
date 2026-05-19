@@ -32,8 +32,27 @@ test("artifact fetch failures use demo workspace fallback content", () => {
 test("report and orchestration artifacts open the same file modal", () => {
   assert.match(detailSource, /<ArtifactTreeModal/);
   assert.match(detailSource, /<ArtifactFileModal/);
-  assert.match(detailSource, /onOpenArtifact=\{\(path\) => void openArtifactFile\(path\)\}/);
-  assert.match(detailSource, /onOpenFile=\{\(path\) => void openArtifactFile\(path\)\}/);
+  assert.match(detailSource, /onOpenArtifact=\{\(path, name\) => void openArtifactFile\(path, name\)\}/);
+  assert.match(detailSource, /onOpenFile=\{\(path, name\) => void openArtifactFile\(path, name\)\}/);
+  assert.match(detailSource, /onOpenFile\(file\.path, file\.name\)/);
+});
+
+test("artifact file modal preserves source item name while loading", () => {
+  assert.match(detailSource, /artifactFileNameHint/);
+  assert.match(detailSource, /setArtifactFileNameHint\(nameHint \?\? path\.split\("\/"\)\.pop\(\) \?\? path\)/);
+  assert.match(detailSource, /nameHint=\{artifactFileNameHint\}/);
+  assert.match(detailSource, /file\?\.name \?\? nameHint \?\? path \?\? "ARTIFACT"/);
+});
+
+test("workspace artifact modal copy matches interaction contract", () => {
+  assert.match(detailSource, /<h2>WORKSPACE FILES<\/h2>/);
+  assert.match(detailSource, /<span>RELOAD<\/span>/);
+  assert.match(detailSource, /파일 트리를 불러오는 중입니다\./);
+  assert.match(detailSource, /아직 생성된 파일이 없습니다\./);
+  assert.match(detailSource, /파일을 불러오는 중입니다\./);
+  assert.match(detailSource, /계획을 불러오는 중입니다\./);
+  assert.match(detailSource, /아직 등록된 step이 없습니다\./);
+  assert.match(detailSource, /생성된 파일이 없습니다\./);
 });
 
 test("artifact modal distinguishes markdown and plain text rendering", () => {
@@ -48,7 +67,7 @@ test("browser regression covers artifact fallback and directory toggles", () => 
   assert.match(browserSource, /reports\/fallback.md/);
   assert.match(browserSource, /plain-output\.log/);
   assert.match(browserSource, /missing-file\.log/);
-  assert.match(browserSource, /getByRole\("button", \{ name: "새로고침" \}\)\.click/);
+  assert.match(browserSource, /getByRole\("button", \{ name: "RELOAD" \}\)\.click/);
   assert.match(browserSource, /workspace-artifact-row-expanded/);
 });
 
