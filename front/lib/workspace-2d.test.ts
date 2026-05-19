@@ -3,14 +3,20 @@ import test from "node:test";
 import {
   WORKSPACE_SCENE_EVENT_TYPES,
   createWorkspaceAvatarNodes,
+  createWorkspaceStageActors,
   createWorkspaceContextMenuState,
   createInitialWorkspaceViewport,
+  getEngineeringRows,
   createWorkspaceSceneEventBus,
   buildStageWalls,
   clampStageZoom,
   getPlayerMoveDirection,
+  getStageRooms,
   getStagePanForPosition,
+  getStageWorldSize,
+  getWorkspaceActorSpeech,
   isNearQuestMarker,
+  mapWorkspaceAgentStatusToActorStatus,
   panWorkspaceViewport,
   resolveStageMove,
   smoothStagePan,
@@ -175,4 +181,59 @@ test("workspace stage movement respects player bounds and room walls", () => {
 test("workspace stage quest marker matches interaction radius", () => {
   assert.equal(isNearQuestMarker({ left: "90.4%", top: "75.8%" }), true);
   assert.equal(isNearQuestMarker({ left: "10%", top: "10%" }), false);
+});
+
+test("workspace stage actors match office placement, status, and speech contract", () => {
+  const rows = getEngineeringRows(2);
+  const worldSize = getStageWorldSize(rows);
+  const rooms = getStageRooms(rows, worldSize, 2);
+  const actors = createWorkspaceStageActors({
+    agents: [
+      {
+        agentId: 7,
+        name: "Backend Executor",
+        category: "BACKEND",
+        status: "READY",
+      },
+      {
+        agentId: 8,
+        name: "Review Bot",
+        category: "QA",
+        status: "ERROR",
+      },
+    ],
+    members: [
+      {
+        memberId: 11,
+        name: "Kim Admin",
+        email: "kim@example.com",
+        role: "ADMIN",
+      },
+    ],
+    presenceMembers: [
+      {
+        memberId: 11,
+        position: { left: "45.1%", top: "23.5%" },
+        status: "ACTIVE",
+      },
+    ],
+    rooms,
+    worldSize,
+  });
+
+  assert.equal(mapWorkspaceAgentStatusToActorStatus("READY"), "idle");
+  assert.equal(mapWorkspaceAgentStatusToActorStatus("CREATING"), "working");
+  assert.equal(mapWorkspaceAgentStatusToActorStatus("ERROR"), "blocked");
+
+  assert.deepEqual(actors.map((actor) => actor.id), ["agent-7", "agent-8", "member-11"]);
+  assert.equal(actors[0].avatarKind, "agent");
+  assert.equal(actors[0].status, "idle");
+  assert.equal(actors[1].status, "blocked");
+  assert.deepEqual(getWorkspaceActorSpeech(actors[1]), {
+    label: "확인 필요",
+    text: "",
+    tone: "blocked",
+  });
+  assert.equal(actors[2].avatarKind, "mira");
+  assert.deepEqual(actors[2].position, { left: "45.1%", top: "23.5%" });
 });

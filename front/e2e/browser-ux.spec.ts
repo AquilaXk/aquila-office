@@ -328,11 +328,12 @@ test.describe("브라우저 UI UX 회귀", () => {
     await expect(page.locator(".workspace-2d-minimap")).toBeVisible();
     await expect(page.locator(".workspace-2d-dialogue")).toBeVisible();
     const canvas = page.locator(".workspace-2d-canvas canvas");
+    const stageFrame = page.locator(".workspace-2d-stage").first();
     await expect(canvas).toBeVisible();
     await expectCanvasNotBlank(canvas);
     await expectKeyboardToMoveViewport(page, canvasFrame);
-    await expectPanAndZoomToMoveViewport(page, canvasFrame);
-    await openAndAssert2DContextMenu(page, canvasFrame);
+    await expectPanAndZoomToMoveViewport(page, stageFrame);
+    await openAndAssert2DContextMenu(page, stageFrame);
 
     const actorPanel = page.locator('aside[aria-label="Agent 대화와 Task 대시보드"]');
     await expect(actorPanel).toBeVisible();
@@ -993,7 +994,11 @@ async function openAndAssert2DContextMenu(page: Page, frame: Locator) {
   await frame.click({ button: "right", position: { x: 240, y: 180 } });
   const focusAction = page.getByRole("button", { name: "Focus" }).first();
   if (!(await focusAction.isVisible().catch(() => false))) {
-    await page.getByRole("button", { name: /QA Agent/ }).click({ button: "right" });
+    await page
+      .locator(".workspace-2d-roster")
+      .getByRole("button", { name: /QA Agent/ })
+      .first()
+      .click({ button: "right" });
   }
   await expect(focusAction).toBeVisible();
   await expect(page.getByRole("button", { name: "Profile" })).toBeVisible();

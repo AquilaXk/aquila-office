@@ -41,6 +41,10 @@ test("workspace 2d canvas exposes HUD, minimap, dialogue, and keyboard stage con
   assert.match(canvasSource, /workspace-2d-hud/);
   assert.match(canvasSource, /workspace-2d-minimap/);
   assert.match(canvasSource, /workspace-2d-dialogue/);
+  assert.match(canvasSource, /workspace-2d-actor-layer/);
+  assert.match(canvasSource, /StageActor/);
+  assert.match(canvasSource, /PixelAvatar/);
+  assert.match(canvasSource, /stage-actor--\$\{actor\.motion\}/);
   assert.match(canvasSource, /aria-label="Office scene minimap"/);
   assert.match(canvasSource, /aria-label="Stage keyboard controls"/);
   assert.match(canvasSource, /onKeyDown/);
@@ -61,6 +65,8 @@ test("workspace office scene styles define full screen surface", () => {
   assert.match(cssSource, /min-height:\s*calc\(100vh - 64px\)/);
   assert.match(cssSource, /\.workspace-2d-minimap/);
   assert.match(cssSource, /\.workspace-2d-dialogue/);
+  assert.match(cssSource, /\.stage-actor/);
+  assert.match(cssSource, /@keyframes stage-actor-working/);
 });
 
 function readSource(filePath: string): string {
