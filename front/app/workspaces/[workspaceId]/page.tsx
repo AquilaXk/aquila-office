@@ -474,6 +474,7 @@ export default function WorkspaceDetailPage({
   const [artifactNotice, setArtifactNotice] = useState<string | null>(null);
   const [artifactFile, setArtifactFile] = useState<ArtifactFileContent | null>(null);
   const [artifactFilePath, setArtifactFilePath] = useState<string | null>(null);
+  const [artifactFileNameHint, setArtifactFileNameHint] = useState<string | null>(null);
   const [artifactFileState, setArtifactFileState] = useState<ModalLoadState>({
     status: "idle",
     error: null,
@@ -1239,9 +1240,10 @@ export default function WorkspaceDetailPage({
   }, [numericWorkspaceId]);
 
   const openArtifactFile = useCallback(
-    async (path: string) => {
+    async (path: string, nameHint?: string) => {
       setArtifactFile(null);
       setArtifactFilePath(path);
+      setArtifactFileNameHint(nameHint ?? path.split("/").pop() ?? path);
       setArtifactFileState({ status: "loading", error: null });
       setArtifactNotice(null);
 
@@ -3273,7 +3275,7 @@ export default function WorkspaceDetailPage({
           setTaskReports([]);
           setReportState({ status: "idle", error: null });
         }}
-        onOpenArtifact={(path) => void openArtifactFile(path)}
+        onOpenArtifact={(path, name) => void openArtifactFile(path, name)}
       />
       <TaskChatModal
         task={selectedChatTask}
@@ -3317,7 +3319,7 @@ export default function WorkspaceDetailPage({
           setOrchestrationPlan(null);
           setOrchestrationPlanState({ status: "idle", error: null });
         }}
-        onOpenFile={(path) => void openArtifactFile(path)}
+        onOpenFile={(path, name) => void openArtifactFile(path, name)}
       />
       <ArtifactTreeModal
         open={filesOpen}
@@ -3338,12 +3340,14 @@ export default function WorkspaceDetailPage({
       />
       <ArtifactFileModal
         path={artifactFilePath}
+        nameHint={artifactFileNameHint}
         file={artifactFile}
         state={artifactFileState}
         notice={artifactNotice}
         onClose={() => {
           setArtifactFile(null);
           setArtifactFilePath(null);
+          setArtifactFileNameHint(null);
           setArtifactFileState({ status: "idle", error: null });
           setArtifactNotice(null);
         }}
@@ -4809,7 +4813,7 @@ function TaskReportsModal({
   reports: AgentReport[];
   state: ModalLoadState;
   onClose: () => void;
-  onOpenArtifact: (path: string) => void;
+  onOpenArtifact: (path: string, name?: string) => void;
 }) {
   if (!task) {
     return null;
@@ -4867,7 +4871,7 @@ function TaskReportsModal({
                             className="secondary-action workspace-report-artifact"
                             type="button"
                             key={artifact.artifactId}
-                            onClick={() => path && onOpenArtifact(path)}
+                            onClick={() => path && onOpenArtifact(path, artifact.name)}
                             disabled={!path}
                           >
                             <FileText aria-hidden="true" />
@@ -5083,7 +5087,7 @@ function OrchestrationPlanModal({
   plan: OrchestrationPlanArtifact | null;
   state: ModalLoadState;
   onClose: () => void;
-  onOpenFile: (path: string) => void;
+  onOpenFile: (path: string, name: string) => void;
 }) {
   if (!plan && state.status === "idle") {
     return null;
@@ -5113,14 +5117,14 @@ function OrchestrationPlanModal({
           {state.status === "loading" ? (
             <ModalState
               icon={<Loader2 className="spin" aria-hidden="true" />}
-              text="Orchestration plan artifact를 불러오고 있습니다."
+              text="계획을 불러오는 중입니다."
             />
           ) : null}
           {state.status === "error" ? (
             <ModalState icon={<AlertCircle aria-hidden="true" />} text={state.error} tone="danger" />
           ) : null}
           {state.status === "ready" && plan && plan.steps.length === 0 ? (
-            <ModalState icon={<FileText aria-hidden="true" />} text="표시할 plan step이 없습니다." />
+            <ModalState icon={<FileText aria-hidden="true" />} text="아직 등록된 step이 없습니다." />
           ) : null}
 
           {plan && plan.steps.length > 0 ? (
@@ -5140,7 +5144,7 @@ function OrchestrationPlanModal({
                           className="secondary-action workspace-report-artifact"
                           type="button"
                           key={file.path}
-                          onClick={() => onOpenFile(file.path)}
+                          onClick={() => onOpenFile(file.path, file.name)}
                           disabled={!file.exists}
                         >
                           <FileText aria-hidden="true" />
@@ -5149,7 +5153,7 @@ function OrchestrationPlanModal({
                       ))}
                     </div>
                   ) : (
-                    <p>연결된 파일이 없습니다.</p>
+                    <p>생성된 파일이 없습니다.</p>
                   )}
                 </article>
               ))}
@@ -5194,7 +5198,7 @@ function ArtifactTreeModal({
         <header className="workspace-modal-header">
           <div>
             <span className="workspace-detail-label">{tree?.rootPath ?? "/"}</span>
-            <h2>Files</h2>
+            <h2>WORKSPACE FILES</h2>
           </div>
           <div className="workspace-modal-actions">
             <button
@@ -5204,7 +5208,7 @@ function ArtifactTreeModal({
               disabled={state.status === "loading"}
             >
               <RefreshCw aria-hidden="true" />
-              <span>새로고침</span>
+              <span>RELOAD</span>
             </button>
             <button className="icon-button workspace-modal-close" type="button" onClick={onClose} aria-label="닫기">
               <X aria-hidden="true" />
@@ -5214,7 +5218,7 @@ function ArtifactTreeModal({
 
         <div className="workspace-modal-body">
           {state.status === "loading" ? (
-            <ModalState icon={<Loader2 className="spin" aria-hidden="true" />} text="파일 트리를 불러오고 있습니다." />
+            <ModalState icon={<Loader2 className="spin" aria-hidden="true" />} text="파일 트리를 불러오는 중입니다." />
           ) : null}
           {state.status === "error" ? (
             <ModalState icon={<AlertCircle aria-hidden="true" />} text={state.error} tone="danger" />
@@ -5223,7 +5227,7 @@ function ArtifactTreeModal({
             <ModalState icon={<ShieldCheck aria-hidden="true" />} text={notice} />
           ) : null}
           {state.status === "ready" && nodes.length === 0 ? (
-            <ModalState icon={<FolderTree aria-hidden="true" />} text="아직 표시할 파일이 없습니다." />
+            <ModalState icon={<FolderTree aria-hidden="true" />} text="아직 생성된 파일이 없습니다." />
           ) : null}
           {nodes.length > 0 ? (
             <ArtifactTreeNodes
@@ -5300,12 +5304,14 @@ function ArtifactTreeNodes({
 
 function ArtifactFileModal({
   path,
+  nameHint,
   file,
   state,
   notice,
   onClose,
 }: {
   path: string | null;
+  nameHint: string | null;
   file: ArtifactFileContent | null;
   state: ModalLoadState;
   notice: string | null;
@@ -5315,13 +5321,15 @@ function ArtifactFileModal({
     return null;
   }
 
+  const modalTitle = file?.name ?? nameHint ?? path ?? "ARTIFACT";
+
   return (
     <div className="workspace-modal-backdrop" role="presentation">
       <section className="workspace-modal workspace-file-modal" role="dialog" aria-modal="true" aria-label="Artifact file">
         <header className="workspace-modal-header">
           <div>
             <span className="workspace-detail-label">{path ?? ""}</span>
-            <h2>{file?.name ?? "File"}</h2>
+            <h2>{modalTitle}</h2>
           </div>
           <button className="icon-button workspace-modal-close" type="button" onClick={onClose} aria-label="닫기">
             <X aria-hidden="true" />
@@ -5330,7 +5338,7 @@ function ArtifactFileModal({
 
         <div className="workspace-modal-body">
           {state.status === "loading" ? (
-            <ModalState icon={<Loader2 className="spin" aria-hidden="true" />} text="파일 내용을 불러오고 있습니다." />
+            <ModalState icon={<Loader2 className="spin" aria-hidden="true" />} text="파일을 불러오는 중입니다." />
           ) : null}
           {state.status === "error" ? (
             <ModalState icon={<AlertCircle aria-hidden="true" />} text={state.error} tone="danger" />
