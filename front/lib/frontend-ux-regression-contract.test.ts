@@ -49,6 +49,8 @@ test("browser regression covers routes and interactions without screenshot asser
     'page.getByRole("link", { name: "새 Workspace" }).click()',
     "page.goto(`/workspaces/${workspaceId}`)",
     "page.goto(`/workspaces/${workspaceId}/settings`)",
+    'page.goto("/workspaces/gateway")',
+    "page.goto(`/invites/${inviteToken}`)",
   ]) {
     assert.match(browserSpec, new RegExp(escapeRegExp(routeEvidence)));
   }
@@ -60,9 +62,21 @@ test("browser regression covers routes and interactions without screenshot asser
     'getByRole("dialog", { name: "Task dashboard" })',
     'getByRole("dialog", { name: "Workspace files" })',
     'getByLabel("Agent 메시지")',
+    'getByLabel("Task 상태 변경").selectOption("COMPLETED")',
+    'getByRole("heading", { name: "Gateway 관리" })',
+    'getByRole("heading", { name: "워크스페이스 초대" })',
+    'getByRole("button", { name: "워크스페이스 정보" })',
+    'getByRole("button", { name: "멤버 관리" })',
+    'getByRole("button", { name: "초대 생성" })',
+    'getByRole("button", { name: "초대 목록" })',
+    'getByRole("button", { name: "초대 수락" })',
     'path === "/api/v1/auth/google/login"',
+    'path === "/api/v1/members/me/profile"',
     'path === `/api/v1/workspaces/${workspaceId}/invites`',
     'path === `/api/v1/workspaces/${workspaceId}/gateway/connection-test`',
+    'path === `/api/v1/workspaces/${workspaceId}/tasks/${taskId}/status`',
+    'path === `/api/v1/invites/${inviteToken}`',
+    'path === `/api/v1/invites/${inviteToken}/accept`',
   ]) {
     assert.match(browserSpec, new RegExp(escapeRegExp(interactionEvidence)));
   }

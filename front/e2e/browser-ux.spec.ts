@@ -234,6 +234,15 @@ test.describe("브라우저 UI UX 회귀", () => {
     await closeTopDialog(page);
 
     const taskCard = page.locator(".workspace-task-card").filter({ hasText: regressionTask.title });
+    const taskStatusRequest = page.waitForRequest((request) => {
+      const url = new URL(request.url());
+      return request.method() === "PATCH" && url.pathname === `/api/v1/workspaces/${workspaceId}/tasks/${taskId}/status`;
+    });
+    await taskCard.getByLabel("Task 상태 변경").selectOption("COMPLETED");
+    const taskStatusBody = (await taskStatusRequest).postData() ?? "";
+    expect(taskStatusBody).toContain("COMPLETED");
+    await expect(page.getByText(`Task #${taskId} 상태 변경 완료`)).toBeVisible();
+
     await taskCard.getByRole("button", { name: "Report" }).click();
     await expect(page.getByRole("dialog", { name: "Task report" })).toBeVisible();
     await expect(page.getByText("Report #701")).toBeVisible();
