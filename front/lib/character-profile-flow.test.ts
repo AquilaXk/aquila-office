@@ -131,3 +131,11 @@ test("workspace detail consumes stored pixel avatar profiles", () => {
     assert.match(workspaceSource, new RegExp(`["']${kind}["']`));
   }
 });
+
+test("workspace detail applies stored avatar profile to the authenticated member", () => {
+  assert.match(workspaceSource, /readAuthUser/);
+  assert.match(workspaceSource, /currentMemberId/);
+  assert.match(workspaceSource, /playerMemberId=\{currentMemberId\}/);
+  assert.match(workspaceSource, /member\.memberId === currentMemberId/);
+  assert.doesNotMatch(workspaceSource, /index === 0 && storedCharacterProfile/);
+});

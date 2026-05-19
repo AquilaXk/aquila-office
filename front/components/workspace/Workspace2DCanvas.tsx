@@ -67,6 +67,7 @@ export type Workspace2DCanvasProps = {
     kind: PixelAvatarKind;
     paletteOverride?: PixelAvatarPaletteOverride;
   } | null;
+  playerMemberId?: number | null;
   rooms?: StageRoomSpec[];
   onPresenceMove?: (position: WorkspacePresencePosition) => void | Promise<void>;
   onPlayerPositionChange?: (position: StageActorPosition) => void | Promise<void>;
@@ -106,6 +107,7 @@ export default function Workspace2DCanvas({
   presenceMembers,
   playerPosition = null,
   playerAvatar = null,
+  playerMemberId = null,
   rooms = [],
   onPresenceMove,
   onPlayerPositionChange,
@@ -140,7 +142,12 @@ export default function Workspace2DCanvas({
       }),
     [agents, members, presenceMembers, stageRooms, stageWorldSize],
   );
-  const playerActorId = members[0] ? `member-${members[0].memberId}` : null;
+  const playerMember = useMemo(() => {
+    const authenticatedMember =
+      playerMemberId != null ? members.find((member) => member.memberId === playerMemberId) : null;
+    return authenticatedMember ?? members[0] ?? null;
+  }, [members, playerMemberId]);
+  const playerActorId = playerMember ? `member-${playerMember.memberId}` : null;
   const logicalStageActors = useMemo(
     () =>
       stageActors.map((actor) =>
