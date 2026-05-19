@@ -6,12 +6,11 @@ import {
   FolderOpen,
   LogOut,
   Plus,
-  RefreshCw,
   Server,
   UserRound,
 } from "lucide-react";
-import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { ApiError } from "@/lib/api";
 import {
@@ -22,7 +21,6 @@ import {
   resolveAccessToken,
   type AuthTokens,
 } from "@/lib/auth";
-import { BRAND_MASCOT_PATH, SERVICE_NAME } from "@/lib/branding";
 import { fetchWorkspaces, type WorkspaceSummary } from "@/lib/workspaces";
 
 type WorkspaceState =
@@ -36,7 +34,9 @@ type LogoutState =
   | { status: "error"; message: string };
 
 export default function WorkspacesPage() {
+  const router = useRouter();
   const [tokens, setTokens] = useState<AuthTokens | null>(() => readAuthTokens());
+  const [hydrated, setHydrated] = useState(false);
   const [workspaces, setWorkspaces] = useState<WorkspaceState>({
     status: "idle",
     data: null,
@@ -48,6 +48,17 @@ export default function WorkspacesPage() {
   });
 
   const loadWorkspaces = useCallback(async () => {
+    const currentTokens = readAuthTokens();
+    if (!currentTokens) {
+      setTokens(null);
+      setHydrated(false);
+      setWorkspaces({ status: "idle", data: null, error: null });
+      router.replace("/");
+      return;
+    }
+
+    setTokens(currentTokens);
+    setHydrated(true);
     setWorkspaces({ status: "loading", data: null, error: null });
     const accessToken = resolveAccessToken();
 
@@ -61,22 +72,28 @@ export default function WorkspacesPage() {
         error: messageFromError(error, "워크스페이스 목록을 확인하지 못했습니다."),
       });
     }
-  }, []);
+  }, [router]);
 
   useEffect(() => {
+    let cancelled = false;
     queueMicrotask(() => {
+      if (cancelled) {
+        return;
+      }
       void loadWorkspaces();
     });
 
     const onStorage = (event: StorageEvent) => {
       if (event.key === AUTH_STORAGE_KEY) {
-        setTokens(readAuthTokens());
         void loadWorkspaces();
       }
     };
 
     window.addEventListener("storage", onStorage);
-    return () => window.removeEventListener("storage", onStorage);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("storage", onStorage);
+    };
   }, [loadWorkspaces]);
 
   const handleLogout = async () => {
@@ -90,7 +107,6 @@ export default function WorkspacesPage() {
       clearAuthTokens();
       setTokens(null);
       setLogoutState({ status: "idle", message: "인증 세션이 삭제되었습니다." });
-      await loadWorkspaces();
     } catch (error) {
       clearAuthTokens();
       setTokens(null);
@@ -98,28 +114,39 @@ export default function WorkspacesPage() {
         status: "error",
         message: messageFromError(error, "로그아웃 요청을 처리하지 못했습니다."),
       });
-      await loadWorkspaces();
+    } finally {
+      setHydrated(false);
+      router.replace("/");
     }
   };
 
-  const workspaceCount = workspaces.status === "ready" ? workspaces.data.length : 0;
+  const workspaceList = workspaces.status === "ready" ? workspaces.data : [];
+  const workspaceCount = workspaceList.length;
+  const activeTaskCount = workspaceList.reduce(
+    (count, workspace) => count + (workspace.runningTaskCount ?? 0),
+    0,
+  );
+  const agentCount = workspaceList.reduce(
+    (count, workspace) => count + (workspace.agentCount ?? 0),
+    0,
+  );
+  const completedTaskCount = workspaceList.reduce(
+    (count, workspace) => count + (workspace.completedTaskCount ?? 0),
+    0,
+  );
+
+  if (!hydrated) {
+    return null;
+  }
 
   return (
     <main className="app-shell">
       <aside className="sidebar">
         <div className="brand-block">
-          <div className="brand-crest">
-            <Image
-              src={BRAND_MASCOT_PATH}
-              alt={`${SERVICE_NAME} crest`}
-              width={72}
-              height={72}
-              priority
-            />
-          </div>
+          <div className="brand-crest" aria-hidden="true">AO</div>
           <div className="brand-copy">
-            <span>{SERVICE_NAME}</span>
-            <strong>Workspace list</strong>
+            <span>AQUILA OFFICE</span>
+            <strong>Select quest</strong>
           </div>
         </div>
         <nav className="nav-list" aria-label="워크스페이스 메뉴">
@@ -138,121 +165,105 @@ export default function WorkspacesPage() {
       <section className="workspace">
         <header className="topbar">
           <div>
-            <p className="eyebrow">Workspace</p>
-            <h1>내 워크스페이스</h1>
-            <p className="topbar-summary">
-              로그인한 사용자와 참여 중인 워크스페이스를 확인합니다.
-            </p>
+            <p className="eyebrow">HERO {tokens?.name ?? "PLAYER"}</p>
+            <h1>WORKSPACES</h1>
+            <p className="topbar-summary">{tokens?.email}</p>
           </div>
-          <button
-            className="icon-button"
-            type="button"
-            onClick={() => void loadWorkspaces()}
-            disabled={workspaces.status === "loading"}
-            title="목록 새로고침"
-            aria-label="목록 새로고침"
-          >
-            <RefreshCw
-              aria-hidden="true"
-              className={workspaces.status === "loading" ? "spin" : undefined}
-            />
-          </button>
+          <div className="form-actions">
+            <Link className="secondary-action" href="/workspaces/gateway">
+              <Server aria-hidden="true" />
+              <span>GATEWAY</span>
+            </Link>
+            <Link
+              aria-label="새 Workspace"
+              className="primary-action primary-action-active"
+              href="/workspaces/new"
+            >
+              <Plus aria-hidden="true" />
+              <span>NEW WORKSPACE</span>
+            </Link>
+            <button
+              className="secondary-action"
+              type="button"
+              onClick={() => void handleLogout()}
+              disabled={logoutState.status === "submitting"}
+            >
+              <LogOut aria-hidden="true" />
+              <span>{logoutState.status === "submitting" ? "LOGOUT..." : "LOGOUT"}</span>
+            </button>
+          </div>
         </header>
 
-        <section className="status-grid" aria-label="사용자와 작업 상태">
+        <section className="status-grid workspace-metric-grid" aria-label="워크스페이스 지표">
           <article className="status-panel status-panel-primary">
             <div className="panel-header">
-              <UserRound aria-hidden="true" />
-              <span>User</span>
+              <Building2 aria-hidden="true" />
+              <span>WORKPLACES JOINED</span>
             </div>
-            <strong>{tokens?.name ?? "브라우저 세션"}</strong>
-            <p>{tokens?.email ?? "저장된 인증 세션이 없습니다."}</p>
+            <strong>{String(workspaceCount).padStart(2, "0")}</strong>
+            <p>활성 워크스페이스</p>
           </article>
           <article className="status-panel">
             <div className="panel-header">
-              <Building2 aria-hidden="true" />
-              <span>Workspaces</span>
+              <FolderOpen aria-hidden="true" />
+              <span>TASKS · ACTIVE</span>
             </div>
-            <strong>
-              {workspaces.status === "loading" ? "확인 중" : `${workspaceCount}개`}
-            </strong>
-            <p>{workspaces.status === "offline" ? workspaces.error : "가입된 워크스페이스"}</p>
+            <strong>{String(activeTaskCount).padStart(2, "0")}</strong>
+            <p>진행 중인 Task</p>
+          </article>
+          <article className="status-panel">
+            <div className="panel-header">
+              <UserRound aria-hidden="true" />
+              <span>AGENT ALLIES</span>
+            </div>
+            <strong>{String(agentCount).padStart(2, "0")}</strong>
+            <p>소환된 Agent</p>
           </article>
           <article className="status-panel">
             <div className="panel-header">
               <Server aria-hidden="true" />
-              <span>Session</span>
+              <span>TASKS · DONE</span>
             </div>
-            <strong>{tokens ? "token ready" : "token empty"}</strong>
-            <p>{logoutState.message ?? "API 요청에는 저장된 access token을 사용합니다."}</p>
+            <strong>{String(completedTaskCount).padStart(2, "0")}</strong>
+            <p>누적 완료</p>
           </article>
-        </section>
-
-        <section className="workspace-section" aria-label="워크스페이스 작업">
-          <div className="section-header">
-            <div>
-              <p className="eyebrow">Actions</p>
-              <h2>빠른 작업</h2>
-            </div>
-            <div className="form-actions">
-              <Link className="secondary-action" href="/workspaces/gateway">
-                <Server aria-hidden="true" />
-                <span>Gateway</span>
-              </Link>
-              <Link className="primary-action primary-action-active" href="/workspaces/new">
-                <Plus aria-hidden="true" />
-                <span>새 Workspace</span>
-              </Link>
-              <button
-                className="secondary-action"
-                type="button"
-                onClick={() => void handleLogout()}
-                disabled={logoutState.status === "submitting"}
-              >
-                <LogOut aria-hidden="true" />
-                <span>{logoutState.status === "submitting" ? "Logout..." : "Logout"}</span>
-              </button>
-            </div>
-          </div>
-
-          {logoutState.status === "error" ? (
-            <div className="form-notice form-notice-error" role="alert">
-              <AlertCircle aria-hidden="true" />
-              <span>{logoutState.message}</span>
-            </div>
-          ) : null}
         </section>
 
         <section className="workspace-section" aria-label="워크스페이스 목록">
           <div className="section-header">
             <div>
-              <p className="eyebrow">List</p>
+              <p className="eyebrow">ACTIVE WORKPLACES</p>
               <h2>참여 중인 워크스페이스</h2>
             </div>
             <span className="role-badge">
-              {workspaces.status === "ready" ? `${workspaces.data.length} entries` : workspaces.status}
+              {workspaces.status === "ready"
+                ? `${String(workspaces.data.length).padStart(2, "0")} ENTRIES`
+                : workspaces.status}
             </span>
           </div>
 
           {workspaces.status === "ready" && workspaces.data.length > 0 ? (
             <div className="workspace-list">
-              {workspaces.data.map((workspace) => (
+              {workspaces.data.map((workspace, index) => (
                 <Link
                   className="workspace-row workspace-row-link"
                   href={`/workspaces/${workspace.workspaceId}`}
                   key={workspace.workspaceId}
-                  aria-label={`${workspace.name} 상세 보기`}
+                  aria-label={`${workspace.name} ENTER`}
                 >
                   <div className="workspace-row-icon">
-                    <Building2 aria-hidden="true" />
+                    <span>{`W${String(index + 1).padStart(3, "0")}`}</span>
                   </div>
                   <div className="workspace-row-main">
                     <strong>{workspace.name}</strong>
-                    <p>{workspace.description ?? "설명 없음"}</p>
+                    <p>{workspace.description || "no description"}</p>
+                    <span className="role-badge">[{workspace.myRole}]</span>
                   </div>
                   <div className="workspace-row-meta">
-                    <span className="role-badge">{workspace.myRole}</span>
+                    <span>{workspace.agentCount ?? 0} agents</span>
+                    <span>{workspace.runningTaskCount ?? 0} active</span>
                     <span>{formatDate(workspace.joinedAt)}</span>
+                    <span className="role-badge">ENTER</span>
                   </div>
                 </Link>
               ))}

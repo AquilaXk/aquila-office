@@ -8,6 +8,10 @@ export type WorkspaceSummary = {
   description: string | null;
   creatorGoogleSub: string;
   myRole: WorkspaceMemberRole;
+  agentCount?: number;
+  runningTaskCount?: number;
+  completedTaskCount?: number;
+  createdAt?: string;
   joinedAt: string;
 };
 

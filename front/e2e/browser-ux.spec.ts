@@ -29,6 +29,10 @@ const primaryWorkspace = {
   description: "서비스 운영 자동화",
   creatorGoogleSub: "google-1",
   myRole: "ADMIN",
+  agentCount: 1,
+  runningTaskCount: 1,
+  completedTaskCount: 0,
+  createdAt: "2026-05-18T08:50:00Z",
   joinedAt: "2026-05-18T09:00:00Z",
 } as const;
 
@@ -74,6 +78,7 @@ test.describe("브라우저 UI UX 회귀", () => {
   test("워크스페이스 목록의 loading, empty 상태를 표시한다", async ({ page }) => {
     const gate = deferred();
     await installMockApi(page, { workspaceList: "empty", workspaceListGate: gate.promise });
+    await seedAuthTokens(page);
 
     await page.goto("/workspaces");
 
@@ -84,6 +89,7 @@ test.describe("브라우저 UI UX 회귀", () => {
 
   test("워크스페이스 목록 오류 상태를 표시한다", async ({ page }) => {
     await installMockApi(page, { workspaceList: "error" });
+    await seedAuthTokens(page);
 
     await page.goto("/workspaces");
 
@@ -100,6 +106,10 @@ test.describe("브라우저 UI UX 회귀", () => {
     await page.keyboard.press("ArrowDown");
     await page.keyboard.press("Enter");
     await page.waitForURL((url) => url.pathname === "/workspaces");
+    await expect(page.getByText("W001")).toBeVisible();
+    await expect(page.getByText("1 agents")).toBeVisible();
+    await expect(page.getByText("1 active")).toBeVisible();
+    await expect(page.getByText("ENTER")).toBeVisible();
 
     await page.getByRole("link", { name: "새 Workspace" }).click();
     await page.getByPlaceholder("예: Product Engineering").fill("Platform Ops");
