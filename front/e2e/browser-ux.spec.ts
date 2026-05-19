@@ -219,6 +219,17 @@ test.describe("브라우저 UI UX 회귀", () => {
     await expect(officeScene.getByRole("button", { name: "Hire agent", exact: true })).toBeVisible();
     await expect(officeScene.getByRole("button", { name: "Files", exact: true })).toBeVisible();
     await expect(officeScene.getByRole("link", { name: "Leave workspace", exact: true })).toBeVisible();
+    await officeScene.getByRole("button", { name: "Hire agent", exact: true }).click();
+    const hireDialog = page.getByRole("dialog", { name: "Agent hire" });
+    await expect(hireDialog).toBeVisible();
+    await expect(hireDialog.getByLabel("Agent 이름")).toBeVisible();
+    await expect(hireDialog.getByLabel("역할")).toBeVisible();
+    await expect(hireDialog.getByLabel(/Workspace Path/)).toBeVisible();
+    await expect(hireDialog.getByLabel(/Emoji/)).toBeVisible();
+    await hireDialog.getByRole("button", { name: "Skill 파일 추가" }).click();
+    await expect(hireDialog.getByPlaceholder("backend-agent.md")).toBeVisible();
+    await expect(hireDialog.getByRole("button", { name: "고용" })).toBeVisible();
+    await closeTopDialog(page);
 
     const detailNav = page.getByRole("navigation", { name: "워크스페이스 내비게이션" });
     await expect(detailNav.getByRole("link", { name: "목록으로" })).toHaveAttribute("href", "/workspaces");

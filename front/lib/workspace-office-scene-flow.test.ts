@@ -21,6 +21,22 @@ test("workspace detail promotes the office scene as the first screen", () => {
   assert.match(detailSource, /leave-workspace/);
 });
 
+test("workspace office scene opens agent hire modal with role emoji and skill files", () => {
+  assert.match(detailSource, /agentHireOpen/);
+  assert.match(detailSource, /AgentHireModal/);
+  assert.match(detailSource, /aria-label="Agent hire"/);
+  assert.match(detailSource, /emoji:\s*agentCreateForm\.emoji\.trim\(\)/);
+  assert.match(detailSource, /skillFiles:\s*skillFiles\.length > 0/);
+  assert.match(detailSource, /form\.skillFiles\.map/);
+  assert.match(detailSource, /normalizeAgentSkillFiles/);
+  assert.match(detailSource, /Agent 이름/);
+  assert.match(detailSource, /역할/);
+  assert.match(detailSource, /Workspace Path/);
+  assert.match(detailSource, /Emoji/);
+  assert.match(detailSource, /Skill 파일/);
+  assert.match(detailSource, /고용/);
+});
+
 test("workspace 2d canvas exposes HUD, minimap, dialogue, and keyboard stage controls", () => {
   assert.match(canvasSource, /workspace-2d-hud/);
   assert.match(canvasSource, /workspace-2d-minimap/);

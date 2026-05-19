@@ -35,6 +35,7 @@ import {
   fetchWorkspaceAgents,
   type WorkspaceAgent,
   type WorkspaceAgentCategory,
+  type WorkspaceAgentSkillFileInput,
 } from "@/lib/agents";
 import { resolveAccessToken } from "@/lib/auth";
 import {
@@ -147,6 +148,12 @@ type AgentCreateFormState = {
   name: string;
   category: WorkspaceAgentCategory;
   workspacePath: string;
+  emoji: string;
+  skillFiles: AgentSkillFileDraft[];
+};
+
+type AgentSkillFileDraft = WorkspaceAgentSkillFileInput & {
+  id: string;
 };
 
 type AgentMutationState = {
@@ -343,7 +350,10 @@ export default function WorkspaceDetailPage({
     name: "",
     category: "CUSTOM",
     workspacePath: "",
+    emoji: "",
+    skillFiles: [],
   });
+  const [agentHireOpen, setAgentHireOpen] = useState(false);
   const [agentMutation, setAgentMutation] = useState<AgentMutationState>({
     status: "idle",
     message: null,
@@ -632,6 +642,16 @@ export default function WorkspaceDetailPage({
       return;
     }
 
+    const skillFiles = normalizeAgentSkillFiles(agentCreateForm.skillFiles);
+    if (skillFiles === null) {
+      setAgentMutation({
+        status: "error",
+        message: "Skill 파일은 파일명과 내용을 모두 입력해 주세요.",
+        agentId: null,
+      });
+      return;
+    }
+
     setAgentMutation({ status: "submitting", message: "Agent 등록 중", agentId: null });
 
     try {
@@ -639,11 +659,15 @@ export default function WorkspaceDetailPage({
         name,
         category: agentCreateForm.category,
         workspacePath: agentCreateForm.workspacePath.trim() || undefined,
+        emoji: agentCreateForm.emoji.trim() || undefined,
+        skillFiles: skillFiles.length > 0 ? skillFiles : undefined,
       });
       setAgentCreateForm((current) => ({
         ...current,
         name: "",
         workspacePath: "",
+        emoji: "",
+        skillFiles: [],
       }));
       await refreshAgentData();
       setAgentMutation({
@@ -651,6 +675,7 @@ export default function WorkspaceDetailPage({
         message: `Agent #${created.agentId} 등록 완료`,
         agentId: created.agentId,
       });
+      setAgentHireOpen(false);
     } catch (error) {
       setAgentMutation({
         status: "error",
@@ -659,6 +684,38 @@ export default function WorkspaceDetailPage({
       });
     }
   };
+
+  const addAgentSkillFile = useCallback(() => {
+    setAgentCreateForm((current) => ({
+      ...current,
+      skillFiles: [
+        ...current.skillFiles,
+        { id: createLocalId(), fileName: "", content: "" },
+      ],
+    }));
+    setAgentMutation({ status: "idle", message: null, agentId: null });
+  }, []);
+
+  const updateAgentSkillFile = useCallback(
+    (id: string, field: "fileName" | "content", value: string) => {
+      setAgentCreateForm((current) => ({
+        ...current,
+        skillFiles: current.skillFiles.map((skillFile) =>
+          skillFile.id === id ? { ...skillFile, [field]: value } : skillFile,
+        ),
+      }));
+      setAgentMutation({ status: "idle", message: null, agentId: null });
+    },
+    [],
+  );
+
+  const removeAgentSkillFile = useCallback((id: string) => {
+    setAgentCreateForm((current) => ({
+      ...current,
+      skillFiles: current.skillFiles.filter((skillFile) => skillFile.id !== id),
+    }));
+    setAgentMutation({ status: "idle", message: null, agentId: null });
+  }, []);
 
   const handleDeleteAgent = useCallback(
     async (agent: WorkspaceAgent) => {
@@ -1224,10 +1281,6 @@ export default function WorkspaceDetailPage({
     [loadGatewayConnection, loadGithubCredentials, loadSlackConnections],
   );
 
-  const scrollToWorkspaceSection = useCallback((sectionId: string) => {
-    document.getElementById(sectionId)?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }, []);
-
   const handleOfficeSceneNavAction = useCallback(
     (itemId: OfficeSceneNavItemId) => {
       if (itemId === "connections") {
@@ -1238,13 +1291,13 @@ export default function WorkspaceDetailPage({
         setTaskDashboardTab("summary");
       }
       if (itemId === "hire-agent") {
-        scrollToWorkspaceSection("workspace-hire-agent");
+        setAgentHireOpen(true);
       }
       if (itemId === "files") {
         void openWorkspaceFiles();
       }
     },
-    [openConnectionModal, openWorkspaceFiles, scrollToWorkspaceSection],
+    [openConnectionModal, openWorkspaceFiles],
   );
 
   const reloadWorkspace = useCallback(async () => {
@@ -2926,6 +2979,34 @@ export default function WorkspaceDetailPage({
         />
       </aside>
 
+      <AgentHireModal
+        open={agentHireOpen}
+        form={agentCreateForm}
+        mutation={agentMutation}
+        submitting={isAgentMutating}
+        canSubmit={canCreateAgent}
+        onClose={() => setAgentHireOpen(false)}
+        onSubmit={handleCreateAgent}
+        onNameChange={(value) => {
+          setAgentCreateForm((current) => ({ ...current, name: value }));
+          setAgentMutation({ status: "idle", message: null, agentId: null });
+        }}
+        onCategoryChange={(value) => {
+          setAgentCreateForm((current) => ({ ...current, category: value }));
+          setAgentMutation({ status: "idle", message: null, agentId: null });
+        }}
+        onWorkspacePathChange={(value) => {
+          setAgentCreateForm((current) => ({ ...current, workspacePath: value }));
+          setAgentMutation({ status: "idle", message: null, agentId: null });
+        }}
+        onEmojiChange={(value) => {
+          setAgentCreateForm((current) => ({ ...current, emoji: value }));
+          setAgentMutation({ status: "idle", message: null, agentId: null });
+        }}
+        onSkillFileAdd={addAgentSkillFile}
+        onSkillFileChange={updateAgentSkillFile}
+        onSkillFileRemove={removeAgentSkillFile}
+      />
       <ConnectionSettingsModal
         modal={connectionModal}
         canManage={canManageConnections}
@@ -3747,6 +3828,199 @@ function ConnectionNotice({
     <div className={`workspace-settings-notice workspace-settings-notice-${tone}`} role={tone === "danger" ? "alert" : "status"}>
       {icon}
       <span>{children}</span>
+    </div>
+  );
+}
+
+function AgentHireModal({
+  open,
+  form,
+  mutation,
+  submitting,
+  canSubmit,
+  onClose,
+  onSubmit,
+  onNameChange,
+  onCategoryChange,
+  onWorkspacePathChange,
+  onEmojiChange,
+  onSkillFileAdd,
+  onSkillFileChange,
+  onSkillFileRemove,
+}: {
+  open: boolean;
+  form: AgentCreateFormState;
+  mutation: AgentMutationState;
+  submitting: boolean;
+  canSubmit: boolean;
+  onClose: () => void;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  onNameChange: (value: string) => void;
+  onCategoryChange: (value: WorkspaceAgentCategory) => void;
+  onWorkspacePathChange: (value: string) => void;
+  onEmojiChange: (value: string) => void;
+  onSkillFileAdd: () => void;
+  onSkillFileChange: (id: string, field: "fileName" | "content", value: string) => void;
+  onSkillFileRemove: (id: string) => void;
+}) {
+  if (!open) {
+    return null;
+  }
+
+  return (
+    <div className="workspace-modal-backdrop" role="presentation">
+      <section
+        className="workspace-modal workspace-agent-hire-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Agent hire"
+      >
+        <header className="workspace-modal-header">
+          <div>
+            <span className="workspace-detail-label">Hire agent</span>
+            <h2>Agent hire</h2>
+          </div>
+          <button className="icon-button workspace-modal-close" type="button" onClick={onClose} aria-label="닫기">
+            <X aria-hidden="true" />
+          </button>
+        </header>
+
+        <form className="workspace-modal-body workspace-agent-hire-form" onSubmit={onSubmit}>
+          <div className="workspace-agent-hire-fields">
+            <label className="form-field">
+              <span>
+                <strong>Agent 이름</strong>
+              </span>
+              <input
+                autoFocus
+                disabled={submitting}
+                onChange={(event) => onNameChange(event.target.value)}
+                placeholder="예: 백엔드 에이전트"
+                value={form.name}
+              />
+            </label>
+
+            <label className="form-field">
+              <span>
+                <strong>역할</strong>
+                <small>{formatAgentCategory(form.category)}</small>
+              </span>
+              <select
+                disabled={submitting}
+                onChange={(event) => onCategoryChange(event.target.value as WorkspaceAgentCategory)}
+                value={form.category}
+              >
+                {AGENT_CATEGORY_OPTIONS.map((category) => (
+                  <option value={category} key={category}>
+                    {formatAgentCategory(category)}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="form-field">
+              <span>
+                <strong>Workspace Path</strong>
+                <small>선택</small>
+              </span>
+              <input
+                disabled={submitting}
+                onChange={(event) => onWorkspacePathChange(event.target.value)}
+                placeholder="/workspace/backend"
+                value={form.workspacePath}
+              />
+            </label>
+
+            <label className="form-field">
+              <span>
+                <strong>Emoji</strong>
+                <small>선택</small>
+              </span>
+              <input
+                disabled={submitting}
+                onChange={(event) => onEmojiChange(event.target.value)}
+                placeholder="🤖"
+                value={form.emoji}
+              />
+            </label>
+
+            <section className="workspace-agent-skill-files" aria-label="Skill 파일">
+              <div className="workspace-section-heading">
+                <div>
+                  <span className="workspace-detail-label">Skill 파일</span>
+                  <p>추가하지 않으면 서버 기본 템플릿만 사용합니다.</p>
+                </div>
+                <button
+                  className="secondary-action workspace-task-refresh"
+                  type="button"
+                  onClick={onSkillFileAdd}
+                  disabled={submitting}
+                >
+                  Skill 파일 추가
+                </button>
+              </div>
+
+              {form.skillFiles.map((skillFile, index) => (
+                <div className="workspace-agent-skill-file" key={skillFile.id}>
+                  <div className="workspace-section-heading">
+                    <span className="workspace-detail-label">Skill {index + 1}</span>
+                    <button
+                      className="secondary-action workspace-task-refresh"
+                      type="button"
+                      onClick={() => onSkillFileRemove(skillFile.id)}
+                      disabled={submitting}
+                    >
+                      삭제
+                    </button>
+                  </div>
+                  <input
+                    disabled={submitting}
+                    onChange={(event) => onSkillFileChange(skillFile.id, "fileName", event.target.value)}
+                    placeholder="backend-agent.md"
+                    value={skillFile.fileName}
+                  />
+                  <textarea
+                    disabled={submitting}
+                    onChange={(event) => onSkillFileChange(skillFile.id, "content", event.target.value)}
+                    placeholder="# Role&#10;- 이 Agent가 따라야 할 작업 규칙을 작성하세요."
+                    rows={5}
+                    value={skillFile.content}
+                  />
+                </div>
+              ))}
+            </section>
+
+            {mutation.status === "error" ? (
+              <div className="form-notice form-notice-error" role="alert">
+                <AlertCircle aria-hidden="true" />
+                <span>{mutation.message}</span>
+              </div>
+            ) : null}
+            {mutation.status === "success" ? (
+              <div className="form-notice form-notice-success" role="status">
+                <ShieldCheck aria-hidden="true" />
+                <span>{mutation.message}</span>
+              </div>
+            ) : null}
+          </div>
+
+          <aside className="workspace-agent-hire-preview" aria-label="Agent hire preview">
+            <div className="workspace-row-icon">
+              <UserRound aria-hidden="true" />
+            </div>
+            {form.emoji.trim() ? <strong>{form.emoji.trim()}</strong> : null}
+            <h3>{formatAgentCategory(form.category)}</h3>
+            <p>OpenClaw 연동 후 workspace 안에 자동 배치됩니다.</p>
+          </aside>
+
+          <div className="workspace-modal-footer">
+            <button className="primary-action primary-action-active" type="submit" disabled={!canSubmit}>
+              {submitting ? <Loader2 className="spin" aria-hidden="true" /> : <UserRound aria-hidden="true" />}
+              <span>고용</span>
+            </button>
+          </div>
+        </form>
+      </section>
     </div>
   );
 }
@@ -5401,6 +5675,37 @@ function formatFileSize(bytes: number): string {
     return `${(bytes / 1024).toFixed(1)}KB`;
   }
   return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
+}
+
+function normalizeAgentSkillFiles(
+  agentSkillFiles: AgentSkillFileDraft[],
+): WorkspaceAgentSkillFileInput[] | null {
+  const normalized = agentSkillFiles.map((skillFile) => ({
+    fileName: skillFile.fileName.trim(),
+    content: skillFile.content.trim(),
+  }));
+
+  if (
+    normalized.some(
+      (skillFile) =>
+        (skillFile.fileName.length === 0 && skillFile.content.length > 0) ||
+        (skillFile.fileName.length > 0 && skillFile.content.length === 0),
+    )
+  ) {
+    return null;
+  }
+
+  return normalized.filter(
+    (skillFile) => skillFile.fileName.length > 0 && skillFile.content.length > 0,
+  );
+}
+
+function createLocalId(): string {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID();
+  }
+
+  return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
 function formatDateTime(value: string): string {
