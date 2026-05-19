@@ -160,7 +160,7 @@ if [[ ! -x "$RUNNER_HOME/config.sh" ]]; then
 fi
 
 if [[ -x "$RUNNER_HOME/bin/installdependencies.sh" ]]; then
-    sudo "$RUNNER_HOME/bin/installdependencies.sh"
+    (cd "$RUNNER_HOME" && sudo ./bin/installdependencies.sh)
 fi
 
 if [[ -f "$RUNNER_HOME/.runner" ]]; then
@@ -177,7 +177,7 @@ sudo -u "$RUNNER_USER" "$RUNNER_HOME/config.sh" \
     --unattended \
     --replace
 
-sudo "$RUNNER_HOME/svc.sh" install "$RUNNER_USER" || true
-sudo "$RUNNER_HOME/svc.sh" start
+(cd "$RUNNER_HOME" && sudo ./svc.sh install "$RUNNER_USER") || true
+(cd "$RUNNER_HOME" && sudo ./svc.sh start)
 
 log "bootstrap finished"

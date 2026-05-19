@@ -114,6 +114,8 @@ require_pattern 'nginx' "$BOOTSTRAP_SCRIPT" "Nginx runtime install"
 require_pattern 'sudoers.d/aquila-office-runner-nginx' "$BOOTSTRAP_SCRIPT" "runner nginx sudoers rule"
 require_pattern 'chown.*RUNNER_USER' "$BOOTSTRAP_SCRIPT" "runner deploy ownership"
 require_pattern 'sudo tar -xzf' "$BOOTSTRAP_SCRIPT" "runner archive extraction with readable privileges"
+require_pattern 'cd "\$RUNNER_HOME".*installdependencies' "$BOOTSTRAP_SCRIPT" "runner dependency install from runner root"
+require_pattern 'cd "\$RUNNER_HOME".*svc.sh' "$BOOTSTRAP_SCRIPT" "runner service command from runner root"
 require_pattern 'actions-runner-linux-arm64' "$BOOTSTRAP_SCRIPT" "ARM64 runner install"
 require_pattern 'oci-a1-staging' "$BOOTSTRAP_SCRIPT" "runner label"
 
