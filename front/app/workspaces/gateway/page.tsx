@@ -32,6 +32,11 @@ type GatewayMutationState = {
   result: WorkspaceGatewayConnectionTest | null;
 };
 
+type GatewayDisplayNames = Record<string, string>;
+
+const GATEWAY_DISPLAY_NAMES_STORAGE_KEY = "aquila-office.gateway-display-names";
+const DISPLAY_NAME_MAX_LENGTH = 80;
+
 const idleGatewayMutationState: GatewayMutationState = {
   status: "idle",
   message: null,
@@ -45,6 +50,13 @@ export default function GatewayRoutePage() {
     error: null,
   });
   const [selectedWorkspaceId, setSelectedWorkspaceId] = useState<number | null>(null);
+  const [gatewayDisplayNameDraft, setGatewayDisplayNameDraft] = useState<{
+    workspaceId: number | null;
+    value: string;
+  }>({ workspaceId: null, value: "" });
+  const [gatewayDisplayNames, setGatewayDisplayNames] = useState<GatewayDisplayNames>(() =>
+    readGatewayDisplayNames(),
+  );
   const [gatewayUrlInput, setGatewayUrlInput] = useState("");
   const [gatewayTokenInput, setGatewayTokenInput] = useState("");
   const [gatewayTestState, setGatewayTestState] =
@@ -101,6 +113,17 @@ export default function GatewayRoutePage() {
       null,
     [selectedWorkspaceId, state.entries],
   );
+  const selectedWorkspaceKey = selectedEntry ? String(selectedEntry.workspace.workspaceId) : null;
+  const selectedGatewayDisplayName = selectedEntry
+    ? (selectedWorkspaceKey ? gatewayDisplayNames[selectedWorkspaceKey] : null) ??
+      selectedEntry.workspace.name
+    : "";
+  const gatewayDisplayNameInput =
+    selectedEntry && gatewayDisplayNameDraft.workspaceId === selectedEntry.workspace.workspaceId
+      ? gatewayDisplayNameDraft.value
+      : selectedGatewayDisplayName;
+  const displayNameError =
+    gatewayDisplayNameInput.trim().length === 0 ? "표시 이름을 입력해 주세요." : null;
   const normalizedGatewayForm = useMemo(
     () =>
       normalizeGatewayForm({
@@ -112,14 +135,23 @@ export default function GatewayRoutePage() {
   );
   const isTestingGateway = gatewayTestState.status === "submitting";
   const isBindingGateway = gatewayBindingState.status === "submitting";
-  const canSubmitGateway =
+  const canTestGateway =
     selectedEntry !== null &&
     normalizedGatewayForm.isValid &&
     !isTestingGateway &&
     !isBindingGateway;
+  const canSubmitGateway = canTestGateway && displayNameError === null;
+  const maskedGatewayTokenLabel =
+    selectedEntry?.gateway?.maskedToken ??
+    maskTransientGatewayToken(gatewayTokenInput) ??
+    "저장된 token 없음";
 
   const handleSelectWorkspace = (entry: GatewayStatusEntry) => {
     setSelectedWorkspaceId(entry.workspace.workspaceId);
+    setGatewayDisplayNameDraft({
+      workspaceId: entry.workspace.workspaceId,
+      value: gatewayDisplayNames[String(entry.workspace.workspaceId)] ?? entry.workspace.name,
+    });
     setGatewayUrlInput(entry.gateway?.gatewayUrl ?? "");
     setGatewayTokenInput("");
     setGatewayTestState(idleGatewayMutationState);
@@ -171,6 +203,15 @@ export default function GatewayRoutePage() {
       return;
     }
 
+    if (displayNameError) {
+      setGatewayBindingState({
+        status: "error",
+        result: null,
+        message: displayNameError,
+      });
+      return;
+    }
+
     if (!normalizedGatewayForm.isValid) {
       setGatewayBindingState({
         status: "error",
@@ -192,6 +233,16 @@ export default function GatewayRoutePage() {
         token: normalizedGatewayForm.token,
         validateConnection: normalizedGatewayForm.validateConnection,
       });
+      const nextGatewayDisplayNames = {
+        ...gatewayDisplayNames,
+        [String(workspaceId)]: gatewayDisplayNameInput.trim(),
+      };
+      setGatewayDisplayNames(nextGatewayDisplayNames);
+      setGatewayDisplayNameDraft({
+        workspaceId,
+        value: gatewayDisplayNameInput.trim(),
+      });
+      writeGatewayDisplayNames(nextGatewayDisplayNames);
       setGatewayTokenInput("");
       setGatewayBindingState({
         status: "success",
@@ -262,9 +313,11 @@ export default function GatewayRoutePage() {
           </div>
         ) : null}
 
-        <div className="workspace-list" aria-label="Gateway workspace 목록">
+        <div className="workspace-list" aria-label="등록된 Gateway 목록">
           {state.entries.map((entry) => {
             const selected = entry.workspace.workspaceId === selectedEntry?.workspace.workspaceId;
+            const displayName =
+              gatewayDisplayNames[String(entry.workspace.workspaceId)] ?? entry.workspace.name;
             return (
               <button
                 className="workspace-row workspace-row-link"
@@ -277,7 +330,7 @@ export default function GatewayRoutePage() {
                   <ServerCog aria-hidden="true" />
                 </div>
                 <div className="workspace-row-main">
-                  <strong>{entry.workspace.name}</strong>
+                  <strong>{displayName}</strong>
                   <p>{entry.error ?? entry.gateway?.gatewayUrl ?? "등록된 gateway URL이 없습니다"}</p>
                 </div>
                 <div className="workspace-row-meta">
@@ -305,7 +358,7 @@ export default function GatewayRoutePage() {
             <div className="workspace-section-heading">
               <div>
                 <p className="eyebrow">Selected</p>
-                <h2>{selectedEntry.workspace.name}</h2>
+                <h2>{selectedGatewayDisplayName}</h2>
               </div>
               <Link
                 className="secondary-action"
@@ -313,6 +366,22 @@ export default function GatewayRoutePage() {
               >
                 설정 열기
               </Link>
+            </div>
+            <div className="workspace-gateway-selected-summary" aria-label="선택된 Gateway 요약">
+              <div>
+                <span>Gateway</span>
+                <strong>{selectedGatewayDisplayName}</strong>
+                <p>{selectedEntry.gateway?.gatewayUrl ?? (gatewayUrlInput || "Gateway URL 미등록")}</p>
+              </div>
+              <div>
+                <span>Token</span>
+                <strong>{maskedGatewayTokenLabel}</strong>
+                <p>
+                  {selectedEntry.gateway?.lastStatus
+                    ? gatewayConnectionStatusLabel(selectedEntry.gateway.lastStatus)
+                    : "연결 확인 전"}
+                </p>
+              </div>
             </div>
             <div className="workspace-summary-grid">
               <StatusTile
@@ -343,7 +412,27 @@ export default function GatewayRoutePage() {
               <div className="workspace-gateway-form-grid">
                 <label className="form-field">
                   <span>
-                    <strong>Gateway URL</strong>
+                    <strong>표시 이름</strong>
+                    <small>{`${gatewayDisplayNameInput.length}/${DISPLAY_NAME_MAX_LENGTH}`}</small>
+                  </span>
+                  <input
+                    value={gatewayDisplayNameInput}
+                    onChange={(event) => {
+                      setGatewayDisplayNameDraft({
+                        workspaceId: selectedEntry.workspace.workspaceId,
+                        value: event.target.value,
+                      });
+                      setGatewayBindingState(idleGatewayMutationState);
+                    }}
+                    maxLength={DISPLAY_NAME_MAX_LENGTH}
+                    placeholder="예: 로컬 OpenClaw Gateway"
+                    disabled={isTestingGateway || isBindingGateway}
+                  />
+                </label>
+
+                <label className="form-field">
+                  <span>
+                    <strong>OpenClaw Gateway URL</strong>
                     <small>http:// 또는 https://</small>
                   </span>
                   <input
@@ -376,6 +465,13 @@ export default function GatewayRoutePage() {
                   />
                 </label>
               </div>
+
+              {displayNameError && gatewayDisplayNameInput.trim().length === 0 ? (
+                <div className="workspace-task-notice" role="alert">
+                  <AlertCircle aria-hidden="true" />
+                  <span>{displayNameError}</span>
+                </div>
+              ) : null}
 
               {normalizedGatewayForm.urlError && gatewayUrlInput.trim().length > 0 ? (
                 <div className="workspace-task-notice" role="alert">
@@ -421,7 +517,7 @@ export default function GatewayRoutePage() {
                   className="secondary-action"
                   type="button"
                   onClick={() => void handleTestGatewayConnection()}
-                  disabled={!canSubmitGateway}
+                  disabled={!canTestGateway}
                 >
                   {isTestingGateway ? (
                     <Loader2 className="spin" aria-hidden="true" />
@@ -433,6 +529,7 @@ export default function GatewayRoutePage() {
                 <button
                   className="primary-action primary-action-active"
                   type="submit"
+                  aria-label="Gateway binding 등록"
                   disabled={!canSubmitGateway}
                 >
                   {isBindingGateway ? (
@@ -440,7 +537,7 @@ export default function GatewayRoutePage() {
                   ) : (
                     <KeyRound aria-hidden="true" />
                   )}
-                  <span>{isBindingGateway ? "등록 중" : "Gateway binding 등록"}</span>
+                  <span>{isBindingGateway ? "등록 중" : "Gateway 등록"}</span>
                 </button>
               </div>
             </form>
@@ -458,6 +555,52 @@ function StatusTile({ label, value }: { label: string; value: string }) {
       <strong>{value}</strong>
     </div>
   );
+}
+
+function readGatewayDisplayNames(): GatewayDisplayNames {
+  if (typeof window === "undefined") {
+    return {};
+  }
+
+  const rawValue = window.localStorage.getItem(GATEWAY_DISPLAY_NAMES_STORAGE_KEY);
+  if (!rawValue) {
+    return {};
+  }
+
+  try {
+    const parsed = JSON.parse(rawValue);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return {};
+    }
+
+    return Object.fromEntries(
+      Object.entries(parsed).filter(
+        (entry): entry is [string, string] =>
+          typeof entry[0] === "string" && typeof entry[1] === "string",
+      ),
+    );
+  } catch {
+    return {};
+  }
+}
+
+function writeGatewayDisplayNames(displayNames: GatewayDisplayNames): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.localStorage.setItem(GATEWAY_DISPLAY_NAMES_STORAGE_KEY, JSON.stringify(displayNames));
+}
+
+function maskTransientGatewayToken(token: string): string | null {
+  const trimmedToken = token.trim();
+  if (trimmedToken.length === 0) {
+    return null;
+  }
+  if (trimmedToken.length <= 8) {
+    return "****";
+  }
+  return `${trimmedToken.slice(0, 4)}****${trimmedToken.slice(-4)}`;
 }
 
 function messageFromError(error: unknown, fallback: string): string {

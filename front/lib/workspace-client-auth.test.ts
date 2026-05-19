@@ -106,6 +106,18 @@ test("frontend exposes workspace gateway route binding controls", () => {
   assert.match(source, /Gateway binding 등록/);
 });
 
+test("frontend exposes workspace gateway registration UX contract", () => {
+  const source = readSource("app/workspaces/gateway/page.tsx");
+
+  assert.match(source, /gatewayDisplayNameInput/);
+  assert.match(source, /<strong>표시 이름<\/strong>/);
+  assert.match(source, /<strong>OpenClaw Gateway URL<\/strong>/);
+  assert.match(source, /aria-label="등록된 Gateway 목록"/);
+  assert.match(source, /aria-label="선택된 Gateway 요약"/);
+  assert.match(source, /maskedGatewayTokenLabel/);
+  assert.match(source, /Gateway 등록/);
+});
+
 test("workspace settings exposes slack integration controls", () => {
   const source = readSource("app/workspaces/[workspaceId]/settings/page.tsx");
 
