@@ -136,13 +136,51 @@ export type StageSize = {
 
 export type StageRoomSpec = {
   label: string;
+  sub?: string;
   left: string;
   top: string;
   width: string;
   height: string;
-  variant: "engineering" | "planning" | "review" | "rest";
+  color?: string;
+  variant: "engineering" | "huddle" | "rest" | "library" | "planning" | "review";
   doorSide: "top" | "right" | "bottom" | "left";
   doorAt: number;
+};
+
+export type WorkspaceAvatarKind =
+  | "alex"
+  | "mira"
+  | "kenji"
+  | "yuna"
+  | "diego"
+  | "iris"
+  | "agent";
+
+export type WorkspaceStageActorStatus = "working" | "idle" | "review" | "blocked";
+
+export type WorkspaceStageActorMotion = "working" | "idle" | "talking" | "walking";
+
+export type WorkspaceStageActor = {
+  id: string;
+  kind: WorkspaceSceneNodeKind;
+  label: string;
+  detail: string;
+  sourceStatus: string;
+  status: WorkspaceStageActorStatus;
+  motion: WorkspaceStageActorMotion;
+  position: StageActorPosition;
+  avatarKind: WorkspaceAvatarKind;
+};
+
+export type WorkspaceStageActorsInput = WorkspaceAvatarNodesInput & {
+  rooms?: StageRoomSpec[];
+  worldSize?: StageSize;
+};
+
+export type WorkspaceActorSpeech = {
+  label: string;
+  text: string;
+  tone: WorkspaceStageActorStatus;
 };
 
 export type WallSegment = {
@@ -164,6 +202,42 @@ const QUEST_MARKER_POSITION: StageActorPosition = { left: "90.4%", top: "75.8%" 
 const QUEST_INTERACTION_RADIUS_PCT = 6.5;
 const WALL_DOOR_HALF_PCT = 5;
 const PLAYER_WALL_PADDING_PCT = 0.6;
+const AGENT_DESK_COL_CENTERS = [16, 33, 50, 67];
+const STAGE_WORLD_WIDTH = 1800;
+const STAGE_WORLD_MIN_HEIGHT = 950;
+const ENGINEERING_X = 40;
+const ENGINEERING_Y = 90;
+const ENGINEERING_W = 620;
+const HUDDLE_X = 710;
+const HUDDLE_Y = 90;
+const HUDDLE_W = 390;
+const HUDDLE_H = 260;
+const LOWER_ZONE_GAP = 100;
+const LOUNGE_X = 40;
+const LOUNGE_W = 620;
+const LOUNGE_H = 320;
+const LIBRARY_X = 710;
+const LIBRARY_W = 1040;
+const LIBRARY_H = 430;
+const AGENT_LOUNGE_POSITIONS = [
+  { x: 20, y: 70 },
+  { x: 42, y: 58 },
+  { x: 64, y: 68 },
+  { x: 76, y: 42 },
+  { x: 30, y: 36 },
+  { x: 52, y: 80 },
+];
+const MEMBER_POSITIONS: StageActorPosition[] = [
+  { left: "36.8%", top: "54%" },
+  { left: "45.1%", top: "23.5%" },
+  { left: "54.2%", top: "31.2%" },
+  { left: "14.6%", top: "68.5%" },
+  { left: "20.8%", top: "68.5%" },
+  { left: "58.8%", top: "59.5%" },
+  { left: "72.0%", top: "59.5%" },
+  { left: "8.6%", top: "80%" },
+];
+const MEMBER_AVATAR_KINDS: WorkspaceAvatarKind[] = ["mira", "alex", "kenji", "yuna", "diego", "iris"];
 
 export function clampStageZoom(value: number): number {
   return Math.min(STAGE_ZOOM_MAX, Math.max(STAGE_ZOOM_MIN, Number(value.toFixed(3))));
@@ -176,6 +250,254 @@ export function pct(value: number): string {
 export function parseStagePct(value: string): number {
   const parsed = Number.parseFloat(value);
   return Number.isFinite(parsed) ? parsed : 50;
+}
+
+export function getEngineeringRows(agentCount: number): number {
+  return Math.max(2, Math.ceil(Math.max(agentCount, 1) / AGENT_DESK_COL_CENTERS.length));
+}
+
+function getEngineeringHeightPx(rows: number): number {
+  return 320 + Math.max(0, rows - 2) * 130;
+}
+
+export function getStageWorldSize(engineeringRows: number): StageSize {
+  const lowerTop = ENGINEERING_Y + getEngineeringHeightPx(engineeringRows) + LOWER_ZONE_GAP;
+  return {
+    width: STAGE_WORLD_WIDTH,
+    height: Math.max(STAGE_WORLD_MIN_HEIGHT, lowerTop + Math.max(LOUNGE_H, LIBRARY_H) + 90),
+  };
+}
+
+function pxToStagePct(value: number, total: number): string {
+  return pct((value / total) * 100);
+}
+
+export function getStageRooms(
+  engineeringRows: number,
+  worldSize: StageSize,
+  agentCount: number,
+): StageRoomSpec[] {
+  const engineeringHeight = getEngineeringHeightPx(engineeringRows);
+  const lowerTop = ENGINEERING_Y + engineeringHeight + LOWER_ZONE_GAP;
+  return [
+    {
+      label: "ENGINEERING",
+      sub: `${agentCount} agents · ${engineeringRows} rows`,
+      left: pxToStagePct(ENGINEERING_X, worldSize.width),
+      top: pxToStagePct(ENGINEERING_Y, worldSize.height),
+      width: pxToStagePct(ENGINEERING_W, worldSize.width),
+      height: pxToStagePct(engineeringHeight, worldSize.height),
+      variant: "engineering",
+      doorSide: "right",
+      doorAt: 0.72,
+    },
+    {
+      label: "HUDDLE",
+      sub: "meeting in progress",
+      left: pxToStagePct(HUDDLE_X, worldSize.width),
+      top: pxToStagePct(HUDDLE_Y, worldSize.height),
+      width: pxToStagePct(HUDDLE_W, worldSize.width),
+      height: pxToStagePct(HUDDLE_H, worldSize.height),
+      variant: "huddle",
+      doorSide: "bottom",
+      doorAt: 0.5,
+    },
+    {
+      label: "LOUNGE",
+      sub: "rest zone",
+      left: pxToStagePct(LOUNGE_X, worldSize.width),
+      top: pxToStagePct(lowerTop, worldSize.height),
+      width: pxToStagePct(LOUNGE_W, worldSize.width),
+      height: pxToStagePct(LOUNGE_H, worldSize.height),
+      variant: "rest",
+      doorSide: "top",
+      doorAt: 0.44,
+    },
+    {
+      label: "LIBRARY",
+      sub: "quiet zone",
+      left: pxToStagePct(LIBRARY_X, worldSize.width),
+      top: pxToStagePct(lowerTop, worldSize.height),
+      width: pxToStagePct(LIBRARY_W, worldSize.width),
+      height: pxToStagePct(LIBRARY_H, worldSize.height),
+      variant: "library",
+      doorSide: "left",
+      doorAt: 0.25,
+    },
+  ];
+}
+
+function getDeskRowCenters(rows: number): number[] {
+  if (rows <= 1) {
+    return [55];
+  }
+  if (rows === 2) {
+    return [38.5, 67.5];
+  }
+  const start = 28;
+  const end = 82;
+  const step = (end - start) / (rows - 1);
+  return Array.from({ length: rows }, (_, index) => start + index * step);
+}
+
+function getDeskHeightPct(rows: number): number {
+  if (rows <= 2) {
+    return 15;
+  }
+  return Math.max(8, Math.min(15, 60 / rows));
+}
+
+export function getAgentPositionInStage(
+  agentIndex: number,
+  rows: number,
+  room: StageRoomSpec,
+): StageActorPosition {
+  const columnIndex = agentIndex % AGENT_DESK_COL_CENTERS.length;
+  const rowIndex = Math.floor(agentIndex / AGENT_DESK_COL_CENTERS.length);
+  const roomLeft = parseStagePct(room.left);
+  const roomTop = parseStagePct(room.top);
+  const roomWidth = parseStagePct(room.width);
+  const roomHeight = parseStagePct(room.height);
+  const deskCenterX = AGENT_DESK_COL_CENTERS[columnIndex];
+  const rowCenters = getDeskRowCenters(rows);
+  const deskCenterY = rowCenters[rowIndex] ?? rowCenters[rowCenters.length - 1];
+  const avatarFootY = deskCenterY - getDeskHeightPct(rows) * 0.3;
+
+  return {
+    left: pct(roomLeft + (deskCenterX / 100) * roomWidth),
+    top: pct(roomTop + (avatarFootY / 100) * roomHeight),
+  };
+}
+
+export function getAgentLoungePosition(agentIndex: number, room: StageRoomSpec): StageActorPosition {
+  const slot = AGENT_LOUNGE_POSITIONS[agentIndex % AGENT_LOUNGE_POSITIONS.length];
+  const round = Math.floor(agentIndex / AGENT_LOUNGE_POSITIONS.length);
+  const roomLeft = parseStagePct(room.left);
+  const roomTop = parseStagePct(room.top);
+  const roomWidth = parseStagePct(room.width);
+  const roomHeight = parseStagePct(room.height);
+  const offset = (round % 2) * 4;
+
+  return {
+    left: pct(roomLeft + ((slot.x + offset) / 100) * roomWidth),
+    top: pct(roomTop + ((slot.y + offset) / 100) * roomHeight),
+  };
+}
+
+export function mapWorkspaceAgentStatusToActorStatus(status: string): WorkspaceStageActorStatus {
+  switch (status) {
+    case "CREATING":
+      return "working";
+    case "DISABLED":
+      return "review";
+    case "ERROR":
+    case "SYNC_FAILED":
+      return "blocked";
+    case "READY":
+    default:
+      return "idle";
+  }
+}
+
+function mapWorkspaceMemberStatusToActorStatus(status: string | null | undefined): WorkspaceStageActorStatus {
+  return status === "ACTIVE" ? "idle" : "review";
+}
+
+function pickWorkspaceAvatarKind(name: string, agent = false): WorkspaceAvatarKind {
+  if (agent) {
+    return "agent";
+  }
+  let hash = 0;
+  for (let index = 0; index < name.length; index += 1) {
+    hash = (hash * 31 + name.charCodeAt(index)) >>> 0;
+  }
+  return MEMBER_AVATAR_KINDS[hash % MEMBER_AVATAR_KINDS.length];
+}
+
+function getWorkspaceActorMotion(status: WorkspaceStageActorStatus): WorkspaceStageActorMotion {
+  if (status === "working") {
+    return "working";
+  }
+  if (status === "review" || status === "blocked") {
+    return "talking";
+  }
+  return "idle";
+}
+
+export function getWorkspaceActorSpeech(actor: WorkspaceStageActor): WorkspaceActorSpeech | null {
+  if (actor.kind !== "agent") {
+    return null;
+  }
+  if (actor.status === "working") {
+    return { label: "진행중", text: "", tone: "working" };
+  }
+  if (actor.status === "review") {
+    return { label: "리뷰", text: "", tone: "review" };
+  }
+  if (actor.status === "blocked") {
+    return { label: "확인 필요", text: "", tone: "blocked" };
+  }
+  return null;
+}
+
+export function createWorkspaceStageActors(input: WorkspaceStageActorsInput): WorkspaceStageActor[] {
+  const rows = getEngineeringRows(input.agents.length);
+  const worldSize = input.worldSize ?? getStageWorldSize(rows);
+  const rooms = input.rooms?.length ? input.rooms : getStageRooms(rows, worldSize, input.agents.length);
+  const engineeringRoom = rooms.find((room) => room.variant === "engineering") ?? rooms[0];
+  const restRoom = rooms.find((room) => room.variant === "rest") ?? null;
+  const presenceByMemberId = new Map(
+    input.presenceMembers.map((member) => [member.memberId, member]),
+  );
+
+  const agentActors = input.agents.map<WorkspaceStageActor>((agent, index) => {
+    const status = mapWorkspaceAgentStatusToActorStatus(agent.status);
+    const position =
+      status === "review" && restRoom
+        ? getAgentLoungePosition(index, restRoom)
+        : getAgentPositionInStage(index, rows, engineeringRoom);
+    return {
+      id: `agent-${agent.agentId}`,
+      kind: "agent",
+      label: agent.name,
+      detail: `${agent.category} · ${agent.status}`,
+      sourceStatus: agent.status,
+      status,
+      motion: getWorkspaceActorMotion(status),
+      position,
+      avatarKind: "agent",
+    };
+  });
+
+  const memberActors = input.members.map<WorkspaceStageActor>((member, index) => {
+    const presence = presenceByMemberId.get(member.memberId);
+    const status = mapWorkspaceMemberStatusToActorStatus(presence?.status);
+    return {
+      id: `member-${member.memberId}`,
+      kind: "member",
+      label: member.name,
+      detail: `${member.email} · ${member.role}`,
+      sourceStatus: presence?.status ?? "OFFLINE",
+      status,
+      motion: getWorkspaceActorMotion(status),
+      position: presence?.position ?? MEMBER_POSITIONS[index % MEMBER_POSITIONS.length],
+      avatarKind: pickWorkspaceAvatarKind(member.name),
+    };
+  });
+
+  return [...agentActors, ...memberActors];
+}
+
+export function getWorkspaceActorScreenPosition(
+  position: StageActorPosition,
+  viewport: WorkspaceViewport,
+): { left: number; top: number } {
+  const worldX = (parseStagePct(position.left) / 100) * viewport.worldWidth;
+  const worldY = (parseStagePct(position.top) / 100) * viewport.worldHeight;
+  return {
+    left: (worldX - viewport.x) * viewport.zoom,
+    top: (worldY - viewport.y) * viewport.zoom,
+  };
 }
 
 export function buildStageWalls(rooms: StageRoomSpec[]): WallSegment[] {
