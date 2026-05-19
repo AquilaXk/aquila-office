@@ -1887,6 +1887,10 @@ h2 {
   filter: drop-shadow(0 0 9px rgba(111, 159, 121, 0.5));
 }
 
+.stage-actor-player .stage-actor__avatar {
+  filter: drop-shadow(0 0 14px rgba(227, 198, 130, 0.72));
+}
+
 .stage-actor-selected .stage-actor__avatar,
 .stage-actor:hover .stage-actor__avatar {
   filter: drop-shadow(0 0 14px rgba(227, 198, 130, 0.78));
@@ -1928,6 +1932,23 @@ h2 {
   text-align: center;
   transform: translateX(-50%);
   white-space: nowrap;
+}
+
+.stage-actor__player-marker {
+  position: absolute;
+  top: -42px;
+  left: 50%;
+  border: 1px solid rgba(227, 198, 130, 0.72);
+  border-radius: 6px;
+  background: rgba(16, 18, 20, 0.9);
+  color: var(--gothic-brass);
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 1px;
+  padding: 3px 7px;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  animation: stage-actor-player-marker 900ms steps(2, end) infinite;
 }
 
 .stage-actor__dot {
@@ -2051,6 +2072,16 @@ h2 {
   50% {
     opacity: 1;
     filter: brightness(1.14);
+  }
+}
+
+@keyframes stage-actor-player-marker {
+  0%,
+  100% {
+    opacity: 0.8;
+  }
+  50% {
+    opacity: 1;
   }
 }
 

@@ -130,7 +130,7 @@ import {
   type SlackIntegration,
   writeStoredSlackIntegration,
 } from "@/lib/slack";
-import type { WorkspaceSceneNode } from "@/lib/workspace-2d";
+import type { StageActorPosition, WorkspaceSceneNode } from "@/lib/workspace-2d";
 import {
   fetchWorkspaceDashboardSummary,
   fetchWorkspaceDetail,
@@ -458,6 +458,8 @@ export default function WorkspaceDetailPage({
   const [presenceStreamStatus, setPresenceStreamStatus] =
     useState<PresenceStreamStatus>("idle");
   const [presenceEvents, setPresenceEvents] = useState<WorkspacePresenceMessage[]>([]);
+  const [playerPositionOverride, setPlayerPositionOverride] =
+    useState<StageActorPosition | null>(null);
   const [presenceMutation, setPresenceMutation] = useState<PresenceMutationState>({
     status: "idle",
     message: null,
@@ -2159,6 +2161,18 @@ export default function WorkspaceDetailPage({
     },
     [isUpdatingPresence, numericWorkspaceId],
   );
+  const defaultPlayerPosition = useMemo<StageActorPosition>(
+    () => ({ left: "36.8%", top: "54%" }),
+    [],
+  );
+  const playerPosition = playerPositionOverride ?? defaultPlayerPosition;
+  const handlePlayerPositionChange = useCallback(
+    (position: StageActorPosition) => {
+      setPlayerPositionOverride(position);
+      void updatePresencePosition(position, "2D workspace 위치가 갱신되었습니다.");
+    },
+    [updatePresencePosition],
+  );
 
   const handleUpdatePresencePosition = async () => {
     if (!isValidWorkspaceId(numericWorkspaceId) || isUpdatingPresence) {
@@ -2358,6 +2372,9 @@ export default function WorkspaceDetailPage({
                 agents={workspaceAgents}
                 members={members}
                 presenceMembers={onlinePresenceMembers}
+                playerPosition={playerPosition}
+                playerAvatar={storedCharacterProfile}
+                onPlayerPositionChange={handlePlayerPositionChange}
                 onActorSelect={handleSelectActor}
                 onPresenceMove={(position) =>
                   updatePresencePosition(position, "2D workspace 위치가 갱신되었습니다.")
