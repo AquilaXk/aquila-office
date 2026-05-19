@@ -155,7 +155,8 @@ if [[ ! -x "$RUNNER_HOME/config.sh" ]]; then
     tmp_dir="$(mktemp -d)"
     trap 'rm -rf "$tmp_dir"' EXIT
     curl -fsSL "$runner_url" -o "$tmp_dir/$runner_tar"
-    sudo -u "$RUNNER_USER" tar -xzf "$tmp_dir/$runner_tar" -C "$RUNNER_HOME"
+    sudo tar -xzf "$tmp_dir/$runner_tar" -C "$RUNNER_HOME"
+    sudo chown -R "$RUNNER_USER:$RUNNER_USER" "$RUNNER_HOME"
 fi
 
 if [[ -x "$RUNNER_HOME/bin/installdependencies.sh" ]]; then
