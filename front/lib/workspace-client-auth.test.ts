@@ -51,10 +51,23 @@ test("invite accept page redirects unauthenticated users and returns to workspac
   assert.match(source, /router\.replace\("\/workspaces"\)/);
   assert.match(source, /workspaceName/);
   assert.match(source, /inviteRole/);
+  assert.match(source, /formatInviteTarget/);
+  assert.match(source, /invite\.targetEmail/);
+  assert.doesNotMatch(source, /invite\.email/);
   assert.match(source, /isInviteExpired/);
   assert.match(inviteApiSource, /workspaceName\?: string/);
   assert.match(inviteApiSource, /expired\?: boolean/);
   assert.match(inviteApiSource, /"REVOKED"/);
+});
+
+test("workspace detail invite creation uses the target email invite contract", () => {
+  const source = readSource("app/workspaces/[workspaceId]/page.tsx");
+
+  assert.match(source, /createWorkspaceInvite/);
+  assert.match(source, /targetEmail: email/);
+  assert.match(source, /formatInviteTarget/);
+  assert.doesNotMatch(source, /\{ email \}/);
+  assert.doesNotMatch(source, /inviteState\.invite\.email/);
 });
 
 test("workspace client exposes dashboard summary and member task stats contracts", () => {

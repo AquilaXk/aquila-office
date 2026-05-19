@@ -39,15 +39,24 @@ test("workspace settings keeps destructive workspace actions inside a confirmati
 
 test("workspace settings supports invite creation and invite list actions", () => {
   assert.match(settingsSource, /type InviteCreateMode = "email" \| "link";/);
+  assert.match(settingsSource, /{ value: "ALL", label: "ALL" }/);
+  assert.match(settingsSource, /{ value: "PENDING", label: "PENDING" }/);
   assert.match(settingsSource, /inviteCreateMode/);
   assert.match(settingsSource, /inviteRole/);
   assert.match(settingsSource, /inviteExpiresInDays/);
   assert.match(settingsSource, /inviteCreateMode === "link" \|\| trimmedInviteEmail\.length > 0/);
   assert.match(settingsSource, /aria-label="공유 링크 모드"/);
   assert.match(settingsSource, /createWorkspaceInvite/);
+  assert.match(settingsSource, /targetEmail: trimmedInviteEmail/);
+  assert.doesNotMatch(settingsSource, /email: trimmedInviteEmail/);
+  assert.match(settingsSource, /const inviteUrl = createInviteUrl\(invite\)/);
+  assert.match(settingsSource, /await writeClipboardText\(inviteUrl\)/);
+  assert.match(settingsSource, /createdInviteUrl/);
+  assert.match(settingsSource, /createdInviteCopied/);
   assert.match(settingsSource, /copyCreatedInviteUrl/);
   assert.match(settingsSource, /createdInvite/);
   assert.match(settingsSource, /extendWorkspaceInvite/);
+  assert.match(settingsSource, /additionalDays: 7/);
   assert.match(settingsSource, /deleteWorkspaceInvite/);
   assert.match(settingsSource, /copyInviteManagementUrl/);
   assert.match(settingsSource, /workspace-invite-create-mode/);
@@ -55,10 +64,17 @@ test("workspace settings supports invite creation and invite list actions", () =
   assert.match(settingsSource, /workspace-invite-copy/);
   assert.match(settingsSource, /workspace-invite-extend/);
   assert.match(settingsSource, /workspace-invite-delete/);
+  assert.match(settingsSource, />COPY</);
+  assert.match(settingsSource, />\+7D</);
+  assert.match(settingsSource, />DEL</);
+  assert.match(settingsSource, /invite\.status === "ACCEPTED"/);
+  assert.match(settingsSource, /router\.replace\("\/workspaces"\)/);
 });
 
 test("invite client exposes management endpoints used by settings", () => {
-  assert.match(inviteApiSource, /email\?: string/);
+  assert.match(inviteApiSource, /targetEmail\?: string/);
+  assert.doesNotMatch(inviteApiSource, /email\?: string/);
+  assert.match(inviteApiSource, /inviteUrl\?: string/);
   assert.match(inviteApiSource, /type ExtendWorkspaceInviteInput/);
   assert.match(inviteApiSource, /additionalDays/);
   assert.match(inviteApiSource, /extendWorkspaceInvite/);
