@@ -163,19 +163,27 @@ if [[ -x "$RUNNER_HOME/bin/installdependencies.sh" ]]; then
     (cd "$RUNNER_HOME" && sudo ./bin/installdependencies.sh)
 fi
 
-if [[ -f "$RUNNER_HOME/.runner" ]]; then
-    log "runner is already configured; replacing registration"
-    sudo -u "$RUNNER_USER" "$RUNNER_HOME/config.sh" remove --unattended --token "$GITHUB_RUNNER_TOKEN" || true
+if [[ -x "$RUNNER_HOME/svc.sh" ]]; then
+    (cd "$RUNNER_HOME" && sudo ./svc.sh stop) || true
+    (cd "$RUNNER_HOME" && sudo ./svc.sh uninstall) || true
 fi
 
-sudo -u "$RUNNER_USER" "$RUNNER_HOME/config.sh" \
-    --url "https://github.com/${GITHUB_REPOSITORY}" \
-    --token "$GITHUB_RUNNER_TOKEN" \
-    --name "$GITHUB_RUNNER_NAME" \
-    --labels "$GITHUB_RUNNER_LABELS" \
-    --work _work \
-    --unattended \
-    --replace
+if [[ -f "$RUNNER_HOME/.runner" ]]; then
+    log "runner is already configured; replacing registration"
+    (cd "$RUNNER_HOME" && sudo -u "$RUNNER_USER" ./config.sh remove --token "$GITHUB_RUNNER_TOKEN") || true
+fi
+
+(
+    cd "$RUNNER_HOME"
+    sudo -u "$RUNNER_USER" ./config.sh \
+        --url "https://github.com/${GITHUB_REPOSITORY}" \
+        --token "$GITHUB_RUNNER_TOKEN" \
+        --name "$GITHUB_RUNNER_NAME" \
+        --labels "$GITHUB_RUNNER_LABELS" \
+        --work _work \
+        --unattended \
+        --replace
+)
 
 (cd "$RUNNER_HOME" && sudo ./svc.sh install "$RUNNER_USER") || true
 (cd "$RUNNER_HOME" && sudo ./svc.sh start)
