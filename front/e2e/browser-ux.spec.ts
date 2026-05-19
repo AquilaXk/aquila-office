@@ -97,6 +97,15 @@ test.describe("브라우저 UI UX 회귀", () => {
     await expect(page.getByText("워크스페이스 fixture 오류").first()).toBeVisible();
   });
 
+  test("인증 없는 워크스페이스 생성 접근은 title screen으로 되돌린다", async ({ page }) => {
+    await installMockApi(page);
+
+    await page.goto("/workspaces/new");
+
+    await page.waitForURL((url) => url.pathname === "/");
+    await expect(page.getByRole("heading", { name: "AQUILA OFFICE" })).toBeVisible();
+  });
+
   test("title screen에서 워크스페이스 목록으로 이동하고 워크스페이스를 생성한다", async ({ page }) => {
     await installMockApi(page);
     await seedAuthTokens(page);
@@ -112,12 +121,24 @@ test.describe("브라우저 UI UX 회귀", () => {
     await expect(page.getByText("ENTER")).toBeVisible();
 
     await page.getByRole("link", { name: "새 Workspace" }).click();
-    await page.getByPlaceholder("예: Product Engineering").fill("Platform Ops");
-    await page.getByPlaceholder("워크스페이스 목적이나 팀 설명을 입력하세요.").fill("운영 자동화 점검");
-    await page.getByRole("button", { name: "생성" }).click();
+    await expect(page.getByText("FORM A NEW WORKSPACE")).toBeVisible();
+    await expect(page.getByText("0/100")).toBeVisible();
+    await expect(page.getByText("0/500")).toBeVisible();
+    await expect(page.getByRole("link", { name: "CANCEL" })).toHaveAttribute("href", "/workspaces");
 
-    await expect(page.getByText("Platform Ops 워크스페이스가 생성되었습니다.")).toBeVisible();
-    await expect(page.getByRole("link", { name: "상세 보기" })).toHaveAttribute("href", `/workspaces/${workspaceId}`);
+    await page.getByLabel(/WORKSPACE NAME/).fill(" Platform Ops ");
+    await page.getByLabel(/BRIEFING/).fill(" 운영 자동화 점검 ");
+    const createRequest = page.waitForRequest((request) => {
+      const url = new URL(request.url());
+      return request.method() === "POST" && url.pathname === "/api/v1/workspaces";
+    });
+    await page.getByRole("button", { name: /FORM WORKSPACE/ }).click();
+    const createPayload = JSON.parse((await createRequest).postData() ?? "{}");
+    expect(createPayload).toEqual({
+      name: "Platform Ops",
+      description: "운영 자동화 점검",
+    });
+    await page.waitForURL((url) => url.pathname === `/workspaces/${workspaceId}`);
   });
 
   test("인증 라우트가 Google 로그인과 인증 후 returnTo 이동을 유지한다", async ({ page }) => {
