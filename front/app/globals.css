@@ -124,6 +124,7 @@ button {
 .auth-panel {
   display: grid;
   width: var(--title-shell-width);
+  height: var(--title-shell-min-height);
   min-height: var(--title-shell-min-height);
   align-content: start;
   justify-items: center;
