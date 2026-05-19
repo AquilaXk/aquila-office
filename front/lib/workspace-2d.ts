@@ -183,6 +183,16 @@ export type WorkspaceActorSpeech = {
   tone: WorkspaceStageActorStatus;
 };
 
+export type StageMiniMapRoom = {
+  id: string;
+  label: string;
+  x: string;
+  y: string;
+  w: string;
+  h: string;
+  variant: StageRoomSpec["variant"];
+};
+
 export type WallSegment = {
   axis: "h" | "v";
   fixed: number;
@@ -325,6 +335,31 @@ export function getStageRooms(
       doorAt: 0.25,
     },
   ];
+}
+
+export function getStageMiniMapRooms(rooms: StageRoomSpec[]): StageMiniMapRoom[] {
+  return rooms.map((room) => ({
+    id: `room-${room.label.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`,
+    label: room.label,
+    x: room.left,
+    y: room.top,
+    w: room.width,
+    h: room.height,
+    variant: room.variant,
+  }));
+}
+
+export function focusWorkspaceViewportOnStagePosition(
+  viewport: WorkspaceViewport,
+  position: StageActorPosition,
+): WorkspaceViewport {
+  const worldX = (parseStagePct(position.left) / 100) * viewport.worldWidth;
+  const worldY = (parseStagePct(position.top) / 100) * viewport.worldHeight;
+  return clampViewport({
+    ...viewport,
+    x: worldX - viewport.width / (2 * viewport.zoom),
+    y: worldY - viewport.height / (2 * viewport.zoom),
+  });
 }
 
 function getDeskRowCenters(rows: number): number[] {
