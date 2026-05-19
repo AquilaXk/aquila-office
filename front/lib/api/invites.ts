@@ -1,17 +1,20 @@
 import { apiFetch } from "./index.ts";
 import { type WorkspaceMemberRole } from "../workspaces.ts";
 
-export type WorkspaceInviteStatus = "PENDING" | "ACCEPTED" | "EXPIRED";
-export type WorkspaceInviteManagementStatus = WorkspaceInviteStatus | "REVOKED";
+export type WorkspaceInviteStatus = "PENDING" | "ACCEPTED" | "EXPIRED" | "REVOKED";
+export type WorkspaceInviteManagementStatus = WorkspaceInviteStatus;
 
 export type WorkspaceInvite = {
   inviteId: number;
   workspaceId: number;
+  workspaceName?: string;
   email: string;
+  role?: WorkspaceMemberRole;
   token: string;
   status: WorkspaceInviteStatus;
   createdAt: string;
   expiresAt: string;
+  expired?: boolean;
   acceptedAt: string | null;
 };
 

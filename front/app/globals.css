@@ -1041,6 +1041,12 @@ h2 {
   color: var(--red);
 }
 
+.invite-status-revoked {
+  border: 1px solid var(--border);
+  background: rgba(31, 35, 39, 0.58);
+  color: var(--text-muted);
+}
+
 .invite-notice {
   display: flex;
   align-items: center;

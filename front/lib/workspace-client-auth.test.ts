@@ -42,6 +42,21 @@ test("workspace pages resolve access token through auth session helper", () => {
   }
 });
 
+test("invite accept page redirects unauthenticated users and returns to workspace list on success", () => {
+  const source = readSource("app/invites/[token]/page.tsx");
+  const inviteApiSource = readSource("lib/api/invites.ts");
+
+  assert.match(source, /isAuthenticated/);
+  assert.match(source, /router\.replace\("\/"\)/);
+  assert.match(source, /router\.replace\("\/workspaces"\)/);
+  assert.match(source, /workspaceName/);
+  assert.match(source, /inviteRole/);
+  assert.match(source, /isInviteExpired/);
+  assert.match(inviteApiSource, /workspaceName\?: string/);
+  assert.match(inviteApiSource, /expired\?: boolean/);
+  assert.match(inviteApiSource, /"REVOKED"/);
+});
+
 test("workspace client exposes dashboard summary and member task stats contracts", () => {
   const source = readSource("lib/workspaces.ts");
 
@@ -149,10 +164,14 @@ test("frontend exposes slack integration result routes", () => {
   const failSource = readSource("app/settings/integrations/fail/page.tsx");
 
   assert.match(successSource, /SlackIntegrationSuccessPage/);
-  assert.match(successSource, /aio\.slack\.returnTo/);
+  assert.match(successSource, /aquila-office\.pendingSlackReturnTo/);
+  assert.match(successSource, /aquila-office\.pendingSlackWorkspaceId/);
+  assert.match(successSource, /fetchSlackIntegrations/);
+  assert.match(successSource, /aio\.workspace\.\$\{workspaceId\}\.integrations\.slack/);
+  assert.match(successSource, /setTimeout\(\(\) => router\.push\(nextReturnTo\), 2500\)/);
   assert.match(successSource, /연동 목록으로 이동/);
   assert.match(failSource, /SlackIntegrationFailPage/);
-  assert.match(failSource, /aio\.slack\.returnTo/);
+  assert.match(failSource, /aquila-office\.pendingSlackReturnTo/);
   assert.match(failSource, /재시도/);
 });
 
