@@ -272,6 +272,8 @@ jobs:
             --platform linux/arm64 \
             -f front/Dockerfile \
             --build-arg NEXT_PUBLIC_API_BASE_URL="$NEXT_PUBLIC_API_BASE_URL" \
+            --build-arg NEXT_PUBLIC_GOOGLE_CLIENT_ID="$NEXT_PUBLIC_GOOGLE_CLIENT_ID" \
+            --build-arg NEXT_PUBLIC_SITE_URL="$NEXT_PUBLIC_SITE_URL" \
             -t "$FRONTEND_IMAGE_REF" \
             --output type=docker,dest=frontend-image.tar \
             .
@@ -323,6 +325,7 @@ jobs:
       FRONTEND_IMAGE_REF: ${{ needs.prepare.outputs.frontend_image_ref }}
       SHORT_SHA: ${{ needs.prepare.outputs.short_sha }}
       TARGET_SLOT: ${{ needs.prepare.outputs.target_slot }}
+      VERTEX_KEY_JSON_B64: ${{ secrets.OCI_A1_VERTEX_KEY_JSON_B64 || secrets.VERTEX_KEY_JSON_B64 }}
 
     steps:
       - name: Checkout deployment SHA
@@ -349,10 +352,11 @@ jobs:
           set -euo pipefail
           scripts/deploy/materialize-backend-env.sh --output deploy-debug/backend.env
           scripts/deploy/materialize-frontend-env.sh --output deploy-debug/frontend.env
+          scripts/deploy/materialize-vertex-key.sh --output deploy-debug/vertex-key.json
           {
             echo "### Deploy env"
             echo ""
-            echo "Backend and frontend env files were decoded and validated. Values are not printed or uploaded."
+            echo "Backend/frontend env files and Vertex key were decoded and validated. Values are not printed or uploaded."
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Create GitHub deployment
@@ -425,6 +429,7 @@ jobs:
             --image "$BACKEND_IMAGE_REF" \
             --image-tar backend-image.tar \
             --env-file deploy-debug/backend.env \
+            --vertex-key-file deploy-debug/vertex-key.json \
             --doctor-script scripts/deploy/oci-staging-doctor.sh \
             "${slot_arg[@]}" \
             | tee deploy-debug/backend-deploy.log
@@ -468,7 +473,7 @@ jobs:
       - name: Remove transient env files
         if: always()
         shell: bash
-        run: rm -f deploy-debug/backend.env deploy-debug/frontend.env
+        run: rm -f deploy-debug/backend.env deploy-debug/frontend.env deploy-debug/vertex-key.json
 
       - name: Mark deployment success
         if: success() && steps.deployment.outputs.deployment_id != ''
