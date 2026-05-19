@@ -38,9 +38,10 @@ test("title screen keeps unauthenticated continue on title screen", () => {
 
   assert.match(source, /isAuthenticated/);
   assert.match(source, /readAuthUser/);
-  assert.match(source, /START/);
+  assert.match(source, /LOGIN/);
   assert.match(source, /CONTINUE/);
-  assert.match(source, /SETTINGS/);
+  assert.doesNotMatch(source, /SETTINGS/);
+  assert.doesNotMatch(source, /\/auth\/character/);
   assert.match(source, /useState<AuthUser \| null>\(null\)/);
   assert.match(source, /HERO \{user\?\.name \?\? "PLAYER"\}/);
   assert.match(source, /router\.push\(item\.href\)/);
