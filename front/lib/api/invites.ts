@@ -1,4 +1,5 @@
 import { apiFetch } from "./index.ts";
+import { resolveAccessToken } from "../auth.ts";
 import { type WorkspaceMemberRole } from "../workspaces.ts";
 
 export type WorkspaceInviteStatus = "PENDING" | "ACCEPTED" | "EXPIRED" | "REVOKED";
@@ -20,18 +21,31 @@ export type WorkspaceInvite = {
   acceptedAt: string | null;
 };
 
+export type InviteInfo = WorkspaceInvite & {
+  workspaceName: string;
+  role: WorkspaceMemberRole;
+  expired: boolean;
+};
+
 export type WorkspaceInviteManagement = {
   inviteId: number;
   workspaceId: number;
   targetEmail?: string | null;
   inviteUrl?: string | null;
   emailStatus?: string | null;
+  role?: WorkspaceMemberRole;
   token: string;
   status: WorkspaceInviteManagementStatus;
   createdAt: string;
   expiresAt: string;
   acceptedAt: string | null;
   revokedAt: string | null;
+};
+
+export type InviteStatus = WorkspaceInviteStatus;
+export type InviteManagement = WorkspaceInviteManagement & {
+  role: WorkspaceMemberRole;
+  emailStatus: string;
 };
 
 export type AcceptedWorkspaceInvite = {
@@ -56,6 +70,16 @@ export async function fetchWorkspaceInvite(token: string): Promise<WorkspaceInvi
   return apiFetch<WorkspaceInvite>(`/api/v1/invites/${encodeURIComponent(token)}`);
 }
 
+export async function getInviteInfo(token: string): Promise<InviteInfo> {
+  const invite = await fetchWorkspaceInvite(token);
+  return {
+    ...invite,
+    workspaceName: invite.workspaceName ?? `Workspace #${invite.workspaceId}`,
+    role: invite.role ?? "MEMBER",
+    expired: invite.expired ?? isInviteExpired(invite.expiresAt),
+  };
+}
+
 export async function fetchWorkspaceInvites(
   accessToken: string,
   workspaceId: number,
@@ -65,6 +89,14 @@ export async function fetchWorkspaceInvites(
   return apiFetch<WorkspaceInviteManagement[]>(`/api/v1/workspaces/${workspaceId}/invites${query}`, {
     accessToken,
   });
+}
+
+export async function listSentInvites(
+  workspaceId: number,
+  status?: WorkspaceInviteManagementStatus,
+): Promise<InviteManagement[]> {
+  const invites = await fetchWorkspaceInvites(resolveAccessToken(), workspaceId, status);
+  return invites.map(normalizeInviteManagement);
 }
 
 export async function createWorkspaceInvite(
@@ -79,6 +111,13 @@ export async function createWorkspaceInvite(
   });
 }
 
+export async function createInviteLink(
+  workspaceId: number,
+  input: CreateWorkspaceInviteInput,
+): Promise<WorkspaceInvite> {
+  return createWorkspaceInvite(resolveAccessToken(), workspaceId, input);
+}
+
 export async function acceptWorkspaceInvite(
   token: string,
   accessToken: string,
@@ -87,6 +126,10 @@ export async function acceptWorkspaceInvite(
     method: "POST",
     accessToken,
   });
+}
+
+export async function acceptInvite(token: string): Promise<AcceptedWorkspaceInvite> {
+  return acceptWorkspaceInvite(token, resolveAccessToken());
 }
 
 export async function revokeWorkspaceInvite(
@@ -108,6 +151,10 @@ export async function deleteWorkspaceInvite(
   });
 }
 
+export async function deleteInvite(workspaceId: number, inviteId: number): Promise<void> {
+  return deleteWorkspaceInvite(resolveAccessToken(), workspaceId, inviteId);
+}
+
 export async function extendWorkspaceInvite(
   accessToken: string,
   workspaceId: number,
@@ -122,4 +169,28 @@ export async function extendWorkspaceInvite(
       json: input,
     },
   );
+}
+
+export async function extendInvite(
+  workspaceId: number,
+  inviteId: number,
+  additionalDays: number,
+): Promise<InviteManagement> {
+  const invite = await extendWorkspaceInvite(resolveAccessToken(), workspaceId, inviteId, {
+    additionalDays,
+  });
+  return normalizeInviteManagement(invite);
+}
+
+function normalizeInviteManagement(invite: WorkspaceInviteManagement): InviteManagement {
+  return {
+    ...invite,
+    role: invite.role ?? "MEMBER",
+    emailStatus: invite.emailStatus ?? "NOT_REQUESTED",
+  };
+}
+
+function isInviteExpired(expiresAt: string): boolean {
+  const date = new Date(expiresAt);
+  return !Number.isNaN(date.getTime()) && date.getTime() <= Date.now();
 }

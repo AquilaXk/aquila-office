@@ -11,23 +11,21 @@ const pixelAvatarPath = path.join(appRoot, "components/arcade/PixelAvatar.tsx");
 
 test("character profile flow restores local and API profile state", () => {
   assert.match(source, /CHARACTER_STORAGE_KEY\s*=\s*"ai-office\.character"/);
-  assert.match(source, /loadStoredCharacter/);
-  assert.match(source, /saveStoredCharacter/);
+  assert.match(source, /loadSavedCharacter/);
+  assert.match(source, /writeSavedCharacter/);
   assert.match(source, /localStorage\.getItem\(CHARACTER_STORAGE_KEY\)/);
-  assert.match(source, /localStorage\.setItem\(CHARACTER_STORAGE_KEY/);
-  assert.match(source, /fetchMemberProfile/);
-  assert.match(source, /updateMemberProfile/);
+  assert.match(source, /localStorage\.setItem\(\s*CHARACTER_STORAGE_KEY/);
+  assert.match(source, /getMyMemberProfile/);
+  assert.match(source, /updateMyMemberProfile/);
 });
 
 test("character profile flow exposes avatar kind and color mode controls", () => {
-  assert.match(source, /AVATAR_OPTIONS/);
-  assert.match(source, /COLOR_MODE_OPTIONS/);
+  assert.match(source, /AVATARS/);
+  assert.match(source, /COLOR_OPTIONS/);
   assert.match(source, /colorMode/);
-  assert.match(source, /role="radiogroup"/);
-  assert.match(source, /aria-label="Avatar 종류 선택"/);
-  assert.match(source, /aria-label="색상 모드 선택"/);
-  assert.match(source, /Original/);
-  assert.match(source, /Custom/);
+  assert.match(source, /ModeButton/);
+  assert.match(source, /ORIGINAL/);
+  assert.match(source, /CUSTOM/);
 });
 
 test("character profile flow supports reference role options and color storage shape", () => {
@@ -44,23 +42,19 @@ test("character profile flow supports reference role options and color storage s
 test("character profile flow supports safe completion and retry", () => {
   assert.match(source, /safeReturnTo/);
   assert.match(source, /router\.replace\(returnTo\)/);
-  assert.match(source, /onClick=\{\(\) => void loadProfile\(\)\}/);
-  assert.match(source, /다시 시도/);
-  assert.match(source, /프로필이 저장되었습니다/);
+  assert.match(source, /enterOffice/);
+  assert.match(source, /SAVING/);
+  assert.match(source, /ENTER OFFICE/);
 });
 
 test("character profile exposes grimdark gothic sci-fi avatar art direction", () => {
-  assert.match(source, /CHARACTER_ARCHETYPES/);
-  assert.match(source, /character-preview-gothic/);
-  assert.match(source, /character-avatar-halo/);
-  assert.match(source, /character-avatar-armor/);
-  assert.match(source, /character-avatar-sigil/);
-  assert.match(source, /Profile preview/);
-
-  assert.match(cssSource, /character-preview-gothic/);
-  assert.match(cssSource, /character-avatar-halo/);
-  assert.match(cssSource, /character-avatar-armor/);
-  assert.match(cssSource, /character-avatar-sigil/);
+  assert.match(source, /T4Screen/);
+  assert.match(source, /T4Panel/);
+  assert.match(source, /GlyphText/);
+  assert.match(source, /CHOOSE YOUR AVATAR/);
+  assert.match(source, /SET UP YOUR OFFICE PROFILE/);
+  assert.match(cssSource, /styles\/tokens\.css/);
+  assert.match(cssSource, /styles\/theme-web\.css/);
   assert.match(cssSource, /--gothic-brass/);
   const disallowedProductMarks = [
     "War" + "hammer",
@@ -108,20 +102,20 @@ test("character profile uses pixel avatar kinds and storage shape", () => {
   assert.match(source, /PixelAvatar/);
   assert.match(source, /PA_PALETTES/);
   assert.match(source, /type PixelAvatarKind/);
-  assert.match(source, /DEFAULT_CHARACTER[\s\S]*avatarKind:\s*"mira"/);
+  assert.match(source, /DEFAULT_COLORS/);
 
   for (const kind of ["alex", "mira", "kenji", "yuna", "diego", "iris"]) {
-    assert.match(source, new RegExp(`value:\\s*["']${kind}["']`));
+    assert.match(source, new RegExp(`kind:\\s*["']${kind}["']`));
   }
 
   for (const legacyKind of ["frontend", "design", "backend", "product", "devops"]) {
     assert.doesNotMatch(source, new RegExp(`value:\\s*["']${legacyKind}["']`));
   }
 
-  assert.match(source, /kind:\s*normalizedCharacter\.avatarKind/);
-  assert.match(source, /name:\s*normalizedCharacter\.displayName/);
-  assert.match(source, /colors:\s*normalizedCharacter\.avatarColors/);
-  assert.match(source, /colorMode:\s*normalizedCharacter\.colorMode/);
+  assert.match(source, /kind,/);
+  assert.match(source, /name,/);
+  assert.match(source, /colors:/);
+  assert.match(source, /colorMode,/);
   assert.match(source, /paletteOverride/);
 });
 

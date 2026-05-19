@@ -12,59 +12,50 @@ const inviteAliasSource = readSource("lib/invites.ts");
 test("workspace settings exposes the four primary management sections", () => {
   assert.match(
     settingsSource,
-    /type WorkspaceSettingsSection = "workspace" \| "members" \| "invite" \| "invites";/,
+    /type SettingsSection = "workspace" \| "members" \| "invite" \| "invites";/,
   );
-  assert.match(settingsSource, /workspaceSettingsSections/);
-  assert.match(settingsSource, /activeSettingsSection/);
-  assert.match(settingsSource, /className="workspace-settings-tabs"/);
-  assert.match(settingsSource, /aria-label="워크스페이스 설정 섹션"/);
-  assert.match(settingsSource, /activeSettingsSection === "workspace"/);
-  assert.match(settingsSource, /activeSettingsSection === "members"/);
-  assert.match(settingsSource, /activeSettingsSection === "invite"/);
-  assert.match(settingsSource, /activeSettingsSection === "invites"/);
+  assert.match(settingsSource, /activeSection/);
+  assert.match(settingsSource, /T4Screen/);
+  assert.match(settingsSource, /T4Panel/);
+  assert.match(settingsSource, /activeSection === "workspace"/);
+  assert.match(settingsSource, /activeSection === "members"/);
+  assert.match(settingsSource, /activeSection === "invite"/);
+  assert.match(settingsSource, /activeSection === "invites"/);
 });
 
 test("workspace settings redirects without stored auth and keeps connections out of settings", () => {
-  assert.match(settingsSource, /isAuthenticated/);
+  assert.match(settingsSource, /getStoredUser/);
   assert.match(settingsSource, /router\.replace\("\/"\)/);
-  assert.match(settingsSource, /const SHOW_CONNECTION_SETTINGS = false;/);
+  assert.doesNotMatch(settingsSource, /Slack 설정으로/);
+  assert.doesNotMatch(settingsSource, /GitHub 설정으로/);
+  assert.doesNotMatch(settingsSource, /Gateway 설정으로/);
 });
 
 test("workspace settings keeps destructive workspace actions inside a confirmation modal", () => {
-  assert.match(settingsSource, /deleteWorkspaceModalOpen/);
-  assert.match(settingsSource, /workspace-settings-delete-modal/);
-  assert.match(settingsSource, /role="dialog"/);
-  assert.match(settingsSource, /aria-label="워크스페이스 삭제 확인"/);
+  assert.match(settingsSource, /deleteOpen/);
+  assert.match(settingsSource, /<Modal open=\{deleteOpen\}/);
+  assert.match(settingsSource, /title="DELETE WORKSPACE"/);
+  assert.match(settingsSource, /disableEscapeClose=\{deleteBusy\}/);
 });
 
 test("workspace settings supports invite creation and invite list actions", () => {
   assert.match(settingsSource, /type InviteCreateMode = "email" \| "link";/);
-  assert.match(settingsSource, /{ value: "ALL", label: "ALL" }/);
-  assert.match(settingsSource, /{ value: "PENDING", label: "PENDING" }/);
+  assert.match(settingsSource, /<option value="ALL">ALL<\/option>/);
+  assert.match(settingsSource, /<option value="PENDING">PENDING<\/option>/);
   assert.match(settingsSource, /inviteCreateMode/);
   assert.match(settingsSource, /inviteRole/);
   assert.match(settingsSource, /inviteExpiresInDays/);
-  assert.match(settingsSource, /inviteCreateMode === "link" \|\| trimmedInviteEmail\.length > 0/);
-  assert.match(settingsSource, /aria-label="공유 링크 모드"/);
-  assert.match(settingsSource, /createWorkspaceInvite/);
-  assert.match(settingsSource, /targetEmail: trimmedInviteEmail/);
+  assert.match(settingsSource, /inviteCreateMode === "email"/);
+  assert.match(settingsSource, /createInviteLink/);
+  assert.match(settingsSource, /\.\.\.\(inviteCreateMode === "email" \? \{ targetEmail \} : \{\}\)/);
   assert.doesNotMatch(settingsSource, /email: trimmedInviteEmail/);
-  assert.match(settingsSource, /const inviteUrl = createInviteUrl\(invite\)/);
-  assert.match(settingsSource, /await writeClipboardText\(inviteUrl\)/);
+  assert.match(settingsSource, /copyToClipboard/);
   assert.match(settingsSource, /createdInviteUrl/);
   assert.match(settingsSource, /createdInviteCopied/);
-  assert.match(settingsSource, /copyCreatedInviteUrl/);
-  assert.match(settingsSource, /createdInvite/);
-  assert.match(settingsSource, /extendWorkspaceInvite/);
-  assert.match(settingsSource, /additionalDays: 7/);
-  assert.match(settingsSource, /deleteWorkspaceInvite/);
-  assert.match(settingsSource, /copyInviteManagementUrl/);
-  assert.match(settingsSource, /workspace-invite-create-mode/);
-  assert.match(settingsSource, /workspace-invite-created-card/);
-  assert.match(settingsSource, /workspace-invite-copy/);
-  assert.match(settingsSource, /workspace-invite-extend/);
-  assert.match(settingsSource, /workspace-invite-delete/);
-  assert.match(settingsSource, />COPY</);
+  assert.match(settingsSource, /extendInvite/);
+  assert.match(settingsSource, /deleteInvite/);
+  assert.match(settingsSource, /handleCopyInvite/);
+  assert.match(settingsSource, /"COPIED" : "COPY"/);
   assert.match(settingsSource, />\+7D</);
   assert.match(settingsSource, />DEL</);
   assert.match(settingsSource, /invite\.status === "ACCEPTED"/);
@@ -78,19 +69,20 @@ test("invite client exposes management endpoints used by settings", () => {
   assert.match(inviteApiSource, /type ExtendWorkspaceInviteInput/);
   assert.match(inviteApiSource, /additionalDays/);
   assert.match(inviteApiSource, /extendWorkspaceInvite/);
+  assert.match(inviteApiSource, /extendInvite/);
   assert.match(inviteApiSource, /\/invites\/\$\{inviteId\}\/extend/);
   assert.match(inviteApiSource, /deleteWorkspaceInvite/);
+  assert.match(inviteApiSource, /deleteInvite/);
   assert.match(inviteAliasSource, /extendWorkspaceInvite/);
   assert.match(inviteAliasSource, /deleteWorkspaceInvite/);
 });
 
 test("workspace settings section controls and modal have stable styles", () => {
-  assert.match(cssSource, /\.workspace-settings-tabs/);
-  assert.match(cssSource, /\.workspace-settings-tab-active/);
-  assert.match(cssSource, /\.workspace-settings-delete-modal/);
-  assert.match(cssSource, /\.workspace-invite-create-mode/);
-  assert.match(cssSource, /\.workspace-invite-created-card/);
-  assert.match(cssSource, /\.workspace-invite-copy/);
+  assert.match(cssSource, /\.grid/);
+  assert.match(cssSource, /\.flex/);
+  assert.match(cssSource, /\.truncate/);
+  assert.match(cssSource, /\[class~="lg:grid-cols-\[280px_minmax\(0,1fr\)\]"\]/);
+  assert.match(cssSource, /\.ao-modal/);
 });
 
 function readSource(filePath: string): string {

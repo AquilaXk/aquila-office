@@ -46,6 +46,19 @@ export async function logoutAuth(refreshToken: string): Promise<void> {
   await postLogoutAuth(refreshToken);
 }
 
+export async function logout(): Promise<void> {
+  const tokens = readAuthTokens();
+  try {
+    if (tokens) {
+      await logoutAuth(tokens.refreshToken);
+    }
+  } catch {
+    // 로그아웃 API 실패와 무관하게 브라우저 세션은 즉시 정리한다.
+  } finally {
+    clearAuthTokens();
+  }
+}
+
 export function readAuthTokens(storage: Storage | undefined = browserStorage()): AuthTokens | null {
   if (!storage) {
     return null;

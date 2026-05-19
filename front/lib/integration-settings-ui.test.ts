@@ -8,14 +8,13 @@ const appRoot = process.cwd();
 test("workspace settings page renders integration overview and action rail", () => {
   const source = readSource("app/workspaces/[workspaceId]/settings/page.tsx");
 
-  assert.match(source, /createIntegrationSettingsOverview/);
-  assert.match(source, /createIntegrationSettingsActions/);
-  assert.match(source, /integrationSettingsOverview/);
-  assert.match(source, /integrationSettingsActions/);
-  assert.match(source, /aria-label="연동 설정 요약"/);
-  assert.match(source, /workspace-integration-overview/);
-  assert.match(source, /workspace-integration-action-grid/);
-  assert.match(source, /IntegrationSettingsActionCard/);
+  assert.match(source, /T4Screen/);
+  assert.match(source, /WORKSPACE ADMIN · COMMAND DECK/);
+  assert.match(source, /WORKSPACE INFO/);
+  assert.match(source, /ROSTER/);
+  assert.match(source, /INVITE/);
+  assert.match(source, /INVITE LOG/);
+  assert.doesNotMatch(source, /createIntegrationSettingsOverview/);
 });
 
 test("workspace settings styles expose responsive integration cards", () => {

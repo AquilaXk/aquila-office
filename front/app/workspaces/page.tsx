@@ -1,328 +1,507 @@
 "use client";
 
-import {
-  AlertCircle,
-  Building2,
-  FolderOpen,
-  LogOut,
-  Plus,
-  Server,
-  UserRound,
-} from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
-import { ApiError } from "@/lib/api";
-import {
-  AUTH_STORAGE_KEYS,
-  clearAuthTokens,
-  logoutAuth,
-  readAuthTokens,
-  resolveAccessToken,
-  type AuthTokens,
-} from "@/lib/auth";
-import { fetchWorkspaces, type WorkspaceSummary } from "@/lib/workspaces";
-
-type WorkspaceState =
-  | { status: "idle" | "loading"; data: null; error: null }
-  | { status: "ready"; data: WorkspaceSummary[]; error: null }
-  | { status: "offline"; data: null; error: string };
-
-type LogoutState =
-  | { status: "idle"; message: string | null }
-  | { status: "submitting"; message: string | null }
-  | { status: "error"; message: string };
+import { useEffect, useState } from "react";
+import { getStoredUser, type AuthUser, type ApiError } from "@/lib/api-client";
+import { logout } from "@/lib/auth";
+import { listWorkspaces, type WorkspaceSummary } from "@/lib/api/workspaces";
+import { GlyphText, T4Screen, T4Panel, PixelAvatar } from "@/components/arcade";
+import { t4 } from "@/components/arcade/tokens";
 
 export default function WorkspacesPage() {
   const router = useRouter();
-  const [tokens, setTokens] = useState<AuthTokens | null>(() => readAuthTokens());
+  const [user, setUser] = useState<AuthUser | null>(null);
   const [hydrated, setHydrated] = useState(false);
-  const [workspaces, setWorkspaces] = useState<WorkspaceState>({
-    status: "idle",
-    data: null,
-    error: null,
-  });
-  const [logoutState, setLogoutState] = useState<LogoutState>({
-    status: "idle",
-    message: null,
-  });
-
-  const loadWorkspaces = useCallback(async () => {
-    const currentTokens = readAuthTokens();
-    if (!currentTokens) {
-      setTokens(null);
-      setHydrated(false);
-      setWorkspaces({ status: "idle", data: null, error: null });
-      router.replace("/");
-      return;
-    }
-
-    setTokens(currentTokens);
-    setHydrated(true);
-    setWorkspaces({ status: "loading", data: null, error: null });
-    const accessToken = resolveAccessToken();
-
-    try {
-      const data = await fetchWorkspaces(accessToken);
-      setWorkspaces({ status: "ready", data, error: null });
-    } catch (error) {
-      setWorkspaces({
-        status: "offline",
-        data: null,
-        error: messageFromError(error, "워크스페이스를 불러오지 못했습니다."),
-      });
-    }
-  }, [router]);
+  const [workspaces, setWorkspaces] = useState<WorkspaceSummary[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string>("");
 
   useEffect(() => {
     let cancelled = false;
     queueMicrotask(() => {
-      if (cancelled) {
+      if (cancelled) return;
+      const stored = getStoredUser();
+      if (!stored) {
+        router.replace("/");
         return;
       }
-      void loadWorkspaces();
+      setUser(stored);
+      setHydrated(true);
     });
-
-    const onStorage = (event: StorageEvent) => {
-      if (event.key === null || AUTH_STORAGE_KEYS.includes(event.key)) {
-        void loadWorkspaces();
-      }
-    };
-
-    window.addEventListener("storage", onStorage);
     return () => {
       cancelled = true;
-      window.removeEventListener("storage", onStorage);
     };
-  }, [loadWorkspaces]);
+  }, [router]);
 
-  const handleLogout = async () => {
-    const currentTokens = readAuthTokens();
-    setLogoutState({ status: "submitting", message: null });
-
-    try {
-      if (currentTokens) {
-        await logoutAuth(currentTokens.refreshToken);
+  useEffect(() => {
+    if (!hydrated) return;
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      setError("");
+      try {
+        const data = await listWorkspaces();
+        if (!cancelled) setWorkspaces(data ?? []);
+      } catch (err) {
+        const apiErr = err as ApiError;
+        if (!cancelled)
+          setError(apiErr?.message ?? "워크스페이스를 불러오지 못했습니다.");
+      } finally {
+        if (!cancelled) setLoading(false);
       }
-      clearAuthTokens();
-      setTokens(null);
-      setLogoutState({ status: "idle", message: "인증 세션이 삭제되었습니다." });
-    } catch (error) {
-      clearAuthTokens();
-      setTokens(null);
-      setLogoutState({
-        status: "error",
-        message: messageFromError(error, "로그아웃 요청을 처리하지 못했습니다."),
-      });
-    } finally {
-      setHydrated(false);
-      router.replace("/");
-    }
-  };
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [hydrated]);
 
-  const workspaceList = workspaces.status === "ready" ? workspaces.data : [];
-  const workspaceCount = workspaceList.length;
-  const activeTaskCount = workspaceList.reduce(
-    (count, workspace) => count + (workspace.runningTaskCount ?? 0),
-    0,
-  );
-  const agentCount = workspaceList.reduce(
-    (count, workspace) => count + (workspace.agentCount ?? 0),
-    0,
-  );
-  const completedTaskCount = workspaceList.reduce(
-    (count, workspace) => count + (workspace.completedTaskCount ?? 0),
-    0,
-  );
-
-  if (!hydrated) {
-    return null;
+  async function handleLogout() {
+    await logout();
+    router.replace("/");
   }
 
+  if (!hydrated) return null;
+
+  const activeCount = workspaces.reduce(
+    (acc, w) => acc + (w.runningTaskCount ?? 0),
+    0,
+  );
+  const agentCount = workspaces.reduce(
+    (acc, w) => acc + (w.agentCount ?? 0),
+    0,
+  );
+  const completedCount = workspaces.reduce(
+    (acc, w) => acc + (w.completedTaskCount ?? 0),
+    0,
+  );
+
   return (
-    <main className="app-shell">
-      <aside className="sidebar">
-        <div className="brand-block">
-          <div className="brand-crest" aria-hidden="true">AO</div>
-          <div className="brand-copy">
-            <span>AQUILA OFFICE</span>
-            <strong>Select quest</strong>
+    <T4Screen title="WORKSPACES · SELECT YOUR QUEST">
+      <div
+        style={{
+          padding: 20,
+          height: "100%",
+          boxSizing: "border-box",
+          display: "grid",
+          gridTemplateRows: "auto auto minmax(0, 1fr)",
+          gap: 14,
+          overflow: "hidden",
+        }}
+      >
+        {/* Header */}
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: 16,
+            flexWrap: "wrap",
+          }}
+        >
+          <div>
+            <div
+              style={{
+                fontFamily: "var(--font-pixel)",
+                fontSize: 9,
+                color: t4.pink,
+                letterSpacing: 3,
+                marginBottom: 4,
+              }}
+            >
+              <GlyphText glyph="◆">HERO {user?.name ?? "PLAYER"}</GlyphText>
+            </div>
+            <h2
+              style={{
+                fontFamily: "var(--font-pixel)",
+                fontSize: 22,
+                letterSpacing: 2,
+                margin: 0,
+                color: t4.ink,
+                textShadow: `0 0 12px ${t4.pink}80`,
+              }}
+            >
+              WORKSPACES
+            </h2>
+            <div
+              style={{
+                fontFamily: "var(--font-mono-arcade)",
+                fontSize: 10,
+                color: t4.dim,
+                marginTop: 4,
+              }}
+            >
+              {user?.email}
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <Link href="/workspaces/gateway">
+              <ArcadeButton color={t4.mp}>
+                <GlyphText glyph="◇">GATEWAY</GlyphText>
+              </ArcadeButton>
+            </Link>
+            <Link href="/workspaces/new">
+              <ArcadeButton color={t4.pink} primary>
+                <GlyphText glyph="▶">NEW WORKSPACE</GlyphText>
+              </ArcadeButton>
+            </Link>
+            <ArcadeButton color={t4.dim} onClick={handleLogout}>
+              LOGOUT
+            </ArcadeButton>
           </div>
         </div>
-        <nav className="nav-list" aria-label="워크스페이스 메뉴">
-          <Link className="nav-item nav-item-active" href="/workspaces">
-            Workspace
-          </Link>
-          <Link className="nav-item" href="/workspaces/gateway">
-            Gateway
-          </Link>
-          <Link className="nav-item" href="/auth">
-            Auth
-          </Link>
-        </nav>
-      </aside>
 
-      <section className="workspace">
-        <header className="topbar">
-          <div>
-            <p className="eyebrow">HERO {tokens?.name ?? "PLAYER"}</p>
-            <h1>WORKSPACES</h1>
-            <p className="topbar-summary">{tokens?.email}</p>
-          </div>
-          <div className="form-actions">
-            <Link className="secondary-action" href="/workspaces/gateway">
-              <Server aria-hidden="true" />
-              <span>GATEWAY</span>
-            </Link>
-            <Link
-              aria-label="새 Workspace"
-              className="primary-action primary-action-active"
-              href="/workspaces/new"
+        {/* KPI tiles */}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(4, 1fr)",
+            gap: 10,
+          }}
+        >
+          {[
+            {
+              label: "WORKPLACES JOINED",
+              value: String(workspaces.length).padStart(2, "0"),
+              color: t4.pink,
+              sub: "활성 워크스페이스",
+            },
+            {
+              label: "TASKS · ACTIVE",
+              value: String(activeCount).padStart(2, "0"),
+              color: t4.mp,
+              sub: "진행 중인 태스크",
+            },
+            {
+              label: "AGENT ALLIES",
+              value: String(agentCount).padStart(2, "0"),
+              color: t4.agent,
+              sub: "소환된 에이전트",
+            },
+            {
+              label: "TASKS · DONE",
+              value: String(completedCount).padStart(2, "0"),
+              color: t4.xp,
+              sub: "누적 완료",
+            },
+          ].map((tile) => (
+            <T4Panel
+              key={tile.label}
+              accent={tile.color}
+              style={{ padding: "10px 12px", position: "relative" }}
             >
-              <Plus aria-hidden="true" />
-              <span>NEW WORKSPACE</span>
-            </Link>
-            <button
-              className="secondary-action"
-              type="button"
-              onClick={() => void handleLogout()}
-              disabled={logoutState.status === "submitting"}
-            >
-              <LogOut aria-hidden="true" />
-              <span>{logoutState.status === "submitting" ? "LOGOUT..." : "LOGOUT"}</span>
-            </button>
-          </div>
-        </header>
-
-        <section className="status-grid workspace-metric-grid" aria-label="워크스페이스 지표">
-          <article className="status-panel status-panel-primary">
-            <div className="panel-header">
-              <Building2 aria-hidden="true" />
-              <span>WORKPLACES JOINED</span>
-            </div>
-            <strong>{String(workspaceCount).padStart(2, "0")}</strong>
-            <p>활성 워크스페이스</p>
-          </article>
-          <article className="status-panel">
-            <div className="panel-header">
-              <FolderOpen aria-hidden="true" />
-              <span>TASKS · ACTIVE</span>
-            </div>
-            <strong>{String(activeTaskCount).padStart(2, "0")}</strong>
-            <p>진행 중인 태스크</p>
-          </article>
-          <article className="status-panel">
-            <div className="panel-header">
-              <UserRound aria-hidden="true" />
-              <span>AGENT ALLIES</span>
-            </div>
-            <strong>{String(agentCount).padStart(2, "0")}</strong>
-            <p>소환된 에이전트</p>
-          </article>
-          <article className="status-panel">
-            <div className="panel-header">
-              <Server aria-hidden="true" />
-              <span>TASKS · DONE</span>
-            </div>
-            <strong>{String(completedTaskCount).padStart(2, "0")}</strong>
-            <p>누적 완료</p>
-          </article>
-        </section>
-
-        <section className="workspace-section" aria-label="워크스페이스 목록">
-          <div className="section-header">
-            <div>
-              <p className="eyebrow">ACTIVE WORKPLACES</p>
-              <h2>참여 중인 워크스페이스</h2>
-            </div>
-            <div className="workspace-list-meta">
-              <span className="role-badge">
-                {workspaces.status === "ready"
-                  ? `${String(workspaces.data.length).padStart(2, "0")} ENTRIES`
-                  : workspaces.status}
-              </span>
-              <span
-                className={
-                  workspaces.status === "ready" && workspaces.data.length > 8
-                    ? "workspace-scroll-indicator workspace-scroll-indicator-active"
-                    : "workspace-scroll-indicator"
-                }
+              <div
+                style={{
+                  fontFamily: "var(--font-pixel)",
+                  fontSize: 7,
+                  color: t4.dim,
+                  letterSpacing: 2,
+                }}
               >
-                {workspaces.status === "ready" && workspaces.data.length > 8 ? "SCROLL ↓" : "—"}
-              </span>
-            </div>
-          </div>
+                {tile.label}
+              </div>
+              <div
+                style={{
+                  fontFamily: "var(--font-pixel)",
+                  fontSize: 22,
+                  color: tile.color,
+                  marginTop: 4,
+                  textShadow: `0 0 10px ${tile.color}`,
+                }}
+              >
+                {tile.value}
+              </div>
+              <div
+                style={{
+                  fontFamily: "var(--font-mono-arcade)",
+                  fontSize: 9,
+                  color: t4.dim,
+                  marginTop: 4,
+                }}
+              >
+                {tile.sub}
+              </div>
+            </T4Panel>
+          ))}
+        </div>
 
-          {workspaces.status === "ready" && workspaces.data.length > 0 ? (
-            <div className="workspace-list">
-              {workspaces.data.map((workspace, index) => (
-                <Link
-                  className="workspace-row workspace-row-link"
-                  href={`/workspaces/${workspace.workspaceId}`}
-                  key={workspace.workspaceId}
-                  aria-label={`${workspace.name} ENTER`}
-                >
-                  <div className="workspace-row-icon">
-                    <span>{`W${String(index + 1).padStart(3, "0")}`}</span>
-                  </div>
-                  <div className="workspace-row-main">
-                    <strong>{workspace.name}</strong>
-                    <p>{workspace.description || "no description"}</p>
-                    <span className="role-badge">[{workspace.myRole}]</span>
-                  </div>
-                  <div className="workspace-row-meta">
-                    <span>{workspace.agentCount ?? 0} agents</span>
-                    <span>{workspace.runningTaskCount ?? 0} active</span>
-                  </div>
-                  <div className="workspace-row-enter">
-                    <span>ENTER</span>
-                  </div>
-                </Link>
+        {/* Workspace quest list */}
+        <T4Panel
+          label="ACTIVE WORKPLACES"
+          accent={t4.pink}
+          style={{
+            position: "relative",
+            padding: 14,
+            display: "flex",
+            flexDirection: "column",
+            minHeight: 0,
+            overflow: "hidden",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              padding: "2px 4px 8px",
+              borderBottom: `1px solid ${t4.line}`,
+              marginBottom: 8,
+              fontFamily: "var(--font-mono-arcade)",
+              fontSize: 10,
+              color: t4.dim,
+              letterSpacing: 1,
+              flexShrink: 0,
+            }}
+          >
+            <span>
+              <GlyphText glyph="◆">
+                {String(workspaces.length).padStart(2, "0")} ENTRIES
+              </GlyphText>
+            </span>
+            <span style={{ color: workspaces.length > 8 ? t4.pink : t4.dim }}>
+              {workspaces.length > 8 ? "SCROLL ↓" : "—"}
+            </span>
+          </div>
+          {loading ? (
+            <ListSkeleton />
+          ) : error ? (
+            <div
+              style={{
+                fontFamily: "var(--font-mono-arcade)",
+                fontSize: 11,
+                color: t4.hp,
+                padding: 20,
+                textAlign: "center",
+              }}
+            >
+              <GlyphText glyph="⚠">{error}</GlyphText>
+            </div>
+          ) : workspaces.length === 0 ? (
+            <EmptyState />
+          ) : (
+            <div
+              className="scrollbar-arcade"
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: 8,
+                flex: 1,
+                minHeight: 0,
+                overflowY: "auto",
+                paddingRight: 6,
+              }}
+            >
+              {workspaces.map((ws, idx) => (
+                <WorkspaceRow key={ws.workspaceId} workspace={ws} index={idx} />
               ))}
             </div>
-          ) : (
-            <WorkspaceStatePanel state={workspaces} />
           )}
-        </section>
-      </section>
-    </main>
+        </T4Panel>
+      </div>
+    </T4Screen>
   );
 }
 
-function WorkspaceStatePanel({ state }: { state: WorkspaceState }) {
-  if (state.status === "loading" || state.status === "idle") {
-    return (
-      <div className="state-panel">
-        <FolderOpen aria-hidden="true" />
-        <strong>목록 확인 중</strong>
-        <p>워크스페이스 정보를 불러오고 있습니다.</p>
-      </div>
-    );
-  }
-
-  if (state.status === "offline") {
-    return (
-      <div className="state-panel state-panel-error">
-        <AlertCircle aria-hidden="true" />
-        <strong>목록을 불러오지 못했습니다</strong>
-        <p>{state.error}</p>
-      </div>
-    );
-  }
-
+function WorkspaceRow({
+  workspace,
+  index,
+}: {
+  workspace: WorkspaceSummary;
+  index: number;
+}) {
+  const isAdmin = workspace.myRole === "ADMIN";
+  const accent = isAdmin ? t4.pink : t4.mp;
   return (
-    <div className="state-panel">
-      <UserRound aria-hidden="true" />
-      <strong>no workspaces yet — start a new save to begin your work RPG</strong>
-      <p>새 워크스페이스를 만들면 이곳에서 바로 확인할 수 있습니다.</p>
-      <Link className="primary-action primary-action-active" href="/workspaces/new">
-        <Plus aria-hidden="true" />
-        <span>CREATE WORKSPACE</span>
+    <Link
+      href={`/workspaces/${workspace.workspaceId}`}
+      style={{
+        display: "grid",
+        gridTemplateColumns: "60px 1fr 140px 140px 80px",
+        gap: 12,
+        alignItems: "center",
+        padding: "10px 12px",
+        border: `1px solid ${accent}40`,
+        background: "rgba(0,0,0,0.25)",
+        textDecoration: "none",
+        color: "inherit",
+        transition: "background 80ms ease",
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.background = `${accent}15`;
+        e.currentTarget.style.borderColor = accent;
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.background = "rgba(0,0,0,0.25)";
+        e.currentTarget.style.borderColor = `${accent}40`;
+      }}
+    >
+      <div
+        style={{
+          fontFamily: "var(--font-pixel)",
+          fontSize: 8,
+          color: t4.dim,
+          letterSpacing: 1,
+        }}
+      >
+        W{String(index + 1).padStart(3, "0")}
+      </div>
+      <div>
+        <div
+          style={{
+            fontFamily: "var(--font-mixed-ko)",
+            fontSize: 14,
+            fontWeight: 700,
+            letterSpacing: 0,
+            lineHeight: 1.25,
+            color: t4.ink,
+            marginBottom: 4,
+          }}
+        >
+          {workspace.name}
+        </div>
+        <div
+          style={{
+            fontFamily: "var(--font-mono-arcade)",
+            fontSize: 11,
+            color: t4.dim,
+            marginTop: 2,
+          }}
+        >
+          {workspace.description || "no description"}
+        </div>
+        <div
+          style={{
+            fontFamily: "var(--font-mono-arcade)",
+            fontSize: 9,
+            color: accent,
+            marginTop: 4,
+            letterSpacing: 1,
+            textTransform: "uppercase",
+          }}
+        >
+          [{workspace.myRole}]
+        </div>
+      </div>
+      <div
+        style={{
+          fontFamily: "var(--font-mono-arcade)",
+          fontSize: 10,
+          color: t4.agent,
+        }}
+      >
+        <GlyphText glyph="◇">{workspace.agentCount} agents</GlyphText>
+      </div>
+      <div
+        style={{
+          fontFamily: "var(--font-mono-arcade)",
+          fontSize: 10,
+          color: t4.ok,
+        }}
+      >
+        <GlyphText glyph="▷">{workspace.runningTaskCount} active</GlyphText>
+      </div>
+      <div
+        style={{
+          fontFamily: "var(--font-pixel)",
+          fontSize: 8,
+          letterSpacing: 1,
+          color: accent,
+          textAlign: "center",
+          padding: "6px 8px",
+          border: `1px solid ${accent}`,
+        }}
+      >
+        <GlyphText glyph="▶">ENTER</GlyphText>
+      </div>
+    </Link>
+  );
+}
+
+function ArcadeButton({
+  children,
+  color = t4.pink,
+  onClick,
+  primary = false,
+}: {
+  children: React.ReactNode;
+  color?: string;
+  onClick?: () => void;
+  primary?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      style={{
+        fontFamily: "var(--font-pixel)",
+        fontSize: 9,
+        letterSpacing: 1.5,
+        padding: "9px 14px",
+        background: primary ? color : "transparent",
+        color: primary ? "#000" : color,
+        border: `1px solid ${color}`,
+        boxShadow: primary
+          ? `0 0 14px ${color}`
+          : `0 0 6px ${color}30`,
+        cursor: "pointer",
+        textTransform: "uppercase",
+      }}
+    >
+      {children}
+    </button>
+  );
+}
+
+function EmptyState() {
+  return (
+    <div
+      style={{
+        padding: "40px 20px",
+        textAlign: "center",
+        fontFamily: "var(--font-mono-arcade)",
+        color: t4.dim,
+        fontSize: 11,
+      }}
+    >
+      <div style={{ marginBottom: 14 }}>
+        <PixelAvatar kind="agent" size={3} style={{ margin: "0 auto" }} />
+      </div>
+      <div style={{ marginBottom: 14 }}>
+        no workspaces yet — start a new save to begin your work RPG
+      </div>
+      <Link
+        href="/workspaces/new"
+        style={{
+          fontFamily: "var(--font-pixel)",
+          fontSize: 9,
+          color: "#000",
+          background: t4.pink,
+          padding: "10px 16px",
+          letterSpacing: 1.5,
+          textDecoration: "none",
+          boxShadow: `0 0 14px ${t4.pink}`,
+        }}
+      >
+        <GlyphText glyph="▶">CREATE WORKSPACE</GlyphText>
       </Link>
     </div>
   );
 }
 
-function messageFromError(error: unknown, fallback: string): string {
-  return error instanceof ApiError ? error.message : fallback;
+function ListSkeleton() {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      {Array.from({ length: 3 }).map((_, i) => (
+        <div
+          key={i}
+          style={{
+            height: 60,
+            border: `1px solid ${t4.line}`,
+            background: "rgba(0,0,0,0.25)",
+            opacity: 0.5,
+          }}
+        />
+      ))}
+    </div>
+  );
 }

@@ -1,35 +1,33 @@
 "use client";
 
-import { AlertCircle, ArrowLeft, KeyRound, Plus, ServerCog } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { type FormEvent, useEffect, useMemo, useState } from "react";
-import { readAuthTokens } from "@/lib/auth";
-import {
-  maskGatewayToken,
-  normalizeGatewayRegistryForm,
-  OPENCLAW_GATEWAYS_STORAGE_KEY,
-} from "@/lib/gateway-utils";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { Button, Input } from "@/components/ui";
+import { GlyphText, T4Screen, T4Panel } from "@/components/arcade";
+import { t4 } from "@/components/arcade/tokens";
+import { getStoredUser } from "@/lib/api-client";
 
-type GatewayRegistryEntry = {
+interface GatewayEntry {
   id: string;
   displayName: string;
   gatewayUrl: string;
   maskedToken: string;
   createdAt: string;
-};
+}
 
-const DISPLAY_NAME_MAX_LENGTH = 80;
-const URL_MAX_LENGTH = 300;
+const STORAGE_KEY = "aio.openclaw.gateways";
+const DISPLAY_NAME_MAX = 80;
+const URL_MAX = 300;
 
-export default function GatewayRoutePage() {
+export default function GatewayPage() {
   const router = useRouter();
   const [hydrated, setHydrated] = useState(false);
-  const [gateways, setGateways] = useState<GatewayRegistryEntry[]>([]);
-  const [selectedId, setSelectedId] = useState("");
+  const [gateways, setGateways] = useState<GatewayEntry[]>([]);
   const [displayName, setDisplayName] = useState("");
   const [gatewayUrl, setGatewayUrl] = useState("");
   const [token, setToken] = useState("");
+  const [selectedId, setSelectedId] = useState<string>("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [createdMessage, setCreatedMessage] = useState("");
@@ -37,333 +35,488 @@ export default function GatewayRoutePage() {
   useEffect(() => {
     let cancelled = false;
     queueMicrotask(() => {
-      if (cancelled) {
-        return;
-      }
-
-      if (!readAuthTokens()) {
+      if (cancelled) return;
+      if (!getStoredUser()) {
         router.replace("/");
         return;
       }
-
-      const storedGateways = readGatewayRegistry();
-      setGateways(storedGateways);
-      setSelectedId(storedGateways[0]?.id ?? "");
+      const stored = readGateways();
+      setGateways(stored);
+      setSelectedId(stored[0]?.id ?? "");
       setHydrated(true);
     });
-
     return () => {
       cancelled = true;
     };
   }, [router]);
 
   const selectedGateway = useMemo(
-    () => gateways.find((gateway) => gateway.id === selectedId) ?? gateways[0] ?? null,
+    () => gateways.find((gateway) => gateway.id === selectedId) ?? gateways[0],
     [gateways, selectedId],
   );
-  const normalizedForm = useMemo(
-    () => normalizeGatewayRegistryForm({ displayName, gatewayUrl, token }),
-    [displayName, gatewayUrl, token],
-  );
-  const canSubmit =
-    !submitting &&
-    displayName.trim().length > 0 &&
-    gatewayUrl.trim().length > 0 &&
-    token.trim().length > 0;
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  function handleSubmit(e: FormEvent) {
+    e.preventDefault();
+    const name = displayName.trim();
+    const url = gatewayUrl.trim();
+    const rawToken = token.trim();
 
-    if (!normalizedForm.isValid) {
-      setError(
-        normalizedForm.displayNameError ??
-          normalizedForm.urlError ??
-          normalizedForm.tokenError ??
-          "Gateway 입력값을 확인해 주세요.",
-      );
-      setCreatedMessage("");
+    if (!name) {
+      setError("표시 이름은 필수입니다.");
+      return;
+    }
+    if (!url) {
+      setError("OpenClaw 게이트웨이 URL은 필수입니다.");
+      return;
+    }
+    if (!isHttpUrl(url)) {
+      setError("게이트웨이 URL은 http:// 또는 https:// 로 시작해야 합니다.");
+      return;
+    }
+    if (!rawToken) {
+      setError("토큰은 필수입니다.");
       return;
     }
 
     setSubmitting(true);
     setError("");
-    const nextGateway: GatewayRegistryEntry = {
-      id: createGatewayId(),
-      displayName: normalizedForm.displayName,
-      gatewayUrl: normalizedForm.gatewayUrl,
-      maskedToken: maskGatewayToken(normalizedForm.token),
+    const nextGateway: GatewayEntry = {
+      id: createId(),
+      displayName: name,
+      gatewayUrl: url,
+      maskedToken: maskToken(rawToken),
       createdAt: new Date().toISOString(),
     };
-
-    writeGatewayRegistry([nextGateway, ...gateways]);
-    setGateways([nextGateway, ...gateways]);
+    const nextGateways = [nextGateway, ...gateways];
+    writeGateways(nextGateways);
+    setGateways(nextGateways);
     setSelectedId(nextGateway.id);
     setDisplayName("");
     setGatewayUrl("");
     setToken("");
     setCreatedMessage("WARP GATE LINKED.");
     setSubmitting(false);
-  };
-
-  if (!hydrated) {
-    return null;
   }
 
+  if (!hydrated) return null;
+
   return (
-    <main className="workspace-create-shell workspace-gateway-registry-shell">
-      <section className="workspace-create-panel" aria-label="Gateway registry">
-        <div className="workspace-create-header">
-          <Link className="secondary-action" href="/workspaces">
-            <ArrowLeft aria-hidden="true" />
-            <span>BACK TO WORKSPACES</span>
-          </Link>
-          <div className="workspace-create-title">
-            <div className="workspace-create-icon">
-              <ServerCog aria-hidden="true" />
-            </div>
-            <div>
-              <p className="eyebrow">OPENCLAW · WARP NET</p>
-              <h1>REGISTER A GATEWAY</h1>
-              <p className="topbar-summary">
-                워크스페이스에서 에이전트를 소환할 수 있도록 OpenClaw gateway를 연결해 주세요.
-              </p>
-            </div>
+    <T4Screen title="GATEWAY · WARP STATIONS">
+      <div
+        style={{
+          padding: "30px 28px",
+          height: "100%",
+          boxSizing: "border-box",
+          display: "flex",
+          flexDirection: "column",
+          gap: 18,
+          maxWidth: 1100,
+          margin: "0 auto",
+          width: "100%",
+        }}
+      >
+        <Link
+          href="/workspaces"
+          style={{
+            fontFamily: "var(--font-pixel)",
+            fontSize: 8,
+            letterSpacing: 2,
+            color: t4.dim,
+            textDecoration: "none",
+          }}
+        >
+          <GlyphText glyph="◀">BACK TO WORKPLACES</GlyphText>
+        </Link>
+
+        <div>
+          <div
+            style={{
+              fontFamily: "var(--font-pixel)",
+              fontSize: 8,
+              color: t4.mp,
+              letterSpacing: 3,
+              marginBottom: 4,
+            }}
+          >
+            <GlyphText glyph="◆">OPENCLAW · WARP NET</GlyphText>
           </div>
+          <h1
+            style={{
+              fontFamily: "var(--font-pixel)",
+              fontSize: 22,
+              letterSpacing: 2,
+              margin: 0,
+              color: t4.ink,
+              textShadow: `0 0 12px ${t4.mp}80`,
+            }}
+          >
+            REGISTER A GATEWAY
+          </h1>
+          <p
+            style={{
+              fontFamily: "var(--font-mono-arcade)",
+              fontSize: 11,
+              color: t4.dim,
+              marginTop: 8,
+            }}
+          >
+            워크스페이스에서 에이전트를 소환할 수 있도록 OpenClaw 게이트웨이를 연결해 주세요.
+          </p>
         </div>
 
-        <div className="workspace-gateway-registry">
-          <aside className="workspace-gateway-sidebar">
-            <section className="workspace-section" aria-label="Linked gateways">
-              <div className="section-header">
-                <div>
-                  <p className="eyebrow">Registry</p>
-                  <h2>{`LINKED · ${String(gateways.length).padStart(2, "0")}`}</h2>
-                </div>
-              </div>
-
+        <div className="grid gap-5 lg:grid-cols-[300px_minmax(0,1fr)]">
+          <aside className="flex flex-col gap-4">
+            <T4Panel label={`LINKED · ${String(gateways.length).padStart(2, "0")}`} accent={t4.mp} style={{ position: "relative", padding: 12 }}>
               {gateways.length === 0 ? (
-                <div className="state-panel">
-                  <ServerCog aria-hidden="true" />
-                  <strong>아직 연결된 게이트웨이가 없습니다</strong>
-                  <p>display name, URL, token을 입력해 첫 gateway를 등록하세요.</p>
-                </div>
+                <p
+                  style={{
+                    fontFamily: "var(--font-mono-arcade)",
+                    fontSize: 11,
+                    color: t4.dim,
+                    padding: "14px 6px",
+                    textAlign: "center",
+                  }}
+                >
+                  <GlyphText glyph="◇">아직 연결된 게이트웨이가 없습니다</GlyphText>
+                </p>
               ) : (
-                <div className="workspace-list">
+                <div className="grid gap-2">
                   {gateways.map((gateway) => {
-                    const selected = selectedGateway?.id === gateway.id;
+                    const active = selectedGateway?.id === gateway.id;
                     return (
                       <button
-                        aria-pressed={selected}
-                        className="workspace-row workspace-row-link"
                         key={gateway.id}
-                        onClick={() => setSelectedId(gateway.id)}
                         type="button"
+                        onClick={() => setSelectedId(gateway.id)}
+                        style={{
+                          padding: "10px 12px",
+                          textAlign: "left",
+                          background: active ? "rgba(90,168,255,0.08)" : "rgba(0,0,0,0.3)",
+                          border: `1px solid ${active ? t4.mp : t4.line}`,
+                          boxShadow: active ? `0 0 10px ${t4.mp}40` : "none",
+                          cursor: "pointer",
+                          color: t4.ink,
+                        }}
                       >
-                        <div className="workspace-row-icon">
-                          <ServerCog aria-hidden="true" />
+                        <div className="flex items-center justify-between gap-2">
+                          <span
+                            className="truncate"
+                            style={{
+                              fontFamily: "var(--font-pixel)",
+                              fontSize: 9,
+                              letterSpacing: 1.5,
+                              color: active ? t4.mp : t4.ink,
+                            }}
+                          >
+                            <GlyphText glyph="♦" truncate>{gateway.displayName.toUpperCase()}</GlyphText>
+                          </span>
+                          <span
+                            style={{
+                              fontFamily: "var(--font-pixel)",
+                              fontSize: 7,
+                              letterSpacing: 1,
+                              color: t4.ok,
+                              border: `1px solid ${t4.ok}`,
+                              padding: "2px 5px",
+                            }}
+                          >
+                            ON
+                          </span>
                         </div>
-                        <div className="workspace-row-main">
-                          <strong>{gateway.displayName.toUpperCase()}</strong>
-                          <p>{gateway.gatewayUrl}</p>
-                          <p>{formatDateTime(gateway.createdAt)}</p>
-                        </div>
-                        <div className="workspace-row-meta">
-                          <span className="role-badge">ON</span>
-                        </div>
+                        <p
+                          className="mt-2 truncate"
+                          style={{
+                            fontFamily: "var(--font-mono-arcade)",
+                            fontSize: 10,
+                            color: t4.dim,
+                          }}
+                        >
+                          {gateway.gatewayUrl}
+                        </p>
+                        <p
+                          className="mt-1"
+                          style={{
+                            fontFamily: "var(--font-mono-arcade)",
+                            fontSize: 9,
+                            color: t4.dim,
+                          }}
+                        >
+                          <GlyphText glyph="◆">{formatDateTime(gateway.createdAt)}</GlyphText>
+                        </p>
                       </button>
                     );
                   })}
                 </div>
               )}
-            </section>
+            </T4Panel>
 
-            {selectedGateway ? (
-              <section className="workspace-section" aria-label="ACTIVE LINK">
-                <div className="section-header">
-                  <div>
-                    <p className="eyebrow">ACTIVE LINK</p>
-                    <h2>{selectedGateway.displayName.toUpperCase()}</h2>
-                  </div>
-                </div>
-                <div className="workspace-gateway-active-link">
-                  <span>TARGET</span>
-                  <strong>{selectedGateway.displayName.toUpperCase()}</strong>
-                  <p>{`TOKEN · ${selectedGateway.maskedToken}`}</p>
-                </div>
-              </section>
-            ) : null}
+            {selectedGateway && (
+              <T4Panel label="ACTIVE LINK" accent={t4.ok} style={{ position: "relative", padding: 14 }}>
+                <p
+                  style={{
+                    fontFamily: "var(--font-pixel)",
+                    fontSize: 8,
+                    color: t4.dim,
+                    letterSpacing: 2,
+                  }}
+                >
+                  TARGET
+                </p>
+                <p
+                  className="mt-2 truncate"
+                  style={{
+                    fontFamily: "var(--font-pixel)",
+                    fontSize: 11,
+                    color: t4.ok,
+                    letterSpacing: 1.5,
+                    textShadow: `0 0 6px ${t4.ok}`,
+                  }}
+                >
+                  {selectedGateway.displayName.toUpperCase()}
+                </p>
+                <p
+                  className="mt-3"
+                  style={{
+                    fontFamily: "var(--font-mono-arcade)",
+                    fontSize: 10,
+                    color: t4.dim,
+                  }}
+                >
+                  TOKEN · {selectedGateway.maskedToken}
+                </p>
+              </T4Panel>
+            )}
           </aside>
 
-          <section className="workspace-section" aria-label="GATE FORM">
-            <div className="section-header">
-              <div>
-                <p className="eyebrow">Gate form</p>
-                <h2>Gateway 등록</h2>
-              </div>
-            </div>
-            <form className="workspace-create-form" onSubmit={handleSubmit}>
-              <label className="form-field">
-                <span>
-                  <strong>DISPLAY NAME</strong>
-                  <small>{displayName.length}/{DISPLAY_NAME_MAX_LENGTH}</small>
-                </span>
-                <input
-                  autoFocus
-                  disabled={submitting}
-                  maxLength={DISPLAY_NAME_MAX_LENGTH}
-                  onChange={(event) => {
-                    setDisplayName(event.target.value);
-                    setError("");
-                    setCreatedMessage("");
-                  }}
-                  placeholder="예: 로컬 OpenClaw 게이트웨이"
+          <T4Panel label="GATE FORM" accent={t4.mp} style={{ position: "relative", padding: 22 }}>
+            <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+              <Field
+                label="DISPLAY NAME"
+                required
+                counter={`${displayName.length}/${DISPLAY_NAME_MAX}`}
+              >
+                <Input
                   value={displayName}
-                />
-              </label>
-
-              <label className="form-field">
-                <span>
-                  <strong>GATEWAY URL</strong>
-                  <small>{gatewayUrl.length}/{URL_MAX_LENGTH}</small>
-                </span>
-                <input
+                  onChange={(e) => setDisplayName(e.target.value)}
+                  maxLength={DISPLAY_NAME_MAX}
+                  placeholder="예: 로컬 OpenClaw 게이트웨이"
                   disabled={submitting}
-                  maxLength={URL_MAX_LENGTH}
-                  onChange={(event) => {
-                    setGatewayUrl(event.target.value);
-                    setError("");
-                    setCreatedMessage("");
-                  }}
-                  placeholder="http://localhost:4317"
+                  autoFocus
+                />
+              </Field>
+
+              <Field
+                label="GATEWAY URL"
+                required
+                counter={`${gatewayUrl.length}/${URL_MAX}`}
+              >
+                <Input
                   value={gatewayUrl}
-                />
-              </label>
-
-              <label className="form-field">
-                <span>
-                  <strong>TOKEN</strong>
-                  <small>저장 후 masked token만 표시됩니다</small>
-                </span>
-                <input
-                  autoComplete="off"
+                  onChange={(e) => setGatewayUrl(e.target.value)}
+                  maxLength={URL_MAX}
+                  placeholder="http://localhost:4317"
                   disabled={submitting}
-                  onChange={(event) => {
-                    setToken(event.target.value);
-                    setError("");
-                    setCreatedMessage("");
-                  }}
-                  placeholder="OpenClaw gateway token"
+                />
+              </Field>
+
+              <Field label="TOKEN" required>
+                <Input
                   type="password"
                   value={token}
+                  onChange={(e) => setToken(e.target.value)}
+                  placeholder="OpenClaw 게이트웨이 토큰"
+                  disabled={submitting}
                 />
-              </label>
+              </Field>
 
-              {error ? (
-                <div className="form-notice form-notice-error" role="alert">
-                  <AlertCircle aria-hidden="true" />
-                  <span>{error}</span>
-                </div>
-              ) : null}
-
-              {createdMessage ? (
-                <div className="workspace-task-notice" role="status">
-                  <Plus aria-hidden="true" />
-                  <span>{createdMessage}</span>
-                </div>
-              ) : null}
-
-              <div className="form-actions">
-                <Link className="secondary-action" href="/workspaces">
-                  CANCEL
-                </Link>
-                <button
-                  className="primary-action primary-action-active"
-                  disabled={!canSubmit}
-                  type="submit"
+              {error && (
+                <p
+                  style={{
+                    fontFamily: "var(--font-mono-arcade)",
+                    fontSize: 11,
+                    color: t4.hp,
+                  }}
                 >
-                  <KeyRound aria-hidden="true" />
-                  <span>{submitting ? "LINKING" : "LINK GATE"}</span>
-                </button>
+                  <GlyphText glyph="⚠">{error}</GlyphText>
+                </p>
+              )}
+              {createdMessage && !error && (
+                <p
+                  style={{
+                    fontFamily: "var(--font-pixel)",
+                    fontSize: 8,
+                    letterSpacing: 2,
+                    color: t4.ok,
+                    textShadow: `0 0 6px ${t4.ok}`,
+                  }}
+                >
+                  <GlyphText glyph="★">{createdMessage}</GlyphText>
+                </p>
+              )}
+
+              <div className="flex items-center justify-end gap-2">
+                <Link href="/workspaces">
+                  <Button type="button" variant="ghost" disabled={submitting}>
+                    CANCEL
+                  </Button>
+                </Link>
+                <Button type="submit" loading={submitting}>
+                  <GlyphText glyph="▶">LINK GATE</GlyphText>
+                </Button>
               </div>
             </form>
-          </section>
+          </T4Panel>
         </div>
 
-        <div className="workspace-gateway-info-grid">
-          <InfoTile title="REGISTER" value="라벨, gateway URL, token을 입력합니다." />
-          <InfoTile title="VERIFY" value="linked list에서 등록된 gateway를 확인합니다." />
-          <InfoTile title="BIND" value="워크스페이스별 binding은 workspace 내부에서 수행합니다." />
+        <div className="grid gap-3 md:grid-cols-3">
+          <InfoCard step="01" title="REGISTER" description="라벨, 게이트웨이 URL, 토큰을 입력해 새 스테이션을 추가합니다." />
+          <InfoCard step="02" title="VERIFY" description="사이드바에서 연결된 모든 게이트웨이의 상태를 확인할 수 있습니다." />
+          <InfoCard step="03" title="BIND" description="워크스페이스 단위 바인딩은 API 연동 이후 제공될 예정입니다." />
         </div>
-      </section>
-    </main>
+      </div>
+    </T4Screen>
   );
 }
 
-function InfoTile({ title, value }: { title: string; value: string }) {
+function Field({
+  label,
+  required,
+  counter,
+  children,
+}: {
+  label: string;
+  required?: boolean;
+  counter?: string;
+  children: React.ReactNode;
+}) {
   return (
-    <div className="workspace-stat-card">
-      <span>{title}</span>
-      <strong>{value}</strong>
-    </div>
+    <label className="flex flex-col gap-2">
+      <span className="flex items-center justify-between">
+        <span
+          style={{
+            fontFamily: "var(--font-pixel)",
+            fontSize: 8,
+            letterSpacing: 2,
+            color: t4.dim,
+          }}
+        >
+          <GlyphText glyph="◇">
+            {label}
+            {required && <span style={{ color: t4.hp, marginLeft: 4 }}>*</span>}
+          </GlyphText>
+        </span>
+        {counter && (
+          <span
+            style={{
+              fontFamily: "var(--font-mono-arcade)",
+              fontSize: 9,
+              color: t4.dim,
+            }}
+          >
+            {counter}
+          </span>
+        )}
+      </span>
+      {children}
+    </label>
   );
 }
 
-function readGatewayRegistry(): GatewayRegistryEntry[] {
-  if (typeof window === "undefined") {
-    return [];
-  }
+function InfoCard({
+  step,
+  title,
+  description,
+}: {
+  step: string;
+  title: string;
+  description: string;
+}) {
+  return (
+    <T4Panel accent={t4.agent} style={{ position: "relative", padding: 14 }}>
+      <p
+        style={{
+          fontFamily: "var(--font-pixel)",
+          fontSize: 7,
+          letterSpacing: 2,
+          color: t4.agent,
+        }}
+      >
+        STEP {step}
+      </p>
+      <p
+        className="mt-2"
+        style={{
+          fontFamily: "var(--font-pixel)",
+          fontSize: 10,
+          letterSpacing: 1.5,
+          color: t4.ink,
+        }}
+      >
+        ▸ {title}
+      </p>
+      <p
+        className="mt-2"
+        style={{
+          fontFamily: "var(--font-mono-arcade)",
+          fontSize: 11,
+          color: t4.dim,
+          lineHeight: 1.5,
+        }}
+      >
+        {description}
+      </p>
+    </T4Panel>
+  );
+}
 
-  const rawValue = window.localStorage.getItem(OPENCLAW_GATEWAYS_STORAGE_KEY);
-  if (!rawValue) {
-    return [];
-  }
-
+function readGateways(): GatewayEntry[] {
+  if (typeof window === "undefined") return [];
+  const raw = window.localStorage.getItem(STORAGE_KEY);
+  if (!raw) return [];
   try {
-    const parsed = JSON.parse(rawValue);
-    return Array.isArray(parsed) ? parsed.filter(isGatewayRegistryEntry) : [];
+    const parsed = JSON.parse(raw) as GatewayEntry[];
+    return Array.isArray(parsed) ? parsed : [];
   } catch {
     return [];
   }
 }
 
-function writeGatewayRegistry(gateways: GatewayRegistryEntry[]): void {
-  if (typeof window === "undefined") {
-    return;
-  }
-
-  window.localStorage.setItem(OPENCLAW_GATEWAYS_STORAGE_KEY, JSON.stringify(gateways));
+function writeGateways(gateways: GatewayEntry[]) {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(gateways));
 }
 
-function isGatewayRegistryEntry(value: unknown): value is GatewayRegistryEntry {
-  if (!value || typeof value !== "object") {
-    return false;
-  }
-
-  const record = value as Record<string, unknown>;
-  return (
-    typeof record.id === "string" &&
-    typeof record.displayName === "string" &&
-    typeof record.gatewayUrl === "string" &&
-    typeof record.maskedToken === "string" &&
-    typeof record.createdAt === "string"
-  );
-}
-
-function createGatewayId(): string {
+function createId() {
   if (typeof window !== "undefined" && window.crypto?.randomUUID) {
     return window.crypto.randomUUID();
   }
-
   return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
-function formatDateTime(value: string): string {
+function maskToken(token: string) {
+  if (token.length <= 8) return "****";
+  return `${token.slice(0, 4)}...${token.slice(-4)}`;
+}
+
+function isHttpUrl(value: string) {
   try {
-    return new Intl.DateTimeFormat("ko-KR", {
-      dateStyle: "medium",
-      timeStyle: "short",
-    }).format(new Date(value));
+    const url = new URL(value);
+    return url.protocol === "http:" || url.protocol === "https:";
   } catch {
-    return value;
+    return false;
+  }
+}
+
+function formatDateTime(iso: string): string {
+  try {
+    return new Date(iso).toLocaleString("ko-KR", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  } catch {
+    return iso;
   }
 }

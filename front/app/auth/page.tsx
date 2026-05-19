@@ -1,140 +1,213 @@
 "use client";
 
 import { GoogleLogin } from "@react-oauth/google";
-import Image from "next/image";
-import { AlertCircle, Loader2 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useState, type ReactNode } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { isAuthenticated, loginWithGoogle } from "@/lib/auth";
-import { BRAND_MASCOT_PATH, SERVICE_NAME } from "@/lib/branding";
+import type { ApiError } from "@/lib/api-client";
+import { GlyphText, T4Screen, T4Panel } from "@/components/arcade";
+import { t4 } from "@/components/arcade/tokens";
 
 export default function AuthPage() {
   return (
-    <Suspense fallback={<AuthFallback />}>
-      <AuthContent />
+    <Suspense fallback={null}>
+      <AuthPageInner />
     </Suspense>
   );
 }
 
-function AuthContent() {
+function AuthPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const returnTo = safeReturnTo(searchParams.get("returnTo"));
-  const [state, setState] = useState<
-    | { status: "idle"; error: null }
-    | { status: "submitting"; error: null }
-    | { status: "error"; error: string }
-  >({ status: "idle", error: null });
+  const [error, setError] = useState<string>("");
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    if (isAuthenticated()) {
-      router.replace(nextStep(returnTo));
-    }
+    if (isAuthenticated()) router.replace(nextStep(returnTo));
   }, [router, returnTo]);
 
-  const handleCredential = async (credential?: string) => {
-    if (!credential) {
-      setState({ status: "error", error: "Google 토큰을 받지 못했습니다." });
+  async function handleSuccess(idToken?: string) {
+    if (!idToken) {
+      setError("Google 토큰을 받지 못했습니다.");
       return;
     }
-
-    setState({ status: "submitting", error: null });
+    setError("");
+    setSubmitting(true);
     try {
-      await loginWithGoogle(credential);
+      await loginWithGoogle(idToken);
       router.replace(nextStep(returnTo));
-    } catch (error) {
-      setState({
-        status: "error",
-        error: error instanceof Error ? error.message : "로그인에 실패했습니다.",
-      });
+    } catch (err) {
+      const apiErr = err as ApiError;
+      setError(apiErr?.message ?? "로그인에 실패했습니다.");
+    } finally {
+      setSubmitting(false);
     }
-  };
+  }
 
   return (
-    <AuthLayout>
-      <div className="auth-menu-line" aria-hidden="true">
-        <span>&gt;</span>
-        <strong>SIGN IN TO CONTINUE</strong>
-      </div>
-      <div className="auth-copy">
-        <strong>WORKSPACE MEMBER VERIFICATION</strong>
-        <p>Sign in with your work Google account. Only invited heroes may enter.</p>
-      </div>
-
-      <div className="auth-google-action">
-        <GoogleLogin
-          onSuccess={(response) => void handleCredential(response.credential)}
-          onError={() => setState({ status: "error", error: "로그인에 실패했습니다." })}
-          theme="filled_black"
-          size="large"
-          shape="rectangular"
-          text="continue_with"
-          logo_alignment="left"
-          width="280"
-          useOneTap={false}
-        />
-      </div>
-
-      {state.status === "submitting" ? (
-        <p className="auth-state" role="status">
-          <Loader2 className="spin" aria-hidden="true" />
-          LOADING SAVE FILE...
-        </p>
-      ) : null}
-      {state.status === "error" ? (
-        <p className="auth-state auth-state-error" role="alert">
-          <AlertCircle aria-hidden="true" />
-          {state.error}
-        </p>
-      ) : null}
-    </AuthLayout>
-  );
-}
-
-function AuthFallback() {
-  return (
-    <AuthLayout busy>
-      <p className="auth-state" role="status">
-        <Loader2 className="spin" aria-hidden="true" />
-        LOADING SAVE FILE...
-      </p>
-    </AuthLayout>
-  );
-}
-
-function AuthLayout({
-  busy = false,
-  children,
-}: {
-  busy?: boolean;
-  children: ReactNode;
-}) {
-  return (
-    <main className="auth-page" aria-label="인증 화면">
-      <section className="auth-panel" aria-labelledby="auth-title" aria-busy={busy || undefined}>
-        <div className="auth-crest">
-          <Image
-            src={BRAND_MASCOT_PATH}
-            alt={`${SERVICE_NAME} crest`}
-            width={88}
-            height={88}
-            priority
-          />
+    <T4Screen title="SIGN IN">
+      <div
+        style={{
+          padding: "24px 28px",
+          height: "100%",
+          boxSizing: "border-box",
+          display: "flex",
+          flexDirection: "column",
+          gap: 18,
+          justifyContent: "center",
+        }}
+      >
+        <div style={{ textAlign: "center", marginBottom: 12 }}>
+          <div
+            style={{
+              fontFamily: "var(--font-pixel)",
+              fontSize: 11,
+              color: t4.pink,
+              letterSpacing: 4,
+              marginBottom: 10,
+              textShadow: `0 0 12px ${t4.pink}`,
+              animation: "t4-pulse 1.4s ease-in-out infinite",
+            }}
+          >
+            <GlyphText glyph="▶">SIGN IN TO CONTINUE</GlyphText>
+          </div>
+          <div
+            style={{
+              fontFamily: "var(--font-mono-arcade)",
+              fontSize: 12,
+              color: t4.dim,
+              letterSpacing: 4,
+            }}
+          >
+            ─ AUTHENTICATE WITH GOOGLE ─
+          </div>
         </div>
-        <p className="eyebrow">AUTHENTICATION</p>
-        <h1 id="auth-title">{SERVICE_NAME.toUpperCase()}</h1>
-        <p className="auth-subtitle">secure workspace access</p>
-        <div className="auth-panel-body">{children}</div>
-        <p className="auth-screen-hint">PRESS TO CONTINUE</p>
-      </section>
-    </main>
+
+        <div style={{ maxWidth: 560, width: "100%", margin: "0 auto" }}>
+          <T4Panel
+            label="SIGN IN"
+            style={{ padding: "20px 22px", position: "relative" }}
+          >
+            <div
+              style={{
+                fontFamily: "var(--font-pixel)",
+                fontSize: 8,
+                color: t4.pink,
+                letterSpacing: 2,
+                marginBottom: 8,
+                textShadow: `0 0 6px ${t4.pink}`,
+              }}
+            >
+              <GlyphText glyph="◆">WORKSPACE MEMBER VERIFICATION</GlyphText>
+            </div>
+            <div
+              style={{
+                fontFamily: "var(--font-mono-arcade)",
+                fontSize: 11,
+                color: t4.dim,
+                lineHeight: 1.6,
+                marginBottom: 18,
+              }}
+            >
+              Sign in with your work Google account.
+              <br />
+              Only invited heroes may enter.
+            </div>
+
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: 10,
+              }}
+            >
+              <GoogleLogin
+                onSuccess={(credResp) => handleSuccess(credResp.credential)}
+                onError={() =>
+                  setError("Google 로그인이 취소되었거나 실패했습니다.")
+                }
+                theme="filled_black"
+                size="large"
+                shape="rectangular"
+                text="continue_with"
+                logo_alignment="left"
+                width="280"
+                useOneTap={false}
+              />
+              <div
+                style={{
+                  fontFamily: "var(--font-pixel)",
+                  fontSize: 7,
+                  color: t4.pink,
+                  letterSpacing: 2,
+                  textShadow: `0 0 6px ${t4.pink}`,
+                }}
+              >
+                <GlyphText glyph="▶">PRESS TO CONTINUE</GlyphText>
+              </div>
+            </div>
+
+            {error && (
+              <div
+                style={{
+                  marginTop: 14,
+                  fontFamily: "var(--font-mono-arcade)",
+                  fontSize: 10,
+                  color: t4.hp,
+                  textAlign: "center",
+                }}
+              >
+                <GlyphText glyph="⚠">{error}</GlyphText>
+              </div>
+            )}
+            {submitting && (
+              <div
+                style={{
+                  marginTop: 14,
+                  fontFamily: "var(--font-mono-arcade)",
+                  fontSize: 10,
+                  color: t4.mp,
+                  textAlign: "center",
+                }}
+              >
+                LOADING SAVE FILE...
+              </div>
+            )}
+          </T4Panel>
+        </div>
+
+        <div
+          style={{
+            position: "absolute",
+            bottom: 14,
+            left: 0,
+            right: 0,
+            textAlign: "center",
+            fontFamily: "var(--font-mono-arcade)",
+            fontSize: 9,
+            color: t4.dim,
+            letterSpacing: 3,
+          }}
+        >
+          [ ESC BACK ] © TEAM IoT 2026
+        </div>
+      </div>
+
+      <style jsx global>{`
+        @keyframes t4-pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.4; }
+        }
+      `}</style>
+    </T4Screen>
   );
 }
 
 function safeReturnTo(raw: string | null): string {
-  if (!raw || !raw.startsWith("/") || raw.startsWith("//")) {
-    return "/workspaces";
-  }
+  if (!raw) return "/workspaces";
+  if (!raw.startsWith("/") || raw.startsWith("//")) return "/workspaces";
   return raw;
 }
 
