@@ -43,10 +43,28 @@ test("actor chat panel exposes member chat and server task plan links", () => {
   assert.match(detailSource, /setActorPanelTab\("chat"\)/);
   assert.doesNotMatch(detailSource, /disabled=\{!isAgent\}/);
   assert.match(detailSource, /현재 멤버 대화는 화면 내 대화로 표시됩니다/);
+  assert.match(detailSource, /sender: "system"/);
   assert.match(detailSource, /actor-message-plan/);
   assert.match(detailSource, /Plan #/);
   assert.match(detailSource, /Task #/);
   assert.match(detailSource, /onOpenPlan/);
+});
+
+test("actor side panel closes cleanly and keeps chat scrolled to latest message", () => {
+  assert.match(detailSource, /handleCloseActorPanel/);
+  assert.match(detailSource, /setSelectedActor\(null\)/);
+  assert.match(detailSource, /setActorChatInput\(""\)/);
+  assert.match(detailSource, /setActorChatMutation\(\{ status: "idle", message: null \}\)/);
+  assert.match(detailSource, /actorMessagesEndRef/);
+  assert.match(detailSource, /scrollIntoView/);
+  assert.match(detailSource, /document\.addEventListener\("keydown", handleEscape\)/);
+});
+
+test("actor side panel keeps agent task flow sorted and member targets chat-only", () => {
+  assert.match(detailSource, /compareActorPanelTasks/);
+  assert.match(detailSource, /sortedTasks/);
+  assert.match(detailSource, /isAgent \? \(/);
+  assert.doesNotMatch(detailSource, /disabled=\{isAgent === false\}/);
 });
 
 test("task dashboard modal exposes summary board and selected task detail", () => {

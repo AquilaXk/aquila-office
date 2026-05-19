@@ -387,6 +387,8 @@ test.describe("브라우저 UI UX 회귀", () => {
     await expect(actorPanel.getByText("브라우저 회귀 확인을 진행합니다.")).toBeVisible();
     await actorPanel.getByRole("tab", { name: "Tasks" }).click();
     await expect(actorPanel.getByText(regressionTask.title)).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(actorPanel).toHaveCount(0);
 
     await officeScene.locator(".workspace-office-nav").getByRole("button", { name: "Tasks", exact: true }).click();
     const taskDashboard = page.getByRole("dialog", { name: "Task dashboard" });

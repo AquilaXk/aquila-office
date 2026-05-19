@@ -15,6 +15,7 @@ const cssSource = readSource("app/globals.css");
 test("workspace scene connections opens selector and individual modals", () => {
   assert.match(detailSource, /ConnectionModalKind/);
   assert.match(detailSource, /workspace-connection-selector-modal/);
+  assert.match(detailSource, /workspace-connection-modal-\$\{modal\}/);
   assert.match(detailSource, /aria-label="Connection settings"/);
   assert.match(detailSource, /Slack/);
   assert.match(detailSource, /Discord/);
