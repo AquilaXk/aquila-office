@@ -43,19 +43,26 @@ test("workspace 2d canvas exposes HUD, minimap, dialogue, and keyboard stage con
   assert.match(canvasSource, /workspace-2d-dialogue/);
   assert.match(canvasSource, /workspace-2d-actor-layer/);
   assert.match(canvasSource, /workspace-2d-hero-hud/);
+  assert.match(canvasSource, /function ArcadeOfficeStage/);
+  assert.match(canvasSource, /function StageRoom/);
+  assert.match(canvasSource, /function StageCorridors/);
+  assert.match(canvasSource, /function QuestMarker/);
+  assert.match(canvasSource, /function MapHud/);
+  assert.match(canvasSource, /function MapZoomControls/);
   assert.match(canvasSource, /StageActor/);
   assert.match(canvasSource, /PixelAvatar/);
-  assert.match(canvasSource, /stage-actor--\$\{isPlayer && playerWalking \? "walking" : actor\.motion\}/);
+  assert.match(canvasSource, /requestAnimationFrame\(tick\)/);
+  assert.match(canvasSource, /window\.addEventListener\("keydown", handleKeyDown\)/);
+  assert.match(canvasSource, /isNearQuestMarker\(keyboardPosition\)/);
+  assert.match(canvasSource, /findNearestInteractableStageActor/);
+  assert.match(canvasSource, /stage-actor--\$\{motion\}/);
   assert.match(canvasSource, /getStageMiniMapRooms/);
-  assert.match(canvasSource, /focusWorkspaceViewportOnStagePosition/);
-  assert.match(canvasSource, /workspace-2d-minimap-room-button/);
-  assert.match(canvasSource, /Move view to/);
+  assert.match(canvasSource, /getStagePanForPosition/);
+  assert.match(canvasSource, /smoothStagePan/);
+  assert.match(canvasSource, /stage-quest-marker/);
   assert.match(canvasSource, /workspace-2d-minimap-actor/);
   assert.match(canvasSource, /aria-label="Office scene minimap"/);
-  assert.match(canvasSource, /aria-label="Stage keyboard controls"/);
-  assert.match(canvasSource, /onKeyDown/);
-  assert.match(canvasSource, /tabIndex=\{0\}/);
-  assert.match(canvasSource, /moveWorkspaceViewportByKey/);
+  assert.match(canvasSource, /aria-label="Quest"/);
 });
 
 test("workspace detail passes the current player into the 2d workspace", () => {
@@ -74,7 +81,8 @@ test("workspace 2d canvas renders a distinct player actor contract", () => {
   assert.match(canvasSource, /isPlayer/);
   assert.match(canvasSource, /stage-actor__player-marker/);
   assert.match(canvasSource, /플레이어/);
-  assert.match(canvasSource, /direction=\{isPlayer \? playerDirection : "S"\}/);
+  assert.match(canvasSource, /YOU/);
+  assert.match(canvasSource, /direction=\{direction\}/);
 });
 
 test("workspace scene helpers model rooms and desks for office placement", () => {
@@ -88,12 +96,18 @@ test("workspace scene helpers model rooms and desks for office placement", () =>
 test("workspace office scene styles define full screen surface", () => {
   assert.match(cssSource, /\.workspace-office-scene/);
   assert.match(cssSource, /min-height:\s*calc\(100vh - 64px\)/);
+  assert.match(cssSource, /\.workspace-2d-stage-shell/);
   assert.match(cssSource, /\.workspace-2d-minimap/);
+  assert.match(cssSource, /\.workspace-2d-map-hud/);
   assert.match(cssSource, /\.workspace-2d-hero-hud/);
-  assert.match(cssSource, /\.workspace-2d-minimap-room-button/);
   assert.match(cssSource, /\.workspace-2d-minimap-actor/);
   assert.match(cssSource, /\.workspace-2d-dialogue/);
+  assert.match(cssSource, /\.stage-room/);
+  assert.match(cssSource, /\.stage-room-label/);
+  assert.match(cssSource, /\.stage-corridor/);
+  assert.match(cssSource, /\.stage-quest-marker/);
   assert.match(cssSource, /\.stage-actor/);
+  assert.match(cssSource, /\.stage-actor--walking/);
   assert.match(cssSource, /@keyframes stage-actor-working/);
 });
 

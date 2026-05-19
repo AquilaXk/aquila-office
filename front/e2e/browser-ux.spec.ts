@@ -366,16 +366,16 @@ test.describe("브라우저 UI UX 회귀", () => {
     await expect(page.locator(".workspace-2d-hud")).toBeVisible();
     await expect(page.locator(".workspace-2d-minimap")).toBeVisible();
     await expect(page.locator(".workspace-2d-dialogue")).toBeVisible();
+    await expect(page.locator(".stage-room")).toHaveCount(4);
+    await expect(page.locator(".stage-quest-marker")).toBeVisible();
+    await expect(page.locator(".workspace-2d-map-hud")).toBeVisible();
     const actorLayer = page.locator(".workspace-2d-actor-layer");
     await expect(actorLayer.getByRole("button", { name: /Aquila User 플레이어/ })).toBeVisible();
-    await expect(actorLayer.getByRole("button", { name: /QA Agent agent/ })).toBeVisible();
+    await expect(actorLayer.getByRole("button", { name: /QA Agent 채팅/ })).toBeVisible();
     await expect(actorLayer.locator(".stage-actor__player-marker")).toBeVisible();
     const playerHudValue = page.locator(".workspace-2d-hud div").filter({ hasText: "Player" }).locator("strong");
     await expect(playerHudValue).not.toHaveText("No signal");
-    const canvas = page.locator(".workspace-2d-canvas canvas");
     const stageFrame = page.locator(".workspace-2d-stage").first();
-    await expect(canvas).toBeVisible();
-    await expectCanvasNotBlank(canvas);
     await expectKeyboardToMovePlayer(page, canvasFrame, playerHudValue);
     await expectPanAndZoomToMoveViewport(page, stageFrame);
     await openAndAssert2DContextMenu(page, stageFrame);
@@ -1055,60 +1055,9 @@ async function openAndAssert2DContextMenu(page: Page, frame: Locator) {
   }
   await expect(focusAction).toBeVisible();
   await expect(page.getByRole("button", { name: "Profile" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Chat" }).first()).toBeVisible();
-}
-
-async function expectCanvasNotBlank(canvas: Locator) {
-  await expect
-    .poll(async () =>
-      canvas.evaluate(async (element) => {
-        const source = element as HTMLCanvasElement;
-        if (source.width === 0 || source.height === 0) {
-          return false;
-        }
-
-        const image = new Image();
-        const dataUrl = source.toDataURL("image/png");
-        await new Promise<void>((resolve, reject) => {
-          image.onload = () => resolve();
-          image.onerror = () => reject(new Error("canvas snapshot decode failed"));
-          image.src = dataUrl;
-        });
-
-        const scratch = document.createElement("canvas");
-        scratch.width = source.width;
-        scratch.height = source.height;
-        const context = scratch.getContext("2d", { willReadFrequently: true });
-        if (!context) {
-          return false;
-        }
-
-        context.drawImage(image, 0, 0);
-        const pixels = context.getImageData(0, 0, scratch.width, scratch.height).data;
-        const step = 4 * 53;
-        let firstColor: string | null = null;
-        let visibleSamples = 0;
-        let variedSamples = 0;
-
-        for (let index = 0; index < pixels.length; index += step) {
-          const color = `${pixels[index]},${pixels[index + 1]},${pixels[index + 2]},${pixels[index + 3]}`;
-          if (pixels[index + 3] > 0) {
-            visibleSamples += 1;
-          }
-          if (firstColor === null) {
-            firstColor = color;
-          } else if (color !== firstColor) {
-            variedSamples += 1;
-          }
-          if (visibleSamples > 25 && variedSamples > 25) {
-            return true;
-          }
-        }
-
-        return false;
-      }),
-    )
-    .toBe(true);
+  const chatAction = page.getByRole("button", { name: "Chat" }).first();
+  await expect(chatAction).toBeVisible();
+  await chatAction.click();
 }
 
 function memberProfile() {

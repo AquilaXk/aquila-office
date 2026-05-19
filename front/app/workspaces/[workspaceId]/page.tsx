@@ -2376,6 +2376,10 @@ export default function WorkspaceDetailPage({
                 playerAvatar={storedCharacterProfile}
                 onPlayerPositionChange={handlePlayerPositionChange}
                 onActorSelect={handleSelectActor}
+                onOpenTasks={() => {
+                  setTaskDashboardOpen(true);
+                  setTaskDashboardTab("summary");
+                }}
                 onPresenceMove={(position) =>
                   updatePresencePosition(position, "2D workspace 위치가 갱신되었습니다.")
                 }
