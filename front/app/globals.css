@@ -2428,6 +2428,18 @@ h2 {
   padding: 3px 8px;
 }
 
+.workspace-actor-message-links {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.actor-message-plan {
+  min-height: 24px;
+  padding: 0 8px;
+}
+
 .workspace-actor-empty {
   display: grid;
   gap: 8px;

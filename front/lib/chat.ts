@@ -13,6 +13,7 @@ export type ChatMessage = {
   chatSessionId: number;
   taskId: number | null;
   taskExecutionId: number | null;
+  orchestrationPlanId: number | null;
   role: ChatMessageRole;
   content: string;
   createdAt: string;
@@ -56,6 +57,10 @@ export type FetchChatSessionMessagesInput = {
   limit?: number | null;
 };
 
+export type ActorChatSessionIds = Record<string, number>;
+
+export type ActorChatSessionStorage = Pick<Storage, "getItem" | "setItem">;
+
 export const CHAT_SESSION_MESSAGE_PAGE_SIZE = 30;
 
 export function chatSessionMessagePageInput(
@@ -69,6 +74,51 @@ export function chatSessionMessagePageInput(
 
 export function workspaceChatMessagesPath(workspaceId: number): string {
   return `/api/v1/workspaces/${workspaceId}/chat/messages`;
+}
+
+export function actorChatSessionKey(actorId: string | number): string {
+  return String(actorId).trim();
+}
+
+export function actorChatSessionIdsStorageKey(workspaceId: number): string {
+  return `aquila-office.workspace.${workspaceId}.actorChatSessions`;
+}
+
+export function readActorChatSessionIds(
+  storage: ActorChatSessionStorage | null | undefined,
+  workspaceId: number,
+): ActorChatSessionIds {
+  if (!storage) {
+    return {};
+  }
+
+  const raw = storage.getItem(actorChatSessionIdsStorageKey(workspaceId));
+  if (!raw) {
+    return {};
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    return Object.fromEntries(
+      Object.entries(parsed)
+        .map(([key, value]) => [key, Number(value)] as const)
+        .filter(([key, value]) => key.length > 0 && Number.isInteger(value) && value > 0),
+    );
+  } catch {
+    return {};
+  }
+}
+
+export function writeActorChatSessionIds(
+  storage: ActorChatSessionStorage | null | undefined,
+  workspaceId: number,
+  sessionIds: ActorChatSessionIds,
+) {
+  if (!storage) {
+    return;
+  }
+
+  storage.setItem(actorChatSessionIdsStorageKey(workspaceId), JSON.stringify(sessionIds));
 }
 
 export function workspaceTaskChatMessagesPath(workspaceId: number, taskId: number): string {

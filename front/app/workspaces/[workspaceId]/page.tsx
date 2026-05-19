@@ -53,10 +53,13 @@ import {
   type OrchestrationPlanArtifact,
 } from "@/lib/artifacts";
 import {
+  actorChatSessionKey,
   chatSessionMessagePageInput,
   fetchChatSessionMessages,
   fetchTaskChatMessages,
+  readActorChatSessionIds,
   sendWorkspaceChatMessage,
+  writeActorChatSessionIds,
   type ChatMessage,
 } from "@/lib/chat";
 import {
@@ -238,6 +241,9 @@ type ActorChatMessage = {
   sender: "user" | "agent";
   text: string;
   optimistic: boolean;
+  taskId?: number | null;
+  taskExecutionId?: number | null;
+  orchestrationPlanId?: number | null;
 };
 
 type DashboardSummaryState =
@@ -427,6 +433,12 @@ export default function WorkspaceDetailPage({
   const [actorChatInput, setActorChatInput] = useState("");
   const [actorChatMessages, setActorChatMessages] = useState<ActorChatMessage[]>([]);
   const [actorChatSessionId, setActorChatSessionId] = useState<number | null>(null);
+  const [actorChatSessionIds, setActorChatSessionIds] = useState<Record<string, number>>(() => {
+    if (typeof window === "undefined") {
+      return {};
+    }
+    return readActorChatSessionIds(window.localStorage, numericWorkspaceId);
+  });
   const [actorChatMutation, setActorChatMutation] = useState<ChatMutationState>({
     status: "idle",
     message: null,
@@ -963,6 +975,24 @@ export default function WorkspaceDetailPage({
     }
   }, [numericWorkspaceId, taskChatCursor, taskChatSessionId]);
 
+  const openOrchestrationPlan = useCallback(
+    async (planId: number) => {
+      setOrchestrationPlan(null);
+      setOrchestrationPlanState({ status: "loading", error: null });
+      try {
+        const plan = await fetchOrchestrationPlanArtifact(resolveAccessToken(), numericWorkspaceId, planId);
+        setOrchestrationPlan(plan);
+        setOrchestrationPlanState({ status: "ready", error: null });
+      } catch (planError) {
+        setOrchestrationPlanState({
+          status: "error",
+          error: messageFromError(planError, "Orchestration plan artifact를 불러오지 못했습니다."),
+        });
+      }
+    },
+    [numericWorkspaceId],
+  );
+
   const handleSendTaskChatMessage = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
@@ -1014,22 +1044,7 @@ export default function WorkspaceDetailPage({
         message: `Task #${result.taskId} chat 메시지가 전송되었습니다.`,
       });
       if (result.orchestrationPlanId) {
-        setOrchestrationPlan(null);
-        setOrchestrationPlanState({ status: "loading", error: null });
-        try {
-          const plan = await fetchOrchestrationPlanArtifact(
-            resolveAccessToken(),
-            numericWorkspaceId,
-            result.orchestrationPlanId,
-          );
-          setOrchestrationPlan(plan);
-          setOrchestrationPlanState({ status: "ready", error: null });
-        } catch (planError) {
-          setOrchestrationPlanState({
-            status: "error",
-            error: messageFromError(planError, "Orchestration plan artifact를 불러오지 못했습니다."),
-          });
-        }
+        await openOrchestrationPlan(result.orchestrationPlanId);
       } else {
         setOrchestrationPlan(null);
         setOrchestrationPlanState({ status: "idle", error: null });
@@ -1066,29 +1081,60 @@ export default function WorkspaceDetailPage({
 
   const handleSelectActor = useCallback(
     (node: WorkspaceSceneNode) => {
+      const sessionId =
+        node.kind === "agent" ? actorChatSessionIds[actorChatSessionKey(node.id)] ?? null : null;
       if (selectedActor?.id !== node.id) {
         setActorChatInput("");
         setActorChatMessages([]);
-        setActorChatSessionId(null);
       }
+      setActorChatSessionId(sessionId);
       setSelectedActor(node);
       setActorPanelOpen(true);
-      setActorPanelTab(node.kind === "agent" ? "chat" : "tasks");
+      setActorPanelTab("chat");
       setActorChatMutation({ status: "idle", message: null });
+      if (sessionId) {
+        void pollActorChatMessages(sessionId);
+      }
     },
-    [selectedActor?.id],
+    [actorChatSessionIds, pollActorChatMessages, selectedActor?.id],
   );
 
   const handleSendActorChatMessage = async () => {
-    if (!selectedActor || selectedActor.kind !== "agent") {
-      setActorChatMutation({ status: "error", message: "Agent actor를 선택해 주세요." });
+    if (!selectedActor) {
+      setActorChatMutation({ status: "error", message: "actor를 선택해 주세요." });
       return;
     }
 
     const message = actorChatInput.trim();
+    if (!message) {
+      setActorChatMutation({ status: "error", message: "전송할 메시지를 입력해 주세요." });
+      return;
+    }
+
+    if (selectedActor.kind !== "agent") {
+      setActorChatMessages((current) => [
+        ...current,
+        {
+          id: `member-${Date.now()}`,
+          sender: "user",
+          text: message,
+          optimistic: false,
+        },
+        {
+          id: `member-system-${Date.now()}`,
+          sender: "agent",
+          text: "현재 멤버 대화는 화면 내 대화로 표시됩니다.",
+          optimistic: false,
+        },
+      ]);
+      setActorChatInput("");
+      setActorChatMutation({ status: "success", message: "멤버 actor 대화가 표시되었습니다." });
+      return;
+    }
+
     const agentId = agentIdFromActorNode(selectedActor);
-    if (!message || agentId === null) {
-      setActorChatMutation({ status: "error", message: "전송할 메시지와 Agent를 확인해 주세요." });
+    if (agentId === null) {
+      setActorChatMutation({ status: "error", message: "전송할 Agent를 확인해 주세요." });
       return;
     }
 
@@ -1111,7 +1157,15 @@ export default function WorkspaceDetailPage({
         title: `Actor chat: ${selectedActor.label}`,
         chatSessionId: actorChatSessionId,
       });
+      const sessionKey = actorChatSessionKey(selectedActor.id);
       setActorChatSessionId(result.chatSessionId);
+      setActorChatSessionIds((current) => {
+        const next = { ...current, [sessionKey]: result.chatSessionId };
+        if (typeof window !== "undefined") {
+          writeActorChatSessionIds(window.localStorage, numericWorkspaceId, next);
+        }
+        return next;
+      });
       setActorChatMessages((current) => [
         ...current.filter((chatMessage) => chatMessage.id !== optimisticMessage.id),
         ...result.messages.map(actorMessageFromChatMessage),
@@ -1597,7 +1651,7 @@ export default function WorkspaceDetailPage({
   );
   const taskDashboardSummary = summary ?? localDashboardSummary;
   const canSendActorChatMessage =
-    selectedActor?.kind === "agent" &&
+    selectedActor !== null &&
     actorChatInput.trim().length > 0 &&
     actorChatMutation.status !== "submitting";
   const canManageConnections = workspace?.myRole === "ADMIN";
@@ -2240,6 +2294,7 @@ export default function WorkspaceDetailPage({
                 }}
                 onOpenReports={openTaskReports}
                 onOpenChat={openTaskChat}
+                onOpenPlan={(planId) => void openOrchestrationPlan(planId)}
               />
 
               <section className="workspace-detail-action-rail" aria-label="워크스페이스 상세 작업">
@@ -4065,6 +4120,7 @@ function ActorTaskPanel({
   onOpenDashboard,
   onOpenReports,
   onOpenChat,
+  onOpenPlan,
 }: {
   open: boolean;
   actor: WorkspaceSceneNode | null;
@@ -4081,12 +4137,14 @@ function ActorTaskPanel({
   onOpenDashboard: (task: WorkspaceTask) => void;
   onOpenReports: (task: WorkspaceTask) => void;
   onOpenChat: (task: WorkspaceTask) => void;
+  onOpenPlan: (planId: number) => void;
 }) {
   if (!open || !actor) {
     return null;
   }
 
   const isAgent = actor.kind === "agent";
+  const activeTab = isAgent ? tab : "chat";
   const actorAvatarKind = pickAvatarKind(actor.label, isAgent);
 
   return (
@@ -4107,27 +4165,27 @@ function ActorTaskPanel({
 
       <div className="workspace-actor-tabs" role="tablist" aria-label="Actor panel tabs">
         <button
-          className={tab === "chat" ? "workspace-actor-tab-active" : ""}
+          className={activeTab === "chat" ? "workspace-actor-tab-active" : ""}
           type="button"
           role="tab"
-          aria-selected={tab === "chat"}
+          aria-selected={activeTab === "chat"}
           onClick={() => onTabChange("chat")}
-          disabled={!isAgent}
         >
           Chat
         </button>
         <button
-          className={tab === "tasks" ? "workspace-actor-tab-active" : ""}
+          className={activeTab === "tasks" ? "workspace-actor-tab-active" : ""}
           type="button"
           role="tab"
-          aria-selected={tab === "tasks"}
+          aria-selected={activeTab === "tasks"}
           onClick={() => onTabChange("tasks")}
+          disabled={isAgent === false}
         >
           Tasks
         </button>
       </div>
 
-      {tab === "chat" ? (
+      {activeTab === "chat" ? (
         <div className="workspace-actor-content" role="tabpanel">
           <div className="workspace-actor-chat-list" aria-label="Agent chat messages">
             {messages.length > 0 ? (
@@ -4138,6 +4196,24 @@ function ActorTaskPanel({
                 >
                   <strong>{message.sender === "user" ? "User" : "Agent"}</strong>
                   <p>{message.text}</p>
+                  {message.taskId || message.taskExecutionId || message.orchestrationPlanId ? (
+                    <div className="workspace-actor-message-links">
+                      {message.taskId ? <span className="role-badge">Task #{message.taskId}</span> : null}
+                      {message.taskExecutionId ? (
+                        <span className="role-badge">Execution #{message.taskExecutionId}</span>
+                      ) : null}
+                      {message.orchestrationPlanId ? (
+                        <button
+                          className="secondary-action workspace-task-refresh actor-message-plan"
+                          type="button"
+                          onClick={() => onOpenPlan(message.orchestrationPlanId ?? 0)}
+                        >
+                          <FileText aria-hidden="true" />
+                          <span>Plan #{message.orchestrationPlanId}</span>
+                        </button>
+                      ) : null}
+                    </div>
+                  ) : null}
                   {message.optimistic ? <span>optimistic</span> : null}
                 </article>
               ))
@@ -4167,7 +4243,7 @@ function ActorTaskPanel({
                 onChange={(event) => onInputChange(event.target.value)}
                 maxLength={1000}
                 rows={3}
-                disabled={!isAgent || mutation.status === "submitting"}
+                disabled={mutation.status === "submitting"}
               />
             </label>
 
@@ -5427,6 +5503,9 @@ function actorMessageFromChatMessage(message: ChatMessage): ActorChatMessage {
     sender: message.role === "USER" ? "user" : "agent",
     text: message.content,
     optimistic: false,
+    taskId: message.taskId,
+    taskExecutionId: message.taskExecutionId,
+    orchestrationPlanId: message.orchestrationPlanId,
   };
 }
 
