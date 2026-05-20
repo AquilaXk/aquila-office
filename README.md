@@ -1,205 +1,227 @@
-# Aquila Office
+# 🤖 Aquila Office
 
-<!-- PROJECT LOGO -->
+> **협업형 AI 에이전트 워크스페이스 운영 플랫폼**<br>
+> 업무 요청부터 AI Agent 실행, 결과 공유, 산출물 추적까지 하나의 팀 업무 흐름으로 연결합니다.
+
 <p align="center">
   <a href="https://github.com/AquilaXk/aquila-office">
-    <img src="front/public/brand-mascot.png" alt="Aquila Office" width="96">
+    <img src="https://img.shields.io/badge/GitHub-aquila--office-181717?style=for-the-badge&logo=github" alt="GitHub" />
+  </a>
+  &nbsp;
+  <a href="COMPLETION_CHECKLIST.md">
+    <img src="https://img.shields.io/badge/release-evidence-2563eb?style=for-the-badge" alt="Release evidence" />
   </a>
 </p>
 
-<h3 align="center">Aquila Office</h3>
-
 <p align="center">
-  AI 에이전트, 작업, 산출물, 채팅, 외부 연동을 한 곳에서 운영하는 협업 워크스페이스입니다.
-  <br />
-  <a href="COMPLETION_CHECKLIST.md"><strong>릴리즈 증적 보기 »</strong></a>
-  <br />
-  <br />
-  <a href="#시작하기">시작하기</a>
-  ·
-  <a href="#개발">개발</a>
-  ·
-  <a href="#통합">통합</a>
-  ·
-  <a href="#트러블슈팅">트러블슈팅</a>
+  <img src="https://img.shields.io/badge/Java-21-f89820?style=flat-square&logo=openjdk&logoColor=white" alt="Java 21" />
+  <img src="https://img.shields.io/badge/Spring_Boot-4.0.5-6DB33F?style=flat-square&logo=spring&logoColor=white" alt="Spring Boot 4.0.5" />
+  <img src="https://img.shields.io/badge/Next.js-16-000000?style=flat-square&logo=next.js&logoColor=white" alt="Next.js 16" />
+  <img src="https://img.shields.io/badge/PostgreSQL-17-4169E1?style=flat-square&logo=postgresql&logoColor=white" alt="PostgreSQL 17" />
+  <img src="https://img.shields.io/badge/Docker-Compose-2496ED?style=flat-square&logo=docker&logoColor=white" alt="Docker Compose" />
+  <img src="https://img.shields.io/badge/License-MIT-green?style=flat-square" alt="MIT License" />
 </p>
-
-<p align="center">
-  <img src="https://img.shields.io/badge/Java-21-blue" alt="Java 21">
-  <img src="https://img.shields.io/badge/Spring%20Boot-4.0.5-6DB33F" alt="Spring Boot 4.0.5">
-  <img src="https://img.shields.io/badge/Next.js-16-black" alt="Next.js 16">
-  <img src="https://img.shields.io/badge/PostgreSQL-17-4169E1" alt="PostgreSQL 17">
-  <img src="https://img.shields.io/badge/Docker-Compose-2496ED" alt="Docker Compose">
-  <img src="https://img.shields.io/badge/License-MIT-green" alt="MIT License">
-</p>
-
-<!-- ABOUT THE PROJECT -->
-
-## 프로젝트 소개
 
 <img width="100%" alt="Aquila Office 워크스페이스 화면" src="front/public/aquila-office-readme-preview.png">
 
-# 팀을 위한 AI 협업 운영 워크스페이스
+---
 
-Aquila Office는 Java 21 + Spring Boot 백엔드와 Next.js 프론트엔드를 결합해 워크스페이스 멤버, AI 에이전트, 작업 실행, 산출물, 채팅, presence, 외부 통합을 관리하는 서비스입니다.
+## 목차
 
-서비스의 중심 단위는 워크스페이스입니다. 각 워크스페이스는 멤버, 에이전트, 작업 실행, 리포트, 채팅 세션, Gateway 연결, Slack 매핑, GitHub credential, 생성된 산출물을 소유합니다. 백엔드는 버전이 있는 API를 제공하고, 프론트엔드는 반복적인 프로젝트 운영에 맞춘 밀도 있는 화면을 제공합니다.
+- [프로젝트 개요](#프로젝트-개요)
+- [주요 기능](#주요-기능)
+- [시스템 아키텍처](#시스템-아키텍처)
+- [주요 프로세스 / AI 설계](#주요-프로세스--ai-설계)
+- [기술 스택](#기술-스택)
+- [시작하기](#시작하기)
+- [환경 변수](#환경-변수)
+- [ERD](#erd)
+- [API 명세](#api-명세)
+- [테스트 커버리지](#테스트-커버리지)
+- [모니터링](#모니터링)
+- [CI/CD](#cicd)
+- [트러블 슈팅](#트러블-슈팅)
+- [성과 및 회고](#성과-및-회고)
+- [관련 링크](#관련-링크)
 
-완료 기준은 [COMPLETION_CHECKLIST.md](COMPLETION_CHECKLIST.md)에 기록합니다.
+---
 
-### API 지도
+## 프로젝트 개요
 
-actuator나 정적 인프라 endpoint가 아닌 백엔드 응답은 공통 `RsData` envelope를 사용합니다.
+### 배경
 
-| 영역 | 메서드와 경로 | 용도 |
-| --- | --- | --- |
-| 상태 | `GET /api/health` | 가벼운 서비스 상태 확인 |
-| 지표 | `GET /actuator/prometheus` | Prometheus scrape endpoint |
-| 인증 | `POST /api/v1/auth/google/login` | Google ID token 검증 후 access/refresh token 발급 |
-| 인증 | `POST /api/v1/auth/token/refresh` | refresh token 회전과 새 token pair 발급 |
-| 인증 | `POST /api/v1/auth/logout` | refresh token 폐기 |
-| 워크스페이스 | `GET /api/v1/workspaces` | 참여 중인 워크스페이스 목록 조회 |
-| 워크스페이스 | `POST /api/v1/workspaces` | 워크스페이스 생성 |
-| 워크스페이스 | `GET /api/v1/workspaces/{workspaceId}` | 워크스페이스 상세 조회 |
-| 워크스페이스 | `GET /api/v1/workspaces/{workspaceId}/dashboard/summary` | dashboard count, log, report 조회 |
-| 멤버 | `GET /api/v1/workspaces/{workspaceId}/members` | 워크스페이스 멤버 목록 조회 |
-| 멤버 | `GET /api/v1/workspaces/{workspaceId}/members/task-stats` | 멤버별 작업 점수 요약 조회 |
-| 에이전트 | `GET /api/v1/workspaces/{workspaceId}/agents` | 워크스페이스 에이전트 목록 조회 |
-| 에이전트 | `POST /api/v1/workspaces/{workspaceId}/agents` | 워크스페이스 에이전트 생성과 skill file 동기화 |
-| 에이전트 | `DELETE /api/v1/workspaces/{workspaceId}/agents/{agentId}` | 워크스페이스 에이전트 삭제 |
-| 작업 | `GET /api/v1/workspaces/{workspaceId}/tasks` | 워크스페이스 작업 목록 조회 |
-| 작업 | `POST /api/v1/workspaces/{workspaceId}/tasks/run` | 새 작업 생성과 실행 |
-| 작업 | `POST /api/v1/workspaces/{workspaceId}/tasks/{taskId}/run` | 기존 작업 실행 |
-| 리포트 | `GET /api/v1/workspaces/{workspaceId}/tasks/{taskId}/reports` | 작업 실행 리포트 목록 조회 |
-| 채팅 | `POST /api/v1/workspaces/{workspaceId}/chat/messages` | 워크스페이스 또는 작업 채팅 메시지 전송 |
-| 산출물 | `GET /api/v1/workspaces/{workspaceId}/artifacts/tree` | 산출물 tree 조회 |
-| 산출물 | `GET /api/v1/workspaces/{workspaceId}/artifacts/files?path=...` | 산출물 파일 내용 조회 |
-| 통합 | `GET /api/v1/workspaces/{workspaceId}/github/credentials` | GitHub credential 목록 조회 |
-| 통합 | `GET /api/v1/workspaces/{workspaceId}/slack/integrations` | Slack 통합 목록 조회 |
-| 통합 | `GET /api/v1/workspaces/{workspaceId}/gateway` | Gateway binding 상태 조회 |
-| Presence | `GET /api/v1/workspaces/{workspaceId}/presence/stream` | 워크스페이스 presence SSE stream 열기 |
-| Presence | `PATCH /api/v1/workspaces/{workspaceId}/presence/me/position` | 멤버 위치 갱신 |
+AI Agent는 강력하지만, 팀 업무 안에서 안정적으로 운영하려면 실행 주체, 작업 상태, 결과물, 외부 연동 정보를 한 곳에서 관리해야 합니다.
 
-### 도메인 모델
-
-백엔드는 도메인 로직을 Java 객체에 두고, 현재 상태는 JPA adapter를 통해 저장합니다.
-
-| 엔티티 | 핵심 관계 |
+| 문제 | 설명 |
 | --- | --- |
-| `Member` | Google identity와 role을 소유하며 하나의 `MemberProfile`을 가집니다. |
-| `Workspace` | Google subject가 생성하며 여러 `WorkspaceMember`, `WorkspaceAgent`, `Task`, invite, integration, artifact를 가집니다. |
-| `WorkspaceMember` | `Member`와 `Workspace`를 워크스페이스 role로 연결합니다. |
-| `WorkspaceInvite` | 초대 email, token, expiry, accepted, revoked timestamp를 저장합니다. |
-| `WorkspaceAgent` | `Workspace`에 속하며 여러 `WorkspaceAgentSkillFile`과 Gateway agent ID를 가질 수 있습니다. |
-| `Task` | `Workspace`에 속하며 agent에 배정될 수 있고 requested, running, completed, failed, canceled 상태로 진행됩니다. |
-| `TaskExecution` | 작업 실행 lifecycle, final text, failure reason, report data를 저장합니다. |
-| `TaskExecutionLog` | `TaskExecution`의 log line을 저장합니다. |
-| `ChatSession` | 워크스페이스와 작업 상호작용의 채팅 메시지를 묶습니다. |
-| `ChatMessage` | role, content, task linkage를 저장합니다. |
-| `WorkspaceGatewayBinding` | Gateway mode, URL, 암호화 token, 연결 상태를 저장합니다. |
-| `SlackChannelMapping` | Slack team/channel을 워크스페이스에 매핑하고 bot token material을 암호화해 저장합니다. |
-| `GithubCredential` | repository 작업을 위한 GitHub token material을 암호화해 저장합니다. |
-| `OrchestrationSession` | multi-agent plan 실행을 추적하며 여러 `OrchestrationStep` row를 가집니다. |
+| 작업 흐름 분산 | 요청, 실행, 보고, 산출물이 서로 다른 도구와 로그에 흩어짐 |
+| 실행 추적 어려움 | 진행 중·완료·실패 상태를 팀원이 함께 보기 어려움 |
+| 결과 재사용 부족 | Agent 결과가 Report, Artifact, Log로 구조화되지 않으면 다음 작업에 쓰기 어려움 |
+| 연동 토큰 관리 위험 | GitHub, Slack, Gateway token material이 안전하게 보관되어야 함 |
 
-## 릴리즈 기준
+### 목표
 
-현재 릴리즈 증적은 [COMPLETION_CHECKLIST.md](COMPLETION_CHECKLIST.md)에 기록합니다. 릴리즈 전에는 증적 PR merge 후 열린 issue가 없어야 하고, 최신 `main` CI workflow run이 모두 통과해야 하며, checklist에 남은 release blocker나 final-state 미체크 항목이 없어야 합니다.
+Aquila Office는 단순한 AI 호출 화면이 아니라, 업무 요청부터 실행·기록·공유까지 이어지는 협업 운영 플랫폼을 목표로 합니다.
 
-### 기술 스택
+| 구분 | AS-IS | TO-BE |
+| --- | --- | --- |
+| **요청 방식** | 개별 채팅, CLI, 수동 실행 | Workspace와 Slack에서 자연어 기반 업무 요청 |
+| **실행 단위** | Agent 실행 로그 중심 | Task, TaskExecution, Report, Artifact로 구조화 |
+| **추적 방식** | 터미널과 개별 로그 확인 | Dashboard에서 진행/완료/실패와 최근 로그 확인 |
+| **연동 관리** | 수동 token 관리 | Workspace 단위 Gateway, Slack, GitHub credential 관리 |
 
-- [Java 21](https://openjdk.org/projects/jdk/21/)
-- [Spring Boot](https://spring.io/projects/spring-boot)
-- [Gradle](https://gradle.org/)
-- [Next.js](https://nextjs.org/)
-- [React](https://react.dev/)
-- [PostgreSQL](https://www.postgresql.org/)
-- [Docker Compose](https://docs.docker.com/compose/)
-- [k6](https://k6.io/)
-- [Google Vertex AI](https://cloud.google.com/vertex-ai)
+### 핵심 가치
 
-## 연락/논의
+- **Workspace 기반 운영**: 팀 단위로 멤버, Agent, Task, 산출물, 외부 연동을 분리합니다.
+- **역할 기반 Agent 관리**: WorkspaceAgent와 Skill file을 통해 Agent 역할과 실행 맥락을 유지합니다.
+- **실행 추적**: TaskExecution, TaskExecutionLog, AgentReport로 요청부터 결과까지 남깁니다.
+- **안전한 통합**: Google OAuth, JWT, AES-GCM 기반 외부 token 암호화, Slack 서명 검증을 사용합니다.
 
-제품, 구현, 릴리즈 작업은 이 저장소의 GitHub issue와 pull request에서 다룹니다. secret이나 환경별 credential은 공개 issue와 PR 본문에 적지 않습니다.
+---
 
-## 최신 상태 확인
+## 주요 기능
 
-릴리즈와 workflow run을 확인해 변경 상태를 추적합니다.
+| 기능 | 설명 |
+| --- | --- |
+| **Workspace 관리** | 팀 단위 워크스페이스 생성, 멤버 목록, 역할 분리, 초대 링크 발급 |
+| **Agent 생성 및 Skill 동기화** | WorkspaceAgent 생성 시 역할별 skill file을 저장하고 Gateway agent와 연결 |
+| **Task 실행** | 새 Task 생성과 즉시 실행, 기존 Task 재실행, 실행 상태와 보고서 조회 |
+| **Dashboard 요약** | Agent 수, Task 상태, 최근 Report, 최근 Log를 한 화면에 표시 |
+| **Artifact 조회** | Agent가 만든 산출물을 tree와 file 단위로 조회 |
+| **Workspace Chat** | Workspace 또는 Task 맥락에서 Agent와 메시지 교환 |
+| **Presence** | SSE 기반 presence stream과 멤버 위치 업데이트 |
+| **Gateway 연동** | Workspace 단위 Gateway URL, encrypted token, 연결 상태 관리 |
+| **Slack 연동** | Slack team/channel mapping, OAuth credential, event 처리 지표 관리 |
+| **GitHub 연동** | Workspace별 GitHub credential 저장과 repository 작업 흐름 연결 |
 
-```bash
-gh issue list --repo AquilaXk/aquila-office --state open --limit 50
-gh run list --repo AquilaXk/aquila-office --branch main --limit 10
+---
+
+## 시스템 아키텍처
+
+```
+[Client & Frontend]                 [Aquila Office Backend]
+  Next.js 16                        ┌────────────────────────────────────┐
+  ├── Workspace dashboard      ───► │  Spring Boot 4 / Java 21          │
+  ├── Agent, Task, Artifact UI      │  ├── Auth / Workspace / Member    │
+  ├── Gateway settings              │  ├── Agent / Task / Report        │
+  └── Chat / Presence               │  ├── Artifact / Chat / Presence   │
+                                    │  └── Integration adapters         │
+                                    └────────────────────────────────────┘
+                                                   │
+                                    ┌──────────────┼──────────────┐
+                                    ▼              ▼              ▼
+                              PostgreSQL     OpenClaw Gateway   External APIs
+                              JPA state      Agent runtime      Slack / GitHub / Vertex AI
 ```
 
-<!-- GETTING STARTED -->
+배포 환경은 Docker Compose, Nginx, OCI VM, Terraform, blue/green 배포 스크립트를 기준으로 구성되어 있습니다. 로컬 개발에서는 `compose.dev.yml`로 PostgreSQL, backend, frontend, nginx entrypoint를 함께 올릴 수 있습니다.
+
+---
+
+## 주요 프로세스 / AI 설계
+
+### 1. Workspace 중심 실행 모델
+
+모든 실행은 Workspace를 기준으로 분리됩니다. Workspace는 멤버, Agent, Task, ChatSession, Artifact, SlackChannelMapping, GithubCredential, WorkspaceGatewayBinding을 소유합니다.
+
+| 설계 포인트 | 내용 |
+| --- | --- |
+| 권한 분리 | `WorkspaceMember`가 멤버와 워크스페이스 role을 연결 |
+| 실행 분리 | `Task`와 `TaskExecution`이 요청과 실행 lifecycle을 분리 |
+| 결과 구조화 | `AgentReport`, `TaskExecutionLog`, Artifact tree로 결과와 로그를 저장 |
+| 통합 분리 | Slack, GitHub, Gateway 설정을 Workspace 단위로 저장 |
+
+### 2. Gateway 기반 Agent 실행
+
+Backend가 모델 provider를 직접 호출하는 대신, Gateway binding을 통해 Agent runtime과 연결합니다. Gateway URL, `/rpc` path, encrypted token, connection status는 `WorkspaceGatewayBinding`으로 관리합니다.
+
+```
+Workspace → Gateway binding → Agent run request → TaskExecution → Report / Log / Artifact
+```
+
+### 3. Agent Skill file 동기화
+
+Agent는 단순한 이름이 아니라 category, description, skill file을 함께 가집니다. `WorkspaceAgentSkillFile`은 Agent가 수행해야 할 역할과 실행 맥락을 파일 단위로 유지합니다.
+
+### 4. Slack과 GitHub 통합 흐름
+
+- Slack은 team/channel mapping, signing secret, duplicate event skip, processing failure metric을 통해 이벤트를 안전하게 처리합니다.
+- GitHub credential은 encrypted token material로 저장하며, token은 log, issue, PR body, metric label에 노출하지 않습니다.
+
+### 5. Smoke fixture 기반 검증
+
+서비스 journey smoke는 `SPRING_PROFILES_ACTIVE=smoke`, `AQUILA_SMOKE_FIXTURE_ENABLED=true`에서 Google login과 Gateway execution을 결정적인 fixture adapter로 검증합니다.
+
+---
+
+## 기술 스택
+
+| 영역 | 사용 기술 |
+| --- | --- |
+| **Frontend** | Next.js 16, React 19, TypeScript, lucide-react, React Markdown, Playwright |
+| **Backend** | Java 21, Spring Boot 4.0.5, Spring Security, Spring Data JPA, Springdoc OpenAPI |
+| **Database** | PostgreSQL 17, H2 test database |
+| **Auth** | Google OAuth, JWT access/refresh token, hosted-domain allow list |
+| **Realtime** | SSE presence stream |
+| **AI / Agent** | OpenClaw Gateway, Vertex AI 설정, Agent skill file |
+| **Security** | AES-GCM external token encryption, Slack HMAC signature verification |
+| **Infra** | Docker Compose, Nginx, OCI VM, Terraform, blue/green deployment |
+| **CI/CD** | GitHub Actions, Gradle Checkstyle, SpotBugs, JUnit 5, JaCoCo, frontend lint/build/browser test |
+| **Monitoring** | Actuator, Prometheus metrics, k6 smoke |
+
+---
 
 ## 시작하기
 
-로컬에서 실행하려면 아래 순서로 준비합니다.
-
-### 준비 사항
-
-필요한 도구:
+### 사전 요구사항
 
 - Java 21
 - Node.js 20 이상
 - Docker Desktop 또는 호환 Docker engine
-- Compose 없이 실행할 경우 PostgreSQL 17
-- 로컬 smoke check용 k6
+- PostgreSQL 17 (Compose 없이 실행할 때)
+- k6 (로컬 smoke test)
+- 선택 통합용 Google OAuth, Slack, GitHub, Gateway credential
 
-> 선택 통합 기능에는 별도 credential이 필요합니다. Google OAuth, Vertex AI, Gateway, Slack, GitHub 설정은 [통합](#통합)을 확인하세요.
+### 1. 저장소 클론
 
-## 개발
+```bash
+git clone https://github.com/AquilaXk/aquila-office.git
+cd aquila-office
+```
 
-### 설정
+### 2. 환경 변수 설정
 
-1. 저장소를 clone합니다.
+```bash
+cp .env.example .env
+```
 
-   ```bash
-   git clone https://github.com/AquilaXk/aquila-office.git
-   cd aquila-office
-   ```
+`vertex-key.json`은 git에 올리지 않습니다. Compose에서는 `VERTEX_AI_CREDENTIALS_HOST_PATH`로 local service account key를 mount합니다.
 
-2. 추적되는 sample에서 로컬 환경 파일을 만듭니다.
-
-   ```bash
-   cp .env.example .env
-   ```
-
-3. private 값은 로컬에만 둡니다. `vertex-key.json`은 의도적으로 ignore되며, Docker Compose에서는 `VERTEX_AI_CREDENTIALS_HOST_PATH`로 mount할 수 있습니다.
-
-4. 프론트엔드를 직접 실행할 때는 dependency를 설치합니다.
-
-   ```bash
-   npm --prefix front install
-   ```
-
-#### Docker Compose 빠른 시작
-
-가장 빠른 로컬 경로는 PostgreSQL, backend, frontend, nginx entrypoint를 함께 올리는 것입니다.
+### 3. Docker Compose 빠른 시작
 
 ```bash
 docker compose --env-file .env.example -f compose.dev.yml up --build
 ```
 
-기본 로컬 endpoint:
+기본 endpoint:
 
 - 백엔드 API: `http://localhost:8080`
 - 프론트엔드 앱: `http://localhost:3000`
 - Health: `GET /api/health`
-- Actuator liveness: `GET /actuator/health/liveness`
-- Actuator readiness: `GET /actuator/health/readiness`
+- Swagger UI: `http://localhost:8080/swagger-ui.html`
 - Prometheus metrics: `GET /actuator/prometheus`
 
-#### 개발 팁
-
-한쪽 stack만 반복 수정할 때는 backend와 frontend를 직접 실행합니다.
+### 4. 백엔드 직접 실행
 
 ```bash
 ./back/gradlew -p back check
 ./back/gradlew -p back bootRun
 ```
 
+### 5. 프론트엔드 직접 실행
+
 ```bash
+npm --prefix front install
 npm --prefix front run test:node
 npm --prefix front run lint
 npm --prefix front run build
@@ -208,218 +230,154 @@ npm --prefix front run test:browser
 npm --prefix front run dev
 ```
 
-#### 수동 설정
+### 6. 첫 사용자와 Gateway 연결
 
-Compose 없이 실행할 때는 `.env`를 먼저 설정합니다.
+Google OAuth가 기본 로그인 경로입니다. `AQUILA_GOOGLE_OAUTH_CLIENT_IDS`와 `NEXT_PUBLIC_GOOGLE_CLIENT_ID`를 설정한 뒤 frontend에서 로그인합니다. Gateway 실행 검증은 workspace Gateway 설정에서 URL과 token을 등록한 뒤 `/api/v1/workspaces/{workspaceId}/gateway` 상태를 확인합니다.
 
-| 이름 | 기본값 | 용도 |
-| --- | --- | --- |
-| `POSTGRES_DB` | `aquila_office` | 로컬 PostgreSQL database 이름 |
-| `POSTGRES_USER` | `aquila` | 로컬 PostgreSQL user |
-| `POSTGRES_PASSWORD` | `aquila_dev_password` | 로컬 PostgreSQL password |
-| `BACKEND_PORT` | `8080` | backend container host port |
-| `FRONTEND_PORT` | `3000` | frontend container host port |
-| `NEXT_PUBLIC_API_BASE_URL` | `http://localhost:8080` | frontend API base URL |
-| `CUSTOM_CORS_ALLOWED_ORIGIN_PATTERNS` | `http://localhost:3000,http://localhost` | backend가 허용하는 browser origin |
-| `AQUILA_AUTH_TOKEN_ISSUER` | `aquila-office` | JWT issuer |
-| `AQUILA_AUTH_TOKEN_SECRET` | local development secret | JWT signing secret. 로컬 밖에서는 교체합니다. |
-| `AQUILA_AUTH_ACCESS_TOKEN_TTL` | `15m` | access token lifetime |
-| `AQUILA_AUTH_REFRESH_TOKEN_TTL` | `14d` | refresh token lifetime |
-| `AQUILA_EXTERNAL_TOKEN_KEY` | local development key | 외부 token용 AES-GCM key. 로컬 밖에서는 교체합니다. |
-| `AQUILA_EXTERNAL_TOKEN_KEY_ID` | `local` | 외부 token key identifier |
-| `AQUILA_GOOGLE_OAUTH_CLIENT_IDS` | development client ID | 허용할 Google OAuth client ID |
-| `AQUILA_GOOGLE_ALLOWED_HOSTED_DOMAINS` | empty | 선택 Google hosted-domain allow list |
-| `AQUILA_GOOGLE_REQUIRE_EMAIL_VERIFIED` | `true` | Google email verified claim 요구 여부 |
-| `GOOGLE_CLOUD_PROJECT_ID` | `grepp-ai-project` | Vertex AI project ID |
-| `VERTEX_AI_LOCATION` | `us-central1` | Vertex AI region |
-| `VERTEX_AI_MODEL` | `gemini-2.5-flash` | Vertex AI model |
-| `GOOGLE_APPLICATION_CREDENTIALS` | `/run/secrets/vertex-key.json` | runtime credential file path |
-| `VERTEX_AI_CREDENTIALS_HOST_PATH` | `./vertex-key.json` | Compose에 mount할 로컬 service account key path |
-| `AQUILA_SLACK_CLIENT_ID` | empty | Slack OAuth client ID |
-| `AQUILA_SLACK_CLIENT_SECRET` | empty | Slack OAuth client secret |
-| `AQUILA_SLACK_SIGNING_SECRET` | empty | Slack event signature secret |
-| `AQUILA_INVITE_EMAIL_ENABLED` | `false` | SMTP invite delivery 활성화 여부 |
+---
 
-#### 첫 사용자 설정
+## 환경 변수
 
-일반 진입점은 Google OAuth입니다. `AQUILA_GOOGLE_OAUTH_CLIENT_IDS`와 `NEXT_PUBLIC_GOOGLE_CLIENT_ID`를 설정한 뒤 frontend에서 로그인합니다. 결정적인 local service-journey check가 필요하면 backend를 `SPRING_PROFILES_ACTIVE=smoke`, `AQUILA_SMOKE_FIXTURE_ENABLED=true`로 실행합니다.
+루트 `.env` 또는 배포 환경 변수에 아래 값을 설정합니다.
 
-### E2E 테스트
+### 인증
 
-저장소 root에서 browser regression test를 실행합니다.
+| 변수 | 설명 |
+| --- | --- |
+| `AQUILA_AUTH_TOKEN_ISSUER` | JWT issuer |
+| `AQUILA_AUTH_TOKEN_SECRET` | JWT signing secret. 로컬 밖에서는 반드시 교체 |
+| `AQUILA_AUTH_ACCESS_TOKEN_TTL` | access token lifetime |
+| `AQUILA_AUTH_REFRESH_TOKEN_TTL` | refresh token lifetime |
+| `AQUILA_GOOGLE_OAUTH_CLIENT_IDS` | 허용할 Google OAuth client ID |
+| `AQUILA_GOOGLE_ALLOWED_HOSTED_DOMAINS` | 선택 Google hosted-domain allow list |
+| `AQUILA_GOOGLE_REQUIRE_EMAIL_VERIFIED` | Google email verified claim 요구 여부 |
+| `NEXT_PUBLIC_GOOGLE_CLIENT_ID` | frontend Google OAuth client ID |
 
-```bash
-npx --prefix front playwright install chromium
-npm --prefix front run test:browser
-```
+### 데이터베이스
 
-#### 문제 해결
+| 변수 | 설명 |
+| --- | --- |
+| `POSTGRES_DB` | 로컬 PostgreSQL database 이름 |
+| `POSTGRES_USER` | 로컬 PostgreSQL user |
+| `POSTGRES_PASSWORD` | 로컬 PostgreSQL password |
+| `SPRING_DATASOURCE_URL` | backend datasource URL |
+| `SPRING_DATASOURCE_USERNAME` | backend datasource user |
+| `SPRING_DATASOURCE_PASSWORD` | backend datasource password |
 
-- browser가 없으면 `npx --prefix front playwright install chromium`을 다시 실행합니다.
-- frontend가 backend에 연결하지 못하면 `NEXT_PUBLIC_API_BASE_URL`과 backend CORS 설정을 확인합니다.
-- 로컬 port가 이미 사용 중이면 `.env`의 `BACKEND_PORT`, `FRONTEND_PORT`, `POSTGRES_PORT`를 조정합니다.
+### 외부 token 암호화
 
-### 이전 버전 업그레이드
-
-dependency 또는 schema 변경 후에는 전체 로컬 gate를 다시 실행합니다.
-
-```bash
-./back/gradlew -p back check
-npm --prefix front run test:node
-npm --prefix front run lint
-npm --prefix front run build
-npm --prefix front run test:browser
-node tools/readme/validate-readme.mjs
-```
-
-## 배포
-
-### Docker
-
-로컬 stack build와 실행:
-
-```bash
-docker compose --env-file .env.example -f compose.dev.yml up --build
-```
-
-공유 환경에서는 `AQUILA_AUTH_TOKEN_SECRET`, `AQUILA_EXTERNAL_TOKEN_KEY`, database password, Slack secret, Google credential의 로컬 기본값을 반드시 교체합니다.
-
-### OCI blue-green
-
-배포 스크립트:
-
-- `scripts/deploy/backend-blue-green.sh`는 backend image를 build하고 health 확인 뒤 traffic을 전환합니다.
-- `scripts/deploy/oci-backend-hook.sh`는 OCI host hook entrypoint입니다.
-- `scripts/deploy/validate-backend-cd.sh`는 배포 스크립트 syntax와 필수 파일을 검사합니다.
-
-## 로드맵
-
-로드맵 단위 작업은 issue로 관리합니다. 현재 릴리즈 증적과 남은 완료 기준은 [COMPLETION_CHECKLIST.md](COMPLETION_CHECKLIST.md)에 있습니다.
-
-## 라이선스
-
-Aquila Office는 [MIT License](LICENSE)를 적용합니다.
-
-## 저장소 활동
-
-GitHub issue, PR, Actions 화면에서 활동을 확인합니다.
-
-```bash
-gh issue list --repo AquilaXk/aquila-office --state open --limit 50
-gh run list --repo AquilaXk/aquila-office --branch main --limit 10
-```
-
-## 기여
-
-1. 작업 issue를 만들거나 선택합니다.
-2. `main`에서 좁은 범위의 branch를 만듭니다.
-3. 집중된 commit과 로컬 검증으로 구현합니다.
-4. issue를 연결한 pull request를 엽니다.
-5. check 통과 후 merge하고 main branch CI run을 확인합니다.
-
-`AGENTS.md`, `docs/`, `.codex/` 같은 로컬 에이전트 파일은 의도적으로 ignore되며 runtime 문서에 포함하지 않습니다.
-
-### 좋은 첫 이슈
-
-좋은 첫 이슈는 검증 명령이 명확한 작은 문서, frontend copy, test, validation 개선입니다. 첫 기여 범위로 넓은 infrastructure 변경이나 secret-handling 변경은 피합니다.
-
-### 기여자
-
-기여자는 PR 범위를 작게 유지하고, 관련 없는 formatting 변경을 피하며, 변경 검증에 사용한 정확한 명령을 적습니다.
-
-## Content Security Policy 활성화
-
-공유 환경을 노출하기 전 reverse proxy, platform, frontend middleware 계층에서 Content Security Policy를 정의합니다. Google OAuth, frontend asset, backend API call, 허용할 integration origin을 명시적으로 포함해야 합니다.
-
-## 단일 워크스페이스 모드
-
-Aquila Office는 현재 여러 워크스페이스를 모델링합니다. 단일 워크스페이스 배포는 숨겨진 frontend state에 의존하지 말고 application 또는 deployment 계층에서 workspace 생성, membership, routing 정책을 강제해야 합니다.
-
-## 통합
-
-### Google OAuth
-
-설정 항목:
-
-- `AQUILA_GOOGLE_OAUTH_CLIENT_IDS`
-- `AQUILA_GOOGLE_ALLOWED_HOSTED_DOMAINS`
-- `AQUILA_GOOGLE_REQUIRE_EMAIL_VERIFIED`
-- `NEXT_PUBLIC_GOOGLE_CLIENT_ID`
+| 변수 | 설명 |
+| --- | --- |
+| `AQUILA_EXTERNAL_TOKEN_KEY` | 외부 token용 AES-GCM key |
+| `AQUILA_EXTERNAL_TOKEN_KEY_ID` | 외부 token key identifier |
 
 ### Vertex AI
 
-설정 항목:
+| 변수 | 설명 |
+| --- | --- |
+| `GOOGLE_CLOUD_PROJECT_ID` | Vertex AI project ID |
+| `VERTEX_AI_LOCATION` | Vertex AI region |
+| `VERTEX_AI_MODEL` | Vertex AI model |
+| `GOOGLE_APPLICATION_CREDENTIALS` | runtime credential file path |
+| `VERTEX_AI_CREDENTIALS_HOST_PATH` | Compose에 mount할 local key path |
 
-- `GOOGLE_CLOUD_PROJECT_ID`
-- `VERTEX_AI_LOCATION`
-- `VERTEX_AI_MODEL`
-- `GOOGLE_APPLICATION_CREDENTIALS`
-- `VERTEX_AI_CREDENTIALS_HOST_PATH`
+### Slack 연동
 
-`vertex-key.json`은 git 밖에 둡니다. credential file이 저장소 root에 없으면 `VERTEX_AI_CREDENTIALS_HOST_PATH`를 사용합니다.
+| 변수 | 설명 |
+| --- | --- |
+| `AQUILA_SLACK_CLIENT_ID` | Slack OAuth client ID |
+| `AQUILA_SLACK_CLIENT_SECRET` | Slack OAuth client secret |
+| `AQUILA_SLACK_SIGNING_SECRET` | Slack event signature secret |
 
-### Gateway
+### 공통
 
-Gateway 설정은 암호화된 token material과 workspace-level binding state를 사용합니다. agent run이 실패하면 Gateway URL, `/rpc` path, encrypted token, `/api/v1/workspaces/{workspaceId}/gateway`를 확인합니다.
+| 변수 | 설명 |
+| --- | --- |
+| `BACKEND_PORT` | backend container host port |
+| `FRONTEND_PORT` | frontend container host port |
+| `NEXT_PUBLIC_API_BASE_URL` | frontend API base URL |
+| `CUSTOM_CORS_ALLOWED_ORIGIN_PATTERNS` | backend가 허용하는 browser origin |
+| `AQUILA_INVITE_EMAIL_ENABLED` | SMTP invite delivery 활성화 여부 |
 
-### Slack
+---
 
-설정 항목:
+## ERD
 
-- `AQUILA_SLACK_CLIENT_ID`
-- `AQUILA_SLACK_CLIENT_SECRET`
-- `AQUILA_SLACK_SIGNING_SECRET`
+주요 테이블 관계 요약:
 
-Slack event metric에는 signature failure, duplicate skip, processing failure가 포함됩니다.
-
-### GitHub
-
-GitHub 작업에는 워크스페이스의 `GithubCredential`과 repository 권한이 있는 token이 필요합니다. token material은 log, issue, PR 본문, metric label에 남기지 않습니다.
-
-## 워크플로
-
-### 로컬 smoke 점검
-
-backend가 `8080`에서 listening한 뒤 로컬 smoke test를 실행합니다.
-
-```bash
-tools/test/run-k6-smoke.sh
+```
+Member ──< WorkspaceMember >── Workspace ──< WorkspaceAgent ──< WorkspaceAgentSkillFile
+                                      ├──< WorkspaceInvite
+                                      ├──< Task ──< TaskExecution ──< TaskExecutionLog
+                                      │                 └──< AgentReport / Artifact
+                                      ├──< ChatSession ──< ChatMessage
+                                      ├──< WorkspaceGatewayBinding
+                                      ├──< SlackChannelMapping
+                                      ├──< GithubCredential
+                                      └──< OrchestrationSession ──< OrchestrationStep
 ```
 
-service journey smoke는 Google login과 Gateway execution이 결정적인 fixture adapter를 사용하도록 `SPRING_PROFILES_ACTIVE=smoke`, `AQUILA_SMOKE_FIXTURE_ENABLED=true`가 필요합니다.
+| Entity | 역할 |
+| --- | --- |
+| `Workspace` | 팀 단위 업무 공간과 외부 연동의 소유자 |
+| `WorkspaceAgent` | Workspace 안에서 역할을 가진 AI Agent |
+| `Task` | 사용자 요청에서 생성되는 업무 단위 |
+| `TaskExecution` | Task 실행 lifecycle과 최종 결과 저장 |
+| `TaskExecutionLog` | 실행 중 발생한 log line 저장 |
+| `SlackChannelMapping` | Slack team/channel과 workspace 연결 |
+| `GithubCredential` | repository 작업을 위한 encrypted token material |
 
-k6 smoke 범위:
+---
 
-- `GET /api/health`
-- `GET /actuator/health/liveness`
-- `GET /actuator/health/readiness`
-- `GET /actuator/prometheus`
-- `POST /api/v1/auth/google/login`
-- `POST /api/v1/workspaces`
-- `POST /api/v1/workspaces/{workspaceId}/gateway/binding`
-- `POST /api/v1/workspaces/{workspaceId}/agents`
-- `POST /api/v1/workspaces/{workspaceId}/tasks`
-- `POST /api/v1/workspaces/{workspaceId}/tasks/{taskId}/run`
-- `GET /api/v1/workspaces/{workspaceId}/tasks/{taskId}/reports`
+## API 명세
 
-### 릴리즈 사전 점검
+Swagger UI는 로컬 backend 실행 후 `http://localhost:8080/swagger-ui.html`에서 확인할 수 있습니다.
 
-실행 명령:
+### 핵심 API 요약
 
-```bash
-node tools/readme/validate-readme.mjs
-node tools/perf/validate-k6-smoke.mjs
-gh issue list --repo AquilaXk/aquila-office --state open --limit 50
-gh run list --repo AquilaXk/aquila-office --branch main --limit 10
-```
+| 도메인 | Method | Endpoint | 설명 | 기술 포인트 |
+| --- | --- | --- | --- | --- |
+| 상태 | GET | `/api/health` | 서비스 health envelope | Actuator 외 public health |
+| 인증 | POST | `/api/v1/auth/google/login` | Google OAuth 로그인 | JWT access/refresh token |
+| 워크스페이스 | GET | `/api/v1/workspaces` | 참여 중인 workspace 목록 | Membership |
+| 워크스페이스 | POST | `/api/v1/workspaces` | workspace 생성 | Role |
+| 대시보드 | GET | `/api/v1/workspaces/{workspaceId}/dashboard/summary` | Agent, Task, log, report 요약 | Dashboard |
+| 에이전트 | GET | `/api/v1/workspaces/{workspaceId}/agents` | workspace agent 목록 | Skill file |
+| 에이전트 | POST | `/api/v1/workspaces/{workspaceId}/agents` | agent 생성과 skill 동기화 | Gateway sync |
+| 작업 | POST | `/api/v1/workspaces/{workspaceId}/tasks/run` | task 생성과 실행 | Agent execution |
+| 리포트 | GET | `/api/v1/workspaces/{workspaceId}/tasks/{taskId}/reports` | task execution report 목록 | Artifact |
+| Gateway | GET | `/api/v1/workspaces/{workspaceId}/gateway` | Gateway binding 상태 | encrypted token |
+| Presence | GET | `/api/v1/workspaces/{workspaceId}/presence/stream` | workspace presence stream | SSE |
+| Presence | PATCH | `/api/v1/workspaces/{workspaceId}/presence/me/position` | 내 위치 갱신 | Workspace UI |
 
-Prometheus scrape 설정:
+---
 
-- Scrape 경로: `/actuator/prometheus`
-- 기본 target: Docker network에서는 `backend:8080`, 로컬 실행에서는 `localhost:8080`
-- 권장 alert input: `http_server_requests_seconds`, `http_req_failed`, JVM memory, HikariCP connection gauge, process CPU usage
+## 테스트 커버리지
 
-Workflow metric 목록:
+GitHub Actions CI와 로컬 gate에서 backend, frontend, smoke, workflow contract를 검증합니다.
+
+| 항목 | 검증 |
+| --- | --- |
+| Backend | `./back/gradlew -p back check` |
+| Backend coverage | JaCoCo line coverage minimum 80% |
+| Static analysis | Checkstyle, SpotBugs |
+| Frontend unit | `npm --prefix front run test:node` |
+| Frontend quality | `npm --prefix front run lint`, `npm --prefix front run build` |
+| Browser regression | `npm --prefix front run test:browser` |
+| README contract | `node tools/readme/validate-readme.mjs` |
+
+---
+
+## 모니터링
+
+| 도구 | 역할 |
+| --- | --- |
+| **Actuator** | health, readiness, liveness endpoint |
+| **Prometheus** | `/actuator/prometheus` metric scrape |
+| **k6** | service journey smoke와 부하성 check |
+| **GitHub Actions** | CI, workflow contract, 배포 전 검증 |
+
+### 주요 metric
 
 | Metric | Label | 용도 |
 | --- | --- | --- |
@@ -428,33 +386,140 @@ Workflow metric 목록:
 | `aquila_task_execution_duration_seconds` | `status=succeeded\|failed` | 작업 실행 latency |
 | `aquila_gateway_rpc_requests_total` | `method` | Gateway RPC request count |
 | `aquila_gateway_rpc_completed_total` | `method`, `outcome=success\|failure\|timeout` | Gateway RPC result count |
-| `aquila_gateway_rpc_latency_seconds` | `method`, `outcome=success\|failure\|timeout` | Gateway RPC latency |
 | `aquila_slack_events_received_total` | `route=global\|workspace` | Slack event receive count |
 | `aquila_slack_events_signature_failures_total` | `route=global\|workspace` | Slack signature verification failure |
-| `aquila_slack_events_dedupe_hits_total` | none | Slack duplicate event skip |
-| `aquila_slack_events_processing_failures_total` | `stage=payload_parse\|signature_config\|use_case` | Slack processing failure |
 
 Metric label은 고정된 low-cardinality 값만 사용합니다. Workspace ID, user ID, URL, token, prompt, failure text는 label로 쓰지 않습니다.
 
-Alert 예시:
+### 로컬 smoke 점검
 
-- 작업 실패 비율: `sum(rate(aquila_task_execution_completed_total{status="failed"}[5m])) / sum(rate(aquila_task_execution_completed_total[5m])) > 0.2`
-- Gateway timeout 증가: `sum(rate(aquila_gateway_rpc_completed_total{outcome="timeout"}[5m])) > 0`
-- Slack signature failure: `sum(rate(aquila_slack_events_signature_failures_total[5m])) > 0`
+```bash
+tools/test/run-k6-smoke.sh
+```
 
-## 감사의 말
+Smoke 범위에는 `GET /api/health`, `GET /actuator/prometheus`, Google login fixture, workspace 생성, Gateway binding, Agent 생성, Task 실행, Report 조회가 포함됩니다.
 
-Aquila Office는 Java, Spring, Next.js, React, PostgreSQL, Docker, k6, Google Cloud, Slack, GitHub 생태계 위에서 동작합니다.
+---
 
-## 트러블슈팅
+## CI/CD
 
-| 증상 | 확인할 것 |
+```
+Pull Request / main push
+        │
+        ▼
+GitHub Actions CI
+  ├── Backend Quality Gate
+  ├── Frontend Quality Gate
+  ├── Smoke Definition Gate
+  ├── Workflow Contract Gate
+  └── Terraform Infra Gate
+        │
+        ▼
+Staging CD
+  ├── backend/frontend image build
+  ├── OCI self-hosted runner
+  ├── blue/green deploy hook
+  └── health 확인 후 Nginx reload
+```
+
+배포 스크립트:
+
+- `scripts/deploy/backend-blue-green.sh`
+- `scripts/deploy/frontend-blue-green.sh`
+- `scripts/deploy/oci-backend-hook.sh`
+- `scripts/deploy/oci-frontend-hook.sh`
+- `scripts/deploy/validate-backend-cd.sh`
+
+릴리즈 전 점검:
+
+```bash
+node tools/readme/validate-readme.mjs
+node tools/perf/validate-k6-smoke.mjs
+gh issue list --repo AquilaXk/aquila-office --state open --limit 50
+gh run list --repo AquilaXk/aquila-office --branch main --limit 10
+```
+
+---
+
+## 트러블 슈팅
+
+### 1. Backend가 시작하지 않음
+
+| | 내용 |
 | --- | --- |
-| Backend가 시작하지 않음 | Java 21, port `8080`, database 상태를 확인합니다. 저장소 root에서 `./back/gradlew -p back bootRun`을 실행합니다. |
-| Frontend가 API에 연결하지 못함 | `NEXT_PUBLIC_API_BASE_URL`, backend CORS pattern, browser network log를 확인합니다. |
-| Google login 실패 | `AQUILA_GOOGLE_OAUTH_CLIENT_IDS`, hosted-domain 설정, ID token audience가 설정된 client와 맞는지 확인합니다. |
-| Vertex AI call 실패 | `GOOGLE_CLOUD_PROJECT_ID`, `VERTEX_AI_LOCATION`, `VERTEX_AI_MODEL`, `GOOGLE_APPLICATION_CREDENTIALS`를 확인합니다. credential file은 commit하지 않습니다. |
-| Gateway agent run 실패 | Gateway URL, `/rpc` path, encrypted token, `/api/v1/workspaces/{workspaceId}/gateway`를 확인합니다. |
-| Slack event 실패 | signing secret, OAuth callback URL, channel mapping, event deduplication state를 확인합니다. |
-| GitHub 작업 실패 | 워크스페이스에 `GithubCredential`이 있고 token에 repository 권한이 있는지 확인합니다. |
-| k6 smoke health 실패 | `/actuator/health/liveness`, `/actuator/health/readiness`, `/actuator/prometheus`를 각각 `curl -i`로 확인합니다. |
+| **확인** | Java 21, port `8080`, database 상태 |
+| **명령** | `./back/gradlew -p back bootRun` |
+
+### 2. Frontend가 API에 연결하지 못함
+
+| | 내용 |
+| --- | --- |
+| **확인** | `NEXT_PUBLIC_API_BASE_URL`, backend CORS pattern, browser network log |
+| **해결** | `.env`의 API base URL과 `CUSTOM_CORS_ALLOWED_ORIGIN_PATTERNS`를 맞춤 |
+
+### 3. Google login 실패
+
+| | 내용 |
+| --- | --- |
+| **확인** | `AQUILA_GOOGLE_OAUTH_CLIENT_IDS`, hosted-domain allow list, email verified 설정 |
+| **해결** | ID token audience가 backend에 설정된 client ID와 일치하도록 조정 |
+
+### 4. Gateway agent run 실패
+
+| | 내용 |
+| --- | --- |
+| **확인** | Gateway URL, `/rpc` path, encrypted token, `/api/v1/workspaces/{workspaceId}/gateway` |
+| **해결** | workspace Gateway binding과 runtime connection status를 다시 확인 |
+
+### 5. Slack event 실패
+
+| | 내용 |
+| --- | --- |
+| **확인** | signing secret, OAuth callback URL, channel mapping, event deduplication state |
+| **해결** | Slack App 설정과 workspace mapping을 재설정 |
+
+### 6. k6 smoke health 실패
+
+| | 내용 |
+| --- | --- |
+| **확인** | `/actuator/health/liveness`, `/actuator/health/readiness`, `/actuator/prometheus` |
+| **명령** | 각 endpoint를 `curl -i`로 개별 확인 |
+
+---
+
+## 성과 및 회고
+
+### 성과
+
+- Workspace 기반으로 Agent, Task, Report, Artifact, Chat, Presence, Integration을 한 화면에서 다루는 운영 흐름을 구성했습니다.
+- Google OAuth, JWT, encrypted external token, Slack signature verification으로 인증과 외부 credential 보호를 분리했습니다.
+- JaCoCo 80% line coverage gate, Checkstyle, SpotBugs, frontend lint/build/browser regression, smoke definition gate를 CI에 연결했습니다.
+- 완료 기준은 [COMPLETION_CHECKLIST.md](COMPLETION_CHECKLIST.md)에 기록합니다.
+
+### 개선 방향
+
+| 현재 | 발전 방향 |
+| --- | --- |
+| Slack/GitHub/Gateway 중심 통합 | Discord 등 추가 협업 채널 연동 |
+| Workspace 단위 수동 credential 등록 | GitHub App, OAuth 기반 credential onboarding 강화 |
+| Gateway run 실패 시 수동 확인 | 실패 유형별 자동 재시도와 사용자 안내 강화 |
+| 운영 metric 기본 제공 | dashboard와 alert rule을 더 촘촘하게 연결 |
+
+---
+
+## 관련 링크
+
+Aquila Office는 [MIT License](LICENSE)를 적용합니다.
+
+| 구분 | URL |
+| --- | --- |
+| GitHub | [Aquila Office](https://github.com/AquilaXk/aquila-office) |
+| 릴리즈 증적 | [COMPLETION_CHECKLIST.md](COMPLETION_CHECKLIST.md) |
+| 라이선스 | [MIT License](LICENSE) |
+| 로컬 Swagger UI | `http://localhost:8080/swagger-ui.html` |
+| 로컬 API health | `http://localhost:8080/api/health` |
+| Prometheus metrics | `http://localhost:8080/actuator/prometheus` |
+
+---
+
+> Aquila Office는 팀 업무 흐름 안에서 AI Agent 실행을 운영·추적하기 위한 프로젝트입니다.
