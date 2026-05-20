@@ -114,6 +114,23 @@ jobs:
             skip_reason="stale deployment SHA $deploy_sha does not match origin/main $main_sha"
           fi
 
+          if [[ "$event_name" == "workflow_run" && "$should_deploy" == "true" ]]; then
+            changed_files="$(mktemp)"
+            if git rev-parse "${deploy_sha}^" >/dev/null 2>&1; then
+              git diff --name-only "${deploy_sha}^" "$deploy_sha" > "$changed_files"
+            else
+              git diff-tree --no-commit-id --name-only -r "$deploy_sha" > "$changed_files"
+            fi
+
+            gate_output="$(node tools/ci/resolve-ci-gates.mjs --files="$changed_files")"
+            deploy_changed="$(printf '%s\n' "$gate_output" | awk -F= '$1 == "deploy" { print $2 }')"
+
+            if [[ "$deploy_changed" != "true" ]]; then
+              should_deploy="false"
+              skip_reason="no deployment-impacting files changed"
+            fi
+          fi
+
           short_sha="${deploy_sha:0:12}"
           image_owner="${GITHUB_REPOSITORY_OWNER:-${GITHUB_REPOSITORY%%/*}}"
           image_owner="${image_owner,,}"

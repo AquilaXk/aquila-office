@@ -4,6 +4,8 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 CI_WORKFLOW="$ROOT_DIR/.github/workflows/ci.yml"
 CD_WORKFLOW="$ROOT_DIR/.github/workflows/backend-cd.yml"
+CI_GATE_SCRIPT="$ROOT_DIR/tools/ci/resolve-ci-gates.mjs"
+CI_GATE_TEST="$ROOT_DIR/tools/ci/resolve-ci-gates.test.mjs"
 ENV_SCRIPT="$ROOT_DIR/scripts/deploy/materialize-backend-env.sh"
 FRONTEND_ENV_SCRIPT="$ROOT_DIR/scripts/deploy/materialize-frontend-env.sh"
 VERTEX_KEY_SCRIPT="$ROOT_DIR/scripts/deploy/materialize-vertex-key.sh"
@@ -49,6 +51,8 @@ reject_pattern() {
 
 require_file "$CI_WORKFLOW"
 require_file "$CD_WORKFLOW"
+require_file "$CI_GATE_SCRIPT"
+require_file "$CI_GATE_TEST"
 require_file "$ENV_SCRIPT"
 require_file "$FRONTEND_ENV_SCRIPT"
 require_file "$VERTEX_KEY_SCRIPT"
@@ -100,6 +104,15 @@ reject_pattern 'backend-image\.tar|frontend-image\.tar|actions/download-artifact
 
 require_pattern 'check-staging-cd-contract.sh' "$CI_WORKFLOW" "workflow contract check in CI"
 require_pattern 'workflow-contract' "$CI_WORKFLOW" "workflow contract job"
+require_pattern 'Resolve Changed Files' "$CI_WORKFLOW" "changed-file resolver job"
+require_pattern 'tools/ci/resolve-ci-gates.mjs' "$CI_WORKFLOW" "CI gate resolver script"
+require_pattern 'README Documentation Gate' "$CI_WORKFLOW" "README-only documentation gate"
+require_pattern 'needs\.changes\.outputs\.backend' "$CI_WORKFLOW" "backend selective gate condition"
+require_pattern 'needs\.changes\.outputs\.frontend' "$CI_WORKFLOW" "frontend selective gate condition"
+require_pattern 'needs\.changes\.outputs\.infra' "$CI_WORKFLOW" "infra selective gate condition"
+require_pattern 'node --test tools/ci/resolve-ci-gates\.test\.mjs' "$CI_WORKFLOW" "CI gate resolver test"
+require_pattern 'no deployment-impacting files changed' "$CD_WORKFLOW" "deployment-impact skip reason"
+require_pattern 'tools/ci/resolve-ci-gates\.mjs --files=' "$CD_WORKFLOW" "CD deploy impact resolver"
 
 require_pattern 'SPRING_DATASOURCE_URL' "$ENV_SCRIPT" "datasource URL validation"
 require_pattern 'SPRING_DATASOURCE_USERNAME' "$ENV_SCRIPT" "datasource username validation"
