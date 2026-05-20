@@ -2,7 +2,6 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   AUTH_ACCESS_TOKEN_KEY,
-  AUTH_REFRESH_TOKEN_KEY,
   AUTH_USER_KEY,
   clearAuthTokens,
   loginWithGoogle,
@@ -22,7 +21,6 @@ const authTokens: AuthTokens = {
   email: "aquila@example.com",
   role: "ADMIN",
   accessToken: "aquila-access.token",
-  refreshToken: "aquila-refresh.token",
 };
 
 test("loginWithGoogle posts id token and returns issued tokens", async () => {
@@ -49,14 +47,15 @@ test("loginWithGoogle posts id token and returns issued tokens", async () => {
   }
 });
 
-test("refreshAuthToken and logoutAuth post refresh token to auth endpoints", async () => {
+test("refreshAuthToken and logoutAuth use the HttpOnly refresh cookie", async () => {
   const originalFetch = globalThis.fetch;
-  const requests: Array<{ path: string; body: unknown }> = [];
+  const requests: Array<{ path: string; body: string | null; credentials: RequestCredentials | undefined }> = [];
 
   globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
     requests.push({
       path: String(input),
-      body: JSON.parse(String(init?.body)),
+      body: init?.body ? String(init.body) : null,
+      credentials: init?.credentials,
     });
 
     if (String(input).endsWith("/api/v1/auth/logout")) {
@@ -65,26 +64,26 @@ test("refreshAuthToken and logoutAuth post refresh token to auth endpoints", asy
 
     return jsonResponse({
       accessToken: "aquila-access.next",
-      refreshToken: "aquila-refresh.next",
     });
   };
 
   try {
-    const refreshed = await refreshAuthToken("aquila-refresh.token");
-    await logoutAuth("aquila-refresh.next");
+    const refreshed = await refreshAuthToken();
+    await logoutAuth();
 
     assert.deepEqual(refreshed, {
       accessToken: "aquila-access.next",
-      refreshToken: "aquila-refresh.next",
     });
     assert.deepEqual(requests, [
       {
         path: "http://localhost:8080/api/v1/auth/token/refresh",
-        body: { refreshToken: "aquila-refresh.token" },
+        body: null,
+        credentials: "include",
       },
       {
         path: "http://localhost:8080/api/v1/auth/logout",
-        body: { refreshToken: "aquila-refresh.next" },
+        body: null,
+        credentials: "include",
       },
     ]);
   } finally {
@@ -138,7 +137,7 @@ test("auth token storage saves reads resolves and clears tokens", () => {
   saveAuthTokens(authTokens, storage);
 
   assert.equal(storage.getItem(AUTH_ACCESS_TOKEN_KEY), "aquila-access.token");
-  assert.equal(storage.getItem(AUTH_REFRESH_TOKEN_KEY), "aquila-refresh.token");
+  assert.equal(storage.getItem("aquila-office.auth.refreshToken"), null);
   assert.deepEqual(JSON.parse(storage.getItem(AUTH_USER_KEY) ?? "{}"), authUser);
   assert.deepEqual(readAuthTokens(storage), authTokens);
   assert.deepEqual(readAuthUser(storage), authUser);
@@ -149,7 +148,7 @@ test("auth token storage saves reads resolves and clears tokens", () => {
   assert.equal(readAuthTokens(storage), null);
   assert.equal(readAuthUser(storage), null);
   assert.equal(storage.getItem(AUTH_ACCESS_TOKEN_KEY), null);
-  assert.equal(storage.getItem(AUTH_REFRESH_TOKEN_KEY), null);
+  assert.equal(storage.getItem("aquila-office.auth.refreshToken"), null);
   assert.equal(storage.getItem(AUTH_USER_KEY), null);
 });
 

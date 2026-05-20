@@ -103,18 +103,14 @@ class SecurityConfigTest {
 
     @Test
     void refreshTokenEndpointDoesNotRequireAuthentication() throws Exception {
-        mockMvc.perform(post("/api/v1/auth/token/refresh")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"refreshToken\":\" \"}"))
-                .andExpect(status().isBadRequest());
+        mockMvc.perform(post("/api/v1/auth/token/refresh"))
+                .andExpect(status().isUnauthorized());
     }
 
     @Test
     void logoutEndpointDoesNotRequireAuthentication() throws Exception {
-        mockMvc.perform(post("/api/v1/auth/logout")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"refreshToken\":\" \"}"))
-                .andExpect(status().isBadRequest());
+        mockMvc.perform(post("/api/v1/auth/logout"))
+                .andExpect(status().isUnauthorized());
     }
 
     @Test

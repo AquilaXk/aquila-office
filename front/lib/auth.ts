@@ -6,15 +6,15 @@ import {
 } from "./api/auth.ts";
 
 export const AUTH_ACCESS_TOKEN_KEY = "aquila-office.auth.accessToken";
-export const AUTH_REFRESH_TOKEN_KEY = "aquila-office.auth.refreshToken";
 export const AUTH_USER_KEY = "aquila-office.auth.user";
+const LEGACY_REFRESH_TOKEN_KEY = "aquila-office.auth.refreshToken";
+const LEGACY_SESSION_KEY = "aquila-office.auth";
 export const AUTH_STORAGE_KEYS: readonly string[] = [
   AUTH_ACCESS_TOKEN_KEY,
-  AUTH_REFRESH_TOKEN_KEY,
   AUTH_USER_KEY,
+  LEGACY_REFRESH_TOKEN_KEY,
+  LEGACY_SESSION_KEY,
 ];
-
-const LEGACY_SESSION_KEY = "aquila-office.auth";
 
 export type AuthMemberRole = "ADMIN" | "USER";
 
@@ -24,10 +24,9 @@ export type AuthTokens = {
   email: string;
   role: AuthMemberRole;
   accessToken: string;
-  refreshToken: string;
 };
 
-export type RefreshedAuthTokens = Pick<AuthTokens, "accessToken" | "refreshToken">;
+export type RefreshedAuthTokens = Pick<AuthTokens, "accessToken">;
 export type AuthUser = Pick<AuthTokens, "memberId" | "name" | "email" | "role">;
 
 const DEV_ACCESS_TOKEN = process.env.NEXT_PUBLIC_DEV_ACCESS_TOKEN ?? "";
@@ -38,19 +37,18 @@ export async function loginWithGoogle(idToken: string): Promise<AuthTokens> {
   return tokens;
 }
 
-export async function refreshAuthToken(refreshToken: string): Promise<RefreshedAuthTokens> {
-  return postRefreshAuthToken(refreshToken);
+export async function refreshAuthToken(): Promise<RefreshedAuthTokens> {
+  return postRefreshAuthToken();
 }
 
-export async function logoutAuth(refreshToken: string): Promise<void> {
-  await postLogoutAuth(refreshToken);
+export async function logoutAuth(): Promise<void> {
+  await postLogoutAuth();
 }
 
 export async function logout(): Promise<void> {
-  const tokens = readAuthTokens();
   try {
-    if (tokens) {
-      await logoutAuth(tokens.refreshToken);
+    if (isAuthenticated()) {
+      await logoutAuth();
     }
   } catch {
     // 로그아웃 API 실패와 무관하게 브라우저 세션은 즉시 정리한다.
@@ -65,13 +63,11 @@ export function readAuthTokens(storage: Storage | undefined = browserStorage()):
   }
 
   const accessToken = storage.getItem(AUTH_ACCESS_TOKEN_KEY);
-  const refreshToken = storage.getItem(AUTH_REFRESH_TOKEN_KEY);
   const user = readAuthUser(storage);
-  if (accessToken && refreshToken && user) {
+  if (accessToken && user) {
     return {
       ...user,
       accessToken,
-      refreshToken,
     };
   }
 
@@ -102,15 +98,15 @@ export function saveAuthTokens(
   }
 
   storage.setItem(AUTH_ACCESS_TOKEN_KEY, tokens.accessToken);
-  storage.setItem(AUTH_REFRESH_TOKEN_KEY, tokens.refreshToken);
   storage.setItem(AUTH_USER_KEY, JSON.stringify(toAuthUser(tokens)));
+  storage.removeItem(LEGACY_REFRESH_TOKEN_KEY);
   storage.removeItem(LEGACY_SESSION_KEY);
 }
 
 export function clearAuthTokens(storage: Storage | undefined = browserStorage()): void {
   storage?.removeItem(AUTH_ACCESS_TOKEN_KEY);
-  storage?.removeItem(AUTH_REFRESH_TOKEN_KEY);
   storage?.removeItem(AUTH_USER_KEY);
+  storage?.removeItem(LEGACY_REFRESH_TOKEN_KEY);
   storage?.removeItem(LEGACY_SESSION_KEY);
 }
 
@@ -191,8 +187,6 @@ function isAuthTokens(value: unknown): value is AuthTokens {
     typeof record.email === "string" &&
     (record.role === "ADMIN" || record.role === "USER") &&
     typeof record.accessToken === "string" &&
-    record.accessToken.length > 0 &&
-    typeof record.refreshToken === "string" &&
-    record.refreshToken.length > 0
+    record.accessToken.length > 0
   );
 }
