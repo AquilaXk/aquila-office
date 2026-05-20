@@ -45,7 +45,6 @@ const requiredHeadings = [
   "## 워크플로",
   "### 로컬 smoke 점검",
   "### 릴리즈 사전 점검",
-  "## 감사의 말",
   "## 트러블슈팅",
 ];
 
@@ -111,6 +110,8 @@ const forbiddenSnippets = [
   "About the Project",
   "Getting Started",
   "Troubleshooting",
+  "## 감사의 말",
+  "Aquila Office는 Java, Spring, Next.js, React, PostgreSQL, Docker, k6, Google Cloud, Slack, GitHub 생태계 위에서 동작합니다.",
 ];
 
 for (const snippet of forbiddenSnippets) {

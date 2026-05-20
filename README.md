@@ -442,10 +442,6 @@ Alert 예시:
 - Gateway timeout 증가: `sum(rate(aquila_gateway_rpc_completed_total{outcome="timeout"}[5m])) > 0`
 - Slack signature failure: `sum(rate(aquila_slack_events_signature_failures_total[5m])) > 0`
 
-## 감사의 말
-
-Aquila Office는 Java, Spring, Next.js, React, PostgreSQL, Docker, k6, Google Cloud, Slack, GitHub 생태계 위에서 동작합니다.
-
 ## 트러블슈팅
 
 | 증상 | 확인할 것 |
