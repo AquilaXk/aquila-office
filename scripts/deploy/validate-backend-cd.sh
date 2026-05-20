@@ -110,17 +110,25 @@ log "checking workflow contract gate"
 "$CONTRACT_SCRIPT"
 
 backend_env_fixture="$(mktemp)"
+default_secret_env_fixture="$(mktemp)"
 frontend_env_fixture="$(mktemp)"
 vertex_key_fixture="$(mktemp)"
 materialized_env="$(mktemp)"
 materialized_frontend_env="$(mktemp)"
 materialized_vertex_key="$(mktemp)"
-trap 'rm -f "$backend_env_fixture" "$frontend_env_fixture" "$vertex_key_fixture" "$materialized_env" "$materialized_frontend_env" "$materialized_vertex_key"' EXIT
+trap 'rm -f "$backend_env_fixture" "$default_secret_env_fixture" "$frontend_env_fixture" "$vertex_key_fixture" "$materialized_env" "$materialized_frontend_env" "$materialized_vertex_key"' EXIT
 cat > "$backend_env_fixture" <<ENV
 SPRING_DATASOURCE_URL=jdbc:postgresql://aquila-postgres:5432/aquila
 SPRING_DATASOURCE_USERNAME=aquila
 SPRING_DATASOURCE_PASSWORD=secret
 AQUILA_AUTH_TOKEN_SECRET=secret-secret-secret-secret-secret-1
+AQUILA_EXTERNAL_TOKEN_KEY=external-secret-secret-secret-1
+ENV
+cat > "$default_secret_env_fixture" <<ENV
+SPRING_DATASOURCE_URL=jdbc:postgresql://aquila-postgres:5432/aquila
+SPRING_DATASOURCE_USERNAME=aquila
+SPRING_DATASOURCE_PASSWORD=secret
+AQUILA_AUTH_TOKEN_SECRET=local-development-jwt-secret-change-before-production-0123456789abcdef
 AQUILA_EXTERNAL_TOKEN_KEY=external-secret-secret-secret-1
 ENV
 cat > "$frontend_env_fixture" <<ENV
@@ -140,6 +148,12 @@ JSON
 
 log "checking backend env materialization"
 BACKEND_ENV_B64="$(base64 < "$backend_env_fixture" | tr -d '\n')" "$ENV_SCRIPT" --output "$materialized_env"
+
+log "checking backend env rejects default JWT secret"
+if BACKEND_ENV_B64="$(base64 < "$default_secret_env_fixture" | tr -d '\n')" "$ENV_SCRIPT" --output "$materialized_env"; then
+    echo "backend env validation accepted the default JWT secret" >&2
+    exit 1
+fi
 
 log "running managed Postgres dry-run"
 "$POSTGRES_SCRIPT" --dry-run --env-file "$materialized_env" --network aquila-office

@@ -16,20 +16,24 @@ public record AuthTokenProperties(
 
     private static final int MINIMUM_HS256_SECRET_BYTES = 32;
     private static final String DEFAULT_ISSUER = "aquila-office";
-    private static final String DEFAULT_SECRET =
+    public static final String DEFAULT_DEVELOPMENT_SECRET =
             "local-development-jwt-secret-change-before-production-0123456789abcdef";
     private static final Duration DEFAULT_ACCESS_TOKEN_TTL = Duration.ofMinutes(15);
     private static final Duration DEFAULT_REFRESH_TOKEN_TTL = Duration.ofDays(14);
 
     public AuthTokenProperties {
         issuer = defaultIfBlank(issuer, DEFAULT_ISSUER);
-        secret = defaultIfBlank(secret, DEFAULT_SECRET);
+        secret = defaultIfBlank(secret, DEFAULT_DEVELOPMENT_SECRET);
         accessTokenTtl = defaultIfNull(accessTokenTtl, DEFAULT_ACCESS_TOKEN_TTL, "accessTokenTtl");
         refreshTokenTtl = defaultIfNull(refreshTokenTtl, DEFAULT_REFRESH_TOKEN_TTL, "refreshTokenTtl");
         int secretBytes = secret.getBytes(StandardCharsets.UTF_8).length;
         if (secretBytes < MINIMUM_HS256_SECRET_BYTES) {
             throw new IllegalArgumentException("secret must be at least 32 bytes for HS256");
         }
+    }
+
+    public boolean usesDefaultDevelopmentSecret() {
+        return DEFAULT_DEVELOPMENT_SECRET.equals(secret);
     }
 
     private static String defaultIfBlank(String value, String defaultValue) {
