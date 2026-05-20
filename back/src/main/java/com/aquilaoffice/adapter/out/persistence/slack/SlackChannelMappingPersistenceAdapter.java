@@ -65,6 +65,15 @@ public class SlackChannelMappingPersistenceAdapter
 
     @Override
     @Transactional(readOnly = true)
+    public Optional<SlackChannelMapping> findByTeamIdAndChannelId(String teamId, String channelId) {
+        return slackChannelMappingJpaRepository.findByTeamIdAndChannelId(
+                        normalizeRequired(teamId, "teamId"),
+                        normalizeRequired(channelId, "channelId"))
+                .map(this::toDomain);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public List<SlackChannelMapping> findActiveByWorkspaceId(Long workspaceId) {
         Objects.requireNonNull(workspaceId, "workspaceId must not be null");
         return slackChannelMappingJpaRepository.findActiveByWorkspaceId(workspaceId).stream()
@@ -88,10 +97,20 @@ public class SlackChannelMappingPersistenceAdapter
             SlackChannelMapping mapping,
             WorkspaceJpaEntity workspaceEntity) {
         if (mapping.getId() == null) {
-            return SlackChannelMappingJpaEntity.from(
-                    mapping,
-                    workspaceEntity,
-                    externalTokenCipher.encrypt(mapping.getBotToken()));
+            return slackChannelMappingJpaRepository
+                    .findByTeamIdAndChannelId(mapping.getTeamId(), mapping.getChannelId())
+                    .filter(entity -> !entity.isActive())
+                    .map(entity -> {
+                        entity.apply(
+                                mapping,
+                                workspaceEntity,
+                                externalTokenCipher.encrypt(mapping.getBotToken()));
+                        return entity;
+                    })
+                    .orElseGet(() -> SlackChannelMappingJpaEntity.from(
+                            mapping,
+                            workspaceEntity,
+                            externalTokenCipher.encrypt(mapping.getBotToken())));
         }
 
         SlackChannelMappingJpaEntity entity = slackChannelMappingJpaRepository
