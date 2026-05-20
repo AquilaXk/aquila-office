@@ -13,5 +13,9 @@ public interface LoadSlackChannelMappingPort {
 
     Optional<SlackChannelMapping> findActiveByTeamIdAndChannelId(String teamId, String channelId);
 
+    default Optional<SlackChannelMapping> findByTeamIdAndChannelId(String teamId, String channelId) {
+        return findActiveByTeamIdAndChannelId(teamId, channelId);
+    }
+
     List<SlackChannelMapping> findActiveByWorkspaceId(Long workspaceId);
 }

@@ -79,6 +79,40 @@ class SlackChannelMappingServiceTest {
     }
 
     @Test
+    void createSlackChannelMappingReactivatesInactiveTeamChannel() {
+        SlackChannelMapping inactive = SlackChannelMapping.restore(
+                501L,
+                999L,
+                "T123",
+                "C456",
+                "old-alerts",
+                "xoxb-old-secret",
+                "google-old",
+                false);
+        FakeLoadSlackChannelMappingPort loadMappingPort =
+                new FakeLoadSlackChannelMappingPort(Optional.empty(), List.of(inactive));
+        FakeSaveSlackChannelMappingPort saveMappingPort = new FakeSaveSlackChannelMappingPort();
+        CreateSlackChannelMappingService service = new CreateSlackChannelMappingService(
+                new FakeLoadMemberPort(Optional.of(Member.createUser("google-1", "admin@example.com", "Admin"))),
+                new FakeLoadWorkspacePort(Optional.of(workspaceDetail(WorkspaceMemberRole.ADMIN))),
+                loadMappingPort,
+                saveMappingPort);
+
+        CreateSlackChannelMappingResult result = service.createSlackChannelMapping(
+                new CreateSlackChannelMappingCommand(
+                        101L, "google-1", "T123", "C456", "new-alerts", "xoxb-new-secret"));
+
+        assertThat(saveMappingPort.savedMapping.getId()).isEqualTo(501L);
+        assertThat(saveMappingPort.savedMapping.getWorkspaceId()).isEqualTo(101L);
+        assertThat(saveMappingPort.savedMapping.getChannelName()).isEqualTo("new-alerts");
+        assertThat(saveMappingPort.savedMapping.getBotToken()).isEqualTo("xoxb-new-secret");
+        assertThat(saveMappingPort.savedMapping.getCreatedByGoogleSub()).isEqualTo("google-1");
+        assertThat(saveMappingPort.savedMapping.isActive()).isTrue();
+        assertThat(result.mappingId()).isEqualTo(501L);
+        assertThat(result.active()).isTrue();
+    }
+
+    @Test
     void listSlackChannelMappingsReturnsJoinedWorkspaceMappings() {
         SlackChannelMapping mapping = SlackChannelMapping.restore(
                 501L,
@@ -189,6 +223,15 @@ class SlackChannelMappingServiceTest {
             this.lookupTeamId = teamId;
             this.lookupChannelId = channelId;
             return mapping;
+        }
+
+        @Override
+        public Optional<SlackChannelMapping> findByTeamIdAndChannelId(String teamId, String channelId) {
+            this.lookupTeamId = teamId;
+            this.lookupChannelId = channelId;
+            return mappings.stream()
+                    .filter(mapping -> mapping.hasSameChannel(teamId, channelId))
+                    .findFirst();
         }
 
         @Override

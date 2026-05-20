@@ -80,6 +80,24 @@ public class SlackChannelMapping {
         this.active = false;
     }
 
+    public SlackChannelMapping reconnect(
+            Long workspaceId,
+            String teamId,
+            String channelId,
+            String channelName,
+            String botToken,
+            String createdByGoogleSub) {
+        return new SlackChannelMapping(
+                id,
+                workspaceId,
+                teamId,
+                channelId,
+                channelName,
+                botToken,
+                createdByGoogleSub,
+                true);
+    }
+
     public SlackChannelMapping update(String teamId, String channelId, String channelName, String botToken) {
         return new SlackChannelMapping(
                 id,

@@ -42,15 +42,8 @@ public class CreateSlackChannelMappingService implements CreateSlackChannelMappi
         Member requester = loadRequester(command.requesterGoogleSub());
         GetWorkspaceDetailResult workspaceDetail = loadWorkspaceDetail(command.workspaceId(), requester.getGoogleSub());
         requireAdmin(workspaceDetail);
-        requireNewChannelMapping(command.teamId(), command.channelId());
 
-        SlackChannelMapping mapping = SlackChannelMapping.create(
-                command.workspaceId(),
-                command.teamId(),
-                command.channelId(),
-                command.channelName(),
-                command.botToken(),
-                requester.getGoogleSub());
+        SlackChannelMapping mapping = createOrReactivateMapping(command, requester);
         return toResult(saveSlackChannelMappingPort.save(mapping));
     }
 
@@ -72,10 +65,34 @@ public class CreateSlackChannelMappingService implements CreateSlackChannelMappi
         }
     }
 
-    private void requireNewChannelMapping(String teamId, String channelId) {
-        if (loadSlackChannelMappingPort.findActiveByTeamIdAndChannelId(teamId, channelId).isPresent()) {
+    private SlackChannelMapping createOrReactivateMapping(
+            CreateSlackChannelMappingCommand command,
+            Member requester) {
+        return loadSlackChannelMappingPort.findByTeamIdAndChannelId(command.teamId(), command.channelId())
+                .map(existing -> reactivateInactiveMapping(existing, command, requester))
+                .orElseGet(() -> SlackChannelMapping.create(
+                        command.workspaceId(),
+                        command.teamId(),
+                        command.channelId(),
+                        command.channelName(),
+                        command.botToken(),
+                        requester.getGoogleSub()));
+    }
+
+    private SlackChannelMapping reactivateInactiveMapping(
+            SlackChannelMapping existing,
+            CreateSlackChannelMappingCommand command,
+            Member requester) {
+        if (existing.isActive()) {
             throw new IllegalStateException("slack channel mapping already exists");
         }
+        return existing.reconnect(
+                command.workspaceId(),
+                command.teamId(),
+                command.channelId(),
+                command.channelName(),
+                command.botToken(),
+                requester.getGoogleSub());
     }
 
     private CreateSlackChannelMappingResult toResult(SlackChannelMapping mapping) {

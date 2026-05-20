@@ -90,6 +90,37 @@ class SlackChannelMappingPersistenceAdapterTest {
     }
 
     @Test
+    void saveReactivatesInactiveTeamChannelWithoutCreatingDuplicateRow() {
+        WorkspaceJpaEntity oldWorkspaceEntity = saveWorkspaceEntity("creator-google");
+        WorkspaceJpaEntity newWorkspaceEntity = saveWorkspaceEntity("admin-google");
+        SlackChannelMapping inactiveMapping = SlackChannelMapping.create(
+                oldWorkspaceEntity.getId(),
+                "T123",
+                "C456",
+                "old-alerts",
+                "xoxb-old-secret",
+                "creator-google");
+        inactiveMapping.deactivate();
+        SlackChannelMapping savedInactiveMapping = saveSlackChannelMappingPort.save(inactiveMapping);
+
+        SlackChannelMapping reconnectedMapping = saveSlackChannelMappingPort.save(SlackChannelMapping.create(
+                newWorkspaceEntity.getId(),
+                "T123",
+                "C456",
+                "new-alerts",
+                "xoxb-new-secret",
+                "admin-google"));
+
+        assertThat(reconnectedMapping.getId()).isEqualTo(savedInactiveMapping.getId());
+        assertThat(reconnectedMapping.getWorkspaceId()).isEqualTo(newWorkspaceEntity.getId());
+        assertThat(reconnectedMapping.getChannelName()).isEqualTo("new-alerts");
+        assertThat(reconnectedMapping.getBotToken()).isEqualTo("xoxb-new-secret");
+        assertThat(reconnectedMapping.getCreatedByGoogleSub()).isEqualTo("admin-google");
+        assertThat(reconnectedMapping.isActive()).isTrue();
+        assertThat(slackChannelMappingJpaRepository.count()).isEqualTo(1L);
+    }
+
+    @Test
     void findActiveByWorkspaceIdReturnsOnlyWorkspaceActiveMappings() {
         WorkspaceJpaEntity workspaceEntity = saveWorkspaceEntity("creator-google");
         WorkspaceJpaEntity otherWorkspaceEntity = saveWorkspaceEntity("other-google");
