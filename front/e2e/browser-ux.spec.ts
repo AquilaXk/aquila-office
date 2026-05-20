@@ -107,9 +107,9 @@ test.describe("브라우저 UI UX 회귀", () => {
     await page.goto("/workspaces");
 
     await expect(page.getByText("00 ENTRIES")).toBeVisible();
-    await expect(page.getByText("no workspaces yet — start a new save to begin your work RPG")).toHaveCount(0);
+    await expect(page.getByText("no workspaces yet — create one to start collaborating")).toHaveCount(0);
     gate.resolve();
-    await expect(page.getByText("no workspaces yet — start a new save to begin your work RPG")).toBeVisible();
+    await expect(page.getByText("no workspaces yet — create one to start collaborating")).toBeVisible();
     await expect(page.getByRole("link", { name: "CREATE WORKSPACE" })).toHaveAttribute(
       "href",
       "/workspaces/new",
@@ -202,18 +202,18 @@ test.describe("브라우저 UI UX 회귀", () => {
     await expect(page.getByText("ENTER")).toBeVisible();
 
     await page.getByRole("link", { name: /NEW WORKSPACE/ }).click();
-    await expect(page.getByText("FORM A NEW WORKSPACE")).toBeVisible();
+    await expect(page.getByText("CREATE A NEW WORKSPACE")).toBeVisible();
     await expect(page.getByText("0/100")).toBeVisible();
     await expect(page.getByText("0/500")).toBeVisible();
     await expect(page.getByRole("link", { name: "CANCEL" })).toHaveAttribute("href", "/workspaces");
 
     await page.getByLabel(/WORKSPACE NAME/).fill(" Platform Ops ");
-    await page.getByLabel(/BRIEFING/).fill(" 운영 자동화 점검 ");
+    await page.getByLabel(/DESCRIPTION/).fill(" 운영 자동화 점검 ");
     const createRequest = page.waitForRequest((request) => {
       const url = new URL(request.url());
       return request.method() === "POST" && url.pathname === "/api/v1/workspaces";
     });
-    await page.getByRole("button", { name: /FORM WORKSPACE/ }).click();
+    await page.getByRole("button", { name: /CREATE WORKSPACE/ }).click();
     const createPayload = JSON.parse((await createRequest).postData() ?? "{}");
     expect(createPayload).toEqual({
       name: "Platform Ops",
@@ -560,7 +560,7 @@ test.describe("브라우저 UI UX 회귀", () => {
     await page.getByLabel(/GATEWAY URL/).fill("https://gateway.example.test");
     await page.getByLabel(/TOKEN/).fill("gateway-secret");
     await page.getByRole("button", { name: /LINK GATE/ }).click();
-    await expect(page.getByText("WARP GATE LINKED.")).toBeVisible();
+    await expect(page.getByText("GATEWAY LINKED.")).toBeVisible();
     await expect(page.getByText("LINKED · 01")).toBeVisible();
     await expect(page.getByRole("button", { name: /LOCAL GATE/ })).toBeVisible();
     await expect(page.getByRole("button", { name: /LOCAL GATE[\s\S]*ON/ })).toBeVisible();
@@ -588,7 +588,7 @@ test.describe("브라우저 UI UX 회귀", () => {
     await expect(page.getByText("aquila@example.com")).toBeVisible();
 
     await page.getByRole("button", { name: /^INVITE$/ }).click();
-    await expect(page.getByRole("heading", { name: /INVITE/ })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "INVITE", exact: true })).toBeVisible();
     await page.getByRole("button", { name: "LINK" }).click();
     await page.getByLabel("EXPIRES").selectOption("14");
     await page.getByRole("button", { name: /COPY LINK/ }).click();
@@ -609,8 +609,8 @@ test.describe("브라우저 UI UX 회귀", () => {
     await expect(page.getByText("Product Engineering")).toBeVisible();
     await expect(page.getByText("MEMBER")).toBeVisible();
     await expect(page.getByText(/expires/)).toBeVisible();
-    await expect(page.getByRole("button", { name: /ACCEPT SUMMON/ })).toBeVisible();
-    await page.getByRole("button", { name: /ACCEPT SUMMON/ }).click();
+    await expect(page.getByRole("button", { name: /ACCEPT INVITE/ })).toBeVisible();
+    await page.getByRole("button", { name: /ACCEPT INVITE/ }).click();
     await page.waitForURL((url) => url.pathname === "/workspaces");
     await expect(page.getByRole("heading", { name: "WORKSPACES" })).toBeVisible();
 

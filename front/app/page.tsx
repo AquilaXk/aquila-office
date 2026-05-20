@@ -73,7 +73,7 @@ export default function Home() {
         <p className="eyebrow">PRESS START</p>
         <h1>{SERVICE_NAME.toUpperCase()}</h1>
         <p className="title-screen-subtitle">cooperative workspace operations</p>
-        <p className="title-screen-subtitle">HERO {user?.name ?? "PLAYER"}</p>
+        <p className="title-screen-subtitle">USER {user?.name ?? "MEMBER"}</p>
 
         <div className="title-menu" role="menu" aria-label="시작 메뉴">
           {MENU.map((item, index) => {

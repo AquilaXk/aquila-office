@@ -77,7 +77,7 @@ test("browser regression covers routes and interactions without screenshot asser
     'getByRole("button", { name: /ROSTER/ })',
     'getByRole("button", { name: /^INVITE$/ })',
     'getByRole("button", { name: /INVITE LOG/ })',
-    'getByRole("button", { name: /ACCEPT SUMMON/ })',
+    'getByRole("button", { name: /ACCEPT INVITE/ })',
     'path === "/api/v1/auth/google/login"',
     'path === "/api/v1/auth/logout"',
     'path === "/api/v1/members/me/profile"',

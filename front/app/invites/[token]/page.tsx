@@ -77,7 +77,7 @@ export default function InviteAcceptPage({
   }
 
   return (
-    <T4Screen title="WORKSPACE INVITE · WARP IN">
+    <T4Screen title="WORKSPACE INVITE">
       <div
         style={{
           height: "100%",
@@ -128,11 +128,11 @@ export default function InviteAcceptPage({
                 marginTop: 8,
               }}
             >
-              Confirm the summon and warp into the workspace.
+              Confirm the invitation and join the workspace.
             </p>
           </header>
 
-          <T4Panel label="SUMMON" accent={t4.pink} style={{ position: "relative", padding: 22 }}>
+          <T4Panel label="INVITE" accent={t4.pink} style={{ position: "relative", padding: 22 }}>
             {state.kind === "loading" && <Skeleton />}
             {state.kind === "error" && (
               <p
@@ -286,7 +286,7 @@ function InviteBody({
         disabled={blocked}
         className="w-full"
       >
-        <GlyphText glyph="▶">{blocked ? "LOCKED" : "ACCEPT SUMMON"}</GlyphText>
+        <GlyphText glyph="▶">{blocked ? "LOCKED" : "ACCEPT INVITE"}</GlyphText>
       </Button>
     </div>
   );

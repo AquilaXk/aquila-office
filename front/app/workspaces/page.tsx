@@ -77,7 +77,7 @@ export default function WorkspacesPage() {
   );
 
   return (
-    <T4Screen title="WORKSPACES · SELECT YOUR QUEST">
+    <T4Screen title="WORKSPACES">
       <div
         style={{
           padding: 20,
@@ -109,7 +109,7 @@ export default function WorkspacesPage() {
                 marginBottom: 4,
               }}
             >
-              <GlyphText glyph="◆">HERO {user?.name ?? "PLAYER"}</GlyphText>
+              <GlyphText glyph="◆">USER {user?.name ?? "MEMBER"}</GlyphText>
             </div>
             <h2
               style={{
@@ -173,10 +173,10 @@ export default function WorkspacesPage() {
               sub: "진행 중인 태스크",
             },
             {
-              label: "AGENT ALLIES",
+              label: "AGENTS",
               value: String(agentCount).padStart(2, "0"),
               color: t4.agent,
-              sub: "소환된 에이전트",
+              sub: "등록된 에이전트",
             },
             {
               label: "TASKS · DONE",
@@ -225,7 +225,7 @@ export default function WorkspacesPage() {
           ))}
         </div>
 
-        {/* Workspace quest list */}
+        {/* Workspace list */}
         <T4Panel
           label="ACTIVE WORKPLACES"
           accent={t4.pink}
@@ -235,7 +235,6 @@ export default function WorkspacesPage() {
             display: "flex",
             flexDirection: "column",
             minHeight: 0,
-            overflow: "hidden",
           }}
         >
           <div
@@ -467,7 +466,7 @@ function EmptyState() {
         <PixelAvatar kind="agent" size={3} style={{ margin: "0 auto" }} />
       </div>
       <div style={{ marginBottom: 14 }}>
-        no workspaces yet — start a new save to begin your work RPG
+        no workspaces yet — create one to start collaborating
       </div>
       <Link
         href="/workspaces/new"

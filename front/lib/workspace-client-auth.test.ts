@@ -96,7 +96,7 @@ test("workspace list exposes auth token session actions", () => {
   assert.match(source, /router\.replace\("\/"\)/);
 });
 
-test("workspace list matches quest list metadata and empty states", () => {
+test("workspace list matches workspace metadata and empty states", () => {
   const source = readSource("app/workspaces/page.tsx");
 
   assert.match(source, /GATEWAY/);
@@ -104,14 +104,14 @@ test("workspace list matches quest list metadata and empty states", () => {
   assert.match(source, /LOGOUT/);
   assert.match(source, /WORKPLACES JOINED/);
   assert.match(source, /TASKS · ACTIVE/);
-  assert.match(source, /AGENT ALLIES/);
+  assert.match(source, /AGENTS/);
   assert.match(source, /TASKS · DONE/);
   assert.match(source, /진행 중인 태스크/);
-  assert.match(source, /소환된 에이전트/);
+  assert.match(source, /등록된 에이전트/);
   assert.match(source, /ENTRIES/);
   assert.match(source, /SCROLL ↓/);
   assert.match(source, /workspaces\.length > 8/);
-  assert.match(source, /no workspaces yet — start a new save to begin your work RPG/);
+  assert.match(source, /no workspaces yet — create one to start collaborating/);
   assert.match(source, /CREATE WORKSPACE/);
   assert.match(source, /워크스페이스를 불러오지 못했습니다\./);
   assert.match(source, /workspace\.description \|\| "no description"/);
@@ -128,10 +128,10 @@ test("new workspace form matches creation contract without session side panel", 
   assert.match(source, /WORKSPACE DETAILS/);
   assert.match(source, /NAME_MAX = 100/);
   assert.match(source, /DESCRIPTION_MAX = 500/);
-  assert.match(source, /placeholder="예: 백엔드 엔지니어링 길드"/);
+  assert.match(source, /placeholder="예: 백엔드 엔지니어링 팀"/);
   assert.match(source, /placeholder="워크스페이스의 미션, 진행 중인 작업 등을 설명해 주세요\."/);
   assert.match(source, /router\.replace\(`\/workspaces\/\$\{created\.workspaceId\}`\)/);
-  assert.match(source, /FORM WORKSPACE/);
+  assert.match(source, /CREATE WORKSPACE/);
   assert.match(source, /워크스페이스 생성에 실패했습니다\./);
   assert.doesNotMatch(source, /workspace-create-side/);
   assert.doesNotMatch(source, /SESSION READY/);
@@ -172,7 +172,7 @@ test("frontend exposes workspace gateway route status surface", () => {
   assert.match(source, /STORAGE_KEY = "aio\.openclaw\.gateways"/);
   assert.match(source, /readGateways/);
   assert.match(source, /writeGateways/);
-  assert.match(source, /GATEWAY · WARP STATIONS/);
+  assert.match(source, /T4Screen title="GATEWAY"/);
 });
 
 test("frontend exposes workspace gateway route binding controls", () => {

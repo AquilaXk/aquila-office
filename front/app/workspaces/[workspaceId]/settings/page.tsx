@@ -441,7 +441,7 @@ export default function WorkspaceSettingsPage({
                     <Field label="WORKSPACE NAME">
                       <Input value={nameInput} onChange={(e) => setNameInput(e.target.value)} disabled={!isAdmin || updateBusy} />
                     </Field>
-                    <Field label="BRIEFING">
+                    <Field label="DESCRIPTION">
                       <textarea
                         value={descriptionInput}
                         onChange={(e) => setDescriptionInput(e.target.value)}
@@ -706,7 +706,7 @@ export default function WorkspaceSettingsPage({
                             textShadow: `0 0 6px ${t4.xp}`,
                           }}
                         >
-                          <GlyphText glyph="★">SUMMON LINK</GlyphText>
+                          <GlyphText glyph="★">INVITE LINK</GlyphText>
                         </h3>
                         <p
                           className="mt-2"

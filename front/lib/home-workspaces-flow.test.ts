@@ -35,13 +35,13 @@ test("workspaces route owns the list flow instead of re-exporting home", () => {
   assert.match(source, /\/workspaces\/new/);
   assert.match(source, /WORKPLACES JOINED/);
   assert.match(source, /TASKS · ACTIVE/);
-  assert.match(source, /AGENT ALLIES/);
+  assert.match(source, /AGENTS/);
   assert.match(source, /TASKS · DONE/);
   assert.match(source, /W\{String\(index \+ 1\)\.padStart\(3, "0"\)\}/);
   assert.match(source, /workspace\.agentCount/);
   assert.match(source, /workspace\.runningTaskCount/);
   assert.match(source, /ENTER/);
-  assert.match(source, /no workspaces yet — start a new save to begin your work RPG/);
+  assert.match(source, /no workspaces yet — create one to start collaborating/);
   assert.match(source, /CREATE WORKSPACE/);
   assert.match(source, /워크스페이스를 불러오지 못했습니다/);
 });
@@ -60,7 +60,7 @@ test("new workspace route returns to the workspace list", () => {
   assert.match(source, /description\.trim\(\) \|\| undefined/);
   assert.match(source, /router\.replace\(`\/workspaces\/\$\{created\.workspaceId\}`\)/);
   assert.match(source, /CANCEL/);
-  assert.match(source, /FORM WORKSPACE/);
+  assert.match(source, /CREATE WORKSPACE/);
   assert.doesNotMatch(source, /createdWorkspaceHref/);
   assert.doesNotMatch(source, /상세 보기/);
   assert.doesNotMatch(source, /form-notice-success/);

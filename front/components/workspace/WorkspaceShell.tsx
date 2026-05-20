@@ -77,7 +77,7 @@ export function WorkspaceLoadingState() {
           animation: "t4-pulse 1.4s ease-in-out infinite",
         }}
       >
-        <GlyphText glyph="◆">LOADING WORLD...</GlyphText>
+        <GlyphText glyph="◆">LOADING WORKSPACE...</GlyphText>
       </div>
     </main>
   );
