@@ -1,6 +1,7 @@
 package com.aquilaoffice.global.config;
 
 import com.aquilaoffice.global.config.properties.AuthTokenProperties;
+import com.aquilaoffice.global.config.properties.AuthRefreshCookieProperties;
 import com.aquilaoffice.global.config.properties.ExternalTokenEncryptionProperties;
 import jakarta.annotation.PostConstruct;
 import java.util.Arrays;
@@ -19,15 +20,19 @@ public class AuthTokenRuntimeGuard {
 
     private final AuthTokenProperties authTokenProperties;
     private final ExternalTokenEncryptionProperties externalTokenEncryptionProperties;
+    private final AuthRefreshCookieProperties authRefreshCookieProperties;
     private final Environment environment;
 
     public AuthTokenRuntimeGuard(
             AuthTokenProperties authTokenProperties,
             ExternalTokenEncryptionProperties externalTokenEncryptionProperties,
+            AuthRefreshCookieProperties authRefreshCookieProperties,
             Environment environment) {
         this.authTokenProperties = Objects.requireNonNull(authTokenProperties, "authTokenProperties must not be null");
         this.externalTokenEncryptionProperties = Objects.requireNonNull(
                 externalTokenEncryptionProperties, "externalTokenEncryptionProperties must not be null");
+        this.authRefreshCookieProperties = Objects.requireNonNull(
+                authRefreshCookieProperties, "authRefreshCookieProperties must not be null");
         this.environment = Objects.requireNonNull(environment, "environment must not be null");
     }
 
@@ -47,6 +52,10 @@ public class AuthTokenRuntimeGuard {
         if (externalTokenEncryptionProperties.usesDefaultDevelopmentKeyId()) {
             throw new IllegalStateException(
                     "AQUILA_EXTERNAL_TOKEN_KEY_ID must be configured for runtime profiles");
+        }
+        if (!authRefreshCookieProperties.secure()) {
+            throw new IllegalStateException(
+                    "AQUILA_AUTH_REFRESH_COOKIE_SECURE must be true for runtime profiles");
         }
     }
 

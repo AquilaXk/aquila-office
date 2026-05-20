@@ -39,6 +39,8 @@ aquila:
     secret: ${AQUILA_AUTH_TOKEN_SECRET:local-development-jwt-secret-change-before-production-0123456789abcdef}
     access-token-ttl: ${AQUILA_AUTH_ACCESS_TOKEN_TTL:15m}
     refresh-token-ttl: ${AQUILA_AUTH_REFRESH_TOKEN_TTL:14d}
+  auth-refresh-cookie:
+    secure: ${AQUILA_AUTH_REFRESH_COOKIE_SECURE:false}
   google-oauth:
     client-ids: ${AQUILA_GOOGLE_OAUTH_CLIENT_IDS:development-client-id.apps.googleusercontent.com}
     allowed-hosted-domains: ${AQUILA_GOOGLE_ALLOWED_HOSTED_DOMAINS:}
