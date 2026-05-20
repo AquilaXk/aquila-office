@@ -302,7 +302,7 @@ function CharacterInner() {
           <div
             style={{
               fontFamily: "var(--font-pixel)",
-              fontSize: 9,
+              fontSize: 12,
               color: t4.pink,
               letterSpacing: 3,
               marginBottom: 6,
@@ -326,7 +326,7 @@ function CharacterInner() {
           <div
             style={{
               fontFamily: "var(--font-mono-arcade)",
-              fontSize: 11,
+              fontSize: 13,
               color: t4.dim,
               marginTop: 4,
             }}
@@ -376,7 +376,7 @@ function CharacterInner() {
                       background: t4.pink,
                       color: "#000",
                       fontFamily: "var(--font-pixel)",
-                      fontSize: 7,
+                      fontSize: 12,
                       letterSpacing: 1,
                       padding: "2px 6px",
                     }}
@@ -401,7 +401,7 @@ function CharacterInner() {
                 <div
                   style={{
                     fontFamily: "var(--font-pixel)",
-                    fontSize: 9,
+                    fontSize: 12,
                     letterSpacing: 1.5,
                     color: sel ? t4.pink : t4.ink,
                     textAlign: "center",
@@ -412,7 +412,7 @@ function CharacterInner() {
                 <div
                   style={{
                     fontFamily: "var(--font-mono-arcade)",
-                    fontSize: 9,
+                    fontSize: 12,
                     fontStyle: "italic",
                     color: t4.dim,
                     textAlign: "center",
@@ -467,7 +467,7 @@ function CharacterInner() {
             <div
               style={{
                 fontFamily: "var(--font-pixel)",
-                fontSize: 11,
+                fontSize: 13,
                 color: t4.ink,
                 letterSpacing: 1,
                 textAlign: "center",
@@ -480,7 +480,7 @@ function CharacterInner() {
             <div
               style={{
                 fontFamily: "var(--font-mono-arcade)",
-                fontSize: 10,
+                fontSize: 12,
                 fontStyle: "italic",
                 color: t4.dim,
                 textAlign: "center",
@@ -506,7 +506,7 @@ function CharacterInner() {
             <div
               style={{
                 fontFamily: "var(--font-pixel)",
-                fontSize: 7,
+                fontSize: 12,
                 color: t4.dim,
                 letterSpacing: 2,
               }}
@@ -548,7 +548,7 @@ function CharacterInner() {
             <div
               style={{
                 fontFamily: "var(--font-mono-arcade)",
-                fontSize: 9,
+                fontSize: 12,
                 color: t4.dim,
                 letterSpacing: 1,
                 lineHeight: 1.6,
@@ -612,7 +612,7 @@ function CharacterInner() {
                   background: "rgba(0,0,0,0.25)",
                   padding: "10px 12px",
                   fontFamily: "var(--font-mono-arcade)",
-                  fontSize: 10,
+                  fontSize: 12,
                   color: t4.dim,
                   lineHeight: 1.5,
                 }}
@@ -628,7 +628,7 @@ function CharacterInner() {
               style={{
                 marginTop: "auto",
                 fontFamily: "var(--font-pixel)",
-                fontSize: 11,
+                fontSize: 13,
                 letterSpacing: 3,
                 color: canSubmit && !saving ? "#000" : t4.dim,
                 background: canSubmit && !saving ? t4.pink : "transparent",
@@ -663,7 +663,7 @@ function ModeButton({
       onClick={onClick}
       style={{
         fontFamily: "var(--font-pixel)",
-        fontSize: 9,
+        fontSize: 12,
         letterSpacing: 2,
         color: active ? "#000" : t4.dim,
         background: active ? t4.pink : "rgba(0,0,0,0.25)",
@@ -694,7 +694,7 @@ function ColorPicker({
       <div
         style={{
           fontFamily: "var(--font-pixel)",
-          fontSize: 7,
+          fontSize: 12,
           color: t4.dim,
           letterSpacing: 1.5,
           marginBottom: 6,

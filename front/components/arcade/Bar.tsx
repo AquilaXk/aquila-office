@@ -27,7 +27,7 @@ export default function T4Bar({
           display: "flex",
           justifyContent: "space-between",
           fontFamily: "var(--font-mono-arcade)",
-          fontSize: 8,
+          fontSize: 12,
           letterSpacing: 1,
           color: "var(--t4-dim)",
           marginBottom: 2,

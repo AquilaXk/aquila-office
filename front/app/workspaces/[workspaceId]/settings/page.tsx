@@ -318,7 +318,7 @@ export default function WorkspaceSettingsPage({
           href={`/workspaces/${workspaceIdNumber}`}
           style={{
             fontFamily: "var(--font-pixel)",
-            fontSize: 8,
+            fontSize: 12,
             letterSpacing: 2,
             color: t4.dim,
             textDecoration: "none",
@@ -331,7 +331,7 @@ export default function WorkspaceSettingsPage({
           <div
             style={{
               fontFamily: "var(--font-pixel)",
-              fontSize: 8,
+              fontSize: 12,
               color: isAdmin ? t4.pink : t4.mp,
               letterSpacing: 3,
               marginBottom: 4,
@@ -354,7 +354,7 @@ export default function WorkspaceSettingsPage({
           <p
             style={{
               fontFamily: "var(--font-mono-arcade)",
-              fontSize: 11,
+              fontSize: 13,
               color: t4.dim,
               marginTop: 8,
             }}
@@ -398,7 +398,7 @@ export default function WorkspaceSettingsPage({
               <p
                 style={{
                   fontFamily: "var(--font-pixel)",
-                  fontSize: 8,
+                  fontSize: 12,
                   color: t4.dim,
                   letterSpacing: 2,
                 }}
@@ -409,7 +409,7 @@ export default function WorkspaceSettingsPage({
                 className="mt-2 truncate"
                 style={{
                   fontFamily: "var(--font-pixel)",
-                  fontSize: 11,
+                  fontSize: 13,
                   color: t4.ink,
                   letterSpacing: 1.5,
                 }}
@@ -420,7 +420,7 @@ export default function WorkspaceSettingsPage({
                 className="mt-3"
                 style={{
                   fontFamily: "var(--font-mono-arcade)",
-                  fontSize: 11,
+                  fontSize: 13,
                   color: t4.dim,
                   letterSpacing: 1,
                 }}
@@ -452,7 +452,7 @@ export default function WorkspaceSettingsPage({
                           border: `1px solid ${t4.line}`,
                           color: t4.ink,
                           fontFamily: "var(--font-mono-arcade)",
-                          fontSize: 12,
+                          fontSize: 14,
                           outline: "none",
                           resize: "vertical",
                         }}
@@ -481,7 +481,7 @@ export default function WorkspaceSettingsPage({
                       <h2
                         style={{
                           fontFamily: "var(--font-pixel)",
-                          fontSize: 12,
+                          fontSize: 14,
                           color: t4.hp,
                           letterSpacing: 2,
                           textShadow: `0 0 6px ${t4.hp}`,
@@ -494,7 +494,7 @@ export default function WorkspaceSettingsPage({
                         className="mt-2"
                         style={{
                           fontFamily: "var(--font-mono-arcade)",
-                          fontSize: 11,
+                          fontSize: 13,
                           color: t4.dim,
                         }}
                       >
@@ -526,7 +526,7 @@ export default function WorkspaceSettingsPage({
                           className="truncate"
                           style={{
                             fontFamily: "var(--font-pixel)",
-                            fontSize: 9,
+                            fontSize: 12,
                             letterSpacing: 1.5,
                             color: t4.ink,
                           }}
@@ -537,7 +537,7 @@ export default function WorkspaceSettingsPage({
                           className="truncate"
                           style={{
                             fontFamily: "var(--font-mono-arcade)",
-                            fontSize: 10,
+                            fontSize: 12,
                             color: t4.dim,
                             marginTop: 3,
                           }}
@@ -584,7 +584,7 @@ export default function WorkspaceSettingsPage({
                         className="mb-1.5"
                         style={{
                           fontFamily: "var(--font-pixel)",
-                          fontSize: 8,
+                          fontSize: 12,
                           letterSpacing: 2,
                           color: t4.dim,
                         }}
@@ -645,7 +645,7 @@ export default function WorkspaceSettingsPage({
                           <p
                             style={{
                               fontFamily: "var(--font-pixel)",
-                              fontSize: 9,
+                              fontSize: 12,
                               letterSpacing: 1.5,
                               color: t4.ink,
                             }}
@@ -656,7 +656,7 @@ export default function WorkspaceSettingsPage({
                             className="mt-2"
                             style={{
                               fontFamily: "var(--font-mono-arcade)",
-                              fontSize: 11,
+                              fontSize: 13,
                               color: t4.dim,
                             }}
                           >
@@ -700,7 +700,7 @@ export default function WorkspaceSettingsPage({
                         <h3
                           style={{
                             fontFamily: "var(--font-pixel)",
-                            fontSize: 10,
+                            fontSize: 12,
                             letterSpacing: 2,
                             color: t4.xp,
                             textShadow: `0 0 6px ${t4.xp}`,
@@ -712,7 +712,7 @@ export default function WorkspaceSettingsPage({
                           className="mt-2"
                           style={{
                             fontFamily: "var(--font-mono-arcade)",
-                            fontSize: 11,
+                            fontSize: 13,
                             color: t4.dim,
                           }}
                         >
@@ -743,7 +743,7 @@ export default function WorkspaceSettingsPage({
                         <p
                           style={{
                             fontFamily: "var(--font-pixel)",
-                            fontSize: 8,
+                            fontSize: 12,
                             letterSpacing: 2,
                             color: t4.ok,
                             textShadow: `0 0 4px ${t4.ok}`,
@@ -757,7 +757,7 @@ export default function WorkspaceSettingsPage({
                           className="mt-2 break-all"
                           style={{
                             fontFamily: "var(--font-mono-arcade)",
-                            fontSize: 11,
+                            fontSize: 13,
                             color: t4.ink,
                             lineHeight: 1.5,
                           }}
@@ -776,7 +776,7 @@ export default function WorkspaceSettingsPage({
                         <p
                           style={{
                             fontFamily: "var(--font-mono-arcade)",
-                            fontSize: 11,
+                            fontSize: 13,
                             color: t4.dim,
                           }}
                         >
@@ -823,7 +823,7 @@ export default function WorkspaceSettingsPage({
                         className="px-3 py-6 text-center"
                         style={{
                           fontFamily: "var(--font-mono-arcade)",
-                          fontSize: 11,
+                          fontSize: 13,
                           color: t4.dim,
                           border: `1px dashed ${t4.line}`,
                         }}
@@ -844,7 +844,7 @@ export default function WorkspaceSettingsPage({
           <p
             style={{
               fontFamily: "var(--font-mono-arcade)",
-              fontSize: 12,
+              fontSize: 14,
               color: t4.ink,
               lineHeight: 1.5,
             }}
@@ -863,7 +863,7 @@ export default function WorkspaceSettingsPage({
 
 const errorStyle = {
   fontFamily: "var(--font-mono-arcade)",
-  fontSize: 11,
+  fontSize: 13,
   color: t4.hp,
 } as const;
 
@@ -873,7 +873,7 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
       <span
         style={{
           fontFamily: "var(--font-pixel)",
-          fontSize: 8,
+          fontSize: 12,
           letterSpacing: 2,
           color: t4.dim,
         }}
@@ -903,7 +903,7 @@ function SelectField({
       <span
         style={{
           fontFamily: "var(--font-pixel)",
-          fontSize: 8,
+          fontSize: 12,
           letterSpacing: 2,
           color: t4.dim,
         }}
@@ -920,7 +920,7 @@ function SelectField({
           border: `1px solid ${t4.line}`,
           color: t4.ink,
           fontFamily: "var(--font-mono-arcade)",
-          fontSize: 12,
+          fontSize: 14,
           letterSpacing: 1,
           outline: "none",
         }}
@@ -953,7 +953,7 @@ function ArcadeNavButton({
         boxShadow: active ? `0 0 10px ${t4.pink}40` : "none",
         cursor: "pointer",
         fontFamily: "var(--font-pixel)",
-        fontSize: 9,
+        fontSize: 12,
         letterSpacing: 1.5,
         color: active ? t4.pink : t4.dim,
         textTransform: "uppercase",
@@ -990,7 +990,7 @@ function InviteModeButton({
         border: `1px solid ${active ? t4.xp : "transparent"}`,
         cursor: "pointer",
         fontFamily: "var(--font-pixel)",
-        fontSize: 9,
+        fontSize: 12,
         letterSpacing: 1.5,
         color: active ? t4.xp : t4.dim,
       }}
@@ -1009,7 +1009,7 @@ function SectionTitle({ title, description }: { title: string; description: stri
       <h2
         style={{
           fontFamily: "var(--font-pixel)",
-          fontSize: 12,
+          fontSize: 14,
           letterSpacing: 2,
           color: t4.ink,
           margin: 0,
@@ -1021,7 +1021,7 @@ function SectionTitle({ title, description }: { title: string; description: stri
         className="mt-2"
         style={{
           fontFamily: "var(--font-mono-arcade)",
-          fontSize: 11,
+          fontSize: 13,
           color: t4.dim,
           lineHeight: 1.5,
         }}
@@ -1038,7 +1038,7 @@ function RoleTag({ role }: { role: WorkspaceRole }) {
     <span
       style={{
         fontFamily: "var(--font-pixel)",
-        fontSize: 7,
+        fontSize: 12,
         letterSpacing: 1,
         color,
         padding: "3px 6px",
@@ -1087,7 +1087,7 @@ function RoleToggle({
             aria-pressed={active}
             style={{
               fontFamily: "var(--font-pixel)",
-              fontSize: 7,
+              fontSize: 12,
               letterSpacing: 1,
               padding: "4px 8px",
               color: active ? "#000" : color,
@@ -1138,7 +1138,7 @@ function InviteRow({
             <span
               style={{
                 fontFamily: "var(--font-pixel)",
-                fontSize: 7,
+                fontSize: 12,
                 letterSpacing: 1,
                 color: meta.color,
                 padding: "3px 6px",
@@ -1151,7 +1151,7 @@ function InviteRow({
             <span
               style={{
                 fontFamily: "var(--font-mono-arcade)",
-                fontSize: 10,
+                fontSize: 12,
                 color: t4.dim,
                 letterSpacing: 1,
               }}
@@ -1163,7 +1163,7 @@ function InviteRow({
             className="mt-2 break-all"
             style={{
               fontFamily: "var(--font-mono-arcade)",
-              fontSize: 11,
+              fontSize: 13,
               color: t4.ink,
               lineHeight: 1.4,
             }}
@@ -1174,7 +1174,7 @@ function InviteRow({
             className="mt-1"
             style={{
               fontFamily: "var(--font-mono-arcade)",
-              fontSize: 10,
+              fontSize: 12,
               color: t4.dim,
             }}
           >

@@ -103,7 +103,7 @@ export default function WorkspacesPage() {
             <div
               style={{
                 fontFamily: "var(--font-pixel)",
-                fontSize: 9,
+                fontSize: 12,
                 color: t4.pink,
                 letterSpacing: 3,
                 marginBottom: 4,
@@ -126,7 +126,7 @@ export default function WorkspacesPage() {
             <div
               style={{
                 fontFamily: "var(--font-mono-arcade)",
-                fontSize: 10,
+                fontSize: 12,
                 color: t4.dim,
                 marginTop: 4,
               }}
@@ -193,7 +193,7 @@ export default function WorkspacesPage() {
               <div
                 style={{
                   fontFamily: "var(--font-pixel)",
-                  fontSize: 7,
+                  fontSize: 12,
                   color: t4.dim,
                   letterSpacing: 2,
                 }}
@@ -214,7 +214,7 @@ export default function WorkspacesPage() {
               <div
                 style={{
                   fontFamily: "var(--font-mono-arcade)",
-                  fontSize: 9,
+                  fontSize: 12,
                   color: t4.dim,
                   marginTop: 4,
                 }}
@@ -247,7 +247,7 @@ export default function WorkspacesPage() {
               borderBottom: `1px solid ${t4.line}`,
               marginBottom: 8,
               fontFamily: "var(--font-mono-arcade)",
-              fontSize: 10,
+              fontSize: 12,
               color: t4.dim,
               letterSpacing: 1,
               flexShrink: 0,
@@ -268,7 +268,7 @@ export default function WorkspacesPage() {
             <div
               style={{
                 fontFamily: "var(--font-mono-arcade)",
-                fontSize: 11,
+                fontSize: 13,
                 color: t4.hp,
                 padding: 20,
                 textAlign: "center",
@@ -338,7 +338,7 @@ function WorkspaceRow({
       <div
         style={{
           fontFamily: "var(--font-pixel)",
-          fontSize: 8,
+          fontSize: 12,
           color: t4.dim,
           letterSpacing: 1,
         }}
@@ -362,7 +362,7 @@ function WorkspaceRow({
         <div
           style={{
             fontFamily: "var(--font-mono-arcade)",
-            fontSize: 11,
+            fontSize: 13,
             color: t4.dim,
             marginTop: 2,
           }}
@@ -372,7 +372,7 @@ function WorkspaceRow({
         <div
           style={{
             fontFamily: "var(--font-mono-arcade)",
-            fontSize: 9,
+            fontSize: 12,
             color: accent,
             marginTop: 4,
             letterSpacing: 1,
@@ -385,7 +385,7 @@ function WorkspaceRow({
       <div
         style={{
           fontFamily: "var(--font-mono-arcade)",
-          fontSize: 10,
+          fontSize: 12,
           color: t4.agent,
         }}
       >
@@ -394,7 +394,7 @@ function WorkspaceRow({
       <div
         style={{
           fontFamily: "var(--font-mono-arcade)",
-          fontSize: 10,
+          fontSize: 12,
           color: t4.ok,
         }}
       >
@@ -403,7 +403,7 @@ function WorkspaceRow({
       <div
         style={{
           fontFamily: "var(--font-pixel)",
-          fontSize: 8,
+          fontSize: 12,
           letterSpacing: 1,
           color: accent,
           textAlign: "center",
@@ -434,7 +434,7 @@ function ArcadeButton({
       onClick={onClick}
       style={{
         fontFamily: "var(--font-pixel)",
-        fontSize: 9,
+        fontSize: 12,
         letterSpacing: 1.5,
         padding: "9px 14px",
         background: primary ? color : "transparent",
@@ -460,7 +460,7 @@ function EmptyState() {
         textAlign: "center",
         fontFamily: "var(--font-mono-arcade)",
         color: t4.dim,
-        fontSize: 11,
+        fontSize: 13,
       }}
     >
       <div style={{ marginBottom: 14 }}>
@@ -473,7 +473,7 @@ function EmptyState() {
         href="/workspaces/new"
         style={{
           fontFamily: "var(--font-pixel)",
-          fontSize: 9,
+          fontSize: 12,
           color: "#000",
           background: t4.pink,
           padding: "10px 16px",

@@ -71,7 +71,7 @@ export default function T4Screen({
             gap: 14,
             padding: "0 14px",
             fontFamily: "var(--font-mono-arcade)",
-            fontSize: 10,
+            fontSize: 12,
             letterSpacing: 1,
             color: "var(--t4-dim)",
             background: "linear-gradient(180deg, rgba(90,168,255,0.10), transparent)",
@@ -83,7 +83,7 @@ export default function T4Screen({
             style={{
               color: "var(--t4-pink)",
               fontFamily: "var(--font-pixel)",
-              fontSize: 8,
+              fontSize: 12,
               letterSpacing: 1,
             }}
           >

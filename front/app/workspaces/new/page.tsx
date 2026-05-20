@@ -78,7 +78,7 @@ export default function NewWorkspacePage() {
           href="/workspaces"
           style={{
             fontFamily: "var(--font-pixel)",
-            fontSize: 8,
+            fontSize: 12,
             letterSpacing: 2,
             color: t4.dim,
             textDecoration: "none",
@@ -91,7 +91,7 @@ export default function NewWorkspacePage() {
           <div
             style={{
               fontFamily: "var(--font-pixel)",
-              fontSize: 8,
+              fontSize: 12,
               color: t4.pink,
               letterSpacing: 3,
               marginBottom: 4,
@@ -114,7 +114,7 @@ export default function NewWorkspacePage() {
           <p
             style={{
               fontFamily: "var(--font-mono-arcade)",
-              fontSize: 11,
+              fontSize: 13,
               color: t4.dim,
               marginTop: 8,
             }}
@@ -158,7 +158,7 @@ export default function NewWorkspacePage() {
               <p
                 style={{
                   fontFamily: "var(--font-mono-arcade)",
-                  fontSize: 11,
+                  fontSize: 13,
                   color: t4.hp,
                 }}
               >
@@ -200,7 +200,7 @@ function Field({
         <span
           style={{
             fontFamily: "var(--font-pixel)",
-            fontSize: 8,
+            fontSize: 12,
             letterSpacing: 2,
             color: t4.dim,
           }}
@@ -216,7 +216,7 @@ function Field({
           <span
             style={{
               fontFamily: "var(--font-mono-arcade)",
-              fontSize: 9,
+              fontSize: 12,
               color: t4.dim,
             }}
           >

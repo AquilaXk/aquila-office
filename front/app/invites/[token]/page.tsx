@@ -100,7 +100,7 @@ export default function InviteAcceptPage({
             <div
               style={{
                 fontFamily: "var(--font-pixel)",
-                fontSize: 8,
+                fontSize: 12,
                 letterSpacing: 3,
                 color: t4.pink,
                 marginBottom: 6,
@@ -123,7 +123,7 @@ export default function InviteAcceptPage({
             <p
               style={{
                 fontFamily: "var(--font-mono-arcade)",
-                fontSize: 11,
+                fontSize: 13,
                 color: t4.dim,
                 marginTop: 8,
               }}
@@ -139,7 +139,7 @@ export default function InviteAcceptPage({
                 style={{
                   textAlign: "center",
                   fontFamily: "var(--font-mono-arcade)",
-                  fontSize: 12,
+                  fontSize: 14,
                   color: t4.hp,
                 }}
               >
@@ -160,7 +160,7 @@ export default function InviteAcceptPage({
             href="/workspaces"
             style={{
               fontFamily: "var(--font-pixel)",
-              fontSize: 8,
+              fontSize: 12,
               letterSpacing: 2,
               color: t4.dim,
               textDecoration: "none",
@@ -216,7 +216,7 @@ function InviteBody({
             className="break-words"
             style={{
               fontFamily: "var(--font-pixel)",
-              fontSize: 12,
+              fontSize: 14,
               letterSpacing: 1.5,
               color: t4.ink,
               margin: 0,
@@ -229,7 +229,7 @@ function InviteBody({
             <span
               style={{
                 fontFamily: "var(--font-pixel)",
-                fontSize: 7,
+                fontSize: 12,
                 letterSpacing: 1,
                 color: roleColor,
                 padding: "3px 6px",
@@ -241,7 +241,7 @@ function InviteBody({
             <span
               style={{
                 fontFamily: "var(--font-mono-arcade)",
-                fontSize: 10,
+                fontSize: 12,
                 color: t4.dim,
               }}
             >
@@ -255,7 +255,7 @@ function InviteBody({
         <p
           style={{
             fontFamily: "var(--font-mono-arcade)",
-            fontSize: 11,
+            fontSize: 13,
             color: t4.hp,
             textAlign: "center",
             padding: "10px",
@@ -271,7 +271,7 @@ function InviteBody({
         <p
           style={{
             fontFamily: "var(--font-mono-arcade)",
-            fontSize: 11,
+            fontSize: 13,
             color: t4.hp,
             textAlign: "center",
           }}
