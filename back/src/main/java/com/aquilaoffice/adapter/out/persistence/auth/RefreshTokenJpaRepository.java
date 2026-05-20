@@ -17,18 +17,19 @@ public interface RefreshTokenJpaRepository extends JpaRepository<RefreshTokenJpa
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("""
             update RefreshTokenJpaEntity rt
-            set rt.token = :newToken
+            set rt.token = :newTokenHash
               , rt.expiresAt = :newExpiresAt
             where rt.memberId = :memberId
               and rt.sessionId = :sessionId
-              and rt.token = :currentToken
+              and (rt.token = :currentTokenHash or rt.token = :legacyCurrentToken)
               and rt.expiresAt > :now
             """)
     int rotateIfMatch(
             @Param("memberId") Long memberId,
             @Param("sessionId") String sessionId,
-            @Param("currentToken") String currentToken,
-            @Param("newToken") String newToken,
+            @Param("currentTokenHash") String currentTokenHash,
+            @Param("legacyCurrentToken") String legacyCurrentToken,
+            @Param("newTokenHash") String newTokenHash,
             @Param("newExpiresAt") Instant newExpiresAt,
             @Param("now") Instant now);
 
@@ -37,10 +38,11 @@ public interface RefreshTokenJpaRepository extends JpaRepository<RefreshTokenJpa
             delete from RefreshTokenJpaEntity rt
             where rt.memberId = :memberId
               and rt.sessionId = :sessionId
-              and rt.token = :currentToken
+              and (rt.token = :currentTokenHash or rt.token = :legacyCurrentToken)
             """)
     int deleteIfMatch(
             @Param("memberId") Long memberId,
             @Param("sessionId") String sessionId,
-            @Param("currentToken") String currentToken);
+            @Param("currentTokenHash") String currentTokenHash,
+            @Param("legacyCurrentToken") String legacyCurrentToken);
 }
