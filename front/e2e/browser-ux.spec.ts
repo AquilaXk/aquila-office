@@ -22,7 +22,6 @@ type AuthTokenFixture = {
   email: string;
   role: "ADMIN" | "MEMBER";
   accessToken: string;
-  refreshToken: string;
 };
 
 const authTokens: AuthTokenFixture = {
@@ -31,7 +30,6 @@ const authTokens: AuthTokenFixture = {
   email: "aquila@example.com",
   role: "ADMIN",
   accessToken: "e2e-access-token",
-  refreshToken: "e2e-refresh-token",
 };
 
 const primaryWorkspace = {
@@ -711,7 +709,6 @@ async function installMockApi(page: Page, options: MockApiOptions = {}) {
     if (method === "POST" && path === "/api/v1/auth/token/refresh") {
       await fulfillJson(route, {
         accessToken: "e2e-access-token-refreshed",
-        refreshToken: "e2e-refresh-token-refreshed",
       });
       return;
     }
@@ -1023,7 +1020,6 @@ async function seedAuthTokens(page: Page, overrides: Partial<AuthTokenFixture> =
   const nextTokens = { ...authTokens, ...overrides };
   const storeTokens = (tokens: typeof authTokens) => {
     window.localStorage.setItem("aquila-office.auth.accessToken", tokens.accessToken);
-    window.localStorage.setItem("aquila-office.auth.refreshToken", tokens.refreshToken);
     window.localStorage.setItem(
       "aquila-office.auth.user",
       JSON.stringify({

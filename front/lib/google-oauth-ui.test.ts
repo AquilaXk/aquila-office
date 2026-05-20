@@ -63,9 +63,9 @@ test("auth helper exposes authenticated session predicate", () => {
 
   assert.match(source, /isAuthenticated/);
   assert.match(source, /AUTH_ACCESS_TOKEN_KEY/);
-  assert.match(source, /AUTH_REFRESH_TOKEN_KEY/);
   assert.match(source, /AUTH_USER_KEY/);
   assert.match(source, /readAuthUser/);
+  assert.doesNotMatch(source, /AUTH_REFRESH_TOKEN_KEY/);
   assert.doesNotMatch(source, /AUTH_STORAGE_KEY = "aquila-office\.auth"/);
 });
 

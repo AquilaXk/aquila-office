@@ -10,8 +10,7 @@ public record GoogleLoginResponse(
         String name,
         String email,
         String role,
-        String accessToken,
-        String refreshToken) {
+        String accessToken) {
 
     static GoogleLoginResponse from(GoogleLoginResult result) {
         return new GoogleLoginResponse(
@@ -19,7 +18,6 @@ public record GoogleLoginResponse(
                 result.name(),
                 result.email(),
                 result.role(),
-                result.accessToken(),
-                result.refreshToken());
+                result.accessToken());
     }
 }
