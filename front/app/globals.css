@@ -1955,16 +1955,18 @@ h2 {
 }
 
 .workspace-detail-summary {
-  border: 1px solid var(--border);
+  border: 1px solid var(--gothic-line);
   border-radius: 8px;
-  background: #fbfcfe;
+  background:
+    linear-gradient(180deg, rgba(241, 230, 204, 0.05), rgba(194, 163, 91, 0.03)),
+    var(--gothic-surface);
   padding: 16px;
 }
 
 .workspace-detail-label {
   display: block;
   margin-bottom: 6px;
-  color: var(--text-muted);
+  color: var(--gothic-muted);
   font-size: 13px;
   font-weight: 800;
 }
@@ -1979,7 +1981,7 @@ h2 {
 
 .workspace-detail-summary p {
   margin: 0;
-  color: var(--text-muted);
+  color: var(--gothic-muted);
   font-size: 14px;
   line-height: 1.55;
   overflow-wrap: anywhere;
@@ -1995,10 +1997,10 @@ h2 {
 .workspace-detail-action-card {
   min-width: 0;
   min-height: 76px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--gothic-line);
   border-radius: 8px;
-  background: #fbfcfe;
-  color: var(--text);
+  background: var(--gothic-surface-raised);
+  color: var(--gothic-parchment);
   padding: 10px;
 }
 
@@ -2047,7 +2049,7 @@ h2 {
 .workspace-detail-action-card span,
 .workspace-detail-action-card small {
   overflow: hidden;
-  color: var(--text-muted);
+  color: var(--gothic-muted);
   font-size: 11px;
   font-weight: 800;
   line-height: 1.35;
@@ -2071,9 +2073,11 @@ h2 {
 .workspace-detail-meta div,
 .workspace-detail-side div {
   min-width: 0;
-  border: 1px solid var(--border);
+  border: 1px solid var(--gothic-line);
   border-radius: 8px;
-  background: #fbfcfe;
+  background:
+    linear-gradient(180deg, rgba(241, 230, 204, 0.05), rgba(194, 163, 91, 0.03)),
+    var(--gothic-surface-raised);
   padding: 14px;
 }
 
@@ -2082,7 +2086,7 @@ h2 {
   align-items: center;
   gap: 8px;
   margin-bottom: 10px;
-  color: var(--text-muted);
+  color: var(--gothic-muted);
   font-size: 12px;
   font-weight: 800;
 }
@@ -2090,10 +2094,12 @@ h2 {
 .workspace-detail-meta dt svg {
   width: 16px;
   height: 16px;
+  color: var(--gothic-brass);
 }
 
 .workspace-detail-meta dd {
   margin: 0;
+  color: var(--gothic-parchment);
   overflow-wrap: anywhere;
   font-size: 15px;
   font-weight: 800;
@@ -2103,9 +2109,11 @@ h2 {
 .workspace-task-section {
   display: grid;
   gap: 12px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--gothic-line);
   border-radius: 8px;
-  background: #fbfcfe;
+  background:
+    linear-gradient(180deg, rgba(241, 230, 204, 0.05), rgba(16, 18, 20, 0.18)),
+    var(--gothic-surface);
   padding: 16px;
 }
 
@@ -5002,9 +5010,11 @@ h2 {
 .workspace-member-section {
   display: grid;
   gap: 12px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--gothic-line);
   border-radius: 8px;
-  background: #fbfcfe;
+  background:
+    linear-gradient(180deg, rgba(241, 230, 204, 0.05), rgba(16, 18, 20, 0.18)),
+    var(--gothic-surface);
   padding: 16px;
 }
 
@@ -5016,6 +5026,7 @@ h2 {
 }
 
 .workspace-section-title h2 {
+  color: var(--gothic-parchment);
   font-size: 20px;
 }
 
@@ -5023,10 +5034,10 @@ h2 {
   display: inline-flex;
   min-height: 28px;
   align-items: center;
-  border: 1px solid #bfdbfe;
+  border: 1px solid var(--gothic-line-strong);
   border-radius: 999px;
-  background: #eff6ff;
-  color: #1d4ed8;
+  background: rgba(194, 163, 91, 0.12);
+  color: var(--gothic-parchment);
   font-size: 12px;
   font-weight: 800;
   padding: 0 10px;
@@ -5058,9 +5069,9 @@ h2 {
   align-items: center;
   gap: 12px;
   min-height: 72px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--gothic-line);
   border-radius: 8px;
-  background: #ffffff;
+  background: var(--gothic-surface-raised);
   padding: 12px;
 }
 
@@ -5070,8 +5081,8 @@ h2 {
   height: 42px;
   place-items: center;
   border-radius: 8px;
-  background: #eff6ff;
-  color: var(--blue);
+  background: rgba(194, 163, 91, 0.14);
+  color: var(--gothic-brass);
 }
 
 .workspace-member-avatar svg {
@@ -5086,6 +5097,7 @@ h2 {
 .workspace-member-main strong {
   display: block;
   margin-bottom: 4px;
+  color: var(--gothic-parchment);
   overflow-wrap: anywhere;
   font-size: 15px;
   line-height: 1.35;
@@ -5093,7 +5105,7 @@ h2 {
 
 .workspace-member-main p {
   margin: 0;
-  color: var(--text-muted);
+  color: var(--gothic-muted);
   font-size: 13px;
   line-height: 1.45;
   overflow-wrap: anywhere;
@@ -5103,7 +5115,7 @@ h2 {
   display: grid;
   justify-items: end;
   gap: 8px;
-  color: var(--text-muted);
+  color: var(--gothic-muted);
   font-size: 12px;
   white-space: nowrap;
 }
@@ -5112,9 +5124,11 @@ h2 {
   display: grid;
   min-height: 170px;
   place-items: center;
-  border: 1px dashed var(--border-strong);
+  border: 1px solid var(--gothic-line);
   border-radius: 8px;
-  background: #ffffff;
+  background:
+    linear-gradient(180deg, rgba(241, 230, 204, 0.04), rgba(194, 163, 91, 0.03)),
+    var(--gothic-surface);
   padding: 24px;
   text-align: center;
 }
@@ -5123,12 +5137,13 @@ h2 {
   width: 32px;
   height: 32px;
   margin-bottom: 10px;
-  color: var(--blue);
+  color: var(--gothic-brass);
 }
 
 .workspace-member-empty strong {
   display: block;
   margin-bottom: 8px;
+  color: var(--gothic-parchment);
   font-size: 17px;
   line-height: 1.35;
 }
@@ -5136,7 +5151,7 @@ h2 {
 .workspace-member-empty p {
   max-width: 360px;
   margin: 0;
-  color: var(--text-muted);
+  color: var(--gothic-muted);
   font-size: 14px;
   line-height: 1.5;
 }
