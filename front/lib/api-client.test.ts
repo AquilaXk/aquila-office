@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { apiFetch } from "./api-client.ts";
+import { apiFetch, configureUnauthorizedRecovery } from "./api-client.ts";
 
 test("apiFetch sends trimmed bearer access token and keeps custom headers", async () => {
   const originalFetch = globalThis.fetch;
@@ -72,6 +72,64 @@ test("apiFetch serializes json payload and sets json content headers", async () 
     assert.equal(headers.get("Authorization"), "Bearer aquila-access.token");
     assert.equal(headers.get("X-Trace-Id"), "front-api-client");
   } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("apiFetch refreshes access token once on unauthorized response and retries request", async () => {
+  const originalFetch = globalThis.fetch;
+  const authorizationHeaders: Array<string | null> = [];
+  let recoveredAccessToken: string | null = null;
+
+  configureUnauthorizedRecovery(async (failedAccessToken) => {
+    recoveredAccessToken = failedAccessToken;
+    return "aquila-access.next";
+  });
+
+  globalThis.fetch = async (_input: RequestInfo | URL, init?: RequestInit) => {
+    authorizationHeaders.push(new Headers(init?.headers).get("Authorization"));
+    if (authorizationHeaders.length === 1) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          code: "401",
+          message: "Unauthorized",
+          data: null,
+        }),
+        {
+          status: 401,
+          headers: { "Content-Type": "application/json" },
+        },
+      );
+    }
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        code: "OK",
+        message: "ok",
+        data: { ok: true },
+      }),
+      {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      },
+    );
+  };
+
+  try {
+    const data = await apiFetch<{ ok: boolean }>("/api/v1/workspaces", {
+      accessToken: "aquila-access.old",
+    });
+
+    assert.deepEqual(data, { ok: true });
+    assert.equal(recoveredAccessToken, "aquila-access.old");
+    assert.deepEqual(authorizationHeaders, [
+      "Bearer aquila-access.old",
+      "Bearer aquila-access.next",
+    ]);
+  } finally {
+    configureUnauthorizedRecovery(null);
     globalThis.fetch = originalFetch;
   }
 });

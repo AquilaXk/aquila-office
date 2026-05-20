@@ -8,6 +8,7 @@ import {
   logoutAuth,
   readAuthTokens,
   readAuthUser,
+  recoverAccessTokenAfterUnauthorized,
   refreshAuthToken,
   resolveAccessToken,
   saveAuthTokens,
@@ -150,6 +151,61 @@ test("auth token storage saves reads resolves and clears tokens", () => {
   assert.equal(storage.getItem(AUTH_ACCESS_TOKEN_KEY), null);
   assert.equal(storage.getItem("aquila-office.auth.refreshToken"), null);
   assert.equal(storage.getItem(AUTH_USER_KEY), null);
+});
+
+test("recoverAccessTokenAfterUnauthorized refreshes and stores the next access token", async () => {
+  const originalFetch = globalThis.fetch;
+  const storage = new MemoryStorage();
+  saveAuthTokens(authTokens, storage);
+
+  globalThis.fetch = async () =>
+    jsonResponse({
+      accessToken: "aquila-access.next",
+    });
+
+  try {
+    const recoveredAccessToken = await recoverAccessTokenAfterUnauthorized(storage);
+
+    assert.equal(recoveredAccessToken, "aquila-access.next");
+    assert.equal(storage.getItem(AUTH_ACCESS_TOKEN_KEY), "aquila-access.next");
+    assert.deepEqual(readAuthTokens(storage), {
+      ...authTokens,
+      accessToken: "aquila-access.next",
+    });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("recoverAccessTokenAfterUnauthorized clears browser session when refresh fails", async () => {
+  const originalFetch = globalThis.fetch;
+  const storage = new MemoryStorage();
+  saveAuthTokens(authTokens, storage);
+
+  globalThis.fetch = async () =>
+    new Response(
+      JSON.stringify({
+        success: false,
+        code: "401",
+        message: "Unauthorized",
+        data: null,
+      }),
+      {
+        status: 401,
+        headers: { "Content-Type": "application/json" },
+      },
+    );
+
+  try {
+    const recoveredAccessToken = await recoverAccessTokenAfterUnauthorized(storage);
+
+    assert.equal(recoveredAccessToken, null);
+    assert.equal(readAuthTokens(storage), null);
+    assert.equal(storage.getItem(AUTH_ACCESS_TOKEN_KEY), null);
+    assert.equal(storage.getItem(AUTH_USER_KEY), null);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
 
 function jsonResponse(data: unknown): Response {

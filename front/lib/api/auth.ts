@@ -17,6 +17,7 @@ async function authPost<T>(path: string, payload?: unknown): Promise<T> {
   return apiFetch<T>(path, {
     method: "POST",
     credentials: "include",
+    skipAuthRecovery: true,
     ...(payload === undefined ? {} : { json: payload }),
   });
 }

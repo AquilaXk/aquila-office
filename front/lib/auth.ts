@@ -4,6 +4,7 @@ import {
   logoutAuth as postLogoutAuth,
   refreshAuthToken as postRefreshAuthToken,
 } from "./api/auth.ts";
+import { configureUnauthorizedRecovery } from "./api/client.ts";
 
 export const AUTH_ACCESS_TOKEN_KEY = "aquila-office.auth.accessToken";
 export const AUTH_USER_KEY = "aquila-office.auth.user";
@@ -30,6 +31,7 @@ export type RefreshedAuthTokens = Pick<AuthTokens, "accessToken">;
 export type AuthUser = Pick<AuthTokens, "memberId" | "name" | "email" | "role">;
 
 const DEV_ACCESS_TOKEN = process.env.NEXT_PUBLIC_DEV_ACCESS_TOKEN ?? "";
+let pendingAccessTokenRecovery: Promise<string | null> | null = null;
 
 export async function loginWithGoogle(idToken: string): Promise<AuthTokens> {
   const tokens = await postGoogleLogin(idToken);
@@ -39,6 +41,20 @@ export async function loginWithGoogle(idToken: string): Promise<AuthTokens> {
 
 export async function refreshAuthToken(): Promise<RefreshedAuthTokens> {
   return postRefreshAuthToken();
+}
+
+export async function recoverAccessTokenAfterUnauthorized(
+  storage: Storage | undefined = browserStorage(),
+): Promise<string | null> {
+  if (pendingAccessTokenRecovery) {
+    return pendingAccessTokenRecovery;
+  }
+
+  pendingAccessTokenRecovery = refreshAndStoreAccessToken(storage)
+    .finally(() => {
+      pendingAccessTokenRecovery = null;
+    });
+  return pendingAccessTokenRecovery;
 }
 
 export async function logoutAuth(): Promise<void> {
@@ -101,6 +117,14 @@ export function saveAuthTokens(
   storage.setItem(AUTH_USER_KEY, JSON.stringify(toAuthUser(tokens)));
   storage.removeItem(LEGACY_REFRESH_TOKEN_KEY);
   storage.removeItem(LEGACY_SESSION_KEY);
+}
+
+function saveAccessToken(accessToken: string, storage: Storage | undefined = browserStorage()): void {
+  if (!storage) {
+    return;
+  }
+
+  storage.setItem(AUTH_ACCESS_TOKEN_KEY, accessToken);
 }
 
 export function clearAuthTokens(storage: Storage | undefined = browserStorage()): void {
@@ -190,3 +214,16 @@ function isAuthTokens(value: unknown): value is AuthTokens {
     record.accessToken.length > 0
   );
 }
+
+async function refreshAndStoreAccessToken(storage: Storage | undefined): Promise<string | null> {
+  try {
+    const refreshedTokens = await refreshAuthToken();
+    saveAccessToken(refreshedTokens.accessToken, storage);
+    return refreshedTokens.accessToken;
+  } catch {
+    clearAuthTokens(storage);
+    return null;
+  }
+}
+
+configureUnauthorizedRecovery(() => recoverAccessTokenAfterUnauthorized());
