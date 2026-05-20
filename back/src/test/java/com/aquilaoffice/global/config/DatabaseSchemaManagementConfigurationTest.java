@@ -10,13 +10,14 @@ import org.junit.jupiter.api.Test;
 class DatabaseSchemaManagementConfigurationTest {
 
     @Test
-    void backendUsesFlywayForPostgresSchemaChanges() throws IOException {
+    void backendUsesSpringBootFlywayStarterForPostgresSchemaChanges() throws IOException {
         Path root = repositoryRoot();
         String buildScript = Files.readString(root.resolve("back/build.gradle.kts"));
 
         assertThat(buildScript)
-                .contains("org.flywaydb:flyway-core")
-                .contains("org.flywaydb:flyway-database-postgresql");
+                .contains("org.springframework.boot:spring-boot-starter-flyway")
+                .contains("org.flywaydb:flyway-database-postgresql")
+                .doesNotContain("implementation(\"org.flywaydb:flyway-core\")");
     }
 
     @Test
