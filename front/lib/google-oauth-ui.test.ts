@@ -22,6 +22,10 @@ test("auth page uses google login button and handles success failure and return 
   assert.match(source, /SIGN IN TO CONTINUE/);
   assert.match(source, /WORKSPACE MEMBER VERIFICATION/);
   assert.match(source, /PRESS TO CONTINUE/);
+  assert.match(source, /\[ ESC BACK \] © aquilaXk 2026/);
+  assert.match(source, /containerProps/);
+  assert.match(source, /background:\s*"transparent"/);
+  assert.match(source, /border:\s*"1px solid rgba\(194, 163, 91, 0\.55\)"/);
   assert.match(source, /Google 토큰을 받지 못했습니다\./);
   assert.match(source, /LOADING SAVE FILE\.\.\./);
   assert.match(source, /로그인에 실패했습니다\./);
@@ -31,6 +35,7 @@ test("auth page uses google login button and handles success failure and return 
   assert.doesNotMatch(source, /Google id token/);
   assert.doesNotMatch(source, /인증 세션을 저장하고 있습니다/);
   assert.doesNotMatch(source, /Google 인증 토큰을 받지 못했습니다/);
+  assert.doesNotMatch(source, /TEAM IoT 2026/);
 });
 
 test("title screen keeps unauthenticated continue on title screen", () => {
