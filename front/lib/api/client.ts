@@ -5,17 +5,76 @@ import type { ApiFetchOptions } from "./types.ts";
 export const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
 
+export type UnauthorizedRecoveryHandler = (failedAccessToken: string) => Promise<string | null>;
+
+let unauthorizedRecoveryHandler: UnauthorizedRecoveryHandler | null = null;
+
+export function configureUnauthorizedRecovery(handler: UnauthorizedRecoveryHandler | null): void {
+  unauthorizedRecoveryHandler = handler;
+}
+
 export async function apiFetch<T>(
   path: string,
   options: ApiFetchOptions = {},
 ): Promise<T> {
-  const { accessToken, baseUrl = API_BASE_URL, headers, json, body, ...requestOptions } = options;
-  const hasJsonBody = json !== undefined;
-  const response = await fetch(apiUrl(baseUrl, path), {
-    ...requestOptions,
-    headers: buildApiHeaders(headers, accessToken, hasJsonBody),
-    body: hasJsonBody ? JSON.stringify(json) : body,
+  const {
+    accessToken,
+    baseUrl = API_BASE_URL,
+    headers,
+    json,
+    body,
+    skipAuthRecovery = false,
+    ...requestOptions
+  } = options;
+  const normalizedAccessToken = accessToken?.trim();
+  const response = await sendApiRequest(path, {
+    accessToken: normalizedAccessToken,
+    baseUrl,
+    headers,
+    json,
+    body,
+    requestOptions,
   });
+
+  if (response.status === 401 && normalizedAccessToken && !skipAuthRecovery && unauthorizedRecoveryHandler) {
+    const recoveredAccessToken = await unauthorizedRecoveryHandler(normalizedAccessToken);
+    if (recoveredAccessToken) {
+      return parseApiResponse(await sendApiRequest(path, {
+        accessToken: recoveredAccessToken,
+        baseUrl,
+        headers,
+        json,
+        body,
+        requestOptions,
+      }));
+    }
+  }
+
+  return parseApiResponse(response);
+}
+
+type SendApiRequestOptions = {
+  accessToken?: string;
+  baseUrl: string;
+  headers?: HeadersInit;
+  json?: unknown;
+  body?: BodyInit | null;
+  requestOptions: RequestInit;
+};
+
+async function sendApiRequest(
+  path: string,
+  options: SendApiRequestOptions,
+): Promise<Response> {
+  const hasJsonBody = options.json !== undefined;
+  return fetch(apiUrl(options.baseUrl, path), {
+    ...options.requestOptions,
+    headers: buildApiHeaders(options.headers, options.accessToken, hasJsonBody),
+    body: hasJsonBody ? JSON.stringify(options.json) : options.body,
+  });
+}
+
+async function parseApiResponse<T>(response: Response): Promise<T> {
   const responseBody = await readJson(response);
 
   if (!response.ok) {

@@ -9,4 +9,5 @@ export type ApiFetchOptions = RequestInit & {
   accessToken?: string;
   baseUrl?: string;
   json?: unknown;
+  skipAuthRecovery?: boolean;
 };
