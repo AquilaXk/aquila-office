@@ -169,9 +169,10 @@ public class WorkspaceArtifactFilesystemAdapter
                 .resolve(String.valueOf(planId))
                 .resolve(PLAN_DESCRIPTOR_FILE)
                 .normalize();
-        if (!descriptorPath.startsWith(workspaceRoot) || Files.isSymbolicLink(descriptorPath)) {
+        if (!descriptorPath.startsWith(workspaceRoot)) {
             throw new IllegalArgumentException("artifact path is outside workspace root");
         }
+        rejectSymlinkAncestors(workspaceRoot, descriptorPath);
         return descriptorPath;
     }
 
@@ -233,9 +234,10 @@ public class WorkspaceArtifactFilesystemAdapter
         }
         Path resolvedPath = workspaceRoot.resolve(relativePath).normalize();
         // descriptor에 저장된 상대경로라도 workspace root 밖으로 해석되면 노출하지 않는다.
-        if (!resolvedPath.startsWith(workspaceRoot) || Files.isSymbolicLink(resolvedPath)) {
+        if (!resolvedPath.startsWith(workspaceRoot)) {
             throw new IllegalArgumentException("artifact path is outside workspace root");
         }
+        rejectSymlinkAncestors(workspaceRoot, resolvedPath);
         return resolvedPath;
     }
 
@@ -248,15 +250,15 @@ public class WorkspaceArtifactFilesystemAdapter
         Files.createDirectories(parent);
     }
 
-    private void rejectSymlinkAncestors(Path workspaceRoot, Path targetDirectory) {
-        if (!targetDirectory.startsWith(workspaceRoot)) {
+    private void rejectSymlinkAncestors(Path workspaceRoot, Path targetPath) {
+        if (!targetPath.startsWith(workspaceRoot)) {
             throw new IllegalArgumentException("artifact path is outside workspace root");
         }
         Path current = workspaceRoot;
         if (Files.exists(current, LinkOption.NOFOLLOW_LINKS) && Files.isSymbolicLink(current)) {
             throw new IllegalArgumentException("artifact path is outside workspace root");
         }
-        for (Path segment : workspaceRoot.relativize(targetDirectory)) {
+        for (Path segment : workspaceRoot.relativize(targetPath)) {
             current = current.resolve(segment);
             if (Files.exists(current, LinkOption.NOFOLLOW_LINKS) && Files.isSymbolicLink(current)) {
                 throw new IllegalArgumentException("artifact path is outside workspace root");

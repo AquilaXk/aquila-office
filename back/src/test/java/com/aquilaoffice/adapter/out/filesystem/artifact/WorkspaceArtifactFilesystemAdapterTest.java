@@ -99,6 +99,21 @@ class WorkspaceArtifactFilesystemAdapterTest {
     }
 
     @Test
+    void loadFileRejectsSymlinkAncestor() throws Exception {
+        Path workspaceRoot = artifactRoot.resolve("workspaces").resolve("101");
+        Path outsideRoot = artifactRoot.resolve("outside");
+        Files.createDirectories(workspaceRoot);
+        Files.createDirectories(outsideRoot);
+        Files.writeString(outsideRoot.resolve("secret.txt"), "secret");
+        Files.createSymbolicLink(workspaceRoot.resolve("linked"), outsideRoot);
+        LoadWorkspaceArtifactsPort adapter = new WorkspaceArtifactFilesystemAdapter(artifactRoot);
+
+        assertThatThrownBy(() -> adapter.loadFile(101L, "linked/secret.txt"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("artifact path is outside workspace root");
+    }
+
+    @Test
     void loadOrchestrationPlanReadsDescriptorAndFileState() throws Exception {
         Path workspaceRoot = artifactRoot.resolve("workspaces").resolve("101");
         Path planRoot = workspaceRoot.resolve("plans").resolve("701");
@@ -160,6 +175,56 @@ class WorkspaceArtifactFilesystemAdapterTest {
                       "files": [
                         {
                           "path": "../secret.txt",
+                          "name": "secret.txt",
+                          "contentType": "text/plain"
+                        }
+                      ]
+                    }
+                  ]
+                }
+                """);
+        LoadOrchestrationPlanArtifactPort adapter = new WorkspaceArtifactFilesystemAdapter(artifactRoot);
+
+        assertThatThrownBy(() -> adapter.loadOrchestrationPlan(101L, 701L))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("artifact path is outside workspace root");
+    }
+
+    @Test
+    void loadOrchestrationPlanRejectsSymlinkDescriptorAncestor() throws Exception {
+        Path workspaceRoot = artifactRoot.resolve("workspaces").resolve("101");
+        Path outsidePlanRoot = artifactRoot.resolve("outside-plans").resolve("701");
+        Files.createDirectories(workspaceRoot);
+        Files.createDirectories(outsidePlanRoot);
+        Files.writeString(outsidePlanRoot.resolve("plan.json"), "{\"steps\":[]}");
+        Files.createSymbolicLink(workspaceRoot.resolve("plans"), artifactRoot.resolve("outside-plans"));
+        LoadOrchestrationPlanArtifactPort adapter = new WorkspaceArtifactFilesystemAdapter(artifactRoot);
+
+        assertThatThrownBy(() -> adapter.loadOrchestrationPlan(101L, 701L))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("artifact path is outside workspace root");
+    }
+
+    @Test
+    void loadOrchestrationPlanRejectsSymlinkFileAncestor() throws Exception {
+        Path workspaceRoot = artifactRoot.resolve("workspaces").resolve("101");
+        Path planRoot = workspaceRoot.resolve("plans").resolve("701");
+        Path outsideRoot = artifactRoot.resolve("outside");
+        Files.createDirectories(planRoot);
+        Files.createDirectories(outsideRoot);
+        Files.writeString(outsideRoot.resolve("secret.txt"), "secret");
+        Files.createSymbolicLink(workspaceRoot.resolve("linked"), outsideRoot);
+        Files.writeString(planRoot.resolve("plan.json"), """
+                {
+                  "steps": [
+                    {
+                      "stepId": 11,
+                      "stepKey": "requirements",
+                      "sequenceNo": 1,
+                      "title": "요구사항 확인",
+                      "files": [
+                        {
+                          "path": "linked/secret.txt",
                           "name": "secret.txt",
                           "contentType": "text/plain"
                         }
