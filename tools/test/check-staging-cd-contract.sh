@@ -119,6 +119,9 @@ require_pattern 'SPRING_DATASOURCE_USERNAME' "$ENV_SCRIPT" "datasource username 
 require_pattern 'SPRING_DATASOURCE_PASSWORD' "$ENV_SCRIPT" "datasource password validation"
 require_pattern 'AQUILA_AUTH_TOKEN_SECRET' "$ENV_SCRIPT" "auth token secret validation"
 require_pattern 'AQUILA_EXTERNAL_TOKEN_KEY' "$ENV_SCRIPT" "external token key validation"
+require_pattern 'SPRING_JPA_HIBERNATE_DDL_AUTO' "$ENV_SCRIPT" "JPA ddl-auto normalization"
+require_pattern 'SPRING_FLYWAY_ENABLED' "$ENV_SCRIPT" "Flyway enable normalization"
+require_pattern 'SPRING_FLYWAY_BASELINE_ON_MIGRATE' "$ENV_SCRIPT" "Flyway baseline normalization"
 require_pattern 'chmod 600' "$ENV_SCRIPT" "env file permission hardening"
 
 require_pattern 'NEXT_PUBLIC_API_BASE_URL' "$FRONTEND_ENV_SCRIPT" "frontend API base validation"

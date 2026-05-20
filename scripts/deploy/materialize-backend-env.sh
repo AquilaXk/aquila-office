@@ -97,6 +97,21 @@ validate_env_file() {
     fi
 }
 
+normalize_schema_management_env() {
+    local file="$1"
+    local normalized_file
+    normalized_file="$(mktemp)"
+
+    grep -Ev '^[[:space:]]*(export[[:space:]]+)?(SPRING_JPA_HIBERNATE_DDL_AUTO|SPRING_FLYWAY_ENABLED|SPRING_FLYWAY_BASELINE_ON_MIGRATE)=' "$file" \
+        > "$normalized_file"
+    {
+        printf 'SPRING_JPA_HIBERNATE_DDL_AUTO=validate\n'
+        printf 'SPRING_FLYWAY_ENABLED=true\n'
+        printf 'SPRING_FLYWAY_BASELINE_ON_MIGRATE=true\n'
+    } >> "$normalized_file"
+    mv "$normalized_file" "$file"
+}
+
 tmp_file="$(mktemp)"
 trap 'rm -f "$tmp_file"' EXIT
 
@@ -116,6 +131,7 @@ else
 fi
 
 validate_env_file "$tmp_file"
+normalize_schema_management_env "$tmp_file"
 mkdir -p "$(dirname "$OUTPUT_FILE")"
 install -m 600 "$tmp_file" "$OUTPUT_FILE"
 chmod 600 "$OUTPUT_FILE"
