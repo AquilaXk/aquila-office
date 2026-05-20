@@ -250,6 +250,12 @@ Google OAuth가 기본 로그인 경로입니다. `AQUILA_GOOGLE_OAUTH_CLIENT_ID
 | `SPRING_DATASOURCE_USERNAME` | backend datasource user |
 | `SPRING_DATASOURCE_PASSWORD` | backend datasource password |
 
+### DB 접근 정책
+
+현재 DB 연결은 Spring backend가 소유합니다. Frontend는 backend API만 호출하고 DB credential을 보관하지 않습니다. `NEXT_PUBLIC_*` 환경 변수에는 browser에 공개 가능한 API URL, OAuth client ID, site URL만 둡니다.
+
+공개 DB API를 추가할 때는 노출 대상 테이블의 RLS 정책과 anon 권한을 먼저 정의합니다. 그 전까지 PostgreSQL credential과 service-role 성격의 key는 backend runtime, Compose secret, 배포 환경 변수에만 둡니다.
+
 ### 외부 token 암호화
 
 | 변수 | 설명 |
