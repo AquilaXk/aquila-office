@@ -23,8 +23,12 @@ test("auth page uses google login button and handles success failure and return 
   assert.match(source, /WORKSPACE MEMBER VERIFICATION/);
   assert.match(source, /PRESS TO CONTINUE/);
   assert.match(source, />\s*© aquilaXk 2026\s*<\/div>/);
+  assert.match(source, /className="auth-google-frame"/);
   assert.match(source, /containerProps/);
-  assert.match(source, /background:\s*"transparent"/);
+  assert.match(source, /width:\s*284/);
+  assert.match(source, /height:\s*48/);
+  assert.match(source, /overflow:\s*"hidden"/);
+  assert.match(source, /background:\s*"#202124"/);
   assert.match(source, /border:\s*"1px solid rgba\(194, 163, 91, 0\.55\)"/);
   assert.match(source, /Google 토큰을 받지 못했습니다\./);
   assert.match(source, /LOADING SAVE FILE\.\.\./);

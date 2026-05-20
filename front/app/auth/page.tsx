@@ -123,30 +123,38 @@ function AuthPageInner() {
                 gap: 10,
               }}
             >
-              <GoogleLogin
-                onSuccess={(credResp) => handleSuccess(credResp.credential)}
-                onError={() =>
-                  setError("Google 로그인이 취소되었거나 실패했습니다.")
-                }
-                theme="filled_black"
-                size="large"
-                shape="rectangular"
-                text="continue_with"
-                logo_alignment="left"
-                width="280"
-                useOneTap={false}
-                containerProps={{
-                  style: {
-                    display: "inline-grid",
-                    minHeight: 46,
-                    placeItems: "center",
-                    border: "1px solid rgba(194, 163, 91, 0.55)",
-                    background: "transparent",
-                    boxShadow: "0 0 18px rgba(194, 163, 91, 0.18)",
-                    padding: 0,
-                  },
-                }}
-              />
+              <div className="auth-google-frame">
+                <GoogleLogin
+                  onSuccess={(credResp) => handleSuccess(credResp.credential)}
+                  onError={() =>
+                    setError("Google 로그인이 취소되었거나 실패했습니다.")
+                  }
+                  theme="filled_black"
+                  size="large"
+                  shape="rectangular"
+                  text="continue_with"
+                  logo_alignment="left"
+                  width="280"
+                  useOneTap={false}
+                  containerProps={{
+                    style: {
+                      display: "inline-grid",
+                      width: 284,
+                      height: 48,
+                      minHeight: 48,
+                      placeItems: "center",
+                      overflow: "hidden",
+                      border: "1px solid rgba(194, 163, 91, 0.55)",
+                      borderRadius: 4,
+                      background: "#202124",
+                      boxShadow: "0 0 18px rgba(194, 163, 91, 0.18)",
+                      colorScheme: "dark",
+                      lineHeight: 0,
+                      padding: 0,
+                    },
+                  }}
+                />
+              </div>
               <div
                 style={{
                   fontFamily: "var(--font-pixel)",
