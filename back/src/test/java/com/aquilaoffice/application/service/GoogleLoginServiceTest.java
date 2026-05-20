@@ -51,6 +51,7 @@ class GoogleLoginServiceTest {
         assertThat(result.accessToken()).isEqualTo("access-1-USER");
         assertThat(result.refreshToken()).isEqualTo("refresh-1-USER");
         assertThat(saveRefreshTokenPort.saved.memberId()).isEqualTo(1L);
+        assertThat(saveRefreshTokenPort.saved.refreshSessionId()).isEqualTo("session-1-USER");
         assertThat(saveRefreshTokenPort.saved.refreshToken()).isEqualTo("refresh-1-USER");
         assertThat(saveRefreshTokenPort.saved.refreshTokenExpiresAt())
                 .isEqualTo(Instant.parse("2026-06-01T00:00:00Z"));
@@ -90,7 +91,11 @@ class GoogleLoginServiceTest {
 
     private record SavedRequest(String googleSub, String email, String name, MemberRole role) {}
 
-    private record SavedRefreshToken(Long memberId, String refreshToken, Instant refreshTokenExpiresAt) {}
+    private record SavedRefreshToken(
+            Long memberId,
+            String refreshSessionId,
+            String refreshToken,
+            Instant refreshTokenExpiresAt) {}
 
     private static class FakeVerifyGoogleIdTokenPort implements VerifyGoogleIdTokenPort {
         private final VerifiedGoogleUser user;
@@ -128,11 +133,17 @@ class GoogleLoginServiceTest {
 
         @Override
         public IssuedAuthTokens issue(Long memberId, String email, MemberRole role) {
+            return issue(memberId, email, role, "session-" + memberId + "-" + role.name());
+        }
+
+        @Override
+        public IssuedAuthTokens issue(Long memberId, String email, MemberRole role, String refreshSessionId) {
             return new IssuedAuthTokens(
                     "access-" + memberId + "-" + role.name(),
                     "refresh-" + memberId + "-" + role.name(),
                     Instant.parse("2026-05-18T00:15:00Z"),
-                    Instant.parse("2026-06-01T00:00:00Z"));
+                    Instant.parse("2026-06-01T00:00:00Z"),
+                    refreshSessionId);
         }
     }
 
@@ -140,8 +151,12 @@ class GoogleLoginServiceTest {
         private SavedRefreshToken saved;
 
         @Override
-        public void saveOrRotate(Long memberId, String refreshToken, Instant refreshTokenExpiresAt) {
-            this.saved = new SavedRefreshToken(memberId, refreshToken, refreshTokenExpiresAt);
+        public void saveOrRotate(
+                Long memberId,
+                String refreshSessionId,
+                String refreshToken,
+                Instant refreshTokenExpiresAt) {
+            this.saved = new SavedRefreshToken(memberId, refreshSessionId, refreshToken, refreshTokenExpiresAt);
         }
     }
 

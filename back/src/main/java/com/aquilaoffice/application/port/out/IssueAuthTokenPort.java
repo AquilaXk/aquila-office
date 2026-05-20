@@ -8,4 +8,6 @@ import com.aquilaoffice.domain.member.MemberRole;
 public interface IssueAuthTokenPort {
 
     IssuedAuthTokens issue(Long memberId, String email, MemberRole role);
+
+    IssuedAuthTokens issue(Long memberId, String email, MemberRole role, String refreshSessionId);
 }

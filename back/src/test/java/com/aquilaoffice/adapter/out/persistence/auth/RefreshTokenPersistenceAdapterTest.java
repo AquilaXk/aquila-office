@@ -2,6 +2,7 @@ package com.aquilaoffice.adapter.out.persistence.auth;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.aquilaoffice.application.port.out.DeleteRefreshTokenPort;
 import com.aquilaoffice.application.port.out.RotateRefreshTokenPort;
 import com.aquilaoffice.application.port.out.SaveRefreshTokenPort;
 import java.time.Instant;
@@ -28,54 +29,81 @@ class RefreshTokenPersistenceAdapterTest {
     private RotateRefreshTokenPort rotateRefreshTokenPort;
 
     @Autowired
+    private DeleteRefreshTokenPort deleteRefreshTokenPort;
+
+    @Autowired
     private RefreshTokenJpaRepository refreshTokenJpaRepository;
 
     @Test
-    void saveOrRotatePersistsRefreshTokenExpiry() {
-        saveRefreshTokenPort.saveOrRotate(1L, " old-refresh ", OLD_EXPIRES_AT);
+    void saveOrRotateKeepsIndependentSessionsForSameMember() {
+        saveRefreshTokenPort.saveOrRotate(1L, "session-a", " old-refresh-a ", OLD_EXPIRES_AT);
+        saveRefreshTokenPort.saveOrRotate(1L, "session-b", " old-refresh-b ", OLD_EXPIRES_AT);
 
-        RefreshTokenJpaEntity saved = refreshTokenJpaRepository.findByMemberId(1L).orElseThrow();
-        assertThat(saved.getToken()).isEqualTo("old-refresh");
-        assertThat(saved.getExpiresAt()).isEqualTo(OLD_EXPIRES_AT);
+        saveRefreshTokenPort.saveOrRotate(1L, "session-a", " new-refresh-a ", NEW_EXPIRES_AT);
 
-        saveRefreshTokenPort.saveOrRotate(1L, " new-refresh ", NEW_EXPIRES_AT);
-
-        RefreshTokenJpaEntity rotated = refreshTokenJpaRepository.findByMemberId(1L).orElseThrow();
-        assertThat(rotated.getToken()).isEqualTo("new-refresh");
-        assertThat(rotated.getExpiresAt()).isEqualTo(NEW_EXPIRES_AT);
+        RefreshTokenJpaEntity sessionA = refreshTokenJpaRepository.findByMemberIdAndSessionId(1L, "session-a")
+                .orElseThrow();
+        RefreshTokenJpaEntity sessionB = refreshTokenJpaRepository.findByMemberIdAndSessionId(1L, "session-b")
+                .orElseThrow();
+        assertThat(sessionA.getToken()).isEqualTo("new-refresh-a");
+        assertThat(sessionA.getExpiresAt()).isEqualTo(NEW_EXPIRES_AT);
+        assertThat(sessionB.getToken()).isEqualTo("old-refresh-b");
+        assertThat(sessionB.getExpiresAt()).isEqualTo(OLD_EXPIRES_AT);
+        assertThat(refreshTokenJpaRepository.findAll()).hasSize(2);
     }
 
     @Test
-    void rotateIfMatchUpdatesOnlyCurrentAndNotExpiredRefreshToken() {
-        saveRefreshTokenPort.saveOrRotate(2L, "old-refresh", OLD_EXPIRES_AT);
+    void rotateIfMatchUpdatesOnlyCurrentSessionRefreshToken() {
+        saveRefreshTokenPort.saveOrRotate(2L, "session-a", "old-refresh", OLD_EXPIRES_AT);
+        saveRefreshTokenPort.saveOrRotate(2L, "session-b", "other-refresh", OLD_EXPIRES_AT);
 
         boolean rotated = rotateRefreshTokenPort.rotateIfMatch(
                 2L,
+                "session-a",
                 "old-refresh",
                 "new-refresh",
                 NEW_EXPIRES_AT,
                 NOW);
 
         assertThat(rotated).isTrue();
-        RefreshTokenJpaEntity saved = refreshTokenJpaRepository.findByMemberId(2L).orElseThrow();
-        assertThat(saved.getToken()).isEqualTo("new-refresh");
-        assertThat(saved.getExpiresAt()).isEqualTo(NEW_EXPIRES_AT);
+        RefreshTokenJpaEntity sessionA = refreshTokenJpaRepository.findByMemberIdAndSessionId(2L, "session-a")
+                .orElseThrow();
+        RefreshTokenJpaEntity sessionB = refreshTokenJpaRepository.findByMemberIdAndSessionId(2L, "session-b")
+                .orElseThrow();
+        assertThat(sessionA.getToken()).isEqualTo("new-refresh");
+        assertThat(sessionA.getExpiresAt()).isEqualTo(NEW_EXPIRES_AT);
+        assertThat(sessionB.getToken()).isEqualTo("other-refresh");
+        assertThat(sessionB.getExpiresAt()).isEqualTo(OLD_EXPIRES_AT);
     }
 
     @Test
     void rotateIfMatchRejectsExpiredStoredRefreshToken() {
-        saveRefreshTokenPort.saveOrRotate(3L, "expired-refresh", NOW.minusSeconds(1));
+        saveRefreshTokenPort.saveOrRotate(3L, "session-a", "expired-refresh", NOW.minusSeconds(1));
 
         boolean rotated = rotateRefreshTokenPort.rotateIfMatch(
                 3L,
+                "session-a",
                 "expired-refresh",
                 "new-refresh",
                 NEW_EXPIRES_AT,
                 NOW);
 
         assertThat(rotated).isFalse();
-        RefreshTokenJpaEntity saved = refreshTokenJpaRepository.findByMemberId(3L).orElseThrow();
+        RefreshTokenJpaEntity saved = refreshTokenJpaRepository.findByMemberIdAndSessionId(3L, "session-a")
+                .orElseThrow();
         assertThat(saved.getToken()).isEqualTo("expired-refresh");
         assertThat(saved.getExpiresAt()).isEqualTo(NOW.minusSeconds(1));
+    }
+
+    @Test
+    void deleteIfMatchDeletesOnlyCurrentSessionRefreshToken() {
+        saveRefreshTokenPort.saveOrRotate(4L, "session-a", "old-refresh", OLD_EXPIRES_AT);
+        saveRefreshTokenPort.saveOrRotate(4L, "session-b", "other-refresh", OLD_EXPIRES_AT);
+
+        boolean deleted = deleteRefreshTokenPort.deleteIfMatch(4L, "session-a", "old-refresh");
+
+        assertThat(deleted).isTrue();
+        assertThat(refreshTokenJpaRepository.findByMemberIdAndSessionId(4L, "session-a")).isEmpty();
+        assertThat(refreshTokenJpaRepository.findByMemberIdAndSessionId(4L, "session-b")).isPresent();
     }
 }

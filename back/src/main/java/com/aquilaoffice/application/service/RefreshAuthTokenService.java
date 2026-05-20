@@ -41,10 +41,12 @@ public class RefreshAuthTokenService implements RefreshAuthTokenUseCase {
         IssuedAuthTokens issuedAuthTokens = issueAuthTokenPort.issue(
                 resolvedRefreshToken.memberId(),
                 resolvedRefreshToken.email(),
-                resolvedRefreshToken.role());
+                resolvedRefreshToken.role(),
+                resolvedRefreshToken.refreshSessionId());
 
         boolean rotated = rotateRefreshTokenPort.rotateIfMatch(
                 resolvedRefreshToken.memberId(),
+                resolvedRefreshToken.refreshSessionId(),
                 command.refreshToken(),
                 issuedAuthTokens.refreshToken(),
                 issuedAuthTokens.refreshTokenExpiresAt(),

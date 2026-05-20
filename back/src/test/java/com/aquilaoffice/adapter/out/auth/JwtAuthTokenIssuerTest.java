@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.aquilaoffice.application.port.out.IssuedAuthTokens;
 import com.aquilaoffice.application.port.out.ResolvedAccessToken;
+import com.aquilaoffice.application.port.out.ResolvedRefreshToken;
 import com.aquilaoffice.domain.member.MemberRole;
 import com.aquilaoffice.global.config.properties.AuthTokenProperties;
 import java.time.Clock;
@@ -42,7 +43,24 @@ class JwtAuthTokenIssuerTest {
         assertThat(resolved.memberId()).isEqualTo(11L);
         assertThat(resolved.email()).isEqualTo("user@example.com");
         assertThat(resolved.role()).isEqualTo(MemberRole.ADMIN);
-        assertThat(issuer.resolve(tokens.refreshToken()).memberId()).isEqualTo(11L);
+        ResolvedRefreshToken resolvedRefreshToken = issuer.resolve(tokens.refreshToken());
+        assertThat(resolvedRefreshToken.memberId()).isEqualTo(11L);
+        assertThat(resolvedRefreshToken.refreshSessionId()).isEqualTo(tokens.refreshSessionId());
+        assertThat(tokens.refreshSessionId()).isNotBlank();
+    }
+
+    @Test
+    void issuesRefreshRotationTokenWithExistingSessionId() {
+        IssuedAuthTokens tokens = issuer.issue(15L, "user@example.com", MemberRole.USER);
+
+        IssuedAuthTokens rotated = issuer.issue(
+                15L,
+                "user@example.com",
+                MemberRole.USER,
+                issuer.resolve(tokens.refreshToken()).refreshSessionId());
+
+        assertThat(rotated.refreshSessionId()).isEqualTo(tokens.refreshSessionId());
+        assertThat(issuer.resolve(rotated.refreshToken()).refreshSessionId()).isEqualTo(tokens.refreshSessionId());
     }
 
     @Test

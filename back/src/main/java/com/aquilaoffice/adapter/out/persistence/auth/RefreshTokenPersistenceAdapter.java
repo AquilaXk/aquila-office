@@ -21,13 +21,21 @@ public class RefreshTokenPersistenceAdapter implements SaveRefreshTokenPort, Rot
 
     @Override
     @Transactional
-    public void saveOrRotate(Long memberId, String refreshToken, Instant refreshTokenExpiresAt) {
-        RefreshTokenJpaEntity entity = refreshTokenJpaRepository.findByMemberId(memberId)
+    public void saveOrRotate(
+            Long memberId,
+            String refreshSessionId,
+            String refreshToken,
+            Instant refreshTokenExpiresAt) {
+        RefreshTokenJpaEntity entity = refreshTokenJpaRepository.findByMemberIdAndSessionId(memberId, refreshSessionId)
                 .map(existing -> {
                     existing.rotate(refreshToken, refreshTokenExpiresAt);
                     return existing;
                 })
-                .orElseGet(() -> RefreshTokenJpaEntity.issue(memberId, refreshToken, refreshTokenExpiresAt));
+                .orElseGet(() -> RefreshTokenJpaEntity.issue(
+                        memberId,
+                        refreshSessionId,
+                        refreshToken,
+                        refreshTokenExpiresAt));
         refreshTokenJpaRepository.save(entity);
     }
 
@@ -35,12 +43,14 @@ public class RefreshTokenPersistenceAdapter implements SaveRefreshTokenPort, Rot
     @Transactional
     public boolean rotateIfMatch(
             Long memberId,
+            String refreshSessionId,
             String currentRefreshToken,
             String newRefreshToken,
             Instant newRefreshTokenExpiresAt,
             Instant now) {
         return refreshTokenJpaRepository.rotateIfMatch(
                 memberId,
+                refreshSessionId,
                 currentRefreshToken,
                 newRefreshToken,
                 newRefreshTokenExpiresAt,
@@ -49,7 +59,7 @@ public class RefreshTokenPersistenceAdapter implements SaveRefreshTokenPort, Rot
 
     @Override
     @Transactional
-    public boolean deleteIfMatch(Long memberId, String refreshToken) {
-        return refreshTokenJpaRepository.deleteIfMatch(memberId, refreshToken) == 1;
+    public boolean deleteIfMatch(Long memberId, String refreshSessionId, String refreshToken) {
+        return refreshTokenJpaRepository.deleteIfMatch(memberId, refreshSessionId, refreshToken) == 1;
     }
 }
