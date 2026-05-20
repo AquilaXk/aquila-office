@@ -17,6 +17,9 @@ COPILOT.md
 
 # Build outputs
 back/build
+!back/build/
+!back/build/libs/
+!back/build/libs/*.jar
 back/.gradle
 back/.gradle-user
 back/.kotlin
