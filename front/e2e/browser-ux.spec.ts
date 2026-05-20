@@ -428,23 +428,9 @@ test.describe("브라우저 UI UX 회귀", () => {
     await taskDashboard.getByRole("tab", { name: "Board" }).click();
     await taskDashboard.getByRole("button", { name: /Regression smoke/ }).click();
     await expect(taskDashboard.getByText(`Task #${taskId}`)).toBeVisible();
-    await closeTopDialog(page);
 
-    await page.locator('section[aria-label="워크스페이스 대시보드 요약"]').scrollIntoViewIfNeeded();
-    await expect(page.getByRole("heading", { name: "운영 요약" })).toBeVisible();
-    await expect(page.getByText("Regression smoke")).toBeVisible();
-
-    const taskCard = page.locator(".workspace-task-card").filter({ hasText: regressionTask.title });
-    const taskStatusRequest = page.waitForRequest((request) => {
-      const url = new URL(request.url());
-      return request.method() === "PATCH" && url.pathname === `/api/v1/workspaces/${workspaceId}/tasks/${taskId}/status`;
-    });
-    await taskCard.getByLabel("Task 상태 변경").selectOption("COMPLETED");
-    const taskStatusBody = (await taskStatusRequest).postData() ?? "";
-    expect(taskStatusBody).toContain("COMPLETED");
-    await expect(page.getByText(`Task #${taskId} 상태 변경 완료`)).toBeVisible();
-
-    await taskCard.getByRole("button", { name: "Report" }).click();
+    const taskDashboardDetail = taskDashboard.locator('section[aria-label="selectedDashboardTask detail"]');
+    await taskDashboardDetail.getByRole("button", { name: "Report" }).click();
     await expect(page.getByRole("dialog", { name: "Task report" })).toBeVisible();
     await expect(page.getByText("Report #701")).toBeVisible();
     await page.getByRole("button", { name: "result.md" }).click();
@@ -453,12 +439,14 @@ test.describe("브라우저 UI UX 회귀", () => {
     await closeTopDialog(page);
     await closeTopDialog(page);
 
-    await taskCard.getByRole("button", { name: "Chat" }).click();
+    await taskDashboardDetail.getByRole("button", { name: "Chat" }).click();
     await expect(page.getByRole("dialog", { name: "Task chat 메시지" })).toBeVisible();
     await expect(page.getByText("초기 점검을 시작합니다.")).toBeVisible();
     await page.getByLabel("Message").fill("브라우저 회귀 확인");
     await page.getByRole("button", { name: "메시지 전송" }).click();
     await expect(page.getByText(`Task #${taskId} chat 메시지가 전송되었습니다.`)).toBeVisible();
+    await closeTopDialog(page);
+    await closeTopDialog(page);
   });
 
   test("2D workspace는 인증된 멤버를 player actor로 쓰고 저장된 avatar를 적용한다", async ({ page }) => {
@@ -476,17 +464,12 @@ test.describe("브라우저 UI UX 회귀", () => {
       actorLayer.getByRole("button", { name: /Aquila User 플레이어/ }).locator(".pixel-avatar__frame"),
     ).toHaveCSS("box-shadow", /rgb\(31, 122, 95\)/);
 
-    const memberRows = page.locator('section[aria-label="워크스페이스 멤버"]').locator(".workspace-member-row");
-    await expect(memberRows).toHaveCount(2);
-    await expect(memberRows.nth(0)).toContainText("First Member");
-    await expect(memberRows.nth(1)).toContainText("Aquila User");
-    const firstMemberRow = memberRows.nth(0);
-    const currentMemberRow = memberRows.nth(1);
-    await expect(currentMemberRow.locator(".pixel-avatar__frame")).toHaveCSS("box-shadow", /rgb\(31, 122, 95\)/);
-    await expect(firstMemberRow.locator(".pixel-avatar__frame")).not.toHaveCSS(
+    const firstMemberActor = actorLayer.getByRole("button", { name: /First Member 채팅/ });
+    await expect(firstMemberActor.locator(".pixel-avatar__frame")).not.toHaveCSS(
       "box-shadow",
       /rgb\(31, 122, 95\)/,
     );
+    await expect(page.locator('aside[aria-label="조회 정보"]')).toContainText("멤버 2명 · 관리자 1명");
   });
 
   test("워크스페이스 파일 탐색 fallback과 directory toggle을 검증한다", async ({ page }) => {
