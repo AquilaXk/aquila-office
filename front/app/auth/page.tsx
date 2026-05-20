@@ -135,6 +135,17 @@ function AuthPageInner() {
                 logo_alignment="left"
                 width="280"
                 useOneTap={false}
+                containerProps={{
+                  style: {
+                    display: "inline-grid",
+                    minHeight: 46,
+                    placeItems: "center",
+                    border: "1px solid rgba(194, 163, 91, 0.55)",
+                    background: "transparent",
+                    boxShadow: "0 0 18px rgba(194, 163, 91, 0.18)",
+                    padding: 0,
+                  },
+                }}
               />
               <div
                 style={{
@@ -191,7 +202,7 @@ function AuthPageInner() {
             letterSpacing: 3,
           }}
         >
-          [ ESC BACK ] © TEAM IoT 2026
+          [ ESC BACK ] © aquilaXk 2026
         </div>
       </div>
 
