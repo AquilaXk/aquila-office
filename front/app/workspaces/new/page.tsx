@@ -60,7 +60,7 @@ export default function NewWorkspacePage() {
   if (!hydrated) return null;
 
   return (
-    <T4Screen title="NEW WORKSPACE · CHARACTER CREATE">
+    <T4Screen title="NEW WORKSPACE">
       <div
         style={{
           padding: "30px 28px",
@@ -109,7 +109,7 @@ export default function NewWorkspacePage() {
               textShadow: `0 0 12px ${t4.pink}80`,
             }}
           >
-            FORM A NEW WORKSPACE
+            CREATE A NEW WORKSPACE
           </h1>
           <p
             style={{
@@ -134,14 +134,14 @@ export default function NewWorkspacePage() {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 maxLength={NAME_MAX}
-                placeholder="예: 백엔드 엔지니어링 길드"
+                placeholder="예: 백엔드 엔지니어링 팀"
                 autoFocus
                 disabled={submitting}
               />
             </Field>
 
             <Field
-              label="BRIEFING"
+              label="DESCRIPTION"
               counter={`${description.length}/${DESCRIPTION_MAX}`}
             >
               <Textarea
@@ -173,7 +173,7 @@ export default function NewWorkspacePage() {
                 </Button>
               </Link>
               <Button type="submit" loading={submitting}>
-                <GlyphText glyph="▶">FORM WORKSPACE</GlyphText>
+                <GlyphText glyph="▶">CREATE WORKSPACE</GlyphText>
               </Button>
             </div>
           </form>

@@ -31,7 +31,7 @@ test("auth page uses google login button and handles success failure and return 
   assert.match(source, /background:\s*"#202124"/);
   assert.match(source, /border:\s*"1px solid rgba\(194, 163, 91, 0\.55\)"/);
   assert.match(source, /Google 토큰을 받지 못했습니다\./);
-  assert.match(source, /LOADING SAVE FILE\.\.\./);
+  assert.match(source, /LOADING ACCOUNT\.\.\./);
   assert.match(source, /로그인에 실패했습니다\./);
   assert.match(source, /router\.replace\(nextStep\(returnTo\)\)/);
   assert.doesNotMatch(source, /saveAuthTokens/);
@@ -53,7 +53,7 @@ test("title screen keeps unauthenticated continue on title screen", () => {
   assert.doesNotMatch(source, /SETTINGS/);
   assert.doesNotMatch(source, /\/auth\/character/);
   assert.match(source, /useState<AuthUser \| null>\(null\)/);
-  assert.match(source, /HERO \{user\?\.name \?\? "PLAYER"\}/);
+  assert.match(source, /USER \{user\?\.name \?\? "MEMBER"\}/);
   assert.match(source, /router\.push\(item\.href\)/);
   assert.match(source, /router\.push\("\/"\)/);
   assert.doesNotMatch(source, /router\.push\("\/auth\?returnTo=\/workspaces"\)/);

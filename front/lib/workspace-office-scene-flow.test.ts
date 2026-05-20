@@ -62,7 +62,7 @@ test("workspace 2d canvas exposes HUD, minimap, dialogue, and keyboard stage con
   assert.match(canvasSource, /stage-quest-marker/);
   assert.match(canvasSource, /workspace-2d-minimap-actor/);
   assert.match(canvasSource, /aria-label="Office scene minimap"/);
-  assert.match(canvasSource, /aria-label="Quest"/);
+  assert.match(canvasSource, /aria-label="Task marker"/);
 });
 
 test("workspace detail passes the current player into the 2d workspace", () => {

@@ -1128,10 +1128,10 @@ function QuestMarker({ active, position }: { active: boolean; position: StageAct
       type="button"
       className={`stage-quest-marker ${active ? "stage-quest-marker-active" : ""}`}
       style={{ left: position.left, top: position.top }}
-      aria-label="Quest"
+      aria-label="Task marker"
     >
       ★
-      <span>QUEST</span>
+      <span>TASK</span>
       {active ? <strong>/ 태스크 보드</strong> : null}
     </button>
   );
@@ -1347,8 +1347,8 @@ function DialogueBox({
   const accent = actor ? (isAgent ? t4.agent : t4.pink) : t4.dim;
   const line = actor
     ? isAgent
-      ? `"${actor.detail}. 다음 quest를 맡길 수 있습니다."`
-      : `"${speaker} is ${actor.sourceStatus}. Wave hi or hand off a quest."`
+      ? `"${actor.detail}. 다음 task를 맡길 수 있습니다."`
+      : `"${speaker} is ${actor.sourceStatus}. Wave hi or hand off a task."`
     : `"No allies on the floor yet. Hire an agent or invite teammates from WORKSPACE."`;
 
   return (
@@ -1369,7 +1369,7 @@ function DialogueBox({
               <GlyphText glyph="▶">TALK</GlyphText>
             </DialogueChoice>
           ) : null}
-          <DialogueChoice onClick={onTasks}>QUESTS</DialogueChoice>
+          <DialogueChoice onClick={onTasks}>TASKS</DialogueChoice>
         </div>
       </div>
     </div>

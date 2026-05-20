@@ -112,7 +112,7 @@ function AuthPageInner() {
             >
               Sign in with your work Google account.
               <br />
-              Only invited heroes may enter.
+              Only invited members may enter.
             </div>
 
             <div
@@ -191,7 +191,7 @@ function AuthPageInner() {
                   textAlign: "center",
                 }}
               >
-                LOADING SAVE FILE...
+                LOADING ACCOUNT...
               </div>
             )}
           </T4Panel>

@@ -94,14 +94,14 @@ export default function GatewayPage() {
     setDisplayName("");
     setGatewayUrl("");
     setToken("");
-    setCreatedMessage("WARP GATE LINKED.");
+    setCreatedMessage("GATEWAY LINKED.");
     setSubmitting(false);
   }
 
   if (!hydrated) return null;
 
   return (
-    <T4Screen title="GATEWAY · WARP STATIONS">
+    <T4Screen title="GATEWAY">
       <div
         style={{
           padding: "30px 28px",
@@ -138,7 +138,7 @@ export default function GatewayPage() {
               marginBottom: 4,
             }}
           >
-            <GlyphText glyph="◆">OPENCLAW · WARP NET</GlyphText>
+            <GlyphText glyph="◆">OPENCLAW · CONNECTIONS</GlyphText>
           </div>
           <h1
             style={{
@@ -160,7 +160,7 @@ export default function GatewayPage() {
               marginTop: 8,
             }}
           >
-            워크스페이스에서 에이전트를 소환할 수 있도록 OpenClaw 게이트웨이를 연결해 주세요.
+            워크스페이스에서 에이전트를 사용할 수 있도록 OpenClaw 게이트웨이를 연결해 주세요.
           </p>
         </div>
 
@@ -361,7 +361,7 @@ export default function GatewayPage() {
                   </Button>
                 </Link>
                 <Button type="submit" loading={submitting}>
-                  <GlyphText glyph="▶">LINK GATE</GlyphText>
+                  <GlyphText glyph="▶">LINK GATEWAY</GlyphText>
                 </Button>
               </div>
             </form>
@@ -369,7 +369,7 @@ export default function GatewayPage() {
         </div>
 
         <div className="grid gap-3 md:grid-cols-3">
-          <InfoCard step="01" title="REGISTER" description="라벨, 게이트웨이 URL, 토큰을 입력해 새 스테이션을 추가합니다." />
+          <InfoCard step="01" title="REGISTER" description="라벨, 게이트웨이 URL, 토큰을 입력해 새 연결을 추가합니다." />
           <InfoCard step="02" title="VERIFY" description="사이드바에서 연결된 모든 게이트웨이의 상태를 확인할 수 있습니다." />
           <InfoCard step="03" title="BIND" description="워크스페이스 단위 바인딩은 API 연동 이후 제공될 예정입니다." />
         </div>
