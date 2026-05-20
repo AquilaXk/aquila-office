@@ -1,0 +1,49 @@
+package com.aquilaoffice.global.config;
+
+import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+import com.aquilaoffice.global.config.properties.AuthTokenProperties;
+import java.time.Duration;
+import org.junit.jupiter.api.Test;
+import org.springframework.mock.env.MockEnvironment;
+
+class AuthTokenRuntimeGuardTest {
+
+    @Test
+    void allowsDefaultSecretOutsideRuntimeProfiles() {
+        AuthTokenRuntimeGuard guard = new AuthTokenRuntimeGuard(
+                properties(AuthTokenProperties.DEFAULT_DEVELOPMENT_SECRET),
+                new MockEnvironment().withProperty("spring.profiles.active", "dev"));
+
+        assertThatCode(guard::validate).doesNotThrowAnyException();
+    }
+
+    @Test
+    void rejectsDefaultSecretInRuntimeProfiles() {
+        AuthTokenRuntimeGuard guard = new AuthTokenRuntimeGuard(
+                properties(AuthTokenProperties.DEFAULT_DEVELOPMENT_SECRET),
+                new MockEnvironment().withProperty("spring.profiles.active", "prod"));
+
+        assertThatThrownBy(guard::validate)
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("AQUILA_AUTH_TOKEN_SECRET");
+    }
+
+    @Test
+    void allowsCustomSecretInRuntimeProfiles() {
+        AuthTokenRuntimeGuard guard = new AuthTokenRuntimeGuard(
+                properties("runtime-jwt-secret-0123456789abcdef-runtime-only"),
+                new MockEnvironment().withProperty("spring.profiles.active", "staging"));
+
+        assertThatCode(guard::validate).doesNotThrowAnyException();
+    }
+
+    private AuthTokenProperties properties(String secret) {
+        return new AuthTokenProperties(
+                "aquila-office",
+                secret,
+                Duration.ofMinutes(15),
+                Duration.ofDays(14));
+    }
+}

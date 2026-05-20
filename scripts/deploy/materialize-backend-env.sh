@@ -3,6 +3,7 @@ set -euo pipefail
 
 OUTPUT_FILE=""
 SOURCE_FILE=""
+DEFAULT_JWT_SECRET="local-development-jwt-secret-change-before-production-0123456789abcdef"
 
 usage() {
     cat <<USAGE
@@ -59,6 +60,14 @@ require_key() {
     fi
 }
 
+env_value() {
+    local key="$1"
+    local file="$2"
+    grep -E "^[[:space:]]*(export[[:space:]]+)?${key}=" "$file" \
+        | tail -n 1 \
+        | sed -E "s/^[[:space:]]*(export[[:space:]]+)?${key}=//; s/^[\"']//; s/[\"']$//"
+}
+
 validate_env_file() {
     local file="$1"
     local missing=0
@@ -77,6 +86,13 @@ validate_env_file() {
     done
 
     if [[ "$missing" == "1" ]]; then
+        exit 1
+    fi
+
+    local jwt_secret
+    jwt_secret="$(env_value AQUILA_AUTH_TOKEN_SECRET "$file")"
+    if [[ "$jwt_secret" == "$DEFAULT_JWT_SECRET" ]]; then
+        echo "AQUILA_AUTH_TOKEN_SECRET must not use the development default value" >&2
         exit 1
     fi
 }
