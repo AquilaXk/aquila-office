@@ -62,14 +62,19 @@ test("invite accept page redirects unauthenticated users and returns to workspac
   assert.match(inviteApiSource, /"REVOKED"/);
 });
 
-test("workspace detail invite creation uses the target email invite contract", () => {
-  const source = readSource("app/workspaces/[workspaceId]/page.tsx");
+test("workspace invite creation lives in workspace settings", () => {
+  const detailSource = readSource("app/workspaces/[workspaceId]/page.tsx");
+  const settingsSource = readSource("app/workspaces/[workspaceId]/settings/page.tsx");
 
-  assert.match(source, /createWorkspaceInvite/);
-  assert.match(source, /targetEmail: email/);
-  assert.match(source, /formatInviteTarget/);
-  assert.doesNotMatch(source, /\{ email \}/);
-  assert.doesNotMatch(source, /inviteState\.invite\.email/);
+  assert.match(settingsSource, /createInviteLink/);
+  assert.match(settingsSource, /const targetEmail = inviteEmail\.trim\(\)/);
+  assert.match(settingsSource, /\{ targetEmail \}/);
+  assert.match(settingsSource, /listSentInvites/);
+  assert.match(detailSource, /router\.push\(`\/workspaces\/\$\{numericWorkspaceId\}\/settings`\)/);
+  assert.doesNotMatch(detailSource, /createWorkspaceInvite/);
+  assert.doesNotMatch(detailSource, /aria-label="워크스페이스 초대 생성"/);
+  assert.doesNotMatch(settingsSource, /\{ email \}/);
+  assert.doesNotMatch(settingsSource, /inviteState\.invite\.email/);
 });
 
 test("workspace client exposes dashboard summary and member task stats contracts", () => {
@@ -227,27 +232,36 @@ test("frontend exposes slack integration result routes", () => {
   assert.match(failSource, /재시도/);
 });
 
-test("workspace detail exposes dashboard summary sections", () => {
+test("workspace detail opens dashboard data through the task modal", () => {
   const source = readSource("app/workspaces/[workspaceId]/page.tsx");
 
   assert.match(source, /fetchWorkspaceDashboardSummary/);
-  assert.match(source, /fetchWorkspaceMemberTaskStats/);
-  assert.match(source, /aria-label="워크스페이스 대시보드 요약"/);
-  assert.match(source, /recentReports/);
-  assert.match(source, /memberTaskStats/);
+  assert.match(source, /<TaskDashboardModal/);
+  assert.match(source, /summary=\{taskDashboardSummary\}/);
+  assert.match(source, /apiSummary=\{summary\}/);
+  assert.match(source, /localSummary=\{localDashboardSummary\}/);
+  assert.doesNotMatch(source, /aria-label="워크스페이스 대시보드 요약"/);
+  assert.doesNotMatch(source, /fetchWorkspaceMemberTaskStats/);
 });
 
-test("workspace detail exposes task mutation controls", () => {
+test("workspace detail enters task work through the dashboard modal", () => {
   const source = readSource("app/workspaces/[workspaceId]/page.tsx");
   const clientSource = readSource("lib/tasks.ts");
 
-  assert.match(source, /createWorkspaceTask/);
-  assert.match(source, /updateWorkspaceTaskStatus/);
-  assert.match(source, /runWorkspaceTask/);
   assert.match(clientSource, /createAndRunWorkspaceTask/);
   assert.match(clientSource, /workspaceTasksRunPath/);
-  assert.match(source, /aria-label="Task 생성"/);
+  assert.match(source, /fetchWorkspaceTasks/);
+  assert.match(source, /TaskDashboardModal/);
+  assert.match(source, /setTaskDashboardOpen\(true\)/);
+  assert.match(source, /setTaskDashboardTab\("board"\)/);
+  assert.match(source, /openTaskChat/);
+  assert.match(source, /openTaskReports/);
   assert.match(source, /createPr/);
+  assert.doesNotMatch(source, /createWorkspaceTask/);
+  assert.doesNotMatch(source, /updateWorkspaceTaskStatus/);
+  assert.doesNotMatch(source, /runWorkspaceTask/);
+  assert.doesNotMatch(source, /aria-label="Task 생성"/);
+  assert.doesNotMatch(source, /aria-label="워크스페이스 Task"/);
 });
 
 test("workspace detail exposes task chat surface", () => {
@@ -298,22 +312,28 @@ test("workspace detail renders markdown artifact files", () => {
   assert.match(source, /workspace-file-markdown/);
 });
 
-test("workspace detail exposes agent list surface", () => {
+test("workspace detail opens agent management through the hire modal", () => {
   const source = readSource("app/workspaces/[workspaceId]/page.tsx");
 
   assert.match(source, /fetchWorkspaceAgents/);
   assert.match(source, /type WorkspaceAgent/);
-  assert.match(source, /aria-label="워크스페이스 Agent"/);
   assert.match(source, /workspaceAgents/);
+  assert.match(source, /AgentHireModal/);
+  assert.match(source, /item\.id === "agents"/);
+  assert.match(source, /setAgentHireOpen\(true\)/);
+  assert.doesNotMatch(source, /aria-label="워크스페이스 Agent"/);
 });
 
-test("workspace detail exposes agent management controls", () => {
+test("workspace detail keeps agent creation in AgentHireModal", () => {
   const source = readSource("app/workspaces/[workspaceId]/page.tsx");
 
   assert.match(source, /createWorkspaceAgent/);
-  assert.match(source, /deleteWorkspaceAgent/);
-  assert.match(source, /aria-label="Agent 등록"/);
-  assert.match(source, /handleDeleteAgent/);
+  assert.match(source, /aria-label="Agent hire"/);
+  assert.match(source, /normalizeAgentSkillFiles/);
+  assert.match(source, /form\.skillFiles\.map/);
+  assert.doesNotMatch(source, /deleteWorkspaceAgent/);
+  assert.doesNotMatch(source, /aria-label="Agent 등록"/);
+  assert.doesNotMatch(source, /handleDeleteAgent/);
 });
 
 test("character profile screen exposes member profile settings", () => {
