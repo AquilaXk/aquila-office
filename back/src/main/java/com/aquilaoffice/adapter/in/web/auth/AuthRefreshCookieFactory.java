@@ -1,6 +1,7 @@
 package com.aquilaoffice.adapter.in.web.auth;
 
 import com.aquilaoffice.global.config.properties.AuthTokenProperties;
+import com.aquilaoffice.global.config.properties.AuthRefreshCookieProperties;
 import java.time.Duration;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseCookie;
@@ -18,17 +19,25 @@ public class AuthRefreshCookieFactory {
     private static final String SAME_SITE = "Lax";
 
     private final Duration refreshTokenMaxAge;
+    private final boolean secure;
 
     @Autowired
-    public AuthRefreshCookieFactory(AuthTokenProperties authTokenProperties) {
-        this(authTokenProperties.refreshTokenTtl());
+    public AuthRefreshCookieFactory(
+            AuthTokenProperties authTokenProperties,
+            AuthRefreshCookieProperties authRefreshCookieProperties) {
+        this(authTokenProperties.refreshTokenTtl(), authRefreshCookieProperties.secure());
     }
 
     AuthRefreshCookieFactory(Duration refreshTokenMaxAge) {
+        this(refreshTokenMaxAge, false);
+    }
+
+    AuthRefreshCookieFactory(Duration refreshTokenMaxAge, boolean secure) {
         if (refreshTokenMaxAge == null || refreshTokenMaxAge.isZero() || refreshTokenMaxAge.isNegative()) {
             throw new IllegalArgumentException("refreshTokenMaxAge must be positive");
         }
         this.refreshTokenMaxAge = refreshTokenMaxAge;
+        this.secure = secure;
     }
 
     public ResponseCookie issue(String refreshToken) {
@@ -46,7 +55,7 @@ public class AuthRefreshCookieFactory {
     private ResponseCookie.ResponseCookieBuilder baseCookie(String value) {
         return ResponseCookie.from(COOKIE_NAME, value)
                 .httpOnly(true)
-                .secure(false)
+                .secure(secure)
                 .sameSite(SAME_SITE)
                 .path(COOKIE_PATH);
     }

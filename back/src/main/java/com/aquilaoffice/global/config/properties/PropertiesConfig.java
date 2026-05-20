@@ -8,6 +8,7 @@ import org.springframework.context.annotation.Configuration;
  */
 @Configuration
 @EnableConfigurationProperties({
+    AuthRefreshCookieProperties.class,
     AuthTokenProperties.class,
     CorsProperties.class,
     ExternalTokenEncryptionProperties.class,
