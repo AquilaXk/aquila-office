@@ -37,7 +37,7 @@ export default function T4Panel({
             padding: "0 6px",
             background: "var(--t4-bg)",
             fontFamily: "var(--font-pixel)",
-            fontSize: 7,
+            fontSize: 12,
             letterSpacing: 2,
             color: accent,
             zIndex: 1,

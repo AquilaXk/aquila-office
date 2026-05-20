@@ -119,7 +119,7 @@ export default function GatewayPage() {
           href="/workspaces"
           style={{
             fontFamily: "var(--font-pixel)",
-            fontSize: 8,
+            fontSize: 12,
             letterSpacing: 2,
             color: t4.dim,
             textDecoration: "none",
@@ -132,7 +132,7 @@ export default function GatewayPage() {
           <div
             style={{
               fontFamily: "var(--font-pixel)",
-              fontSize: 8,
+              fontSize: 12,
               color: t4.mp,
               letterSpacing: 3,
               marginBottom: 4,
@@ -155,7 +155,7 @@ export default function GatewayPage() {
           <p
             style={{
               fontFamily: "var(--font-mono-arcade)",
-              fontSize: 11,
+              fontSize: 13,
               color: t4.dim,
               marginTop: 8,
             }}
@@ -171,7 +171,7 @@ export default function GatewayPage() {
                 <p
                   style={{
                     fontFamily: "var(--font-mono-arcade)",
-                    fontSize: 11,
+                    fontSize: 13,
                     color: t4.dim,
                     padding: "14px 6px",
                     textAlign: "center",
@@ -203,7 +203,7 @@ export default function GatewayPage() {
                             className="truncate"
                             style={{
                               fontFamily: "var(--font-pixel)",
-                              fontSize: 9,
+                              fontSize: 12,
                               letterSpacing: 1.5,
                               color: active ? t4.mp : t4.ink,
                             }}
@@ -213,7 +213,7 @@ export default function GatewayPage() {
                           <span
                             style={{
                               fontFamily: "var(--font-pixel)",
-                              fontSize: 7,
+                              fontSize: 12,
                               letterSpacing: 1,
                               color: t4.ok,
                               border: `1px solid ${t4.ok}`,
@@ -227,7 +227,7 @@ export default function GatewayPage() {
                           className="mt-2 truncate"
                           style={{
                             fontFamily: "var(--font-mono-arcade)",
-                            fontSize: 10,
+                            fontSize: 12,
                             color: t4.dim,
                           }}
                         >
@@ -237,7 +237,7 @@ export default function GatewayPage() {
                           className="mt-1"
                           style={{
                             fontFamily: "var(--font-mono-arcade)",
-                            fontSize: 9,
+                            fontSize: 12,
                             color: t4.dim,
                           }}
                         >
@@ -255,7 +255,7 @@ export default function GatewayPage() {
                 <p
                   style={{
                     fontFamily: "var(--font-pixel)",
-                    fontSize: 8,
+                    fontSize: 12,
                     color: t4.dim,
                     letterSpacing: 2,
                   }}
@@ -266,7 +266,7 @@ export default function GatewayPage() {
                   className="mt-2 truncate"
                   style={{
                     fontFamily: "var(--font-pixel)",
-                    fontSize: 11,
+                    fontSize: 13,
                     color: t4.ok,
                     letterSpacing: 1.5,
                     textShadow: `0 0 6px ${t4.ok}`,
@@ -278,7 +278,7 @@ export default function GatewayPage() {
                   className="mt-3"
                   style={{
                     fontFamily: "var(--font-mono-arcade)",
-                    fontSize: 10,
+                    fontSize: 12,
                     color: t4.dim,
                   }}
                 >
@@ -333,7 +333,7 @@ export default function GatewayPage() {
                 <p
                   style={{
                     fontFamily: "var(--font-mono-arcade)",
-                    fontSize: 11,
+                    fontSize: 13,
                     color: t4.hp,
                   }}
                 >
@@ -344,7 +344,7 @@ export default function GatewayPage() {
                 <p
                   style={{
                     fontFamily: "var(--font-pixel)",
-                    fontSize: 8,
+                    fontSize: 12,
                     letterSpacing: 2,
                     color: t4.ok,
                     textShadow: `0 0 6px ${t4.ok}`,
@@ -395,7 +395,7 @@ function Field({
         <span
           style={{
             fontFamily: "var(--font-pixel)",
-            fontSize: 8,
+            fontSize: 12,
             letterSpacing: 2,
             color: t4.dim,
           }}
@@ -409,7 +409,7 @@ function Field({
           <span
             style={{
               fontFamily: "var(--font-mono-arcade)",
-              fontSize: 9,
+              fontSize: 12,
               color: t4.dim,
             }}
           >
@@ -436,7 +436,7 @@ function InfoCard({
       <p
         style={{
           fontFamily: "var(--font-pixel)",
-          fontSize: 7,
+          fontSize: 12,
           letterSpacing: 2,
           color: t4.agent,
         }}
@@ -447,7 +447,7 @@ function InfoCard({
         className="mt-2"
         style={{
           fontFamily: "var(--font-pixel)",
-          fontSize: 10,
+          fontSize: 12,
           letterSpacing: 1.5,
           color: t4.ink,
         }}
@@ -458,7 +458,7 @@ function InfoCard({
         className="mt-2"
         style={{
           fontFamily: "var(--font-mono-arcade)",
-          fontSize: 11,
+          fontSize: 13,
           color: t4.dim,
           lineHeight: 1.5,
         }}

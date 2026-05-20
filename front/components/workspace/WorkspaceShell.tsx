@@ -33,7 +33,7 @@ export function WorkspaceErrorState({ message }: { message: string }) {
         <p
           style={{
             fontFamily: "var(--font-pixel)",
-            fontSize: 10,
+            fontSize: 12,
             letterSpacing: 2,
             color: "var(--t4-hp)",
             textShadow: "0 0 6px var(--t4-hp)",
@@ -45,7 +45,7 @@ export function WorkspaceErrorState({ message }: { message: string }) {
         <p
           style={{
             fontFamily: "var(--font-mono-arcade)",
-            fontSize: 12,
+            fontSize: 14,
             color: "var(--t4-ink)",
           }}
         >
@@ -70,7 +70,7 @@ export function WorkspaceLoadingState() {
       <div
         style={{
           fontFamily: "var(--font-pixel)",
-          fontSize: 12,
+          fontSize: 14,
           letterSpacing: 3,
           color: "var(--t4-pink)",
           textShadow: "0 0 8px var(--t4-pink)",

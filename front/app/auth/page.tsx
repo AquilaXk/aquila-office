@@ -62,7 +62,7 @@ function AuthPageInner() {
           <div
             style={{
               fontFamily: "var(--font-pixel)",
-              fontSize: 11,
+              fontSize: 13,
               color: t4.pink,
               letterSpacing: 4,
               marginBottom: 10,
@@ -75,7 +75,7 @@ function AuthPageInner() {
           <div
             style={{
               fontFamily: "var(--font-mono-arcade)",
-              fontSize: 12,
+              fontSize: 14,
               color: t4.dim,
               letterSpacing: 4,
             }}
@@ -92,7 +92,7 @@ function AuthPageInner() {
             <div
               style={{
                 fontFamily: "var(--font-pixel)",
-                fontSize: 8,
+                fontSize: 12,
                 color: t4.pink,
                 letterSpacing: 2,
                 marginBottom: 8,
@@ -104,7 +104,7 @@ function AuthPageInner() {
             <div
               style={{
                 fontFamily: "var(--font-mono-arcade)",
-                fontSize: 11,
+                fontSize: 13,
                 color: t4.dim,
                 lineHeight: 1.6,
                 marginBottom: 18,
@@ -158,7 +158,7 @@ function AuthPageInner() {
               <div
                 style={{
                   fontFamily: "var(--font-pixel)",
-                  fontSize: 7,
+                  fontSize: 12,
                   color: t4.pink,
                   letterSpacing: 2,
                   textShadow: `0 0 6px ${t4.pink}`,
@@ -173,7 +173,7 @@ function AuthPageInner() {
                 style={{
                   marginTop: 14,
                   fontFamily: "var(--font-mono-arcade)",
-                  fontSize: 10,
+                  fontSize: 12,
                   color: t4.hp,
                   textAlign: "center",
                 }}
@@ -186,7 +186,7 @@ function AuthPageInner() {
                 style={{
                   marginTop: 14,
                   fontFamily: "var(--font-mono-arcade)",
-                  fontSize: 10,
+                  fontSize: 12,
                   color: t4.mp,
                   textAlign: "center",
                 }}
@@ -205,7 +205,7 @@ function AuthPageInner() {
             right: 0,
             textAlign: "center",
             fontFamily: "var(--font-mono-arcade)",
-            fontSize: 9,
+            fontSize: 12,
             color: t4.dim,
             letterSpacing: 3,
           }}
