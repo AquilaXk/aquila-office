@@ -202,7 +202,7 @@ function AuthPageInner() {
             letterSpacing: 3,
           }}
         >
-          [ ESC BACK ] © aquilaXk 2026
+          © aquilaXk 2026
         </div>
       </div>
 

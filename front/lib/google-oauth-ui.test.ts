@@ -22,7 +22,7 @@ test("auth page uses google login button and handles success failure and return 
   assert.match(source, /SIGN IN TO CONTINUE/);
   assert.match(source, /WORKSPACE MEMBER VERIFICATION/);
   assert.match(source, /PRESS TO CONTINUE/);
-  assert.match(source, /\[ ESC BACK \] © aquilaXk 2026/);
+  assert.match(source, />\s*© aquilaXk 2026\s*<\/div>/);
   assert.match(source, /containerProps/);
   assert.match(source, /background:\s*"transparent"/);
   assert.match(source, /border:\s*"1px solid rgba\(194, 163, 91, 0\.55\)"/);
@@ -36,6 +36,7 @@ test("auth page uses google login button and handles success failure and return 
   assert.doesNotMatch(source, /인증 세션을 저장하고 있습니다/);
   assert.doesNotMatch(source, /Google 인증 토큰을 받지 못했습니다/);
   assert.doesNotMatch(source, /TEAM IoT 2026/);
+  assert.doesNotMatch(source, /ESC BACK/);
 });
 
 test("title screen keeps unauthenticated continue on title screen", () => {
