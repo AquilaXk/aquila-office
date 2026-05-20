@@ -1,9 +1,12 @@
 package com.aquilaoffice.adapter.in.web.slack;
 
 import com.aquilaoffice.domain.slack.SlackOAuthState;
+import com.aquilaoffice.global.config.properties.AuthTokenProperties;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.time.Clock;
+import java.time.Duration;
 import java.util.Objects;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -17,30 +20,73 @@ public class SlackInstallUrlBuilder {
 
     private static final URI DEFAULT_AUTHORIZE_URI = URI.create("https://slack.com/oauth/v2/authorize");
     private static final String DEFAULT_SCOPE = "app_mentions:read,channels:read,chat:write,incoming-webhook";
+    private static final Duration STATE_TTL = Duration.ofMinutes(10);
 
     private final String clientId;
     private final String redirectUri;
     private final String scopes;
     private final URI authorizeUri;
+    private final Clock clock;
+    private final String stateSecret;
+    private final Duration stateTtl;
 
     @Autowired
     public SlackInstallUrlBuilder(
             @Value("${aquila.slack.client-id:}") String clientId,
             @Value("${aquila.slack.redirect-uri:http://localhost:8080/api/v1/slack/oauth/callback}")
                     String redirectUri,
-            @Value("${aquila.slack.scopes:" + DEFAULT_SCOPE + "}") String scopes) {
-        this(clientId, redirectUri, DEFAULT_AUTHORIZE_URI, scopes);
+            @Value("${aquila.slack.scopes:" + DEFAULT_SCOPE + "}") String scopes,
+            AuthTokenProperties authTokenProperties,
+            Clock applicationClock) {
+        this(clientId, redirectUri, DEFAULT_AUTHORIZE_URI, scopes, applicationClock, authTokenProperties.secret(), STATE_TTL);
     }
 
     SlackInstallUrlBuilder(String clientId, String redirectUri, URI authorizeUri) {
-        this(clientId, redirectUri, authorizeUri, DEFAULT_SCOPE);
+        this(
+                clientId,
+                redirectUri,
+                authorizeUri,
+                Clock.systemUTC(),
+                "local-test-slack-state-secret-0123456789abcdef",
+                STATE_TTL);
+    }
+
+    SlackInstallUrlBuilder(
+            String clientId,
+            String redirectUri,
+            URI authorizeUri,
+            Clock clock,
+            String stateSecret,
+            Duration stateTtl) {
+        this(clientId, redirectUri, authorizeUri, DEFAULT_SCOPE, clock, stateSecret, stateTtl);
     }
 
     SlackInstallUrlBuilder(String clientId, String redirectUri, URI authorizeUri, String scopes) {
+        this(
+                clientId,
+                redirectUri,
+                authorizeUri,
+                scopes,
+                Clock.systemUTC(),
+                "local-test-slack-state-secret-0123456789abcdef",
+                STATE_TTL);
+    }
+
+    SlackInstallUrlBuilder(
+            String clientId,
+            String redirectUri,
+            URI authorizeUri,
+            String scopes,
+            Clock clock,
+            String stateSecret,
+            Duration stateTtl) {
         this.clientId = normalizeOptional(clientId);
         this.redirectUri = requireNotBlank(redirectUri, "redirectUri");
         this.scopes = requireNotBlank(scopes, "scopes");
         this.authorizeUri = Objects.requireNonNull(authorizeUri, "authorizeUri must not be null");
+        this.clock = Objects.requireNonNull(clock, "clock must not be null");
+        this.stateSecret = requireNotBlank(stateSecret, "stateSecret");
+        this.stateTtl = requirePositive(stateTtl, "stateTtl");
     }
 
     public String build(Long workspaceId, String requesterGoogleSub) {
@@ -49,7 +95,10 @@ public class SlackInstallUrlBuilder {
         }
         String state = SlackOAuthState.serialize(
                 requirePositive(workspaceId, "workspaceId"),
-                requireNotBlank(requesterGoogleSub, "requesterGoogleSub"));
+                requireNotBlank(requesterGoogleSub, "requesterGoogleSub"),
+                clock.instant(),
+                stateTtl,
+                stateSecret);
 
         return authorizeUri + "?"
                 + queryParameter("client_id", clientId)
@@ -68,6 +117,13 @@ public class SlackInstallUrlBuilder {
 
     private static Long requirePositive(Long value, String fieldName) {
         if (value == null || value <= 0) {
+            throw new IllegalArgumentException(fieldName + " must be positive");
+        }
+        return value;
+    }
+
+    private static Duration requirePositive(Duration value, String fieldName) {
+        if (value == null || value.isZero() || value.isNegative()) {
             throw new IllegalArgumentException(fieldName + " must be positive");
         }
         return value;

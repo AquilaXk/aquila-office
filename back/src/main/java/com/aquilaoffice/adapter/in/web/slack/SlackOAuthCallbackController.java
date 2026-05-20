@@ -6,8 +6,10 @@ import com.aquilaoffice.application.port.in.CompleteSlackOAuthCallbackUseCase;
 import com.aquilaoffice.global.exception.CommonErrorCode;
 import com.aquilaoffice.global.exception.ServiceException;
 import com.aquilaoffice.global.response.RsData;
+import com.aquilaoffice.global.security.AuthenticatedMember;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -35,17 +37,20 @@ public class SlackOAuthCallbackController {
     public ResponseEntity<RsData<SlackOAuthCallbackResponse>> completeSlackOAuthCallback(
             @RequestParam(name = "code", required = false) String code,
             @RequestParam(name = "state", required = false) String state,
-            @RequestParam(name = "error", required = false) String error) {
+            @RequestParam(name = "error", required = false) String error,
+            Authentication authentication) {
         rejectOAuthError(error);
         String normalizedCode = requireQueryParam(code);
         String normalizedState = requireQueryParam(state);
+        String requesterGoogleSub = requireAuthenticatedRequesterGoogleSub(authentication);
 
         try {
             CompleteSlackOAuthCallbackResult result = completeSlackOAuthCallbackUseCase.completeSlackOAuthCallback(
                     new CompleteSlackOAuthCallbackCommand(
                             normalizedCode,
                             normalizedState,
-                            redirectUri));
+                            redirectUri,
+                            requesterGoogleSub));
             return ResponseEntity.ok(RsData.ok(SlackOAuthCallbackResponse.from(result)));
         } catch (IllegalArgumentException | IllegalStateException exception) {
             throw new ServiceException(CommonErrorCode.BAD_REQUEST);
@@ -63,6 +68,14 @@ public class SlackOAuthCallbackController {
             throw new ServiceException(CommonErrorCode.BAD_REQUEST);
         }
         return value.trim();
+    }
+
+    private String requireAuthenticatedRequesterGoogleSub(Authentication authentication) {
+        if (authentication == null
+                || !(authentication.getPrincipal() instanceof AuthenticatedMember authenticatedMember)) {
+            throw new ServiceException(CommonErrorCode.UNAUTHORIZED);
+        }
+        return authenticatedMember.googleSub();
     }
 
     private String requireNotBlank(String value) {

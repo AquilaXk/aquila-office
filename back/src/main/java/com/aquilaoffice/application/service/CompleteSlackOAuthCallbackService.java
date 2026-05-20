@@ -15,6 +15,9 @@ import com.aquilaoffice.domain.member.Member;
 import com.aquilaoffice.domain.slack.SlackChannelMapping;
 import com.aquilaoffice.domain.slack.SlackOAuthState;
 import com.aquilaoffice.domain.workspace.WorkspaceMemberRole;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.Objects;
 
 /**
@@ -27,13 +30,17 @@ public class CompleteSlackOAuthCallbackService implements CompleteSlackOAuthCall
     private final LoadSlackChannelMappingPort loadSlackChannelMappingPort;
     private final SaveSlackChannelMappingPort saveSlackChannelMappingPort;
     private final ExchangeSlackOAuthCodePort exchangeSlackOAuthCodePort;
+    private final String stateSecret;
+    private final Clock clock;
 
     public CompleteSlackOAuthCallbackService(
             LoadMemberPort loadMemberPort,
             LoadWorkspacePort loadWorkspacePort,
             LoadSlackChannelMappingPort loadSlackChannelMappingPort,
             SaveSlackChannelMappingPort saveSlackChannelMappingPort,
-            ExchangeSlackOAuthCodePort exchangeSlackOAuthCodePort) {
+            ExchangeSlackOAuthCodePort exchangeSlackOAuthCodePort,
+            String stateSecret,
+            Clock clock) {
         this.loadMemberPort = Objects.requireNonNull(loadMemberPort, "loadMemberPort must not be null");
         this.loadWorkspacePort = Objects.requireNonNull(loadWorkspacePort, "loadWorkspacePort must not be null");
         this.loadSlackChannelMappingPort =
@@ -42,12 +49,35 @@ public class CompleteSlackOAuthCallbackService implements CompleteSlackOAuthCall
                 Objects.requireNonNull(saveSlackChannelMappingPort, "saveSlackChannelMappingPort must not be null");
         this.exchangeSlackOAuthCodePort =
                 Objects.requireNonNull(exchangeSlackOAuthCodePort, "exchangeSlackOAuthCodePort must not be null");
+        this.stateSecret = requireNotBlank(stateSecret, "stateSecret");
+        this.clock = Objects.requireNonNull(clock, "clock must not be null");
+    }
+
+    public CompleteSlackOAuthCallbackService(
+            LoadMemberPort loadMemberPort,
+            LoadWorkspacePort loadWorkspacePort,
+            LoadSlackChannelMappingPort loadSlackChannelMappingPort,
+            SaveSlackChannelMappingPort saveSlackChannelMappingPort,
+            ExchangeSlackOAuthCodePort exchangeSlackOAuthCodePort,
+            String stateSecret,
+            Instant now) {
+        this(
+                loadMemberPort,
+                loadWorkspacePort,
+                loadSlackChannelMappingPort,
+                saveSlackChannelMappingPort,
+                exchangeSlackOAuthCodePort,
+                stateSecret,
+                Clock.fixed(Objects.requireNonNull(now, "now must not be null"), ZoneOffset.UTC));
     }
 
     @Override
     public CompleteSlackOAuthCallbackResult completeSlackOAuthCallback(CompleteSlackOAuthCallbackCommand command) {
         Objects.requireNonNull(command, "command must not be null");
-        SlackOAuthState state = SlackOAuthState.parse(command.state());
+        SlackOAuthState state = SlackOAuthState.parse(command.state(), stateSecret, clock.instant());
+        if (!state.requesterGoogleSub().equals(command.requesterGoogleSub())) {
+            throw new IllegalArgumentException("slack oauth state requester mismatch");
+        }
         Member requester = loadRequester(state.requesterGoogleSub());
         GetWorkspaceDetailResult workspaceDetail = loadWorkspaceDetail(
                 state.workspaceId(),
@@ -66,6 +96,13 @@ public class CompleteSlackOAuthCallbackService implements CompleteSlackOAuthCall
                 exchangeResult.botToken(),
                 requester.getGoogleSub());
         return toResult(saveSlackChannelMappingPort.save(mapping));
+    }
+
+    private String requireNotBlank(String value, String fieldName) {
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException(fieldName + " must not be blank");
+        }
+        return value.trim();
     }
 
     private Member loadRequester(String googleSub) {
