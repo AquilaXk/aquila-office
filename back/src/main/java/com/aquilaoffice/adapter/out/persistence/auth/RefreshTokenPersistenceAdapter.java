@@ -26,15 +26,16 @@ public class RefreshTokenPersistenceAdapter implements SaveRefreshTokenPort, Rot
             String refreshSessionId,
             String refreshToken,
             Instant refreshTokenExpiresAt) {
+        String refreshTokenHash = RefreshTokenHash.hash(refreshToken);
         RefreshTokenJpaEntity entity = refreshTokenJpaRepository.findByMemberIdAndSessionId(memberId, refreshSessionId)
                 .map(existing -> {
-                    existing.rotate(refreshToken, refreshTokenExpiresAt);
+                    existing.rotate(refreshTokenHash, refreshTokenExpiresAt);
                     return existing;
                 })
                 .orElseGet(() -> RefreshTokenJpaEntity.issue(
                         memberId,
                         refreshSessionId,
-                        refreshToken,
+                        refreshTokenHash,
                         refreshTokenExpiresAt));
         refreshTokenJpaRepository.save(entity);
     }
@@ -48,11 +49,13 @@ public class RefreshTokenPersistenceAdapter implements SaveRefreshTokenPort, Rot
             String newRefreshToken,
             Instant newRefreshTokenExpiresAt,
             Instant now) {
+        String currentRefreshTokenRaw = RefreshTokenHash.normalizeRaw(currentRefreshToken);
         return refreshTokenJpaRepository.rotateIfMatch(
                 memberId,
                 refreshSessionId,
-                currentRefreshToken,
-                newRefreshToken,
+                RefreshTokenHash.hash(currentRefreshTokenRaw),
+                currentRefreshTokenRaw,
+                RefreshTokenHash.hash(newRefreshToken),
                 newRefreshTokenExpiresAt,
                 now) == 1;
     }
@@ -60,6 +63,11 @@ public class RefreshTokenPersistenceAdapter implements SaveRefreshTokenPort, Rot
     @Override
     @Transactional
     public boolean deleteIfMatch(Long memberId, String refreshSessionId, String refreshToken) {
-        return refreshTokenJpaRepository.deleteIfMatch(memberId, refreshSessionId, refreshToken) == 1;
+        String refreshTokenRaw = RefreshTokenHash.normalizeRaw(refreshToken);
+        return refreshTokenJpaRepository.deleteIfMatch(
+                memberId,
+                refreshSessionId,
+                RefreshTokenHash.hash(refreshTokenRaw),
+                refreshTokenRaw) == 1;
     }
 }

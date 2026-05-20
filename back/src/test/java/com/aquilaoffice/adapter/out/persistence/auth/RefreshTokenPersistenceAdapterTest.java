@@ -45,11 +45,27 @@ class RefreshTokenPersistenceAdapterTest {
                 .orElseThrow();
         RefreshTokenJpaEntity sessionB = refreshTokenJpaRepository.findByMemberIdAndSessionId(1L, "session-b")
                 .orElseThrow();
-        assertThat(sessionA.getToken()).isEqualTo("new-refresh-a");
+        assertThat(sessionA.getToken())
+                .startsWith("sha256:")
+                .isNotEqualTo("new-refresh-a");
         assertThat(sessionA.getExpiresAt()).isEqualTo(NEW_EXPIRES_AT);
-        assertThat(sessionB.getToken()).isEqualTo("old-refresh-b");
+        assertThat(sessionB.getToken())
+                .startsWith("sha256:")
+                .isNotEqualTo("old-refresh-b");
         assertThat(sessionB.getExpiresAt()).isEqualTo(OLD_EXPIRES_AT);
         assertThat(refreshTokenJpaRepository.findAll()).hasSize(2);
+    }
+
+    @Test
+    void saveOrRotateDoesNotStoreRawRefreshToken() {
+        saveRefreshTokenPort.saveOrRotate(9L, "session-a", " raw-refresh-token ", OLD_EXPIRES_AT);
+
+        RefreshTokenJpaEntity saved = refreshTokenJpaRepository.findByMemberIdAndSessionId(9L, "session-a")
+                .orElseThrow();
+
+        assertThat(saved.getToken())
+                .startsWith("sha256:")
+                .isNotEqualTo("raw-refresh-token");
     }
 
     @Test
@@ -70,9 +86,13 @@ class RefreshTokenPersistenceAdapterTest {
                 .orElseThrow();
         RefreshTokenJpaEntity sessionB = refreshTokenJpaRepository.findByMemberIdAndSessionId(2L, "session-b")
                 .orElseThrow();
-        assertThat(sessionA.getToken()).isEqualTo("new-refresh");
+        assertThat(sessionA.getToken())
+                .startsWith("sha256:")
+                .isNotEqualTo("new-refresh");
         assertThat(sessionA.getExpiresAt()).isEqualTo(NEW_EXPIRES_AT);
-        assertThat(sessionB.getToken()).isEqualTo("other-refresh");
+        assertThat(sessionB.getToken())
+                .startsWith("sha256:")
+                .isNotEqualTo("other-refresh");
         assertThat(sessionB.getExpiresAt()).isEqualTo(OLD_EXPIRES_AT);
     }
 
@@ -91,7 +111,9 @@ class RefreshTokenPersistenceAdapterTest {
         assertThat(rotated).isFalse();
         RefreshTokenJpaEntity saved = refreshTokenJpaRepository.findByMemberIdAndSessionId(3L, "session-a")
                 .orElseThrow();
-        assertThat(saved.getToken()).isEqualTo("expired-refresh");
+        assertThat(saved.getToken())
+                .startsWith("sha256:")
+                .isNotEqualTo("expired-refresh");
         assertThat(saved.getExpiresAt()).isEqualTo(NOW.minusSeconds(1));
     }
 
@@ -105,5 +127,44 @@ class RefreshTokenPersistenceAdapterTest {
         assertThat(deleted).isTrue();
         assertThat(refreshTokenJpaRepository.findByMemberIdAndSessionId(4L, "session-a")).isEmpty();
         assertThat(refreshTokenJpaRepository.findByMemberIdAndSessionId(4L, "session-b")).isPresent();
+    }
+
+    @Test
+    void rotateIfMatchMigratesLegacyPlaintextRefreshToken() {
+        refreshTokenJpaRepository.save(RefreshTokenJpaEntity.issue(
+                5L,
+                "session-a",
+                "legacy-refresh",
+                OLD_EXPIRES_AT));
+
+        boolean rotated = rotateRefreshTokenPort.rotateIfMatch(
+                5L,
+                "session-a",
+                "legacy-refresh",
+                "new-refresh",
+                NEW_EXPIRES_AT,
+                NOW);
+
+        assertThat(rotated).isTrue();
+        RefreshTokenJpaEntity saved = refreshTokenJpaRepository.findByMemberIdAndSessionId(5L, "session-a")
+                .orElseThrow();
+        assertThat(saved.getToken())
+                .startsWith("sha256:")
+                .isNotEqualTo("new-refresh");
+        assertThat(saved.getExpiresAt()).isEqualTo(NEW_EXPIRES_AT);
+    }
+
+    @Test
+    void deleteIfMatchSupportsLegacyPlaintextRefreshToken() {
+        refreshTokenJpaRepository.save(RefreshTokenJpaEntity.issue(
+                6L,
+                "session-a",
+                "legacy-refresh",
+                OLD_EXPIRES_AT));
+
+        boolean deleted = deleteRefreshTokenPort.deleteIfMatch(6L, "session-a", "legacy-refresh");
+
+        assertThat(deleted).isTrue();
+        assertThat(refreshTokenJpaRepository.findByMemberIdAndSessionId(6L, "session-a")).isEmpty();
     }
 }

@@ -8,7 +8,7 @@ import jakarta.persistence.UniqueConstraint;
 import java.time.Instant;
 
 /**
- * 회원별 refresh token 값을 로그인 세션 단위로 저장하는 JPA entity다.
+ * 회원별 refresh token digest를 로그인 세션 단위로 저장하는 JPA entity다.
  */
 @Entity
 @Table(
