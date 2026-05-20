@@ -24,6 +24,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -69,7 +70,24 @@ class SecurityConfigTest {
         mockMvc.perform(get("/api/private")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken))
                 .andExpect(status().isNoContent())
-                .andExpect(header().string("X-Test-Google-Sub", "google-1"));
+                .andExpect(header().string("X-Test-Google-Sub", "google-1"))
+                .andExpect(header().string("X-Test-Role", "USER"))
+                .andExpect(header().string("X-Test-Authority", "ROLE_USER"));
+    }
+
+    @Test
+    void bearerAccessTokenUsesCurrentMemberRoleForAuthorities() throws Exception {
+        SavedGoogleLoginMember member = saveGoogleLoginMemberPort.saveOrUpdate(
+                "google-role", "role-current@example.com", "Role Current", MemberRole.USER);
+        String staleAdminAccessToken = issueAuthTokenPort
+                .issue(member.memberId(), member.email(), MemberRole.ADMIN)
+                .accessToken();
+
+        mockMvc.perform(get("/api/private")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + staleAdminAccessToken))
+                .andExpect(status().isNoContent())
+                .andExpect(header().string("X-Test-Role", "USER"))
+                .andExpect(header().string("X-Test-Authority", "ROLE_USER"));
     }
 
     @Test
@@ -135,9 +153,13 @@ class SecurityConfigTest {
     static class ProtectedEndpointController {
 
         @GetMapping("/api/private")
-        ResponseEntity<Void> privateEndpoint(@AuthenticationPrincipal AuthenticatedMember authenticatedMember) {
+        ResponseEntity<Void> privateEndpoint(
+                @AuthenticationPrincipal AuthenticatedMember authenticatedMember,
+                Authentication authentication) {
             return ResponseEntity.noContent()
                     .header("X-Test-Google-Sub", authenticatedMember.googleSub())
+                    .header("X-Test-Role", authenticatedMember.role().name())
+                    .header("X-Test-Authority", authentication.getAuthorities().iterator().next().getAuthority())
                     .build();
         }
     }

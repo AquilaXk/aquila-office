@@ -7,13 +7,16 @@ import com.aquilaoffice.application.port.in.RefreshAuthTokenCommand;
 import com.aquilaoffice.application.port.in.RefreshAuthTokenResult;
 import com.aquilaoffice.application.port.out.IssueAuthTokenPort;
 import com.aquilaoffice.application.port.out.IssuedAuthTokens;
+import com.aquilaoffice.application.port.out.LoadMemberPort;
 import com.aquilaoffice.application.port.out.ResolveRefreshTokenPort;
 import com.aquilaoffice.application.port.out.ResolvedRefreshToken;
 import com.aquilaoffice.application.port.out.RotateRefreshTokenPort;
+import com.aquilaoffice.domain.member.Member;
 import com.aquilaoffice.domain.member.MemberRole;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -33,6 +36,7 @@ class RefreshAuthTokenServiceTest {
         FakeRotateRefreshTokenPort rotateRefreshTokenPort = new FakeRotateRefreshTokenPort(true);
         RefreshAuthTokenService service = new RefreshAuthTokenService(
                 resolveRefreshTokenPort,
+                new FakeLoadMemberPort(Member.createUser("google-7", "user@example.com", "User")),
                 issueAuthTokenPort,
                 rotateRefreshTokenPort,
                 CLOCK);
@@ -41,6 +45,8 @@ class RefreshAuthTokenServiceTest {
 
         assertThat(resolveRefreshTokenPort.resolvedToken).isEqualTo("old-refresh");
         assertThat(issueAuthTokenPort.issued.refreshSessionId()).isEqualTo("session-a");
+        assertThat(issueAuthTokenPort.issued.email()).isEqualTo("user@example.com");
+        assertThat(issueAuthTokenPort.issued.role()).isEqualTo(MemberRole.USER);
         assertThat(rotateRefreshTokenPort.rotated.memberId()).isEqualTo(7L);
         assertThat(rotateRefreshTokenPort.rotated.refreshSessionId()).isEqualTo("session-a");
         assertThat(rotateRefreshTokenPort.rotated.currentRefreshToken()).isEqualTo("old-refresh");
@@ -52,10 +58,31 @@ class RefreshAuthTokenServiceTest {
     }
 
     @Test
+    void refreshIssuesTokensWithCurrentMemberRoleWhenStoredRoleChanged() {
+        FakeResolveRefreshTokenPort resolveRefreshTokenPort = new FakeResolveRefreshTokenPort(
+                new ResolvedRefreshToken(9L, "role-changed@example.com", MemberRole.ADMIN, "session-role"));
+        FakeIssueAuthTokenPort issueAuthTokenPort = new FakeIssueAuthTokenPort();
+        RefreshAuthTokenService service = new RefreshAuthTokenService(
+                resolveRefreshTokenPort,
+                new FakeLoadMemberPort(Member.createUser("google-9", "role-changed@example.com", "Role Changed")),
+                issueAuthTokenPort,
+                new FakeRotateRefreshTokenPort(true),
+                CLOCK);
+
+        RefreshAuthTokenResult result = service.refresh(new RefreshAuthTokenCommand("role-changed-refresh"));
+
+        assertThat(issueAuthTokenPort.issued.email()).isEqualTo("role-changed@example.com");
+        assertThat(issueAuthTokenPort.issued.role()).isEqualTo(MemberRole.USER);
+        assertThat(result.accessToken()).isEqualTo("access-9-USER");
+        assertThat(result.refreshToken()).isEqualTo("refresh-9-USER");
+    }
+
+    @Test
     void refreshRejectsWhenStoredRefreshTokenDoesNotMatch() {
         RefreshAuthTokenService service = new RefreshAuthTokenService(
                 new FakeResolveRefreshTokenPort(
                         new ResolvedRefreshToken(8L, "user@example.com", MemberRole.USER, "session-b")),
+                new FakeLoadMemberPort(Member.createUser("google-8", "user@example.com", "User")),
                 new FakeIssueAuthTokenPort(),
                 new FakeRotateRefreshTokenPort(false),
                 CLOCK);
@@ -80,7 +107,28 @@ class RefreshAuthTokenServiceTest {
             Instant newRefreshTokenExpiresAt,
             Instant now) {}
 
-    private record IssuedRefreshToken(Long memberId, String refreshSessionId) {}
+    private record IssuedRefreshToken(Long memberId, String email, MemberRole role, String refreshSessionId) {}
+
+    private static class FakeLoadMemberPort implements LoadMemberPort {
+        private final Member member;
+
+        private FakeLoadMemberPort(Member member) {
+            this.member = member;
+        }
+
+        @Override
+        public Optional<Member> findByGoogleSub(String googleSub) {
+            return Optional.empty();
+        }
+
+        @Override
+        public Optional<Member> findByEmail(String email) {
+            if (member.getEmail().equals(email.trim())) {
+                return Optional.of(member);
+            }
+            return Optional.empty();
+        }
+    }
 
     private static class FakeResolveRefreshTokenPort implements ResolveRefreshTokenPort {
         private final ResolvedRefreshToken resolvedRefreshToken;
@@ -107,7 +155,7 @@ class RefreshAuthTokenServiceTest {
 
         @Override
         public IssuedAuthTokens issue(Long memberId, String email, MemberRole role, String refreshSessionId) {
-            this.issued = new IssuedRefreshToken(memberId, refreshSessionId);
+            this.issued = new IssuedRefreshToken(memberId, email, role, refreshSessionId);
             return new IssuedAuthTokens(
                     "access-" + memberId + "-" + role.name(),
                     "refresh-" + memberId + "-" + role.name(),

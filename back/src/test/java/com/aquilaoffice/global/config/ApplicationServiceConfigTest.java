@@ -610,6 +610,8 @@ class ApplicationServiceConfigTest {
         assertThat(refreshAuthTokenUseCase).isInstanceOf(RefreshAuthTokenService.class);
         assertThat(ReflectionTestUtils.getField(refreshAuthTokenUseCase, "resolveRefreshTokenPort"))
                 .isSameAs(resolveRefreshTokenPort);
+        assertThat(ReflectionTestUtils.getField(refreshAuthTokenUseCase, "loadMemberPort"))
+                .isSameAs(loadMemberPort);
         assertThat(ReflectionTestUtils.getField(refreshAuthTokenUseCase, "issueAuthTokenPort"))
                 .isSameAs(issueAuthTokenPort);
         assertThat(ReflectionTestUtils.getField(refreshAuthTokenUseCase, "rotateRefreshTokenPort"))
