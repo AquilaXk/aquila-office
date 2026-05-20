@@ -76,7 +76,7 @@ public class AccessTokenAuthenticationFilter extends OncePerRequestFilter {
             UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
                     authenticatedMember,
                     null,
-                    List.of(new SimpleGrantedAuthority("ROLE_" + resolvedAccessToken.role().name())));
+                    List.of(new SimpleGrantedAuthority("ROLE_" + member.getRole().name())));
 
             SecurityContextHolder.getContext().setAuthentication(authentication);
             filterChain.doFilter(request, response);

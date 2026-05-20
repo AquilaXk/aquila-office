@@ -5,9 +5,11 @@ import com.aquilaoffice.application.port.in.RefreshAuthTokenResult;
 import com.aquilaoffice.application.port.in.RefreshAuthTokenUseCase;
 import com.aquilaoffice.application.port.out.IssueAuthTokenPort;
 import com.aquilaoffice.application.port.out.IssuedAuthTokens;
+import com.aquilaoffice.application.port.out.LoadMemberPort;
 import com.aquilaoffice.application.port.out.ResolveRefreshTokenPort;
 import com.aquilaoffice.application.port.out.ResolvedRefreshToken;
 import com.aquilaoffice.application.port.out.RotateRefreshTokenPort;
+import com.aquilaoffice.domain.member.Member;
 import java.time.Clock;
 import java.util.Objects;
 
@@ -17,17 +19,20 @@ import java.util.Objects;
 public class RefreshAuthTokenService implements RefreshAuthTokenUseCase {
 
     private final ResolveRefreshTokenPort resolveRefreshTokenPort;
+    private final LoadMemberPort loadMemberPort;
     private final IssueAuthTokenPort issueAuthTokenPort;
     private final RotateRefreshTokenPort rotateRefreshTokenPort;
     private final Clock clock;
 
     public RefreshAuthTokenService(
             ResolveRefreshTokenPort resolveRefreshTokenPort,
+            LoadMemberPort loadMemberPort,
             IssueAuthTokenPort issueAuthTokenPort,
             RotateRefreshTokenPort rotateRefreshTokenPort,
             Clock clock) {
         this.resolveRefreshTokenPort =
                 Objects.requireNonNull(resolveRefreshTokenPort, "resolveRefreshTokenPort must not be null");
+        this.loadMemberPort = Objects.requireNonNull(loadMemberPort, "loadMemberPort must not be null");
         this.issueAuthTokenPort = Objects.requireNonNull(issueAuthTokenPort, "issueAuthTokenPort must not be null");
         this.rotateRefreshTokenPort =
                 Objects.requireNonNull(rotateRefreshTokenPort, "rotateRefreshTokenPort must not be null");
@@ -38,10 +43,12 @@ public class RefreshAuthTokenService implements RefreshAuthTokenUseCase {
     public RefreshAuthTokenResult refresh(RefreshAuthTokenCommand command) {
         Objects.requireNonNull(command, "command must not be null");
         ResolvedRefreshToken resolvedRefreshToken = resolveRefreshTokenPort.resolve(command.refreshToken());
+        Member currentMember = loadMemberPort.findByEmail(resolvedRefreshToken.email())
+                .orElseThrow(() -> new IllegalArgumentException("refreshToken is invalid"));
         IssuedAuthTokens issuedAuthTokens = issueAuthTokenPort.issue(
                 resolvedRefreshToken.memberId(),
-                resolvedRefreshToken.email(),
-                resolvedRefreshToken.role(),
+                currentMember.getEmail(),
+                currentMember.getRole(),
                 resolvedRefreshToken.refreshSessionId());
 
         boolean rotated = rotateRefreshTokenPort.rotateIfMatch(
