@@ -18,7 +18,7 @@ class LogoutAuthServiceTest {
     @Test
     void logoutDeletesStoredRefreshTokenWhenTokenMatches() {
         FakeResolveRefreshTokenPort resolveRefreshTokenPort = new FakeResolveRefreshTokenPort(
-                new ResolvedRefreshToken(9L, "user@example.com", MemberRole.USER));
+                new ResolvedRefreshToken(9L, "user@example.com", MemberRole.USER, "session-a"));
         FakeDeleteRefreshTokenPort deleteRefreshTokenPort = new FakeDeleteRefreshTokenPort(true);
         LogoutAuthService service = new LogoutAuthService(resolveRefreshTokenPort, deleteRefreshTokenPort);
 
@@ -26,13 +26,15 @@ class LogoutAuthServiceTest {
 
         assertThat(resolveRefreshTokenPort.resolvedToken).isEqualTo("old-refresh");
         assertThat(deleteRefreshTokenPort.deleted.memberId()).isEqualTo(9L);
+        assertThat(deleteRefreshTokenPort.deleted.refreshSessionId()).isEqualTo("session-a");
         assertThat(deleteRefreshTokenPort.deleted.refreshToken()).isEqualTo("old-refresh");
     }
 
     @Test
     void logoutRejectsWhenStoredRefreshTokenDoesNotMatch() {
         LogoutAuthService service = new LogoutAuthService(
-                new FakeResolveRefreshTokenPort(new ResolvedRefreshToken(10L, "user@example.com", MemberRole.USER)),
+                new FakeResolveRefreshTokenPort(
+                        new ResolvedRefreshToken(10L, "user@example.com", MemberRole.USER, "session-b")),
                 new FakeDeleteRefreshTokenPort(false));
 
         assertThatThrownBy(() -> service.logout(new LogoutAuthCommand("old-refresh")))
@@ -47,7 +49,7 @@ class LogoutAuthServiceTest {
                 .hasMessage("refreshToken must not be blank");
     }
 
-    private record DeletedRefreshToken(Long memberId, String refreshToken) {}
+    private record DeletedRefreshToken(Long memberId, String refreshSessionId, String refreshToken) {}
 
     private static class FakeResolveRefreshTokenPort implements ResolveRefreshTokenPort {
         private final ResolvedRefreshToken resolvedRefreshToken;
@@ -73,8 +75,8 @@ class LogoutAuthServiceTest {
         }
 
         @Override
-        public boolean deleteIfMatch(Long memberId, String refreshToken) {
-            this.deleted = new DeletedRefreshToken(memberId, refreshToken);
+        public boolean deleteIfMatch(Long memberId, String refreshSessionId, String refreshToken) {
+            this.deleted = new DeletedRefreshToken(memberId, refreshSessionId, refreshToken);
             return result;
         }
     }

@@ -30,6 +30,7 @@ public class LogoutAuthService implements LogoutAuthUseCase {
         ResolvedRefreshToken resolvedRefreshToken = resolveRefreshTokenPort.resolve(command.refreshToken());
         boolean deleted = deleteRefreshTokenPort.deleteIfMatch(
                 resolvedRefreshToken.memberId(),
+                resolvedRefreshToken.refreshSessionId(),
                 command.refreshToken());
         if (!deleted) {
             throw new IllegalArgumentException("refreshToken is invalid");

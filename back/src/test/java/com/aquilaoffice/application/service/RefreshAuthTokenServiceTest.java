@@ -28,18 +28,21 @@ class RefreshAuthTokenServiceTest {
     @Test
     void refreshRotatesStoredRefreshTokenAndReturnsNewTokens() {
         FakeResolveRefreshTokenPort resolveRefreshTokenPort = new FakeResolveRefreshTokenPort(
-                new ResolvedRefreshToken(7L, "user@example.com", MemberRole.USER));
+                new ResolvedRefreshToken(7L, "user@example.com", MemberRole.USER, "session-a"));
+        FakeIssueAuthTokenPort issueAuthTokenPort = new FakeIssueAuthTokenPort();
         FakeRotateRefreshTokenPort rotateRefreshTokenPort = new FakeRotateRefreshTokenPort(true);
         RefreshAuthTokenService service = new RefreshAuthTokenService(
                 resolveRefreshTokenPort,
-                new FakeIssueAuthTokenPort(),
+                issueAuthTokenPort,
                 rotateRefreshTokenPort,
                 CLOCK);
 
         RefreshAuthTokenResult result = service.refresh(new RefreshAuthTokenCommand(" old-refresh "));
 
         assertThat(resolveRefreshTokenPort.resolvedToken).isEqualTo("old-refresh");
+        assertThat(issueAuthTokenPort.issued.refreshSessionId()).isEqualTo("session-a");
         assertThat(rotateRefreshTokenPort.rotated.memberId()).isEqualTo(7L);
+        assertThat(rotateRefreshTokenPort.rotated.refreshSessionId()).isEqualTo("session-a");
         assertThat(rotateRefreshTokenPort.rotated.currentRefreshToken()).isEqualTo("old-refresh");
         assertThat(rotateRefreshTokenPort.rotated.newRefreshToken()).isEqualTo("refresh-7-USER");
         assertThat(rotateRefreshTokenPort.rotated.newRefreshTokenExpiresAt()).isEqualTo(REFRESH_EXPIRES_AT);
@@ -51,7 +54,8 @@ class RefreshAuthTokenServiceTest {
     @Test
     void refreshRejectsWhenStoredRefreshTokenDoesNotMatch() {
         RefreshAuthTokenService service = new RefreshAuthTokenService(
-                new FakeResolveRefreshTokenPort(new ResolvedRefreshToken(8L, "user@example.com", MemberRole.USER)),
+                new FakeResolveRefreshTokenPort(
+                        new ResolvedRefreshToken(8L, "user@example.com", MemberRole.USER, "session-b")),
                 new FakeIssueAuthTokenPort(),
                 new FakeRotateRefreshTokenPort(false),
                 CLOCK);
@@ -70,10 +74,13 @@ class RefreshAuthTokenServiceTest {
 
     private record RotatedRefreshToken(
             Long memberId,
+            String refreshSessionId,
             String currentRefreshToken,
             String newRefreshToken,
             Instant newRefreshTokenExpiresAt,
             Instant now) {}
+
+    private record IssuedRefreshToken(Long memberId, String refreshSessionId) {}
 
     private static class FakeResolveRefreshTokenPort implements ResolveRefreshTokenPort {
         private final ResolvedRefreshToken resolvedRefreshToken;
@@ -91,14 +98,22 @@ class RefreshAuthTokenServiceTest {
     }
 
     private static class FakeIssueAuthTokenPort implements IssueAuthTokenPort {
+        private IssuedRefreshToken issued;
 
         @Override
         public IssuedAuthTokens issue(Long memberId, String email, MemberRole role) {
+            return issue(memberId, email, role, "generated-session");
+        }
+
+        @Override
+        public IssuedAuthTokens issue(Long memberId, String email, MemberRole role, String refreshSessionId) {
+            this.issued = new IssuedRefreshToken(memberId, refreshSessionId);
             return new IssuedAuthTokens(
                     "access-" + memberId + "-" + role.name(),
                     "refresh-" + memberId + "-" + role.name(),
                     Instant.parse("2026-05-18T00:15:00Z"),
-                    REFRESH_EXPIRES_AT);
+                    REFRESH_EXPIRES_AT,
+                    refreshSessionId);
         }
     }
 
@@ -113,12 +128,14 @@ class RefreshAuthTokenServiceTest {
         @Override
         public boolean rotateIfMatch(
                 Long memberId,
+                String refreshSessionId,
                 String currentRefreshToken,
                 String newRefreshToken,
                 Instant newRefreshTokenExpiresAt,
                 Instant now) {
             this.rotated = new RotatedRefreshToken(
                     memberId,
+                    refreshSessionId,
                     currentRefreshToken,
                     newRefreshToken,
                     newRefreshTokenExpiresAt,

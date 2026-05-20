@@ -36,6 +36,7 @@ public class JwtAuthTokenIssuer implements IssueAuthTokenPort, ResolveRefreshTok
     private static final String EMAIL_CLAIM = "email";
     private static final String ROLE_CLAIM = "role";
     private static final String TOKEN_TYPE_CLAIM = "token_type";
+    private static final String REFRESH_SESSION_ID_CLAIM = "refresh_session_id";
 
     private final Clock clock;
     private final AuthTokenProperties properties;
@@ -49,6 +50,11 @@ public class JwtAuthTokenIssuer implements IssueAuthTokenPort, ResolveRefreshTok
 
     @Override
     public IssuedAuthTokens issue(Long memberId, String email, MemberRole role) {
+        return issue(memberId, email, role, UUID.randomUUID().toString());
+    }
+
+    @Override
+    public IssuedAuthTokens issue(Long memberId, String email, MemberRole role, String refreshSessionId) {
         if (memberId == null || memberId <= 0) {
             throw new IllegalArgumentException("memberId must be positive");
         }
@@ -56,15 +62,24 @@ public class JwtAuthTokenIssuer implements IssueAuthTokenPort, ResolveRefreshTok
         if (role == null) {
             throw new IllegalArgumentException("role must not be null");
         }
+        String normalizedRefreshSessionId = requireNotBlank(refreshSessionId, "refreshSessionId");
 
         Instant issuedAt = clock.instant();
         Instant accessTokenExpiresAt = issuedAt.plus(properties.accessTokenTtl());
         Instant refreshTokenExpiresAt = issuedAt.plus(properties.refreshTokenTtl());
         return new IssuedAuthTokens(
-                sign(memberId, normalizedEmail, role, ACCESS_TOKEN_TYPE, issuedAt, accessTokenExpiresAt),
-                sign(memberId, normalizedEmail, role, REFRESH_TOKEN_TYPE, issuedAt, refreshTokenExpiresAt),
+                sign(memberId, normalizedEmail, role, ACCESS_TOKEN_TYPE, issuedAt, accessTokenExpiresAt, null),
+                sign(
+                        memberId,
+                        normalizedEmail,
+                        role,
+                        REFRESH_TOKEN_TYPE,
+                        issuedAt,
+                        refreshTokenExpiresAt,
+                        normalizedRefreshSessionId),
                 accessTokenExpiresAt,
-                refreshTokenExpiresAt);
+                refreshTokenExpiresAt,
+                normalizedRefreshSessionId);
     }
 
     @Override
@@ -73,7 +88,8 @@ public class JwtAuthTokenIssuer implements IssueAuthTokenPort, ResolveRefreshTok
         return new ResolvedRefreshToken(
                 parseMemberId(claims, "refreshToken"),
                 parseStringClaim(claims, EMAIL_CLAIM, "refreshToken"),
-                parseRole(claims, "refreshToken"));
+                parseRole(claims, "refreshToken"),
+                parseStringClaim(claims, REFRESH_SESSION_ID_CLAIM, "refreshToken"));
     }
 
     @Override
@@ -91,8 +107,9 @@ public class JwtAuthTokenIssuer implements IssueAuthTokenPort, ResolveRefreshTok
             MemberRole role,
             String tokenType,
             Instant issuedAt,
-            Instant expiresAt) {
-        JWTClaimsSet claims = new JWTClaimsSet.Builder()
+            Instant expiresAt,
+            String refreshSessionId) {
+        JWTClaimsSet.Builder claimsBuilder = new JWTClaimsSet.Builder()
                 .issuer(properties.issuer())
                 .subject(String.valueOf(memberId))
                 .claim(EMAIL_CLAIM, email)
@@ -100,8 +117,11 @@ public class JwtAuthTokenIssuer implements IssueAuthTokenPort, ResolveRefreshTok
                 .claim(TOKEN_TYPE_CLAIM, tokenType)
                 .issueTime(Date.from(issuedAt))
                 .expirationTime(Date.from(expiresAt))
-                .jwtID(UUID.randomUUID().toString())
-                .build();
+                .jwtID(UUID.randomUUID().toString());
+        if (refreshSessionId != null) {
+            claimsBuilder.claim(REFRESH_SESSION_ID_CLAIM, refreshSessionId);
+        }
+        JWTClaimsSet claims = claimsBuilder.build();
         SignedJWT signedJwt = new SignedJWT(
                 new JWSHeader.Builder(JWSAlgorithm.HS256).type(JOSEObjectType.JWT).build(),
                 claims);

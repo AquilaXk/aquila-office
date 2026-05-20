@@ -5,7 +5,7 @@ import com.aquilaoffice.domain.member.MemberRole;
 /**
  * 검증된 refresh token payload다.
  */
-public record ResolvedRefreshToken(Long memberId, String email, MemberRole role) {
+public record ResolvedRefreshToken(Long memberId, String email, MemberRole role, String refreshSessionId) {
 
     public ResolvedRefreshToken {
         memberId = requirePositive(memberId, "memberId");
@@ -13,6 +13,7 @@ public record ResolvedRefreshToken(Long memberId, String email, MemberRole role)
         if (role == null) {
             throw new IllegalArgumentException("role must not be null");
         }
+        refreshSessionId = requireNotBlank(refreshSessionId, "refreshSessionId");
     }
 
     private static Long requirePositive(Long value, String fieldName) {

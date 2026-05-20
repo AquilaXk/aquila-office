@@ -9,13 +9,15 @@ public record IssuedAuthTokens(
         String accessToken,
         String refreshToken,
         Instant accessTokenExpiresAt,
-        Instant refreshTokenExpiresAt) {
+        Instant refreshTokenExpiresAt,
+        String refreshSessionId) {
 
     public IssuedAuthTokens {
         accessToken = requireNotBlank(accessToken, "accessToken");
         refreshToken = requireNotBlank(refreshToken, "refreshToken");
         accessTokenExpiresAt = requireNotNull(accessTokenExpiresAt, "accessTokenExpiresAt");
         refreshTokenExpiresAt = requireNotNull(refreshTokenExpiresAt, "refreshTokenExpiresAt");
+        refreshSessionId = requireNotBlank(refreshSessionId, "refreshSessionId");
     }
 
     private static String requireNotBlank(String value, String fieldName) {
