@@ -19,12 +19,17 @@ import com.aquilaoffice.domain.member.Member;
 import com.aquilaoffice.domain.slack.SlackChannelMapping;
 import com.aquilaoffice.domain.slack.SlackOAuthState;
 import com.aquilaoffice.domain.workspace.WorkspaceMemberRole;
+import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
 class CompleteSlackOAuthCallbackServiceTest {
+
+    private static final String STATE_SECRET = "test-slack-oauth-state-secret-0123456789abcdef";
+    private static final Instant NOW = Instant.parse("2026-05-20T00:00:00Z");
 
     @Test
     void completeSlackOAuthCallbackExchangesCodeAndSavesMapping() {
@@ -38,13 +43,16 @@ class CompleteSlackOAuthCallbackServiceTest {
                 new FakeLoadWorkspacePort(Optional.of(workspaceDetail(WorkspaceMemberRole.ADMIN))),
                 loadMappingPort,
                 saveMappingPort,
-                exchangePort);
+                exchangePort,
+                STATE_SECRET,
+                NOW);
 
         CompleteSlackOAuthCallbackResult result = service.completeSlackOAuthCallback(
                 new CompleteSlackOAuthCallbackCommand(
                         " code-789 ",
-                        SlackOAuthState.serialize(101L, "google-1"),
-                        " http://localhost:8080/api/v1/slack/oauth/callback "));
+                        SlackOAuthState.serialize(101L, "google-1", NOW, Duration.ofMinutes(10), STATE_SECRET),
+                        " http://localhost:8080/api/v1/slack/oauth/callback ",
+                        "google-1"));
 
         assertThat(exchangePort.request.code()).isEqualTo("code-789");
         assertThat(exchangePort.request.redirectUri())
@@ -73,15 +81,42 @@ class CompleteSlackOAuthCallbackServiceTest {
                 new FakeLoadWorkspacePort(Optional.of(workspaceDetail(WorkspaceMemberRole.ADMIN))),
                 new FakeLoadSlackChannelMappingPort(Optional.empty()),
                 new FakeSaveSlackChannelMappingPort(),
-                exchangePort);
+                exchangePort,
+                STATE_SECRET,
+                NOW);
 
         assertThatThrownBy(() -> service.completeSlackOAuthCallback(
                         new CompleteSlackOAuthCallbackCommand(
                                 "code-789",
                                 "workspace:101:google-1",
-                                "http://localhost:8080/api/v1/slack/oauth/callback")))
+                                "http://localhost:8080/api/v1/slack/oauth/callback",
+                                "google-1")))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("slack oauth state is invalid");
+        assertThat(exchangePort.called).isFalse();
+    }
+
+    @Test
+    void completeSlackOAuthCallbackRejectsRequesterMismatchBeforeExchange() {
+        FakeExchangeSlackOAuthCodePort exchangePort = new FakeExchangeSlackOAuthCodePort(
+                new SlackOAuthCodeExchangeResult("T123", "C456", "dev-alerts", "xoxb-token-secret"));
+        CompleteSlackOAuthCallbackService service = new CompleteSlackOAuthCallbackService(
+                new FakeLoadMemberPort(Optional.of(Member.createUser("google-2", "admin@example.com", "Admin"))),
+                new FakeLoadWorkspacePort(Optional.of(workspaceDetail(WorkspaceMemberRole.ADMIN))),
+                new FakeLoadSlackChannelMappingPort(Optional.empty()),
+                new FakeSaveSlackChannelMappingPort(),
+                exchangePort,
+                STATE_SECRET,
+                NOW);
+
+        assertThatThrownBy(() -> service.completeSlackOAuthCallback(
+                        new CompleteSlackOAuthCallbackCommand(
+                                "code-789",
+                                SlackOAuthState.serialize(101L, "google-1", NOW, Duration.ofMinutes(10), STATE_SECRET),
+                                "http://localhost:8080/api/v1/slack/oauth/callback",
+                                "google-2")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("slack oauth state requester mismatch");
         assertThat(exchangePort.called).isFalse();
     }
 

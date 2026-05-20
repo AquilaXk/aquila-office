@@ -861,13 +861,18 @@ public class ApplicationServiceConfig {
             LoadWorkspacePort loadWorkspacePort,
             LoadSlackChannelMappingPort loadSlackChannelMappingPort,
             SaveSlackChannelMappingPort saveSlackChannelMappingPort,
-            ExchangeSlackOAuthCodePort exchangeSlackOAuthCodePort) {
+            ExchangeSlackOAuthCodePort exchangeSlackOAuthCodePort,
+            @Value("${aquila.auth-token.secret:local-development-jwt-secret-change-before-production-0123456789abcdef}")
+                    String authTokenSecret,
+            Clock applicationClock) {
         return new CompleteSlackOAuthCallbackService(
                 loadMemberPort,
                 loadWorkspacePort,
                 loadSlackChannelMappingPort,
                 saveSlackChannelMappingPort,
-                exchangeSlackOAuthCodePort);
+                exchangeSlackOAuthCodePort,
+                authTokenSecret,
+                applicationClock);
     }
 
     @Bean

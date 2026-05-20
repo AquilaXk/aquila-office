@@ -12,13 +12,16 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.aquilaoffice.application.port.in.CompleteSlackOAuthCallbackCommand;
 import com.aquilaoffice.application.port.in.CompleteSlackOAuthCallbackResult;
 import com.aquilaoffice.application.port.in.CompleteSlackOAuthCallbackUseCase;
+import com.aquilaoffice.domain.member.MemberRole;
 import com.aquilaoffice.global.handler.GlobalExceptionHandler;
+import com.aquilaoffice.global.security.AuthenticatedMember;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.security.authentication.TestingAuthenticationToken;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -46,7 +49,8 @@ class SlackOAuthCallbackControllerTest {
 
         mockMvc.perform(get("/api/v1/slack/oauth/callback")
                         .param("code", " code-789 ")
-                        .param("state", "workspaceId:101:requester:google-1"))
+                        .param("state", "signed-state")
+                        .principal(authentication("google-1")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.id").value(501))
@@ -63,14 +67,16 @@ class SlackOAuthCallbackControllerTest {
         verify(completeSlackOAuthCallbackUseCase).completeSlackOAuthCallback(commandCaptor.capture());
         CompleteSlackOAuthCallbackCommand command = commandCaptor.getValue();
         assertThat(command.code()).isEqualTo("code-789");
-        assertThat(command.state()).isEqualTo("workspaceId:101:requester:google-1");
+        assertThat(command.state()).isEqualTo("signed-state");
         assertThat(command.redirectUri()).isEqualTo("http://localhost:8080/api/v1/slack/oauth/callback");
+        assertThat(command.requesterGoogleSub()).isEqualTo("google-1");
     }
 
     @Test
     void missingCodeReturnsBadRequestAndDoesNotCallUseCase() throws Exception {
         mockMvc.perform(get("/api/v1/slack/oauth/callback")
-                        .param("state", "workspaceId:101:requester:google-1"))
+                        .param("state", "signed-state")
+                        .principal(authentication("google-1")))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.code").value("400"));
@@ -83,7 +89,8 @@ class SlackOAuthCallbackControllerTest {
         mockMvc.perform(get("/api/v1/slack/oauth/callback")
                         .param("error", "access_denied")
                         .param("code", "code-789")
-                        .param("state", "workspaceId:101:requester:google-1"))
+                        .param("state", "signed-state")
+                        .principal(authentication("google-1")))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.code").value("400"));
@@ -99,10 +106,23 @@ class SlackOAuthCallbackControllerTest {
 
         mockMvc.perform(get("/api/v1/slack/oauth/callback")
                         .param("code", "bad-code")
-                        .param("state", "workspaceId:101:requester:google-1"))
+                        .param("state", "signed-state")
+                        .principal(authentication("google-1")))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.code").value("400"));
+    }
+
+    @Test
+    void missingAuthenticationReturnsUnauthorizedAndDoesNotCallUseCase() throws Exception {
+        mockMvc.perform(get("/api/v1/slack/oauth/callback")
+                        .param("code", "code-789")
+                        .param("state", "signed-state"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code").value("401"));
+
+        verifyNoInteractions(completeSlackOAuthCallbackUseCase);
     }
 
     private static CompleteSlackOAuthCallbackResult result() {
@@ -115,5 +135,10 @@ class SlackOAuthCallbackControllerTest {
                 "xoxb****cret",
                 "google-1",
                 true);
+    }
+
+    private static TestingAuthenticationToken authentication(String googleSub) {
+        AuthenticatedMember member = new AuthenticatedMember(1L, googleSub, googleSub + "@example.com", MemberRole.USER);
+        return new TestingAuthenticationToken(member, null);
     }
 }
