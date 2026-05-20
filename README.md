@@ -98,21 +98,7 @@ Aquila Office는 단순한 AI 호출 화면이 아니라, 업무 요청부터 �
 
 ## 시스템 아키텍처
 
-```
-[Client & Frontend]                 [Aquila Office Backend]
-  Next.js 16                        ┌────────────────────────────────────┐
-  ├── Workspace dashboard      ───► │  Spring Boot 4 / Java 21          │
-  ├── Agent, Task, Artifact UI      │  ├── Auth / Workspace / Member    │
-  ├── Gateway settings              │  ├── Agent / Task / Report        │
-  └── Chat / Presence               │  ├── Artifact / Chat / Presence   │
-                                    │  └── Integration adapters         │
-                                    └────────────────────────────────────┘
-                                                   │
-                                    ┌──────────────┼──────────────┐
-                                    ▼              ▼              ▼
-                              PostgreSQL     OpenClaw Gateway   External APIs
-                              JPA state      Agent runtime      Slack / GitHub / Vertex AI
-```
+<img width="100%" alt="Aquila Office 시스템 아키텍처" src="front/public/aquila-office-system-architecture.png">
 
 배포 환경은 Docker Compose, Nginx, OCI VM, Terraform, blue/green 배포 스크립트를 기준으로 구성되어 있습니다. 로컬 개발에서는 `compose.dev.yml`로 PostgreSQL, backend, frontend, nginx entrypoint를 함께 올릴 수 있습니다.
 
