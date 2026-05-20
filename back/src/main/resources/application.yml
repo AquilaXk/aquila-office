@@ -1,6 +1,12 @@
 spring:
   application:
     name: aquila-office-back
+  flyway:
+    enabled: ${SPRING_FLYWAY_ENABLED:true}
+    baseline-on-migrate: ${SPRING_FLYWAY_BASELINE_ON_MIGRATE:true}
+  jpa:
+    hibernate:
+      ddl-auto: validate
   mail:
     host: ${SPRING_MAIL_HOST:localhost}
     port: ${SPRING_MAIL_PORT:1025}
