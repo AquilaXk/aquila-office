@@ -495,6 +495,7 @@ test.describe("브라우저 UI UX 회귀", () => {
     await page.goto(`/workspaces/${workspaceId}`);
     await expect(page.getByRole("heading", { name: primaryWorkspace.name })).toBeVisible();
 
+    const stageFrame = page.locator(".workspace-2d-frame-fullscreen").first();
     const nav = page.locator(".workspace-stage-route .workspace-office-nav").first();
     const controls = page.locator(".workspace-2d-frame-fullscreen .workspace-2d-header").first();
     const hud = page.locator(".workspace-2d-frame-fullscreen .workspace-2d-hud").first();
@@ -506,6 +507,7 @@ test.describe("브라우저 UI UX 회귀", () => {
       .first();
 
     for (const [label, locator] of [
+      ["stage frame", stageFrame],
       ["office nav", nav],
       ["stage controls", controls],
       ["scene HUD", hud],
