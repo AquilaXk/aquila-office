@@ -37,6 +37,56 @@
   --title-heading-size: clamp(36px, 7vw, 64px);
 }
 
+@media (max-width: 860px) {
+  .workspace-list-screen {
+    overflow: auto !important;
+  }
+
+  .workspace-list-layout {
+    grid-template-rows: auto auto auto !important;
+    height: auto !important;
+    min-height: 100% !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    padding: 16px !important;
+  }
+
+  .workspace-list-header-actions {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .workspace-list-header-actions a,
+  .workspace-list-header-actions button {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .workspace-list-header-actions > button {
+    grid-column: 1 / -1;
+  }
+
+  .workspace-list-kpi-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .workspace-list-row-card {
+    grid-template-columns: 60px minmax(0, 1fr) !important;
+    gap: 10px !important;
+  }
+
+  .workspace-list-row-card > :nth-child(3),
+  .workspace-list-row-card > :nth-child(4),
+  .workspace-list-row-card > :nth-child(5) {
+    grid-column: 2;
+  }
+
+  .workspace-list-row-enter {
+    justify-self: start;
+  }
+}
+
 * {
   box-sizing: border-box;
 }

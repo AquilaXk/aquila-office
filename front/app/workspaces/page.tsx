@@ -77,8 +77,9 @@ export default function WorkspacesPage() {
   );
 
   return (
-    <T4Screen title="WORKSPACES">
+    <T4Screen title="WORKSPACES" className="workspace-list-screen">
       <div
+        className="workspace-list-layout"
         style={{
           padding: 20,
           height: "100%",
@@ -134,7 +135,7 @@ export default function WorkspacesPage() {
               {user?.email}
             </div>
           </div>
-          <div style={{ display: "flex", gap: 8 }}>
+          <div className="workspace-list-header-actions" style={{ display: "flex", gap: 8 }}>
             <Link href="/workspaces/gateway">
               <ArcadeButton color={t4.mp}>
                 <GlyphText glyph="◇">GATEWAY</GlyphText>
@@ -153,6 +154,7 @@ export default function WorkspacesPage() {
 
         {/* KPI tiles */}
         <div
+          className="workspace-list-kpi-grid"
           style={{
             display: "grid",
             gridTemplateColumns: "repeat(4, 1fr)",
@@ -312,6 +314,7 @@ function WorkspaceRow({
   const accent = isAdmin ? t4.pink : t4.mp;
   return (
     <Link
+      className="workspace-list-row-card"
       href={`/workspaces/${workspace.workspaceId}`}
       style={{
         display: "grid",
@@ -382,6 +385,7 @@ function WorkspaceRow({
         </div>
       </div>
       <div
+        className="workspace-list-row-enter"
         style={{
           fontFamily: "var(--font-mono-arcade)",
           fontSize: 12,

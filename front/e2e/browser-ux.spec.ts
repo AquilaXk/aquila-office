@@ -128,6 +128,42 @@ test.describe("브라우저 UI UX 회귀", () => {
     await expect(page.getByText("2026")).toHaveCount(0);
   });
 
+  test("모바일 워크스페이스 목록은 핵심 action과 row 정보를 viewport 안에 표시한다", async ({ page }) => {
+    test.skip((page.viewportSize()?.width ?? 0) > 600, "mobile viewport 전용 회귀");
+
+    await installMockApi(page);
+    await seedAuthTokens(page);
+
+    await page.goto("/workspaces");
+    await expect(page.getByRole("heading", { name: "WORKSPACES" })).toBeVisible();
+
+    await expectElementBoxInsideViewport(
+      page,
+      page.getByRole("link", { name: /NEW WORKSPACE/ }),
+      "new workspace action",
+    );
+    await expectElementBoxInsideViewport(
+      page,
+      page.getByRole("button", { name: "LOGOUT" }),
+      "logout action",
+    );
+    await expectElementBoxInsideViewport(
+      page,
+      page.getByText("AGENTS").first(),
+      "agents KPI",
+    );
+    await expectElementBoxInsideViewport(
+      page,
+      page.getByText("TASKS · DONE").first(),
+      "done KPI",
+    );
+    await expectElementBoxInsideViewport(
+      page,
+      page.getByText("ENTER").first(),
+      "workspace enter action",
+    );
+  });
+
   test("워크스페이스 목록 오류 상태를 표시한다", async ({ page }) => {
     await installMockApi(page, { workspaceList: "error" });
     await seedAuthTokens(page);
@@ -1091,6 +1127,25 @@ async function expectElementToTouchViewport(page: Page, locator: Locator, label:
     box.y < viewport.height &&
     box.y + box.height > 0;
   expect(intersectsViewport, `${label} should be visible in the first viewport`).toBe(true);
+}
+
+async function expectElementBoxInsideViewport(page: Page, locator: Locator, label: string) {
+  const viewport = page.viewportSize();
+  const box = await locator.boundingBox();
+  expect(box, `${label} should be rendered`).not.toBeNull();
+  expect(viewport).not.toBeNull();
+  if (!box || !viewport) {
+    return;
+  }
+
+  expect(box.x, `${label} left edge should stay in viewport`).toBeGreaterThanOrEqual(0);
+  expect(box.y, `${label} top edge should stay in viewport`).toBeGreaterThanOrEqual(0);
+  expect(box.x + box.width, `${label} right edge should stay in viewport`).toBeLessThanOrEqual(
+    viewport.width,
+  );
+  expect(box.y + box.height, `${label} bottom edge should stay in viewport`).toBeLessThanOrEqual(
+    viewport.height,
+  );
 }
 
 async function expectPanAndZoomToMoveViewport(page: Page, frame: Locator) {
