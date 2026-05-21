@@ -6,6 +6,16 @@ const root = resolve(import.meta.dirname, "../..");
 const readme = await readFile(resolve(root, "README.md"), "utf8");
 const license = await readFile(resolve(root, "LICENSE"), "utf8");
 const architectureImage = await readFile(resolve(root, "front/public/aquila-office-system-architecture.png"));
+const screenshotImagePaths = [
+  "front/public/readme/workspace-list.png",
+  "front/public/readme/workspace-dashboard.png",
+  "front/public/readme/task-run-chat.png",
+  "front/public/readme/artifact-report.png",
+  "front/public/readme/integration-settings.png",
+];
+const screenshotImages = await Promise.all(
+  screenshotImagePaths.map((imagePath) => readFile(resolve(root, imagePath))),
+);
 
 const requiredHeadings = [
   "# 🤖 Aquila Office",
@@ -66,6 +76,8 @@ for (const heading of requiredHeadings) {
 const requiredSnippets = [
   "front/public/aquila-office-readme-preview.png",
   "front/public/aquila-office-system-architecture.png",
+  ...screenshotImagePaths,
+  "## 화면으로 보는 주요 흐름",
   "협업형 AI 에이전트 워크스페이스 운영 플랫폼",
   "업무 요청부터 AI Agent 실행, 결과 공유, 산출물 추적까지 하나의 팀 업무 흐름으로 연결합니다.",
   "https://img.shields.io/badge/License-MIT-green?style=flat-square",
@@ -147,6 +159,12 @@ assert(
   architectureImage.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])),
   "architecture image must be a PNG asset",
 );
+for (const [index, screenshotImage] of screenshotImages.entries()) {
+  assert(
+    screenshotImage.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])),
+    `${screenshotImagePaths[index]} must be a PNG asset`,
+  );
+}
 
 function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
