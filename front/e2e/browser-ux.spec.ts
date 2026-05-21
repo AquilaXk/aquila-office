@@ -586,8 +586,18 @@ test.describe("브라우저 UI UX 회귀", () => {
     await page.goto(`/workspaces/${workspaceId}`);
     await expect(page.getByRole("heading", { name: primaryWorkspace.name })).toBeVisible();
 
+    await expectMinimumTouchTargets(page.locator(".workspace-stage-route .workspace-detail-back"), "stage header action");
+    await expectMinimumTouchTargets(page.locator(".workspace-stage-route .workspace-office-nav-item"), "office nav action");
+    await expectMinimumTouchTargets(
+      page.locator(".workspace-2d-frame-fullscreen .workspace-2d-controls .secondary-action"),
+      "stage zoom control",
+    );
     await expectMinimumTouchTargets(page.locator(".workspace-2d-minimap-room-button"), "minimap room button");
     await expectMinimumTouchTargets(page.locator(".workspace-2d-map-controls button"), "map zoom control");
+    await expectMinimumTouchTargets(
+      page.locator(".workspace-2d-frame-fullscreen .workspace-2d-dialogue-actions button"),
+      "dialogue action",
+    );
 
     await expectElementBoxInsideViewport(
       page,
