@@ -537,6 +537,9 @@ test.describe("브라우저 UI UX 회귀", () => {
     await page.goto(`/workspaces/${workspaceId}`);
     await expect(page.getByRole("heading", { name: primaryWorkspace.name })).toBeVisible();
 
+    const workspaceTitle = page.locator(".workspace-stage-route .workspace-detail-title").first();
+    const mapHud = page.locator(".workspace-2d-frame-fullscreen .workspace-2d-map-hud").first();
+    const mapControls = page.locator(".workspace-2d-frame-fullscreen .workspace-2d-map-controls").first();
     const protectedTargets = [
       { label: "room labels", locator: page.locator(".stage-room-label") },
       { label: "stage actors", locator: page.locator(".stage-actor") },
@@ -546,8 +549,8 @@ test.describe("브라우저 UI UX 회귀", () => {
       { label: "workspace nav", locator: page.locator(".workspace-stage-route .workspace-office-nav").first() },
       { label: "scene HUD", locator: page.locator(".workspace-2d-frame-fullscreen .workspace-2d-hud").first() },
       { label: "selected actor HUD", locator: page.locator(".workspace-2d-frame-fullscreen .workspace-2d-hero-hud").first() },
-      { label: "map HUD", locator: page.locator(".workspace-2d-frame-fullscreen .workspace-2d-map-hud").first() },
-      { label: "map controls", locator: page.locator(".workspace-2d-frame-fullscreen .workspace-2d-map-controls").first() },
+      { label: "map HUD", locator: mapHud },
+      { label: "map controls", locator: mapControls },
       { label: "roster", locator: page.locator(".workspace-2d-frame-fullscreen .workspace-2d-roster").first() },
       {
         label: "dialogue",
@@ -562,6 +565,9 @@ test.describe("브라우저 UI UX 회귀", () => {
         await expectNoOverlapWithAny(overlay.locator, target.locator, overlay.label, target.label);
       }
     }
+
+    await expectNoOverlapWithAny(workspaceTitle, mapHud, "workspace title", "map HUD");
+    await expectNoOverlapWithAny(workspaceTitle, mapControls, "workspace title", "map controls");
   });
 
   test("모바일 2D map 조작 버튼은 최소 터치 영역을 확보한다", async ({ page }) => {
