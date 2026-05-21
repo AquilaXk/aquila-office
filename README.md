@@ -30,6 +30,7 @@
 
 - [프로젝트 개요](#프로젝트-개요)
 - [주요 기능](#주요-기능)
+- [화면으로 보는 주요 흐름](#화면으로-보는-주요-흐름)
 - [시스템 아키텍처](#시스템-아키텍처)
 - [주요 프로세스 / AI 설계](#주요-프로세스--ai-설계)
 - [기술 스택](#기술-스택)
@@ -93,6 +94,40 @@ Aquila Office는 단순한 AI 호출 화면이 아니라, 업무 요청부터 �
 | **Gateway 연동** | Workspace 단위 Gateway URL, encrypted token, 연결 상태 관리 |
 | **Slack 연동** | Slack team/channel mapping, OAuth credential, event 처리 지표 관리 |
 | **GitHub 연동** | Workspace별 GitHub credential 저장과 repository 작업 흐름 연결 |
+
+---
+
+## 화면으로 보는 주요 흐름
+
+### 1. Workspace 목록
+
+팀별 Workspace를 선택하고, 진행 중인 Task와 등록된 Agent 수를 먼저 확인합니다.
+
+<img width="100%" alt="Aquila Office 워크스페이스 목록 화면" src="front/public/readme/workspace-list.png">
+
+### 2. Workspace 운영 대시보드
+
+Workspace 안에서는 Agent, 멤버, Task, Presence 상태가 하나의 운영 화면에 모입니다.
+
+<img width="100%" alt="Aquila Office 워크스페이스 운영 대시보드" src="front/public/readme/workspace-dashboard.png">
+
+### 3. Agent 업무 실행과 Chat
+
+Task 맥락에서 Agent에게 메시지를 보내고, 실행 세션과 응답을 같은 화면에서 추적합니다.
+
+<img width="100%" alt="Aquila Office Task 실행과 Agent Chat 화면" src="front/public/readme/task-run-chat.png">
+
+### 4. Report와 Artifact 확인
+
+Agent 실행 결과는 Report와 Artifact 파일로 남아 다음 작업에서 다시 확인할 수 있습니다.
+
+<img width="100%" alt="Aquila Office Report와 Artifact 확인 화면" src="front/public/readme/artifact-report.png">
+
+### 5. 외부 연동 설정
+
+Slack, GitHub, OpenClaw Gateway 같은 외부 연동을 Workspace 단위로 관리합니다.
+
+<img width="100%" alt="Aquila Office 외부 연동 설정 화면" src="front/public/readme/integration-settings.png">
 
 ---
 
