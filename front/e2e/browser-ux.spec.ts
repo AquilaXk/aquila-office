@@ -485,6 +485,49 @@ test.describe("브라우저 UI UX 회귀", () => {
     await closeTopDialog(page);
   });
 
+  test("모바일 워크스페이스 상세 stage overlay는 viewport 안에서 세로 간격을 유지한다", async ({ page }) => {
+    test.skip((page.viewportSize()?.width ?? 0) > 600, "mobile viewport 전용 회귀");
+
+    await installMockApi(page);
+    await seedAuthTokens(page);
+    await seedCharacterProfile(page);
+
+    await page.goto(`/workspaces/${workspaceId}`);
+    await expect(page.getByRole("heading", { name: primaryWorkspace.name })).toBeVisible();
+
+    const nav = page.locator(".workspace-stage-route .workspace-office-nav").first();
+    const controls = page.locator(".workspace-2d-frame-fullscreen .workspace-2d-header").first();
+    const hud = page.locator(".workspace-2d-frame-fullscreen .workspace-2d-hud").first();
+    const mapHud = page.locator(".workspace-2d-frame-fullscreen .workspace-2d-map-hud").first();
+    const mapControls = page.locator(".workspace-2d-frame-fullscreen .workspace-2d-map-controls").first();
+    const roster = page.locator(".workspace-2d-frame-fullscreen .workspace-2d-roster").first();
+    const heroHud = page.locator(".workspace-2d-frame-fullscreen .workspace-2d-hero-hud").first();
+    const dialogue = page
+      .locator(".workspace-2d-frame-fullscreen .workspace-2d-stage-shell .workspace-2d-dialogue")
+      .first();
+
+    for (const [label, locator] of [
+      ["office nav", nav],
+      ["stage controls", controls],
+      ["scene HUD", hud],
+      ["map HUD", mapHud],
+      ["map controls", mapControls],
+      ["roster", roster],
+      ["hero HUD", heroHud],
+      ["dialogue", dialogue],
+    ] as const) {
+      await expectElementBoxInsideViewport(page, locator, label);
+    }
+
+    await expectVerticalGapBetween(nav, controls, "office nav", "stage controls", 8);
+    await expectVerticalGapBetween(controls, hud, "stage controls", "scene HUD", 8);
+    await expectVerticalGapBetween(hud, mapHud, "scene HUD", "map HUD", 8);
+    await expectVerticalGapBetween(mapHud, mapControls, "map HUD", "map controls", 8);
+    await expectVerticalGapBetween(mapControls, roster, "map controls", "roster", 8);
+    await expectVerticalGapBetween(roster, heroHud, "roster", "hero HUD", 8);
+    await expectVerticalGapBetween(heroHud, dialogue, "hero HUD", "dialogue", 8);
+  });
+
   test("2D workspace는 인증된 멤버를 player actor로 쓰고 저장된 avatar를 적용한다", async ({ page }) => {
     await installMockApi(page, { workspaceMembers: "current-user-second" });
     await seedAuthTokens(page, { memberId: 2 });
@@ -1146,6 +1189,27 @@ async function expectElementBoxInsideViewport(page: Page, locator: Locator, labe
   expect(box.y + box.height, `${label} bottom edge should stay in viewport`).toBeLessThanOrEqual(
     viewport.height,
   );
+}
+
+async function expectVerticalGapBetween(
+  upper: Locator,
+  lower: Locator,
+  upperLabel: string,
+  lowerLabel: string,
+  gap: number,
+) {
+  const upperBox = await upper.boundingBox();
+  const lowerBox = await lower.boundingBox();
+  expect(upperBox, `${upperLabel} should be rendered`).not.toBeNull();
+  expect(lowerBox, `${lowerLabel} should be rendered`).not.toBeNull();
+  if (!upperBox || !lowerBox) {
+    return;
+  }
+
+  expect(
+    lowerBox.y - (upperBox.y + upperBox.height),
+    `${upperLabel} and ${lowerLabel} should keep vertical gap`,
+  ).toBeGreaterThanOrEqual(gap);
 }
 
 async function expectPanAndZoomToMoveViewport(page: Page, frame: Locator) {

@@ -6787,21 +6787,37 @@ h2 {
     flex: 0 0 auto;
   }
 
+  .workspace-stage-surface,
+  .workspace-2d-frame-fullscreen {
+    height: 100vh;
+    min-height: 100vh;
+  }
+
   .workspace-stage-route .workspace-stage-surface .workspace-office-nav {
-    top: 124px;
+    top: 112px;
     right: 10px;
     left: 10px;
     flex-wrap: nowrap;
+    gap: 6px;
     overflow-x: auto;
   }
 
   .workspace-stage-route .workspace-office-nav-item {
     flex: 0 0 auto;
+    min-height: 36px;
     width: auto;
+    gap: 6px;
+    padding: 0 10px;
+    font-size: 12px;
+  }
+
+  .workspace-stage-route .workspace-office-nav-item svg {
+    width: 17px;
+    height: 17px;
   }
 
   .workspace-2d-frame-fullscreen .workspace-2d-header {
-    top: 178px;
+    top: 156px;
     right: 10px;
     left: 10px;
     display: flex;
@@ -6809,66 +6825,141 @@ h2 {
 
   .workspace-2d-frame-fullscreen .workspace-2d-controls {
     flex-wrap: nowrap;
+    gap: 6px;
     overflow-x: auto;
+  }
+
+  .workspace-2d-frame-fullscreen .workspace-2d-controls > span {
+    min-height: 34px;
+    padding: 0 10px;
   }
 
   .workspace-2d-frame-fullscreen .workspace-2d-controls .secondary-action {
     flex: 0 0 auto;
+    min-height: 34px;
     width: auto;
+    padding: 0 10px;
   }
 
   .workspace-2d-frame-fullscreen .workspace-2d-hud {
-    top: 224px;
+    top: 204px;
     right: 10px;
     left: 10px;
     width: auto;
     min-width: 0;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(5, minmax(72px, 1fr));
+    gap: 6px;
+    overflow-x: auto;
+  }
+
+  .workspace-2d-frame-fullscreen .workspace-2d-hud > div {
+    min-height: 58px;
+    padding: 7px 8px;
+  }
+
+  .workspace-2d-frame-fullscreen .workspace-2d-hud span,
+  .workspace-2d-frame-fullscreen .workspace-2d-hud strong {
+    font-size: 12px;
   }
 
   .workspace-2d-frame-fullscreen .workspace-2d-map-hud {
-    top: 382px;
+    top: 278px;
     right: 10px;
-    width: 148px;
+    left: auto;
+    width: min(150px, calc(100% - 20px));
+    padding: 8px;
   }
 
   .workspace-2d-frame-fullscreen .workspace-2d-map-hud .workspace-2d-minimap {
-    height: 82px;
+    height: 84px;
+  }
+
+  .workspace-2d-frame-fullscreen .workspace-2d-map-caption {
+    margin-top: 4px;
+    font-size: 12px;
   }
 
   .workspace-2d-frame-fullscreen .workspace-2d-map-controls {
-    top: 500px;
+    top: 422px;
     right: 10px;
+    gap: 5px;
   }
 
   .workspace-2d-frame-fullscreen .workspace-2d-hero-hud {
-    bottom: 146px;
+    top: 532px;
+    bottom: auto;
     left: 10px;
-    width: min(320px, calc(100% - 20px));
+    width: calc(100% - 20px);
+    grid-template-columns: 44px minmax(0, 1fr);
+    gap: 8px;
+    padding: 7px;
+  }
+
+  .workspace-2d-frame-fullscreen .workspace-2d-hero-avatar {
+    width: 44px;
+    height: 44px;
+  }
+
+  .workspace-2d-frame-fullscreen .workspace-2d-hero-hud span,
+  .workspace-2d-frame-fullscreen .workspace-2d-hero-hud small,
+  .workspace-2d-frame-fullscreen .workspace-2d-hero-hud strong {
+    font-size: 12px;
   }
 
   .workspace-2d-frame-fullscreen .workspace-2d-roster {
     z-index: 50;
-    top: 540px;
+    top: 472px;
     right: 10px;
     left: 10px;
     display: flex;
     width: auto;
-    max-height: 78px;
+    max-height: 52px;
     overflow-x: auto;
     overflow-y: hidden;
   }
 
   .workspace-2d-frame-fullscreen .workspace-2d-node {
     flex: 0 0 220px;
-    min-height: 58px;
+    grid-template-columns: 32px minmax(0, 1fr);
+    min-height: 50px;
+    padding: 7px;
+  }
+
+  .workspace-2d-frame-fullscreen .workspace-2d-node-mark {
+    width: 32px;
+    height: 32px;
   }
 
   .workspace-2d-frame-fullscreen .workspace-2d-stage-shell .workspace-2d-dialogue {
     right: 10px;
-    bottom: 10px;
+    bottom: 18px;
     left: 10px;
-    grid-template-columns: 48px minmax(0, 1fr);
+    max-height: 108px;
+    grid-template-columns: 44px minmax(0, 1fr);
+    gap: 8px;
+    overflow: hidden;
+    padding: 8px;
+  }
+
+  .workspace-2d-frame-fullscreen .workspace-2d-dialogue-avatar {
+    width: 44px;
+    height: 44px;
+  }
+
+  .workspace-2d-frame-fullscreen .workspace-2d-dialogue p {
+    font-size: 12px;
+    line-height: 1.35;
+  }
+
+  .workspace-2d-frame-fullscreen .workspace-2d-dialogue-actions {
+    gap: 6px;
+    margin-top: 6px;
+  }
+
+  .workspace-2d-frame-fullscreen .workspace-2d-dialogue-actions button {
+    min-height: 30px;
+    padding: 0 10px;
+    font-size: 12px;
   }
 
   .workspace-actor-header,
