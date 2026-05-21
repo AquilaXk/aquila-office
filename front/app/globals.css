@@ -3051,11 +3051,19 @@ h2 {
   position: absolute;
   z-index: 62;
   top: 64px;
-  right: 232px;
+  right: auto;
   left: 16px;
+  align-items: stretch;
+  flex-direction: column;
+  width: 132px;
 }
 
 .workspace-stage-route .workspace-office-nav-item {
+  justify-content: flex-start;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   background: rgba(17, 20, 28, 0.86);
   box-shadow: 0 0 14px rgba(0, 0, 0, 0.22);
 }
@@ -6829,18 +6837,25 @@ h2 {
     top: 112px;
     right: 10px;
     left: 10px;
+    align-items: center;
+    flex-direction: row;
     flex-wrap: nowrap;
     gap: 6px;
     overflow-x: auto;
+    width: auto;
   }
 
   .workspace-stage-route .workspace-office-nav-item {
     flex: 0 0 auto;
+    justify-content: center;
     min-height: 36px;
     width: auto;
     gap: 6px;
     padding: 0 10px;
     font-size: 12px;
+    overflow: visible;
+    text-overflow: clip;
+    white-space: nowrap;
   }
 
   .workspace-stage-route .workspace-office-nav-item svg {
@@ -6981,7 +6996,7 @@ h2 {
     right: 10px;
     bottom: 18px;
     left: 10px;
-    max-height: 92px;
+    max-height: 132px;
     grid-template-columns: 44px minmax(0, 1fr);
     gap: 8px;
     overflow: hidden;
@@ -6996,6 +7011,9 @@ h2 {
   .workspace-2d-frame-fullscreen .workspace-2d-dialogue p {
     font-size: 12px;
     line-height: 1.35;
+    overflow-wrap: anywhere;
+    text-overflow: clip;
+    white-space: normal;
   }
 
   .workspace-2d-frame-fullscreen .workspace-2d-dialogue-actions {
