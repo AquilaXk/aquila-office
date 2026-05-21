@@ -10,6 +10,5 @@ export const APPLE_TOUCH_ICON_PATH = "/apple-touch-icon.png";
 export const BRAND_MASCOT_PATH = "/brand-mascot.png";
 
 export const REPRESENTATIVE_IMAGE_PATHS = [
-  "/office-bank-preview.png",
-  "/office-blog-preview.png",
+  "/aquila-office-readme-preview.png",
 ] as const;

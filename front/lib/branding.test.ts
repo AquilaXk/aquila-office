@@ -20,7 +20,8 @@ test("branding constants expose required public asset paths", () => {
   assert.equal(APPLE_TOUCH_ICON_PATH, "/apple-touch-icon.png");
   assert.equal(BRAND_MASCOT_PATH, "/brand-mascot.png");
   assert.deepEqual(REPRESENTATIVE_IMAGE_PATHS, [
-    "/office-bank-preview.png",
-    "/office-blog-preview.png",
+    "/aquila-office-readme-preview.png",
   ]);
+  assert(!REPRESENTATIVE_IMAGE_PATHS.includes("/office-bank-preview.png"));
+  assert(!REPRESENTATIVE_IMAGE_PATHS.includes("/office-blog-preview.png"));
 });
