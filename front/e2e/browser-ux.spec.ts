@@ -265,7 +265,8 @@ test.describe("브라우저 UI UX 회귀", () => {
     await page.goto("/auth");
     await expect(page.getByText("SIGN IN TO CONTINUE")).toBeVisible();
     await expect(page.getByText("WORKSPACE MEMBER VERIFICATION")).toBeVisible();
-    await expect(page.getByText("CONTINUE WITH GOOGLE")).toBeVisible();
+    await expect(page.locator(".auth-google-visible-label")).toHaveText("CONTINUE WITH GOOGLE");
+    await expect(page.locator(".auth-google-visible-label")).toBeVisible();
   });
 
   test("인증 라우트가 Google 로그인과 인증 후 returnTo 이동을 유지한다", async ({ page }) => {
@@ -274,7 +275,8 @@ test.describe("브라우저 UI UX 회귀", () => {
     await page.goto("/auth?returnTo=/workspaces/new");
     await expect(page.getByText("SIGN IN TO CONTINUE")).toBeVisible();
     await expect(page.getByText("WORKSPACE MEMBER VERIFICATION")).toBeVisible();
-    await expect(page.getByText("CONTINUE WITH GOOGLE")).toBeVisible();
+    await expect(page.locator(".auth-google-visible-label")).toHaveText("CONTINUE WITH GOOGLE");
+    await expect(page.locator(".auth-google-visible-label")).toBeVisible();
     await expect(page.getByText("PRESS TO CONTINUE")).toHaveCount(0);
 
     await seedAuthTokens(page);
@@ -527,6 +529,8 @@ test.describe("브라우저 UI UX 회귀", () => {
     await expectVerticalGapBetween(mapHud, mapControls, "map HUD", "map controls", 8);
     await expectVerticalGapBetween(mapControls, roster, "map controls", "roster", 8);
     await expectVerticalGapBetween(roster, dialogue, "roster", "dialogue", 8);
+    await expectNoContentClipping(dialogue, "dialogue");
+    await expectNoContentClipping(dialogue.locator("p"), "dialogue copy");
   });
 
   test("데스크톱 워크스페이스 상세 stage overlay는 주요 scene 콘텐츠를 가리지 않는다", async ({ page }) => {
@@ -1279,6 +1283,22 @@ async function expectVerticalGapBetween(
     lowerBox.y - (upperBox.y + upperBox.height),
     `${upperLabel} and ${lowerLabel} should keep vertical gap`,
   ).toBeGreaterThanOrEqual(gap);
+}
+
+async function expectNoContentClipping(locator: Locator, label: string) {
+  const metrics = await locator.evaluate((element) => ({
+    clientHeight: element.clientHeight,
+    clientWidth: element.clientWidth,
+    scrollHeight: element.scrollHeight,
+    scrollWidth: element.scrollWidth,
+  }));
+
+  expect(metrics.scrollWidth, `${label} should not clip horizontally`).toBeLessThanOrEqual(
+    metrics.clientWidth + 1,
+  );
+  expect(metrics.scrollHeight, `${label} should not clip vertically`).toBeLessThanOrEqual(
+    metrics.clientHeight + 1,
+  );
 }
 
 async function expectNoOverlapWithAny(
