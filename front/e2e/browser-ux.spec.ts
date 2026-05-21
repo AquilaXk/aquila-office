@@ -501,7 +501,6 @@ test.describe("브라우저 UI UX 회귀", () => {
     const mapHud = page.locator(".workspace-2d-frame-fullscreen .workspace-2d-map-hud").first();
     const mapControls = page.locator(".workspace-2d-frame-fullscreen .workspace-2d-map-controls").first();
     const roster = page.locator(".workspace-2d-frame-fullscreen .workspace-2d-roster").first();
-    const heroHud = page.locator(".workspace-2d-frame-fullscreen .workspace-2d-hero-hud").first();
     const dialogue = page
       .locator(".workspace-2d-frame-fullscreen .workspace-2d-stage-shell .workspace-2d-dialogue")
       .first();
@@ -513,7 +512,6 @@ test.describe("브라우저 UI UX 회귀", () => {
       ["map HUD", mapHud],
       ["map controls", mapControls],
       ["roster", roster],
-      ["hero HUD", heroHud],
       ["dialogue", dialogue],
     ] as const) {
       await expectElementBoxInsideViewport(page, locator, label);
@@ -524,8 +522,7 @@ test.describe("브라우저 UI UX 회귀", () => {
     await expectVerticalGapBetween(hud, mapHud, "scene HUD", "map HUD", 8);
     await expectVerticalGapBetween(mapHud, mapControls, "map HUD", "map controls", 8);
     await expectVerticalGapBetween(mapControls, roster, "map controls", "roster", 8);
-    await expectVerticalGapBetween(roster, heroHud, "roster", "hero HUD", 8);
-    await expectVerticalGapBetween(heroHud, dialogue, "hero HUD", "dialogue", 8);
+    await expectVerticalGapBetween(roster, dialogue, "roster", "dialogue", 8);
   });
 
   test("데스크톱 워크스페이스 상세 stage overlay는 주요 scene 콘텐츠를 가리지 않는다", async ({ page }) => {
@@ -563,6 +560,31 @@ test.describe("브라우저 UI UX 회귀", () => {
         await expectNoOverlapWithAny(overlay.locator, target.locator, overlay.label, target.label);
       }
     }
+  });
+
+  test("모바일 2D map 조작 버튼은 최소 터치 영역을 확보한다", async ({ page }) => {
+    test.skip((page.viewportSize()?.width ?? 0) > 600, "mobile viewport 전용 회귀");
+
+    await installMockApi(page);
+    await seedAuthTokens(page);
+    await seedCharacterProfile(page);
+
+    await page.goto(`/workspaces/${workspaceId}`);
+    await expect(page.getByRole("heading", { name: primaryWorkspace.name })).toBeVisible();
+
+    await expectMinimumTouchTargets(page.locator(".workspace-2d-minimap-room-button"), "minimap room button");
+    await expectMinimumTouchTargets(page.locator(".workspace-2d-map-controls button"), "map zoom control");
+
+    await expectElementBoxInsideViewport(
+      page,
+      page.locator(".workspace-2d-frame-fullscreen .workspace-2d-map-hud").first(),
+      "map HUD",
+    );
+    await expectElementBoxInsideViewport(
+      page,
+      page.locator(".workspace-2d-frame-fullscreen .workspace-2d-map-controls").first(),
+      "map controls",
+    );
   });
 
   test("2D workspace는 인증된 멤버를 player actor로 쓰고 저장된 avatar를 적용한다", async ({ page }) => {
@@ -1278,6 +1300,26 @@ async function expectNoOverlapWithAny(
       overlaps,
       `${overlayLabel} should not overlap ${targetLabel} ${index + 1}`,
     ).toBe(false);
+  }
+}
+
+async function expectMinimumTouchTargets(locator: Locator, label: string, minSize = 40) {
+  const count = await locator.count();
+  expect(count, `${label} should have targets`).toBeGreaterThan(0);
+
+  for (let index = 0; index < count; index += 1) {
+    const box = await locator.nth(index).boundingBox();
+    expect(box, `${label} ${index + 1} should be rendered`).not.toBeNull();
+    if (!box) {
+      continue;
+    }
+
+    expect(box.width, `${label} ${index + 1} width should be touchable`).toBeGreaterThanOrEqual(
+      minSize,
+    );
+    expect(box.height, `${label} ${index + 1} height should be touchable`).toBeGreaterThanOrEqual(
+      minSize,
+    );
   }
 }
 

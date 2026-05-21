@@ -6867,7 +6867,7 @@ h2 {
   }
 
   .workspace-2d-frame-fullscreen .workspace-2d-map-hud {
-    top: 278px;
+    top: 274px;
     right: 10px;
     left: auto;
     width: min(150px, calc(100% - 20px));
@@ -6875,7 +6875,12 @@ h2 {
   }
 
   .workspace-2d-frame-fullscreen .workspace-2d-map-hud .workspace-2d-minimap {
-    height: 84px;
+    height: 116px;
+  }
+
+  .workspace-2d-frame-fullscreen .workspace-2d-minimap-room-button {
+    min-width: 40px;
+    min-height: 40px;
   }
 
   .workspace-2d-frame-fullscreen .workspace-2d-map-caption {
@@ -6884,24 +6889,30 @@ h2 {
   }
 
   .workspace-2d-frame-fullscreen .workspace-2d-map-controls {
-    top: 422px;
+    top: 448px;
     right: 10px;
     gap: 5px;
   }
 
+  .workspace-2d-frame-fullscreen .workspace-2d-map-controls button {
+    min-width: 40px;
+    height: 40px;
+  }
+
   .workspace-2d-frame-fullscreen .workspace-2d-hero-hud {
-    top: 532px;
+    display: none;
+    top: 570px;
     bottom: auto;
     left: 10px;
     width: calc(100% - 20px);
-    grid-template-columns: 44px minmax(0, 1fr);
+    grid-template-columns: 40px minmax(0, 1fr);
     gap: 8px;
-    padding: 7px;
+    padding: 6px;
   }
 
   .workspace-2d-frame-fullscreen .workspace-2d-hero-avatar {
-    width: 44px;
-    height: 44px;
+    width: 40px;
+    height: 40px;
   }
 
   .workspace-2d-frame-fullscreen .workspace-2d-hero-hud span,
@@ -6910,9 +6921,13 @@ h2 {
     font-size: 12px;
   }
 
+  .workspace-2d-frame-fullscreen .workspace-2d-hero-hud small {
+    display: none;
+  }
+
   .workspace-2d-frame-fullscreen .workspace-2d-roster {
     z-index: 50;
-    top: 472px;
+    top: 510px;
     right: 10px;
     left: 10px;
     display: flex;
@@ -6938,7 +6953,7 @@ h2 {
     right: 10px;
     bottom: 18px;
     left: 10px;
-    max-height: 108px;
+    max-height: 92px;
     grid-template-columns: 44px minmax(0, 1fr);
     gap: 8px;
     overflow: hidden;
