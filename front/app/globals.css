@@ -6710,6 +6710,10 @@ h2 {
     padding: 18px;
   }
 
+  .workspace-detail-shell.workspace-stage-route {
+    padding: 0;
+  }
+
   .workspace-detail-panel {
     padding: 18px;
   }
