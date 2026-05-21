@@ -3026,7 +3026,7 @@ h2 {
 .workspace-stage-route .workspace-stage-surface .workspace-office-nav {
   position: absolute;
   z-index: 62;
-  top: 78px;
+  top: 64px;
   right: 232px;
   left: 16px;
 }
@@ -3095,11 +3095,15 @@ h2 {
 .workspace-2d-frame-fullscreen .workspace-2d-hud {
   position: absolute;
   z-index: 45;
-  top: 132px;
-  left: 16px;
-  width: min(560px, calc(100vw - 500px));
-  min-width: 360px;
+  top: 16px;
+  left: clamp(420px, 32vw, 520px);
+  width: min(520px, calc(100vw - 900px));
+  min-width: 420px;
   pointer-events: none;
+}
+
+.workspace-2d-frame-fullscreen .workspace-2d-hud > div {
+  padding: 8px 10px;
 }
 
 .workspace-2d-frame-fullscreen .workspace-2d-hero-hud {

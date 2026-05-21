@@ -528,6 +528,43 @@ test.describe("브라우저 UI UX 회귀", () => {
     await expectVerticalGapBetween(heroHud, dialogue, "hero HUD", "dialogue", 8);
   });
 
+  test("데스크톱 워크스페이스 상세 stage overlay는 주요 scene 콘텐츠를 가리지 않는다", async ({ page }) => {
+    test.skip((page.viewportSize()?.width ?? 0) < 900, "desktop viewport 전용 회귀");
+
+    await installMockApi(page);
+    await seedAuthTokens(page);
+    await seedCharacterProfile(page);
+
+    await page.goto(`/workspaces/${workspaceId}`);
+    await expect(page.getByRole("heading", { name: primaryWorkspace.name })).toBeVisible();
+
+    const protectedTargets = [
+      { label: "room labels", locator: page.locator(".stage-room-label") },
+      { label: "stage actors", locator: page.locator(".stage-actor") },
+      { label: "task marker", locator: page.locator(".stage-quest-marker") },
+    ];
+    const overlays = [
+      { label: "workspace nav", locator: page.locator(".workspace-stage-route .workspace-office-nav").first() },
+      { label: "scene HUD", locator: page.locator(".workspace-2d-frame-fullscreen .workspace-2d-hud").first() },
+      { label: "selected actor HUD", locator: page.locator(".workspace-2d-frame-fullscreen .workspace-2d-hero-hud").first() },
+      { label: "map HUD", locator: page.locator(".workspace-2d-frame-fullscreen .workspace-2d-map-hud").first() },
+      { label: "map controls", locator: page.locator(".workspace-2d-frame-fullscreen .workspace-2d-map-controls").first() },
+      { label: "roster", locator: page.locator(".workspace-2d-frame-fullscreen .workspace-2d-roster").first() },
+      {
+        label: "dialogue",
+        locator: page
+          .locator(".workspace-2d-frame-fullscreen .workspace-2d-stage-shell .workspace-2d-dialogue")
+          .first(),
+      },
+    ];
+
+    for (const overlay of overlays) {
+      for (const target of protectedTargets) {
+        await expectNoOverlapWithAny(overlay.locator, target.locator, overlay.label, target.label);
+      }
+    }
+  });
+
   test("2D workspace는 인증된 멤버를 player actor로 쓰고 저장된 avatar를 적용한다", async ({ page }) => {
     await installMockApi(page, { workspaceMembers: "current-user-second" });
     await seedAuthTokens(page, { memberId: 2 });
@@ -1210,6 +1247,38 @@ async function expectVerticalGapBetween(
     lowerBox.y - (upperBox.y + upperBox.height),
     `${upperLabel} and ${lowerLabel} should keep vertical gap`,
   ).toBeGreaterThanOrEqual(gap);
+}
+
+async function expectNoOverlapWithAny(
+  overlay: Locator,
+  targets: Locator,
+  overlayLabel: string,
+  targetLabel: string,
+) {
+  const overlayBox = await overlay.boundingBox();
+  expect(overlayBox, `${overlayLabel} should be rendered`).not.toBeNull();
+  if (!overlayBox) {
+    return;
+  }
+
+  const count = await targets.count();
+  for (let index = 0; index < count; index += 1) {
+    const targetBox = await targets.nth(index).boundingBox();
+    if (!targetBox) {
+      continue;
+    }
+
+    const overlaps =
+      overlayBox.x < targetBox.x + targetBox.width &&
+      overlayBox.x + overlayBox.width > targetBox.x &&
+      overlayBox.y < targetBox.y + targetBox.height &&
+      overlayBox.y + overlayBox.height > targetBox.y;
+
+    expect(
+      overlaps,
+      `${overlayLabel} should not overlap ${targetLabel} ${index + 1}`,
+    ).toBe(false);
+  }
 }
 
 async function expectPanAndZoomToMoveViewport(page: Page, frame: Locator) {
