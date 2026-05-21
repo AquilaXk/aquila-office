@@ -154,17 +154,9 @@ function AuthPageInner() {
                     },
                   }}
                 />
-              </div>
-              <div
-                style={{
-                  fontFamily: "var(--font-pixel)",
-                  fontSize: 12,
-                  color: t4.pink,
-                  letterSpacing: 2,
-                  textShadow: `0 0 6px ${t4.pink}`,
-                }}
-              >
-                <GlyphText glyph="▶">PRESS TO CONTINUE</GlyphText>
+                <span className="auth-google-visible-label" aria-hidden="true">
+                  CONTINUE WITH GOOGLE
+                </span>
               </div>
             </div>
 

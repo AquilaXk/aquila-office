@@ -21,9 +21,11 @@ test("auth page uses google login button and handles success failure and return 
   assert.match(source, /nextStep/);
   assert.match(source, /SIGN IN TO CONTINUE/);
   assert.match(source, /WORKSPACE MEMBER VERIFICATION/);
-  assert.match(source, /PRESS TO CONTINUE/);
+  assert.match(source, /CONTINUE WITH GOOGLE/);
+  assert.doesNotMatch(source, /PRESS TO CONTINUE/);
   assert.match(source, />\s*© aquilaXk 2026\s*<\/div>/);
   assert.match(source, /className="auth-google-frame"/);
+  assert.match(readSource("app/globals.css"), /\.auth-google-visible-label/);
   assert.match(source, /containerProps/);
   assert.match(source, /width:\s*284/);
   assert.match(source, /height:\s*48/);
