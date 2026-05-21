@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { existsSync } from "node:fs";
 import {
   APPLE_TOUCH_ICON_PATH,
   BRAND_MASCOT_PATH,
@@ -24,4 +25,15 @@ test("branding constants expose required public asset paths", () => {
   ]);
   assert(!REPRESENTATIVE_IMAGE_PATHS.includes("/office-bank-preview.png"));
   assert(!REPRESENTATIVE_IMAGE_PATHS.includes("/office-blog-preview.png"));
+});
+
+test("public assets do not keep obsolete preview images", () => {
+  const obsoletePreviewImages = [
+    "../public/office-bank-preview.png",
+    "../public/office-blog-preview.png",
+  ];
+
+  for (const imagePath of obsoletePreviewImages) {
+    assert.equal(existsSync(new URL(imagePath, import.meta.url)), false, imagePath);
+  }
 });
