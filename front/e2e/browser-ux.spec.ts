@@ -265,6 +265,7 @@ test.describe("브라우저 UI UX 회귀", () => {
     await page.goto("/auth");
     await expect(page.getByText("SIGN IN TO CONTINUE")).toBeVisible();
     await expect(page.getByText("WORKSPACE MEMBER VERIFICATION")).toBeVisible();
+    await expect(page.getByText("CONTINUE WITH GOOGLE")).toBeVisible();
   });
 
   test("인증 라우트가 Google 로그인과 인증 후 returnTo 이동을 유지한다", async ({ page }) => {
@@ -273,7 +274,8 @@ test.describe("브라우저 UI UX 회귀", () => {
     await page.goto("/auth?returnTo=/workspaces/new");
     await expect(page.getByText("SIGN IN TO CONTINUE")).toBeVisible();
     await expect(page.getByText("WORKSPACE MEMBER VERIFICATION")).toBeVisible();
-    await expect(page.getByText("PRESS TO CONTINUE")).toBeVisible();
+    await expect(page.getByText("CONTINUE WITH GOOGLE")).toBeVisible();
+    await expect(page.getByText("PRESS TO CONTINUE")).toHaveCount(0);
 
     await seedAuthTokens(page);
     await expect

@@ -344,17 +344,40 @@ button {
 
 .auth-google-frame {
   display: inline-grid;
+  position: relative;
   width: min(100%, 284px);
   height: 48px;
   place-items: center;
   overflow: hidden;
   border-radius: 4px;
   background: #202124;
+  isolation: isolate;
 }
 
 .auth-google-frame > div,
 .auth-google-frame iframe {
   max-width: 100%;
+}
+
+.auth-google-visible-label {
+  position: absolute;
+  z-index: 2;
+  top: 50%;
+  right: 12px;
+  left: 58px;
+  overflow: hidden;
+  transform: translateY(-50%);
+  color: var(--gothic-parchment);
+  font-family: var(--font-pixel);
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 1px;
+  line-height: 1;
+  pointer-events: none;
+  text-align: center;
+  text-overflow: ellipsis;
+  text-shadow: 0 0 8px rgba(241, 230, 204, 0.38);
+  white-space: nowrap;
 }
 
 .auth-state {
