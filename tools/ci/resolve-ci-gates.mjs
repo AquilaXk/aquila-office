@@ -66,7 +66,7 @@ function applyFile(gates, file) {
     return;
   }
 
-  if (DOCS_ONLY_FRONTEND_ASSETS.has(file)) {
+  if (DOCS_ONLY_FRONTEND_ASSETS.has(file) || file.startsWith("front/public/readme/")) {
     gates.docs = true;
     return;
   }
