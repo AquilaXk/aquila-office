@@ -4,51 +4,60 @@ use std::sync::Mutex;
 
 const SERVICE_NAME: &str = "com.aquila.office";
 
-static MOCK_VAULT: Mutex<Option<HashMap<String, String>>> = Mutex::new(None);
+static TEST_VAULT: Mutex<Option<HashMap<String, String>>> = Mutex::new(None);
 
-fn get_mock_vault() -> &'static Mutex<Option<HashMap<String, String>>> {
-    &MOCK_VAULT
+fn is_test_vault_enabled() -> bool {
+    cfg!(test) || std::env::var("AQUILA_VAULT_IN_MEMORY").is_ok()
 }
 
 #[tauri::command]
 pub fn save_secure_token(key: String, token: String) -> Result<(), String> {
-    if let Ok(entry) = Entry::new(SERVICE_NAME, &key) {
-        let _ = entry.set_password(&token);
+    if is_test_vault_enabled() {
+        let mut lock = TEST_VAULT.lock().map_err(|e| e.to_string())?;
+        let map = lock.get_or_insert_with(HashMap::new);
+        map.insert(key, token);
+        return Ok(());
     }
-    let mut lock = get_mock_vault().lock().map_err(|e| e.to_string())?;
-    let map = lock.get_or_insert_with(HashMap::new);
-    map.insert(key, token);
-    Ok(())
+
+    let entry = Entry::new(SERVICE_NAME, &key).map_err(|e| e.to_string())?;
+    entry
+        .set_password(&token)
+        .map_err(|e| format!("Failed to store secret in OS keychain: {}", e))
 }
 
 #[tauri::command]
 pub fn get_secure_token(key: String) -> Result<Option<String>, String> {
-    if let Ok(entry) = Entry::new(SERVICE_NAME, &key) {
-        if let Ok(pwd) = entry.get_password() {
-            return Ok(Some(pwd));
+    if is_test_vault_enabled() {
+        let lock = TEST_VAULT.lock().map_err(|e| e.to_string())?;
+        if let Some(map) = lock.as_ref() {
+            return Ok(map.get(&key).cloned());
         }
+        return Ok(None);
     }
 
-    let lock = get_mock_vault().lock().map_err(|e| e.to_string())?;
-    if let Some(map) = lock.as_ref() {
-        if let Some(val) = map.get(&key) {
-            return Ok(Some(val.clone()));
-        }
+    let entry = Entry::new(SERVICE_NAME, &key).map_err(|e| e.to_string())?;
+    match entry.get_password() {
+        Ok(pwd) => Ok(Some(pwd)),
+        Err(keyring::Error::NoEntry) => Ok(None),
+        Err(e) => Err(format!("Failed to retrieve secret from OS keychain: {}", e)),
     }
-
-    Ok(None)
 }
 
 #[tauri::command]
 pub fn delete_secure_token(key: String) -> Result<(), String> {
-    if let Ok(entry) = Entry::new(SERVICE_NAME, &key) {
-        let _ = entry.delete_credential();
+    if is_test_vault_enabled() {
+        let mut lock = TEST_VAULT.lock().map_err(|e| e.to_string())?;
+        if let Some(map) = lock.as_mut() {
+            map.remove(&key);
+        }
+        return Ok(());
     }
-    let mut lock = get_mock_vault().lock().map_err(|e| e.to_string())?;
-    if let Some(map) = lock.as_mut() {
-        map.remove(&key);
+
+    let entry = Entry::new(SERVICE_NAME, &key).map_err(|e| e.to_string())?;
+    match entry.delete_credential() {
+        Ok(_) | Err(keyring::Error::NoEntry) => Ok(()),
+        Err(e) => Err(format!("Failed to delete secret from OS keychain: {}", e)),
     }
-    Ok(())
 }
 
 #[cfg(test)]
@@ -67,5 +76,11 @@ mod tests {
         delete_secure_token(key.clone()).unwrap();
         let after_delete = get_secure_token(key).unwrap();
         assert_eq!(after_delete, None);
+    }
+
+    #[test]
+    fn test_vault_nonexistent_key_returns_none() {
+        let res = get_secure_token("non_existent_key_12345".to_string()).unwrap();
+        assert_eq!(res, None);
     }
 }

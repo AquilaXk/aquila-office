@@ -15,6 +15,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_oauth::init())
         .manage(watcher::WatcherState::default())
+        .manage(oauth::OAuthState::default())
         .setup(|app| {
             let quit_i = MenuItem::with_id(app, "quit", "Quit Aquila Office", true, None::<&str>)?;
             let show_i = MenuItem::with_id(app, "show", "Open Workspace", true, None::<&str>)?;
@@ -45,6 +46,7 @@ pub fn run() {
             git::get_workspace_git_status,
             git::get_workspace_git_diff,
             oauth::start_loopback_oauth,
+            oauth::stop_loopback_oauth,
             vault::save_secure_token,
             vault::get_secure_token,
             vault::delete_secure_token,

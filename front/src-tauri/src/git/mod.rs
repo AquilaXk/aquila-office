@@ -27,6 +27,7 @@ pub fn get_workspace_git_status(path: String) -> Result<GitStatusResult, String>
 
     let mut opts = StatusOptions::new();
     opts.include_untracked(true);
+    opts.recurse_untracked_dirs(true);
     opts.renames_head_to_index(true);
     opts.renames_index_to_workdir(true);
 
@@ -73,6 +74,9 @@ pub fn get_workspace_git_diff(
 ) -> Result<String, String> {
     let repo = Repository::discover(Path::new(&path)).map_err(|e| e.to_string())?;
     let mut diff_opts = DiffOptions::new();
+    diff_opts.include_untracked(true);
+    diff_opts.show_untracked_content(true);
+    diff_opts.recurse_untracked_dirs(true);
 
     if let Some(ref fp) = file_path {
         diff_opts.pathspec(fp);
@@ -138,6 +142,24 @@ mod tests {
 
         let diff = get_workspace_git_diff(temp_dir.to_string_lossy().to_string(), None).unwrap();
         assert!(diff.contains("+second line"));
+
+        // Test untracked file diff
+        let untracked_dir = temp_dir.join("subdir");
+        fs::create_dir_all(&untracked_dir).unwrap();
+        let untracked_file = untracked_dir.join("untracked.txt");
+        let mut f2 = File::create(&untracked_file).unwrap();
+        writeln!(f2, "brand new untracked content").unwrap();
+
+        let status2 = get_workspace_git_status(temp_dir.to_string_lossy().to_string()).unwrap();
+        let untracked_entry = status2.files.iter().find(|f| f.path == "subdir/untracked.txt");
+        assert!(untracked_entry.is_some(), "nested untracked file should be detected");
+        assert_eq!(untracked_entry.unwrap().status, "untracked");
+
+        let diff_untracked = get_workspace_git_diff(
+            temp_dir.to_string_lossy().to_string(),
+            Some("subdir/untracked.txt".to_string()),
+        ).unwrap();
+        assert!(diff_untracked.contains("+brand new untracked content"));
 
         let _ = fs::remove_dir_all(&temp_dir);
     }

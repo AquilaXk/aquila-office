@@ -152,6 +152,12 @@ a:focus-visible,
   -webkit-app-region: drag;
 }
 
+.desktop-window-header button,
+.desktop-window-controls {
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+}
+
 .app-shell {
   display: grid;
   grid-template-columns: 248px minmax(0, 1fr);

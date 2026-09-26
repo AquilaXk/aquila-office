@@ -1,6 +1,6 @@
 import type { NextConfig } from "next";
 
-const isDesktop = process.env.BUILD_TARGET === "desktop";
+const isDesktop = process.env.BUILD_TARGET === "desktop" || Boolean(process.env.TAURI_ENV_PLATFORM);
 
 const nextConfig: NextConfig = isDesktop
   ? {

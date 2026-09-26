@@ -9,14 +9,10 @@ export type WorkspaceGitDiffViewerProps = {
   className?: string;
 };
 
-type DiffLineType = "header" | "hunk" | "add" | "del" | "ctx";
+import { parseUnifiedDiff } from "@/lib/desktop/diff";
 
-type ParsedDiffLine = {
-  type: DiffLineType;
-  text: string;
-  oldNum?: number;
-  newNum?: number;
-};
+export type { DiffLineType, ParsedDiffLine } from "@/lib/desktop/diff";
+export { parseUnifiedDiff };
 
 export default function WorkspaceGitDiffViewer({
   diff,
@@ -26,48 +22,10 @@ export default function WorkspaceGitDiffViewer({
   const [copied, setCopied] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
 
-  const { lines, additions, deletions } = useMemo(() => {
-    let adds = 0;
-    let dels = 0;
-    const rawLines = diff.split("\n");
-    const parsed: ParsedDiffLine[] = [];
-
-    let oldLine = 0;
-    let newLine = 0;
-
-    for (const line of rawLines) {
-      if (line.startsWith("@@")) {
-        const match = line.match(/@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/);
-        if (match) {
-          oldLine = parseInt(match[1], 10);
-          newLine = parseInt(match[2], 10);
-        }
-        parsed.push({ type: "hunk", text: line });
-      } else if (
-        line.startsWith("diff --git") ||
-        line.startsWith("index ") ||
-        line.startsWith("--- ") ||
-        line.startsWith("+++ ")
-      ) {
-        parsed.push({ type: "header", text: line });
-      } else if (line.startsWith("+")) {
-        adds++;
-        parsed.push({ type: "add", text: line, newNum: newLine++ });
-      } else if (line.startsWith("-")) {
-        dels++;
-        parsed.push({ type: "del", text: line, oldNum: oldLine++ });
-      } else if (line.length > 0) {
-        parsed.push({
-          type: "ctx",
-          text: line,
-          oldNum: oldLine++,
-          newNum: newLine++,
-        });
-      }
-    }
-
-    return { lines: parsed, additions: adds, deletions: dels };
-  }, [diff]);
+  const { lines, additions, deletions } = useMemo(
+    () => parseUnifiedDiff(diff),
+    [diff],
+  );
 
   const handleCopy = async () => {
     try {
@@ -170,7 +128,7 @@ export default function WorkspaceGitDiffViewer({
                     {isAdd ? "+" : isDel ? "-" : " "}
                   </span>
                   <span className="whitespace-pre-wrap break-all flex-1">
-                    {l.text.replace(/^[+-]/, "")}
+                    {l.text.replace(/^[+ -]/, "")}
                   </span>
                 </div>
               );

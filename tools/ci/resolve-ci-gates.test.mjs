@@ -71,6 +71,14 @@ test("배포 workflow와 배포 스크립트 변경은 CD 배포 영향으로 �
   assert.equal(gates.deploy, true);
 });
 
+test("데스크톱 릴리스 workflow 변경은 workflow 게이트를 켠다", () => {
+  const gates = classifyChangedFiles([".github/workflows/desktop-release.yml"]);
+
+  assert.equal(gates.workflow, true);
+  assert.equal(gates.deploy, false);
+  assert.equal(gates.frontend, false);
+});
+
 test("Terraform 변경은 infra 게이트만 켠다", () => {
   const gates = classifyChangedFiles(["infra/terraform/oci/always-free-a1-flex/main.tf"]);
 

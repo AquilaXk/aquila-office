@@ -12,6 +12,7 @@
   "app": {
     "windows": [
       {
+        "label": "main",
         "title": "Aquila Office",
         "width": 1280,
         "height": 800,

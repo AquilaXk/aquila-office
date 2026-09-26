@@ -67,7 +67,10 @@ export default function DesktopWindowHeader({
       </div>
 
       {!isMac && (
-        <div className="flex items-center -mr-1">
+        <div
+          className="desktop-window-controls flex items-center -mr-1"
+          style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
+        >
           <button
             type="button"
             onClick={handleMinimize}

@@ -94,6 +94,27 @@ export async function startLoopbackOAuth(): Promise<number> {
   return invokeDesktop<number>("start_loopback_oauth");
 }
 
+export async function stopLoopbackOAuth(): Promise<void> {
+  return invokeDesktop<void>("stop_loopback_oauth");
+}
+
+export type GoogleTokenExchangePayload = {
+  code: string;
+  clientId: string;
+  clientSecret?: string;
+  redirectUri: string;
+  codeVerifier?: string;
+};
+
+export type GoogleTokenResponse = {
+  accessToken: string;
+  idToken?: string;
+  expiresIn?: number;
+  tokenType?: string;
+  refreshToken?: string;
+  scope?: string;
+};
+
 export async function saveSecureToken(key: string, token: string): Promise<void> {
   return invokeDesktop<void>("save_secure_token", { key, token });
 }

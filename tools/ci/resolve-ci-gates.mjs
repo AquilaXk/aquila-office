@@ -56,6 +56,11 @@ function applyFile(gates, file) {
     return;
   }
 
+  if (file.startsWith(".github/workflows/")) {
+    gates.workflow = true;
+    return;
+  }
+
   if (file === "README.md" || file === "LICENSE" || file.startsWith("tools/readme/")) {
     gates.docs = true;
     return;
