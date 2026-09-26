@@ -77,6 +77,11 @@ function applyFile(gates, file) {
     return;
   }
 
+  if (file.startsWith("front/src-tauri/")) {
+    gates.frontend = true;
+    return;
+  }
+
   if (file.startsWith("front/")) {
     gates.frontend = true;
     gates.deploy = true;
