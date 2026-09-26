@@ -33,6 +33,7 @@ front/test-results
 
 # Dependencies
 front/node_modules
+front/src-tauri
 
 # Runtime and secrets
 .env
