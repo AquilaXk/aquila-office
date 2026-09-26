@@ -61,6 +61,7 @@ vertex-key.json
 /front/.env.production.local
 /front/tsconfig.tsbuildinfo
 /front/next-env.d.ts
+/front/src-tauri/target/
 
 # Agent-only local docs and state
 AGENTS.md

@@ -141,6 +141,17 @@ a:focus-visible,
   box-shadow: 0 0 0 2px rgba(92, 107, 192, 0.65), 0 0 12px rgba(92, 107, 192, 0.35);
 }
 
+/* Desktop titlebar styles */
+.desktop-titlebar-macos {
+  padding-left: 78px;
+}
+
+.desktop-window-header {
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-app-region: drag;
+}
+
 .app-shell {
   display: grid;
   grid-template-columns: 248px minmax(0, 1fr);

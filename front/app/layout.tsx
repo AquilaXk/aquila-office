@@ -6,6 +6,7 @@ import {
   SERVICE_DESCRIPTION,
   SERVICE_NAME,
 } from "@/lib/branding";
+import DesktopWindowHeader from "@/components/desktop/DesktopWindowHeader";
 import Providers from "./providers";
 import "./globals.css";
 
@@ -39,6 +40,7 @@ export default function RootLayout({
   return (
     <html lang="ko">
       <body>
+        <DesktopWindowHeader />
         <Providers>{children}</Providers>
       </body>
     </html>
