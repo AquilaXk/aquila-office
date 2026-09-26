@@ -102,10 +102,14 @@ try {
     baseUrl = `http://127.0.0.1:${capturePort}`;
     serverProcess = spawn(
       "npm",
-      ["--prefix", "front", "run", "dev", "--", "--hostname", "127.0.0.1", "--port", String(capturePort)],
+      ["--prefix", "front", "run", "start", "--", "--hostname", "127.0.0.1", "--port", String(capturePort)],
       {
         cwd: root,
-        env: { ...process.env, NEXT_TELEMETRY_DISABLED: "1" },
+        env: {
+          ...process.env,
+          NEXT_TELEMETRY_DISABLED: "1",
+          NEXT_PUBLIC_DEV_ACCESS_TOKEN: "readme-capture-access-token",
+        },
         stdio: ["ignore", "pipe", "pipe"],
       },
     );
@@ -124,7 +128,7 @@ try {
   await installMockApi(context);
 
   const page = await context.newPage();
-  page.setDefaultTimeout(15_000);
+  page.setDefaultTimeout(60_000);
 
   await captureWorkspaceList(page);
   await captureWorkspaceDashboard(page);
@@ -143,13 +147,18 @@ try {
 async function captureWorkspaceList(page) {
   await page.goto("/workspaces");
   await stabilize(page);
-  await page.getByRole("heading", { name: "WORKSPACES" }).waitFor();
+  await page.getByRole("heading", { name: "WORKSPACES" }).waitFor({ state: "visible", timeout: 60_000 });
   await screenshot(page, "workspace-list.png");
 }
 
 async function captureWorkspaceDashboard(page) {
   await openWorkspaceDetail(page);
   await screenshot(page, "workspace-dashboard.png");
+  await page.screenshot({
+    path: resolve(root, "front/public/aquila-office-readme-preview.png"),
+    fullPage: false,
+  });
+  console.log("captured aquila-office-readme-preview.png");
 }
 
 async function captureTaskChat(page) {

@@ -8,6 +8,7 @@ test("README와 라이선스 전용 변경은 문서 게이트만 켠다", () =>
     "README.md",
     "LICENSE",
     "front/public/aquila-office-readme-preview.png",
+    "front/public/readme/workspace-dashboard.png",
     "tools/readme/validate-readme.mjs",
   ]), {
     backend: false,
