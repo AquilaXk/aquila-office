@@ -1,64 +1,86 @@
-/* styles/tokens.css - shared UI tokens mapped onto the gothic operations palette */
+/* styles/tokens.css - shared UI tokens mapped onto the signature lavender palette */
 
 :root {
-  /* t4 compatibility names keep the imported UI contract stable. */
-  --t4-bg: #101214;
-  --t4-bg2: #171a1d;
-  --t4-panel: #171a1d;
-  --t4-panel-2: #1f2327;
-  --t4-ink: #f1e6cc;
-  --t4-dim: #a99f8a;
-  --t4-line: rgba(194, 163, 91, 0.26);
-  --t4-line-soft: rgba(227, 198, 130, 0.5);
+  /* Signature lavender palette */
+  --brand-50: #F8F9FE;
+  --brand-100: #F0F2FD;
+  --brand-200: #E2E5FD;
+  --brand-300: #CCD2FC;
+  --brand-400: #8E9CE6;
+  --brand-500: #5C6BC0;
+  --brand-600: #4D5CB5;
+  --brand-700: #3F4EA3;
+  --brand-800: #333F85;
+  --brand-900: #262F64;
+  --brand-950: #171C3D;
+
+  /* Dark charcoal surface variables */
+  --bg-scaffold: #18191D;
+  --surface-card: #212529;
+  --surface-subtle: #2A2E33;
+  --border-subtle: #343A40;
+  --ink-primary: #F8F9FA;
+  --ink-secondary: #E5E7EB;
+  --ink-muted: #9CA3AF;
+
+  /* Legacy gothic / arcade & t4 compatibility token bindings */
+  --t4-bg: var(--bg-scaffold);
+  --t4-bg2: var(--surface-card);
+  --t4-panel: var(--surface-card);
+  --t4-panel-2: var(--surface-subtle);
+  --t4-ink: var(--ink-primary);
+  --t4-dim: var(--ink-muted);
+  --t4-line: var(--border-subtle);
+  --t4-line-soft: rgba(92, 107, 192, 0.35);
 
   /* Stat / accent colors */
   --t4-hp: #d06a5e;
-  --t4-mp: #c2a35b;
+  --t4-mp: var(--brand-500);
   --t4-xp: #e3c682;
   --t4-ok: #6f9f79;
-  --t4-agent: #8b7c65;
-  --t4-pink: #c2a35b;
+  --t4-agent: var(--brand-400);
+  --t4-pink: var(--brand-500);
   --t4-orange: #b4763f;
 
   /* Neon accent (used for borders / glows) */
-  --neon-pink: var(--t4-mp);
-  --neon-blue: #b7aa8e;
-  --neon-purple: var(--t4-agent);
-  --neon-yellow: var(--t4-xp);
-  --neon-green: var(--t4-ok);
-  --neon-red: var(--t4-hp);
-  --neon-border: var(--t4-mp);
+  --neon-pink: var(--brand-400);
+  --neon-blue: #8E9CE6;
+  --neon-purple: var(--brand-500);
+  --neon-yellow: #e3c682;
+  --neon-green: #6f9f79;
+  --neon-red: #d06a5e;
+  --neon-border: var(--brand-500);
 
   /* Legacy semantic mapping (so existing components keep working) */
-  --color-primary: var(--t4-pink);
-  --color-primary-light: var(--t4-mp);
-  --color-primary-hover: var(--t4-agent);
-  --color-primary-muted: rgba(194, 163, 91, 0.16);
+  --color-primary: var(--brand-500);
+  --color-primary-light: var(--brand-400);
+  --color-primary-hover: var(--brand-600);
+  --color-primary-muted: rgba(92, 107, 192, 0.16);
 
-  --color-agent: var(--t4-agent);
-  --color-agent-dark: #5f5647;
+  --color-agent: var(--brand-400);
+  --color-agent-dark: var(--brand-800);
 
   --color-danger: var(--t4-hp);
   --color-danger-hover: #a84f46;
   --color-danger-bg: rgba(208, 106, 94, 0.18);
-  --color-info: var(--t4-mp);
+  --color-info: var(--brand-400);
   --color-success: var(--t4-ok);
-  --color-meeting: var(--t4-agent);
+  --color-meeting: var(--brand-500);
   --color-warning: var(--t4-xp);
-  --color-working: var(--t4-mp);
+  --color-working: var(--brand-500);
   --color-stalled: var(--t4-orange);
 
   /* Text */
-  --text: var(--t4-ink);
-  --text-secondary: #d9cba8;
-  --text-muted: var(--t4-dim);
-  --text-dim: #706958;
+  --text: var(--ink-primary);
+  --text-secondary: var(--ink-secondary);
+  --text-muted: var(--ink-muted);
+  --text-dim: #697089;
 
   /* Font aliases expected by the imported UI shell. */
-  --font-sans: Arial, Helvetica, sans-serif;
-  --font-mixed-ko: Arial, Helvetica, sans-serif;
-  --font-pixel: Arial, Helvetica, sans-serif;
-  --font-mono-arcade: "Courier New", ui-monospace, monospace;
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mixed-ko: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-pixel: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono-arcade: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
   --font-arcade-mono: var(--font-mono-arcade);
 
   /* Spacing aliases */

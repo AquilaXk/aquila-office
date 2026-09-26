@@ -3,33 +3,33 @@
 
 :root {
   color-scheme: dark;
-  --gothic-page: #101214;
-  --gothic-surface: #171a1d;
-  --gothic-surface-raised: #1f2327;
-  --gothic-iron: #2b3035;
-  --gothic-line: rgba(194, 163, 91, 0.26);
-  --gothic-line-strong: rgba(227, 198, 130, 0.5);
-  --gothic-brass: #c2a35b;
-  --gothic-parchment: #f1e6cc;
-  --gothic-muted: #a99f8a;
-  --gothic-red: #9e4038;
+  --gothic-page: #18191D;
+  --gothic-surface: #212529;
+  --gothic-surface-raised: #2A2E33;
+  --gothic-iron: #343A40;
+  --gothic-line: rgba(92, 107, 192, 0.24);
+  --gothic-line-strong: rgba(92, 107, 192, 0.45);
+  --gothic-brass: #5C6BC0;
+  --gothic-parchment: #F8F9FA;
+  --gothic-muted: #9CA3AF;
+  --gothic-red: #d06a5e;
   --background: var(--gothic-page);
   --surface: var(--gothic-surface);
   --surface-muted: var(--gothic-surface-raised);
-  --surface-control: rgba(16, 18, 20, 0.82);
-  --surface-control-muted: rgba(31, 35, 39, 0.74);
-  --surface-info: rgba(85, 139, 216, 0.16);
+  --surface-control: rgba(24, 25, 29, 0.82);
+  --surface-control-muted: rgba(33, 37, 41, 0.74);
+  --surface-info: rgba(92, 107, 192, 0.16);
   --surface-success: rgba(111, 159, 121, 0.16);
-  --surface-warning: rgba(194, 163, 91, 0.18);
+  --surface-warning: rgba(227, 198, 130, 0.18);
   --surface-danger: rgba(208, 106, 94, 0.14);
   --border: var(--gothic-line);
   --border-strong: var(--gothic-line-strong);
   --text: var(--gothic-parchment);
   --text-muted: var(--gothic-muted);
-  --blue: var(--gothic-brass);
+  --blue: #5C6BC0;
   --green: #6f9f79;
   --red: #d06a5e;
-  --yellow: var(--gothic-brass);
+  --yellow: #5C6BC0;
   --shadow: 0 20px 70px rgba(0, 0, 0, 0.38);
   --title-shell-width: min(100%, 620px);
   --title-shell-min-height: 446px;
@@ -99,17 +99,46 @@ body {
 
 body {
   background:
-    linear-gradient(180deg, rgba(16, 18, 20, 0.92), rgba(9, 10, 11, 1)),
+    linear-gradient(180deg, rgba(24, 25, 29, 0.95), rgba(16, 18, 20, 1)),
     var(--background);
   color: var(--text);
   font-family:
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    "Helvetica Neue",
     Arial,
-    Helvetica,
     sans-serif;
 }
 
 button {
   font: inherit;
+}
+
+/* Card components 12px rounding */
+.ao-card,
+.workspace-task-card,
+.workspace-connection-card,
+.workspace-report-card,
+.workspace-detail-action-card,
+.workspace-presence-member-card,
+.workspace-actor-task-card,
+.asset-card,
+.ui-card {
+  border-radius: 12px;
+}
+
+/* Lavender focus rings across controls */
+:focus-visible,
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+a:focus-visible,
+[tabindex]:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(92, 107, 192, 0.65), 0 0 12px rgba(92, 107, 192, 0.35);
 }
 
 .app-shell {

@@ -1,4 +1,4 @@
-/* styles/theme-web.css - shared layout effects for the gothic operations theme */
+/* styles/theme-web.css - shared layout effects for the workspace theme */
 
 .theme-web,
 :root {
@@ -9,7 +9,7 @@
   --border: var(--t4-line);
   --border-subtle: var(--t4-line-soft);
 
-  --t4-tile-bg: rgba(31, 35, 39, 0.72);
+  --t4-tile-bg: rgba(33, 37, 41, 0.72);
 }
 
 .theme-web {
@@ -17,20 +17,12 @@
   color: var(--text);
 }
 
-/* Screen overlays used by the imported workspace shell. */
+/* Screen overlays used by the imported workspace shell - scanlines disabled */
 .t4-scanlines {
+  display: none;
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background: repeating-linear-gradient(
-    to bottom,
-    rgba(255, 255, 255, 0.04) 0,
-    rgba(255, 255, 255, 0.04) 1px,
-    transparent 1px,
-    transparent 3px
-  );
-  mix-blend-mode: overlay;
-  opacity: 0.55;
 }
 
 .t4-vignette {
@@ -44,25 +36,25 @@
   );
 }
 
-.t4-glow-pink {
+/* Glowing lavender effects */
+.lavender-glow,
+.t4-glow-pink,
+.t4-glow-purple {
   box-shadow:
-    0 0 0 1px rgba(194, 163, 91, 0.6),
-    0 0 18px rgba(194, 163, 91, 0.28),
-    inset 0 0 12px rgba(194, 163, 91, 0.08);
+    0 0 0 1px rgba(92, 107, 192, 0.6),
+    0 0 18px rgba(92, 107, 192, 0.28),
+    inset 0 0 12px rgba(92, 107, 192, 0.08);
+}
+
+.lavender-glow-sm {
+  box-shadow: 0 0 15px -3px rgba(92, 107, 192, 0.25);
 }
 
 .t4-glow-blue {
   box-shadow:
-    0 0 0 1px rgba(183, 170, 142, 0.55),
-    0 0 18px rgba(183, 170, 142, 0.24),
-    inset 0 0 12px rgba(183, 170, 142, 0.08);
-}
-
-.t4-glow-purple {
-  box-shadow:
-    0 0 0 1px rgba(139, 124, 101, 0.58),
-    0 0 18px rgba(139, 124, 101, 0.26),
-    inset 0 0 12px rgba(139, 124, 101, 0.08);
+    0 0 0 1px rgba(142, 156, 230, 0.55),
+    0 0 18px rgba(142, 156, 230, 0.24),
+    inset 0 0 12px rgba(142, 156, 230, 0.08);
 }
 
 .t4-glow-yellow {
@@ -81,5 +73,5 @@
 
 .t4-pixel-border {
   border: 1px solid var(--t4-line);
-  background: linear-gradient(180deg, rgba(31, 35, 39, 0.95), rgba(17, 19, 21, 0.95));
+  background: linear-gradient(180deg, rgba(33, 37, 41, 0.95), rgba(24, 25, 29, 0.95));
 }
