@@ -40,8 +40,8 @@ export function createWorkspace2DGame(options: Workspace2DGameOptions): Phaser.G
     }
 
     private drawNode(node: WorkspaceSceneNode) {
-      const fillColor = node.kind === "agent" ? 0xc2a35b : 0x6f9f79;
-      const strokeColor = node.id === options.selectedNodeId ? 0xf1e6cc : 0x2b3035;
+      const fillColor = node.kind === "agent" ? 0x5c6bc0 : 0x4d5cb5;
+      const strokeColor = node.id === options.selectedNodeId ? 0xf8f9fa : 0x343a40;
       const avatar = this.add.circle(node.x, node.y, 28, fillColor, 0.92);
       avatar.setStrokeStyle(3, strokeColor, 0.95);
       avatar.setInteractive({ useHandCursor: true });
@@ -69,16 +69,16 @@ export function createWorkspace2DGame(options: Workspace2DGameOptions): Phaser.G
 
       this.add
         .text(node.x, node.y - 5, node.kind === "agent" ? "A" : "M", {
-          color: "#101214",
-          fontFamily: "Arial, Helvetica, sans-serif",
+          color: "#18191D",
+          fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif",
           fontSize: "18px",
           fontStyle: "700",
         })
         .setOrigin(0.5);
       this.add
         .text(node.x, node.y + 40, node.label, {
-          color: "#f1e6cc",
-          fontFamily: "Arial, Helvetica, sans-serif",
+          color: "#f8f9fa",
+          fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif",
           fontSize: "13px",
           fontStyle: "700",
         })
@@ -87,18 +87,18 @@ export function createWorkspace2DGame(options: Workspace2DGameOptions): Phaser.G
   }
 
   return new Phaser.Game({
-    type: Phaser.CANVAS,
+    type: Phaser.AUTO,
     parent: options.parent,
     width: options.viewport.width,
     height: options.viewport.height,
-    backgroundColor: "#101214",
+    backgroundColor: "#18191D",
     scene: Workspace2DScene,
   });
 }
 
 function drawGrid(scene: Phaser.Scene, viewport: WorkspaceViewport) {
   const grid = scene.add.graphics();
-  grid.lineStyle(1, 0xc2a35b, 0.16);
+  grid.lineStyle(1, 0x5c6bc0, 0.16);
   for (let x = 0; x <= viewport.worldWidth; x += 80) {
     grid.moveTo(x, 0);
     grid.lineTo(x, viewport.worldHeight);
@@ -108,6 +108,6 @@ function drawGrid(scene: Phaser.Scene, viewport: WorkspaceViewport) {
     grid.lineTo(viewport.worldWidth, y);
   }
   grid.strokePath();
-  grid.lineStyle(2, 0xc2a35b, 0.34);
+  grid.lineStyle(2, 0x5c6bc0, 0.34);
   grid.strokeRect(24, 24, viewport.worldWidth - 48, viewport.worldHeight - 48);
 }
