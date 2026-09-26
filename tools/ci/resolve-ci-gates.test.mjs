@@ -29,6 +29,18 @@ test("프론트엔드 앱 변경은 frontend 게이트와 배포 영향을 켠�
   assert.equal(gates.docs, false);
 });
 
+test("데스크톱 src-tauri 변경은 frontend 게이트만 켠다", () => {
+  const gates = classifyChangedFiles(["front/src-tauri/src/lib.rs"]);
+
+  assert.equal(gates.frontend, true);
+  assert.equal(gates.deploy, false);
+  assert.equal(gates.backend, false);
+  assert.equal(gates.docs, false);
+  assert.equal(gates.infra, false);
+  assert.equal(gates.smoke, false);
+  assert.equal(gates.workflow, false);
+});
+
 test("백엔드 변경은 backend 게이트와 배포 영향을 켠다", () => {
   const gates = classifyChangedFiles(["back/src/main/java/com/aquila/office/App.java"]);
 

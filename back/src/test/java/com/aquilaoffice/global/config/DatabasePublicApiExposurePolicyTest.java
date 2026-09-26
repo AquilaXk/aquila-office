@@ -3,6 +3,7 @@ package com.aquilaoffice.global.config;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.io.IOException;
+import java.nio.charset.MalformedInputException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -42,6 +43,8 @@ class DatabasePublicApiExposurePolicyTest {
                     .filter(DatabasePublicApiExposurePolicyTest::isTextFile)
                     .filter(path -> !path.toString().contains("/node_modules/"))
                     .filter(path -> !path.toString().contains("/.next/"))
+                    .filter(path -> !path.toString().contains("/out/"))
+                    .filter(path -> !path.toString().contains("/src-tauri/target/"))
                     .filter(path -> containsForbiddenToken(path))
                     .map(root::relativize)
                     .map(Path::toString)
@@ -53,17 +56,21 @@ class DatabasePublicApiExposurePolicyTest {
 
     private static boolean isTextFile(Path path) {
         String fileName = path.getFileName().toString().toLowerCase(Locale.ROOT);
-        return !fileName.endsWith(".png")
+        return !fileName.equals(".ds_store")
+                && !fileName.endsWith(".png")
                 && !fileName.endsWith(".jpg")
                 && !fileName.endsWith(".jpeg")
                 && !fileName.endsWith(".webp")
-                && !fileName.endsWith(".ico");
+                && !fileName.endsWith(".ico")
+                && !fileName.endsWith(".icns");
     }
 
     private static boolean containsForbiddenToken(Path path) {
         try {
             String source = Files.readString(path).toLowerCase(Locale.ROOT);
             return FORBIDDEN_FRONTEND_DB_TOKENS.stream().anyMatch(source::contains);
+        } catch (MalformedInputException exception) {
+            return false;
         } catch (IOException exception) {
             throw new IllegalStateException("frontend DB exposure scan failed: " + path, exception);
         }
