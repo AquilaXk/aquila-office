@@ -31,7 +31,7 @@ test("auth page uses google login button and handles success failure and return 
   assert.match(source, /height:\s*48/);
   assert.match(source, /overflow:\s*"hidden"/);
   assert.match(source, /background:\s*"#202124"/);
-  assert.match(source, /border:\s*"1px solid rgba\(194, 163, 91, 0\.55\)"/);
+  assert.match(source, /border:\s*"1px solid rgba\(230, 234, 240, 0\.14\)"/);
   assert.match(source, /Google 토큰을 받지 못했습니다\./);
   assert.match(source, /LOADING ACCOUNT\.\.\./);
   assert.match(source, /로그인에 실패했습니다\./);

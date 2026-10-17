@@ -86,14 +86,14 @@ test("workspace detail operation panels use readable gothic contrast", () => {
   assert.match(cssRuleBodyForSelector(".workspace-member-meta"), /color:\s*var\(--gothic-muted\)/);
 
   const countBadgeBody = cssRuleBodyForSelector(".workspace-count-badge");
-  assert.match(countBadgeBody, /background:\s*rgba\(194,\s*163,\s*91,\s*0\.12\)/);
+  assert.match(countBadgeBody, /background:\s*rgba\(50,\s*121,\s*249,\s*0\.12\)/);
   assert.match(countBadgeBody, /color:\s*var\(--gothic-parchment\)/);
 
   const avatarBody = cssRuleBodyForSelector(".workspace-member-avatar");
-  assert.match(avatarBody, /background:\s*rgba\(194,\s*163,\s*91,\s*0\.14\)/);
+  assert.match(avatarBody, /background:\s*rgba\(50,\s*121,\s*249,\s*0\.14\)/);
   assert.match(avatarBody, /color:\s*var\(--gothic-brass\)/);
 
   const roleBadgeBody = finalCssRuleBodyForSelector(".role-badge");
-  assert.match(roleBadgeBody, /background:\s*rgba\(194,\s*163,\s*91,\s*0\.1\)/);
+  assert.match(roleBadgeBody, /background:\s*rgba\(50,\s*121,\s*249,\s*0\.1\)/);
   assert.match(roleBadgeBody, /color:\s*var\(--gothic-brass\)/);
 });

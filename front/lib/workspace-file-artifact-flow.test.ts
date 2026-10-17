@@ -16,16 +16,13 @@ test("workspace file tree supports directory expand collapse and reload flow", (
   assert.match(detailSource, /workspace-artifact-row-expanded/);
 });
 
-test("artifact fetch failures use demo workspace fallback content", () => {
-  assert.match(detailSource, /demoWorkspaceArtifactTree/);
-  assert.match(detailSource, /demoWorkspaceArtifactFile/);
-  assert.match(detailSource, /파일 API 응답 대신 demo workspace 파일을 표시합니다/);
-  assert.match(detailSource, /setArtifactTree\(demoWorkspaceArtifactTree\(numericWorkspaceId\)\)/);
-  assert.match(detailSource, /path: "reports\/daily"/);
-  assert.match(detailSource, /path: "reports\/daily\/summary.md"/);
-  assert.match(detailSource, /path: "reports\/logs\/plain-output.log"/);
-  assert.match(detailSource, /path: "reports\/logs\/missing-file.log"/);
-  assert.match(detailSource, /const fallbackFile = demoWorkspaceArtifactFile\(numericWorkspaceId, path\)/);
+test("artifact fetch failures fail closed without demo workspace fallback content", () => {
+  assert.doesNotMatch(detailSource, /demoWorkspaceArtifactTree/);
+  assert.doesNotMatch(detailSource, /demoWorkspaceArtifactFile/);
+  assert.doesNotMatch(detailSource, /파일 API 응답 대신 demo workspace 파일을 표시합니다/);
+  assert.match(detailSource, /setArtifactTreeError/);
+  assert.match(detailSource, /setArtifactFileError/);
+  assert.match(detailSource, /파일 트리를 불러오지 못했습니다/);
   assert.match(detailSource, /파일을 찾을 수 없습니다/);
 });
 
@@ -61,12 +58,10 @@ test("artifact modal distinguishes markdown and plain text rendering", () => {
   assert.match(detailSource, /workspace-file-content/);
 });
 
-test("browser regression covers artifact fallback and directory toggles", () => {
+test("browser regression covers artifact fail-closed error and directory toggles", () => {
   assert.match(browserSource, /artifactFailureMode/);
+  assert.match(browserSource, /artifact tree fixture failure/);
   assert.match(browserSource, /reports\/result.md/);
-  assert.match(browserSource, /reports\/fallback.md/);
-  assert.match(browserSource, /plain-output\.log/);
-  assert.match(browserSource, /missing-file\.log/);
   assert.match(browserSource, /getByRole\("button", \{ name: "RELOAD" \}\)\.click/);
   assert.match(browserSource, /workspace-artifact-row-expanded/);
 });

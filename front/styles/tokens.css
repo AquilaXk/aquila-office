@@ -1,87 +1,110 @@
-/* styles/tokens.css - shared UI tokens mapped onto the signature lavender palette */
+/* styles/tokens.css - shared editorial dark UI tokens */
 
 :root {
-  /* Signature lavender palette */
-  --brand-50: #F8F9FE;
-  --brand-100: #F0F2FD;
-  --brand-200: #E2E5FD;
-  --brand-300: #CCD2FC;
-  --brand-400: #8E9CE6;
-  --brand-500: #5C6BC0;
-  --brand-600: #4D5CB5;
-  --brand-700: #3F4EA3;
-  --brand-800: #333F85;
-  --brand-900: #262F64;
-  --brand-950: #171C3D;
+  color-scheme: dark;
 
-  /* Dark charcoal surface variables */
-  --bg-scaffold: #18191D;
-  --surface-card: #212529;
-  --surface-subtle: #2A2E33;
-  --border-subtle: #343A40;
-  --ink-primary: #F8F9FA;
-  --ink-secondary: #E5E7EB;
-  --ink-muted: #9CA3AF;
+  /* Editorial slate dark surfaces */
+  --surface-canvas: #121317;
+  --surface-1: #18191d;
+  --surface-panel: #18191d;
+  --surface-2: #212226;
+  --surface-3: #2f3034;
 
-  /* Legacy gothic / arcade & t4 compatibility token bindings */
-  --t4-bg: var(--bg-scaffold);
-  --t4-bg2: var(--surface-card);
-  --t4-panel: var(--surface-card);
-  --t4-panel-2: var(--surface-subtle);
-  --t4-ink: var(--ink-primary);
-  --t4-dim: var(--ink-muted);
+  /* Editorial ink hierarchy */
+  --text-primary: #f8f9fc;
+  --text-secondary: #b2bbc5;
+  --text-muted: #6e7681;
+
+  /* Structural hairlines */
+  --border-subtle: rgba(230, 234, 240, 0.08);
+  --border-default: rgba(230, 234, 240, 0.14);
+  --border-strong: rgba(230, 234, 240, 0.24);
+
+  /* Functional accent & status tokens */
+  --accent-primary: #3279f9;
+  --status-success: #34a853;
+  --status-warning: #fbbc04;
+  --status-danger: #ea4335;
+
+  /* Brand scale */
+  --brand-50: #f8f9fc;
+  --brand-100: #eef2ff;
+  --brand-200: #dbe6fe;
+  --brand-300: #bcd2fd;
+  --brand-400: #6ea0fb;
+  --brand-500: #3279f9;
+  --brand-600: #2563eb;
+  --brand-700: #1d4ed8;
+  --brand-800: #1e40af;
+  --brand-900: #1e3a8a;
+  --brand-950: #172554;
+
+  /* Surface & ink compatibility variables */
+  --bg-scaffold: var(--surface-canvas);
+  --surface-card: var(--surface-1);
+  --surface-subtle: var(--surface-2);
+  --ink-primary: var(--text-primary);
+  --ink-secondary: var(--text-secondary);
+  --ink-muted: var(--text-muted);
+
+  /* Legacy t4 compatibility token bindings */
+  --t4-bg: var(--surface-canvas);
+  --t4-bg2: var(--surface-1);
+  --t4-panel: var(--surface-1);
+  --t4-panel-2: var(--surface-2);
+  --t4-ink: var(--text-primary);
+  --t4-dim: var(--text-secondary);
   --t4-line: var(--border-subtle);
-  --t4-line-soft: rgba(92, 107, 192, 0.35);
+  --t4-line-soft: var(--border-subtle);
 
   /* Stat / accent colors */
-  --t4-hp: #d06a5e;
-  --t4-mp: var(--brand-500);
-  --t4-xp: #e3c682;
-  --t4-ok: #6f9f79;
-  --t4-agent: var(--brand-400);
-  --t4-pink: var(--brand-500);
-  --t4-orange: #b4763f;
+  --t4-hp: var(--status-danger);
+  --t4-mp: var(--accent-primary);
+  --t4-xp: var(--status-warning);
+  --t4-ok: var(--status-success);
+  --t4-agent: var(--accent-primary);
+  --t4-pink: var(--accent-primary);
+  --t4-orange: var(--status-warning);
 
-  /* Neon accent (used for borders / glows) */
-  --neon-pink: var(--brand-400);
-  --neon-blue: #8E9CE6;
-  --neon-purple: var(--brand-500);
-  --neon-yellow: #e3c682;
-  --neon-green: #6f9f79;
-  --neon-red: #d06a5e;
-  --neon-border: var(--brand-500);
+  /* Accent aliases */
+  --neon-pink: var(--accent-primary);
+  --neon-blue: var(--accent-primary);
+  --neon-purple: #5c6bc0;
+  --neon-yellow: var(--status-warning);
+  --neon-green: var(--status-success);
+  --neon-red: var(--status-danger);
+  --neon-border: var(--border-default);
 
-  /* Legacy semantic mapping (so existing components keep working) */
-  --color-primary: var(--brand-500);
+  /* Legacy semantic mapping */
+  --color-primary: var(--accent-primary);
   --color-primary-light: var(--brand-400);
   --color-primary-hover: var(--brand-600);
-  --color-primary-muted: rgba(92, 107, 192, 0.16);
+  --color-primary-muted: rgba(50, 121, 249, 0.14);
 
-  --color-agent: var(--brand-400);
+  --color-agent: var(--accent-primary);
   --color-agent-dark: var(--brand-800);
 
-  --color-danger: var(--t4-hp);
-  --color-danger-hover: #a84f46;
-  --color-danger-bg: rgba(208, 106, 94, 0.18);
-  --color-info: var(--brand-400);
-  --color-success: var(--t4-ok);
-  --color-meeting: var(--brand-500);
-  --color-warning: var(--t4-xp);
-  --color-working: var(--brand-500);
-  --color-stalled: var(--t4-orange);
+  --color-danger: var(--status-danger);
+  --color-danger-hover: #c5221f;
+  --color-danger-bg: rgba(234, 67, 53, 0.14);
+  --color-info: var(--accent-primary);
+  --color-success: var(--status-success);
+  --color-meeting: var(--accent-primary);
+  --color-warning: var(--status-warning);
+  --color-working: var(--accent-primary);
+  --color-stalled: var(--status-warning);
 
   /* Text */
-  --text: var(--ink-primary);
-  --text-secondary: var(--ink-secondary);
-  --text-muted: var(--ink-muted);
-  --text-dim: #697089;
+  --text: var(--text-primary);
+  --text-dim: var(--text-muted);
 
-  /* Font aliases expected by the imported UI shell. */
+  /* Font aliases */
   --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  --font-mixed-ko: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  --font-pixel: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  --font-mono-arcade: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
-  --font-arcade-mono: var(--font-mono-arcade);
+  --font-mixed-ko: var(--font-sans);
+  --font-pixel: var(--font-sans);
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  --font-mono-arcade: var(--font-mono);
+  --font-arcade-mono: var(--font-mono);
 
   /* Spacing aliases */
   --gap-tight: 4px;

@@ -15,7 +15,7 @@ export default function T4Bar({
   label,
   value,
   max,
-  color = "var(--t4-mp)",
+  color = "var(--accent-primary, #3279f9)",
   width = 160,
   style,
 }: T4BarProps) {
@@ -26,24 +26,22 @@ export default function T4Bar({
         style={{
           display: "flex",
           justifyContent: "space-between",
-          fontFamily: "var(--font-mono-arcade)",
+          fontFamily: "var(--font-sans)",
           fontSize: 12,
-          letterSpacing: 1,
-          color: "var(--t4-dim)",
-          marginBottom: 2,
-          textTransform: "uppercase",
+          color: "var(--text-secondary, #b2bbc5)",
+          marginBottom: 4,
         }}
       >
         <span>{label}</span>
-        <span style={{ color: "var(--t4-ink)" }}>
+        <span style={{ color: "var(--text-primary, #f8f9fc)", fontFamily: "var(--font-mono)" }}>
           {value}/{max}
         </span>
       </div>
       <div
         style={{
-          height: 8,
-          background: "#0a0d1a",
-          border: "1px solid var(--t4-line)",
+          height: 4,
+          borderRadius: 9999,
+          background: "rgba(230, 234, 240, 0.08)",
           position: "relative",
           overflow: "hidden",
         }}
@@ -52,16 +50,8 @@ export default function T4Bar({
           style={{
             width: `${pct * 100}%`,
             height: "100%",
+            borderRadius: 9999,
             background: color,
-            boxShadow: `0 0 10px ${color}`,
-          }}
-        />
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            backgroundImage:
-              "repeating-linear-gradient(90deg, transparent 0, transparent 13px, rgba(0,0,0,0.5) 13px, rgba(0,0,0,0.5) 14px)",
           }}
         />
       </div>
