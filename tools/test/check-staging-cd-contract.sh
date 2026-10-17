@@ -176,4 +176,36 @@ require_pattern 'config.sh remove --token' "$BOOTSTRAP_SCRIPT" "idempotent runne
 require_pattern 'actions-runner-linux-arm64' "$BOOTSTRAP_SCRIPT" "ARM64 runner install"
 require_pattern 'oci-a1-staging' "$BOOTSTRAP_SCRIPT" "runner label"
 
+DESKTOP_RELEASE_WORKFLOW="$ROOT_DIR/.github/workflows/desktop-release.yml"
+RELEASE_CONFIG="$ROOT_DIR/.github/release.yml"
+PR_TEMPLATE="$ROOT_DIR/.github/pull_request_template.md"
+ISSUE_CONFIG="$ROOT_DIR/.github/ISSUE_TEMPLATE/config.yml"
+ISSUE_EPIC_TEMPLATE="$ROOT_DIR/.github/ISSUE_TEMPLATE/epic.yml"
+ISSUE_FEATURE_TEMPLATE="$ROOT_DIR/.github/ISSUE_TEMPLATE/feature.yml"
+ISSUE_BUG_TEMPLATE="$ROOT_DIR/.github/ISSUE_TEMPLATE/bug.yml"
+BACKEND_BUILD_GRADLE="$ROOT_DIR/back/build.gradle.kts"
+GITIGNORE_FILE="$ROOT_DIR/.gitignore"
+COMPLETION_CHECKLIST="$ROOT_DIR/COMPLETION_CHECKLIST.md"
+
+require_file "$DESKTOP_RELEASE_WORKFLOW"
+require_file "$RELEASE_CONFIG"
+require_file "$PR_TEMPLATE"
+require_file "$ISSUE_CONFIG"
+require_file "$ISSUE_EPIC_TEMPLATE"
+require_file "$ISSUE_FEATURE_TEMPLATE"
+require_file "$ISSUE_BUG_TEMPLATE"
+
+require_pattern 'releaseName:[[:space:]]*"Aquila Office \$\{\{[[:space:]]*github\.ref_name[[:space:]]*\}\}"' "$DESKTOP_RELEASE_WORKFLOW" "clean desktop release title"
+reject_pattern 'Aquila Office v\$\{\{[[:space:]]*github\.ref_name' "$DESKTOP_RELEASE_WORKFLOW" "double-v desktop release title"
+reject_pattern 'backend-v\*' "$CD_WORKFLOW" "split backend-v* tag trigger"
+
+require_pattern 'skip-changelog' "$RELEASE_CONFIG" "release changelog exclusion label"
+require_pattern 'type:feat' "$RELEASE_CONFIG" "release feat category label"
+require_pattern 'type:fix' "$RELEASE_CONFIG" "release fix category label"
+
+require_pattern '^version = "0\.1\.0"$' "$BACKEND_BUILD_GRADLE" "aligned backend SemVer 0.1.0"
+require_pattern '^\.worktrees/$' "$GITIGNORE_FILE" ".worktrees ignore rule"
+require_pattern '^\.superpowers/$' "$GITIGNORE_FILE" ".superpowers ignore rule"
+reject_pattern 'aquila-bank|aquila-blog|Warhammer' "$COMPLETION_CHECKLIST" "legacy external reference in COMPLETION_CHECKLIST.md"
+
 printf '[staging-cd-contract] contract checks passed\n'

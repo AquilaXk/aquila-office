@@ -1,0 +1,31 @@
+name: "Feature / Slice (기능 및 리팩터링 단위)"
+description: "자기완결적 Batch PR로 전달되는 수직 기능 또는 구조 개선 작업 단위입니다."
+title: "[Feat] "
+labels: ["type:feat"]
+body:
+  - type: input
+    id: epic
+    attributes:
+      label: "상위 에픽"
+      description: "연결된 상위 에픽 번호를 기재합니다 (예: #540)."
+  - type: textarea
+    id: summary
+    attributes:
+      label: "배경 및 목표"
+      description: "구현 또는 개선하려는 기능의 목적과 범위를 기술합니다."
+    validations:
+      required: true
+  - type: textarea
+    id: changes
+    attributes:
+      label: "주요 변경 사항"
+      description: "포함될 핵심 변경 항목을 정리합니다."
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: "인수 기준"
+      description: "통과해야 할 테스트 및 검증 게이트를 명시합니다."
+    validations:
+      required: true

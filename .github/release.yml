@@ -1,0 +1,28 @@
+changelog:
+  exclude:
+    labels:
+      - "skip-changelog"
+      - "type:chore"
+  categories:
+    - title: "Features"
+      labels:
+        - "type:feat"
+    - title: "Bug Fixes"
+      labels:
+        - "type:fix"
+    - title: "Design & Architecture"
+      labels:
+        - "type:refactor"
+    - title: "Security"
+      labels:
+        - "type:security"
+    - title: "Desktop & Infrastructure"
+      labels:
+        - "area:desktop"
+        - "area:infra"
+    - title: "Documentation"
+      labels:
+        - "area:docs"
+    - title: "Other Changes"
+      labels:
+        - "*"
