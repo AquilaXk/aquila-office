@@ -1,36 +1,24 @@
 "use client";
 
-import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
-import GlyphText from "./GlyphText";
+import type { CSSProperties, ReactNode } from "react";
 
 interface T4ScreenProps {
   children: ReactNode;
   title?: string;
+  footerLeft?: ReactNode;
+  footerRight?: ReactNode;
   className?: string;
   style?: CSSProperties;
 }
 
 export default function T4Screen({
   children,
-  title = "AI OFFICE · CHAPTER IV",
+  title = "Workspace",
+  footerLeft,
+  footerRight,
   className,
   style,
 }: T4ScreenProps) {
-  const [clock, setClock] = useState<string>("--:--:--");
-
-  useEffect(() => {
-    const tick = () => {
-      const d = new Date();
-      const hh = d.getHours().toString().padStart(2, "0");
-      const mm = d.getMinutes().toString().padStart(2, "0");
-      const ss = d.getSeconds().toString().padStart(2, "0");
-      setClock(`${hh}:${mm}:${ss}`);
-    };
-    tick();
-    const id = window.setInterval(tick, 1000);
-    return () => window.clearInterval(id);
-  }, []);
-
   return (
     <div
       className={className}
@@ -38,72 +26,91 @@ export default function T4Screen({
         position: "relative",
         width: "100%",
         minHeight: "100dvh",
-        background: "#000",
-        padding: 14,
+        height: "100dvh",
+        display: "flex",
+        flexDirection: "column",
+        background: "var(--surface-canvas, #121317)",
         boxSizing: "border-box",
         fontFamily: "var(--font-sans)",
-        color: "var(--t4-ink)",
+        color: "var(--text-primary, #f8f9fc)",
         overflow: "hidden",
         ...style,
       }}
     >
-      <div
+      <header
         style={{
-          position: "absolute",
-          inset: 14,
-          background: "var(--t4-bg)",
-          boxShadow:
-            "inset 0 0 80px rgba(90,168,255,0.15), inset 0 0 0 1px var(--t4-line)",
-          backgroundImage:
-            "repeating-linear-gradient(0deg, rgba(0,0,0,0.18) 0, rgba(0,0,0,0.18) 1px, transparent 1px, transparent 3px),radial-gradient(ellipse at center, rgba(20,30,80,0) 30%, rgba(0,0,0,0.55) 100%)",
-          overflow: "hidden",
+          height: 52,
+          flexShrink: 0,
+          display: "flex",
+          alignItems: "center",
+          gap: 12,
+          padding: "0 20px",
+          background: "rgba(18, 19, 23, 0.84)",
+          backdropFilter: "blur(8px)",
+          borderBottom: "1px solid var(--border-subtle)",
+          zIndex: 5,
         }}
       >
-        <div
+        <span
           style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            right: 0,
-            height: 28,
+            color: "var(--text-primary, #f8f9fc)",
+            fontFamily: "var(--font-sans)",
+            fontSize: 13,
+            fontWeight: 600,
+            letterSpacing: "-0.01em",
+          }}
+        >
+          Aquila Office
+        </span>
+        <span
+          aria-hidden="true"
+          style={{
+            color: "var(--text-muted, #6e7681)",
+            fontSize: 12,
+          }}
+        >
+          /
+        </span>
+        <span
+          style={{
+            color: "var(--text-secondary, #b2bbc5)",
+            fontFamily: "var(--font-sans)",
+            fontSize: 13,
+            fontWeight: 400,
+          }}
+        >
+          {title}
+        </span>
+      </header>
+      <div
+        style={{
+          flex: 1,
+          minHeight: 0,
+          overflow: "auto",
+          position: "relative",
+        }}
+      >
+        {children}
+      </div>
+      {(footerLeft || footerRight) && (
+        <footer
+          style={{
+            height: 36,
+            flexShrink: 0,
             display: "flex",
             alignItems: "center",
-            gap: 14,
-            padding: "0 14px",
-            fontFamily: "var(--font-mono-arcade)",
+            justifyContent: "space-between",
+            padding: "0 20px",
+            borderTop: "1px solid var(--border-subtle)",
+            background: "var(--surface-1, #18191d)",
+            color: "var(--text-muted, #6e7681)",
             fontSize: 12,
-            letterSpacing: 1,
-            color: "var(--t4-dim)",
-            background: "linear-gradient(180deg, rgba(90,168,255,0.10), transparent)",
-            borderBottom: "1px solid var(--t4-line)",
-            zIndex: 5,
           }}
         >
-          <span
-            style={{
-              color: "var(--t4-pink)",
-              fontFamily: "var(--font-pixel)",
-              fontSize: 12,
-              letterSpacing: 1,
-            }}
-          >
-            <GlyphText glyph="◆">AI OFFICE</GlyphText>
-          </span>
-          <span style={{ textTransform: "uppercase" }}>{title}</span>
-          <span style={{ marginLeft: "auto" }}>{clock}</span>
-        </div>
-        <div
-          style={{
-            position: "absolute",
-            top: 28,
-            bottom: 0,
-            left: 0,
-            right: 0,
-          }}
-        >
-          {children}
-        </div>
-      </div>
+          <span>{footerLeft}</span>
+          <span>{footerRight}</span>
+        </footer>
+      )}
     </div>
   );
 }

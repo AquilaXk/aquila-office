@@ -5,6 +5,7 @@ import type { CSSProperties, ReactNode } from "react";
 interface T4PanelProps {
   children: ReactNode;
   label?: string;
+  rightSlot?: ReactNode;
   accent?: string;
   style?: CSSProperties;
   className?: string;
@@ -13,7 +14,7 @@ interface T4PanelProps {
 export default function T4Panel({
   children,
   label,
-  accent = "var(--t4-pink)",
+  rightSlot,
   style,
   className,
 }: T4PanelProps) {
@@ -22,28 +23,56 @@ export default function T4Panel({
       className={className}
       style={{
         position: "relative",
-        background: "rgba(20,28,55,0.85)",
-        border: `1px solid ${accent}`,
-        boxShadow: `0 0 0 1px rgba(0,0,0,0.6), inset 0 0 24px rgba(154,122,255,0.08), 0 0 16px ${accent}40`,
+        background: "#18191d",
+        border: "1px solid rgba(230, 234, 240, 0.08)",
+        borderRadius: 12,
         ...style,
       }}
     >
-      {label && (
+      {(label || rightSlot) && (
         <div
           style={{
             position: "absolute",
-            top: -8,
-            left: 10,
-            padding: "0 6px",
-            background: "var(--t4-bg)",
-            fontFamily: "var(--font-pixel)",
-            fontSize: 12,
-            letterSpacing: 2,
-            color: accent,
+            top: -9,
+            left: 12,
+            right: 12,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            pointerEvents: "none",
             zIndex: 1,
           }}
         >
-          {label}
+          {label ? (
+            <span
+              style={{
+                padding: "0 6px",
+                background: "var(--surface-canvas, #121317)",
+                fontFamily: "var(--font-sans)",
+                fontSize: 12,
+                fontWeight: 500,
+                letterSpacing: "0.04em",
+                color: "var(--text-secondary, #b2bbc5)",
+              }}
+            >
+              {label}
+            </span>
+          ) : (
+            <span />
+          )}
+          {rightSlot ? (
+            <span
+              style={{
+                padding: "0 6px",
+                background: "var(--surface-canvas, #121317)",
+                fontFamily: "var(--font-mono)",
+                fontSize: 12,
+                color: "var(--text-muted, #6e7681)",
+              }}
+            >
+              {rightSlot}
+            </span>
+          ) : null}
         </div>
       )}
       {children}

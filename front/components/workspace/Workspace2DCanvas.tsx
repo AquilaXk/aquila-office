@@ -57,6 +57,14 @@ import {
   type WorkspaceStageActor,
 } from "@/lib/workspace-2d";
 import type { WorkspaceMember } from "@/lib/workspaces";
+import {
+  ACTOR_FLAG,
+  countOccupiedBits,
+  createSpatialBitset,
+  matchesActorBitmask,
+  packActorBitfield,
+  setSpatialBit,
+} from "../../lib/office-spatial-bitmask";
 
 export type Workspace2DCanvasProps = {
   agents: WorkspaceAgent[];
@@ -172,6 +180,43 @@ export default function Workspace2DCanvas({
     logicalStageActors.find((actor) => actor.id === playerActorId) ??
     logicalStageActors[0] ??
     null;
+  const stageSpatialMetrics = useMemo(() => {
+    const gridWidth = 40;
+    const gridHeight = 24;
+    const bitset = createSpatialBitset(gridWidth, gridHeight);
+    let onlineAgentCount = 0;
+
+    for (let index = 0; index < logicalStageActors.length; index += 1) {
+      const actor = logicalStageActors[index];
+      const gx = Math.min(
+        gridWidth - 1,
+        Math.max(0, Math.floor((parseStagePct(actor.position.left) / 100) * gridWidth)),
+      );
+      const gy = Math.min(
+        gridHeight - 1,
+        Math.max(0, Math.floor((parseStagePct(actor.position.top) / 100) * gridHeight)),
+      );
+      setSpatialBit(bitset, gridWidth, gx, gy);
+
+      let flags = 0;
+      if (actor.status !== "blocked") flags |= ACTOR_FLAG.ONLINE;
+      if (actor.kind === "agent") flags |= ACTOR_FLAG.AGENT;
+      if (actor.id === selectedNodeId) flags |= ACTOR_FLAG.SELECTED;
+      if (actor.id === selectedStageActor?.id) flags |= ACTOR_FLAG.FOCUSED;
+      if (actor.motion === "working") flags |= ACTOR_FLAG.ACTIVE_TASK;
+      if (actor.id === playerActorId) flags |= ACTOR_FLAG.SELF;
+
+      const bitfield = packActorBitfield(flags, index & 0x0f, actor.kind === "agent" ? 1 : 0);
+      if (matchesActorBitmask(bitfield, ACTOR_FLAG.AGENT | ACTOR_FLAG.ONLINE)) {
+        onlineAgentCount += 1;
+      }
+    }
+
+    return {
+      occupiedTiles: countOccupiedBits(bitset),
+      onlineAgentCount,
+    };
+  }, [logicalStageActors, playerActorId, selectedNodeId, selectedStageActor?.id]);
   const activeAgents = agents.filter((agent) => agent.status === "READY").length;
   const activeMembers = presenceMembers.filter((member) => member.status === "ACTIVE").length;
 
@@ -356,12 +401,14 @@ export default function Workspace2DCanvas({
           <strong>{selectedNode?.label ?? "None"}</strong>
         </div>
         <div>
-          <span>Camera</span>
-          <strong>{`${Math.round(stagePan.x)}, ${Math.round(stagePan.y)}`}</strong>
+          <span>Grid</span>
+          <strong>
+            {stageSpatialMetrics.occupiedTiles} · {stageSpatialMetrics.onlineAgentCount}
+          </strong>
         </div>
         <div>
           <span>Player</span>
-          <strong>{playerPosition ? `${playerPosition.left}, ${playerPosition.top}` : "No signal"}</strong>
+          <strong>{playerPosition ? `${playerPosition.left}, ${playerPosition.top}` : "Standby"}</strong>
         </div>
       </div>
 
@@ -1061,14 +1108,6 @@ function StagePlant({ left, top, color = t4.ok }: { left: string; top: string; c
   );
 }
 
-function StageTaskChip({ left, top, color, label }: { left: string; top: string; color: string; label: string }) {
-  return (
-    <div className="stage-task-chip" style={{ left, top, borderColor: color, boxShadow: `0 0 8px ${color}80`, color }}>
-      {label}
-    </div>
-  );
-}
-
 function CoffeeStation({ left, top }: { left: string; top: string }) {
   return (
     <div className="stage-coffee" style={{ left, top }}>
@@ -1087,7 +1126,6 @@ function HuddleTable() {
       <StageChair left="72%" top="35%" color={t4.mp} />
       <StageChair left="25%" top="68%" color={t4.mp} />
       <StageChair left="72%" top="68%" color={t4.mp} />
-      <StageTaskChip left="50%" top="18%" color={t4.mp} label="STANDUP" />
     </>
   );
 }
@@ -1096,8 +1134,6 @@ function RestLounge() {
   return (
     <>
       <div className="stage-lounge-bench" />
-      <StageTaskChip left="35%" top="27%" color={t4.ok} label="BREAK 5min" />
-      <StageTaskChip left="52%" top="27%" color={t4.ok} label="lunch" />
       <div className="stage-lounge-table" />
       <CoffeeStation left="8%" top="72%" />
       <StagePlant left="84%" top="10%" color={t4.ok} />
@@ -1114,8 +1150,6 @@ function LibraryRoom() {
       <div className="stage-library-shelf stage-library-shelf-c" />
       <div className="stage-library-shelf stage-library-shelf-d" />
       <div className="stage-library-table" />
-      <StageTaskChip left="35%" top="57%" color={t4.xp} label="research · q2 map" />
-      <StageTaskChip left="58%" top="57%" color={t4.agent} label="WRITE CHANGELOG" />
       <StagePlant left="4%" top="45%" color={t4.xp} />
       <StagePlant left="88%" top="45%" color={t4.xp} />
     </>
@@ -1130,7 +1164,6 @@ function QuestMarker({ active, position }: { active: boolean; position: StageAct
       style={{ left: position.left, top: position.top }}
       aria-label="Task marker"
     >
-      ★
       <span>TASK</span>
       {active ? <strong>/ 태스크 보드</strong> : null}
     </button>
@@ -1286,7 +1319,7 @@ function MapHud({
       </div>
       <div className="workspace-2d-map-caption">
         <span>
-          <GlyphText glyph="◆">{String(totalActors).padStart(2, "0")} ALLIES</GlyphText>
+          <GlyphText glyph="◆">{String(totalActors).padStart(2, "0")} ACTORS</GlyphText>
         </span>
         <span>
           <GlyphText glyph="●">YOU</GlyphText>
@@ -1349,7 +1382,7 @@ function DialogueBox({
     ? isAgent
       ? `"${actor.detail}. 다음 task를 맡길 수 있습니다."`
       : `"${speaker} is ${actor.sourceStatus}. Wave hi or hand off a task."`
-    : `"No allies on the floor yet. Hire an agent or invite teammates from WORKSPACE."`;
+    : `"No members or agents on the floor yet. Hire an agent or invite teammates from WORKSPACE."`;
 
   return (
     <div className="workspace-2d-dialogue" aria-live="polite">

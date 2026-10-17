@@ -936,6 +936,14 @@ export default function WorkspaceDetailPage({
     }
   };
 
+  const setArtifactTreeError = useCallback((message: string) => {
+    setArtifactTreeState({ status: "error", error: message });
+  }, []);
+
+  const setArtifactFileError = useCallback((message: string) => {
+    setArtifactFileState({ status: "error", error: message });
+  }, []);
+
   const openWorkspaceFiles = useCallback(async () => {
     setFilesOpen(true);
     setArtifactTree(null);
@@ -947,13 +955,14 @@ export default function WorkspaceDetailPage({
       setArtifactTree(tree);
       setExpandedArtifactPaths(defaultExpandedArtifactPaths(tree));
       setArtifactTreeState({ status: "ready", error: null });
-    } catch {
-      setArtifactTree(demoWorkspaceArtifactTree(numericWorkspaceId));
-      setExpandedArtifactPaths(defaultExpandedArtifactPaths(demoWorkspaceArtifactTree(numericWorkspaceId)));
-      setArtifactNotice("파일 API 응답 대신 demo workspace 파일을 표시합니다.");
-      setArtifactTreeState({ status: "ready", error: null });
+    } catch (error) {
+      setArtifactTree(null);
+      setExpandedArtifactPaths(new Set());
+      setArtifactTreeError(
+        messageFromError(error, "파일 트리를 불러오지 못했습니다."),
+      );
     }
-  }, [numericWorkspaceId]);
+  }, [numericWorkspaceId, setArtifactTreeError]);
 
   const openArtifactFile = useCallback(
     async (path: string, nameHint?: string) => {
@@ -967,18 +976,13 @@ export default function WorkspaceDetailPage({
         const file = await fetchArtifactFile(resolveAccessToken(), numericWorkspaceId, path);
         setArtifactFile(file);
         setArtifactFileState({ status: "ready", error: null });
-      } catch {
-        const fallbackFile = demoWorkspaceArtifactFile(numericWorkspaceId, path);
-        if (!fallbackFile) {
-          setArtifactFileState({ status: "error", error: "파일을 찾을 수 없습니다." });
-          return;
-        }
-        setArtifactFile(fallbackFile);
-        setArtifactNotice("파일 API 응답 대신 demo workspace 파일을 표시합니다.");
-        setArtifactFileState({ status: "ready", error: null });
+      } catch (error) {
+        setArtifactFileError(
+          messageFromError(error, "파일을 찾을 수 없습니다."),
+        );
       }
     },
-    [numericWorkspaceId],
+    [numericWorkspaceId, setArtifactFileError],
   );
 
   const toggleArtifactDirectory = useCallback((path: string) => {
@@ -2041,11 +2045,6 @@ export default function WorkspaceDetailPage({
       </section>
 
       <aside className="workspace-detail-side" aria-label="조회 정보">
-        <div>
-          <UserRound aria-hidden="true" />
-          <strong>{resolveAccessToken() ? "설정됨" : "미설정"}</strong>
-          <span>개발 access token</span>
-        </div>
         <div>
           <Hash aria-hidden="true" />
           <strong>{isValidWorkspaceId(numericWorkspaceId) ? numericWorkspaceId : "-"}</strong>
@@ -3268,7 +3267,7 @@ function ActorTaskPanel({
                       ) : null}
                     </div>
                   ) : null}
-                  {message.optimistic ? <span>optimistic</span> : null}
+                  {message.optimistic ? <span>전송 중</span> : null}
                 </article>
               ))
             ) : (
@@ -3467,11 +3466,11 @@ function TaskDashboardModal({
             <>
               <div className="workspace-dashboard-source-grid">
                 <div>
-                  <span>API summary</span>
+                  <span>전체 작업 요약</span>
                   <strong>{apiSummary ? `${apiSummary.taskCount} Tasks` : "없음"}</strong>
                 </div>
                 <div>
-                  <span>Local fallback</span>
+                  <span>진행 상태 요약</span>
                   <strong>{`${localSummary.taskCount} Tasks`}</strong>
                 </div>
               </div>
@@ -4677,100 +4676,6 @@ function toggleExpandedArtifactPath(current: Set<string>, path: string): Set<str
     next.add(path);
   }
   return next;
-}
-
-function demoWorkspaceArtifactTree(workspaceId: number): ArtifactTree {
-  return {
-    workspaceId,
-    rootPath: "/",
-    children: [
-      {
-        name: "reports",
-        path: "reports",
-        type: "DIRECTORY",
-        children: [
-          {
-            name: "fallback.md",
-            path: "reports/fallback.md",
-            type: "FILE",
-            contentType: "text/markdown",
-            sizeBytes: 168,
-          },
-          {
-            name: "daily",
-            path: "reports/daily",
-            type: "DIRECTORY",
-            children: [
-              {
-                name: "summary.md",
-                path: "reports/daily/summary.md",
-                type: "FILE",
-                contentType: "text/markdown",
-                sizeBytes: 144,
-              },
-            ],
-          },
-          {
-            name: "logs",
-            path: "reports/logs",
-            type: "DIRECTORY",
-            children: [
-              {
-                name: "plain-output.log",
-                path: "reports/logs/plain-output.log",
-                type: "FILE",
-                contentType: "text/plain",
-                sizeBytes: 96,
-              },
-              {
-                name: "missing-file.log",
-                path: "reports/logs/missing-file.log",
-                type: "FILE",
-                contentType: "text/plain",
-                sizeBytes: 0,
-              },
-            ],
-          },
-        ],
-      },
-    ],
-  };
-}
-
-function demoWorkspaceArtifactFile(
-  workspaceId: number,
-  path: string,
-): ArtifactFileContent | null {
-  const name = path.split("/").pop() || "fallback.md";
-  const fallbackFiles: Record<string, Pick<ArtifactFileContent, "contentType" | "sizeBytes" | "content">> = {
-    "reports/fallback.md": {
-      contentType: "text/markdown",
-      sizeBytes: 168,
-      content: "# Demo workspace artifact\n\n파일 API 응답 대신 demo workspace 파일을 표시합니다.",
-    },
-    "reports/daily/summary.md": {
-      contentType: "text/markdown",
-      sizeBytes: 144,
-      content: "# Daily summary\n\nsample workspace nested directory markdown preview입니다.",
-    },
-    "reports/logs/plain-output.log": {
-      contentType: "text/plain",
-      sizeBytes: 96,
-      content: "fallback artifact\nAPI 응답이 없어 demo workspace plain text를 표시합니다.",
-    },
-  };
-  const fallbackFile = fallbackFiles[path];
-
-  if (!fallbackFile) {
-    return null;
-  }
-
-  return {
-    workspaceId,
-    path,
-    name,
-    ...fallbackFile,
-  };
 }
 
 function isMarkdownArtifactFile(

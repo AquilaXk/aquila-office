@@ -371,7 +371,7 @@ export default function GatewayPage() {
         <div className="grid gap-3 md:grid-cols-3">
           <InfoCard step="01" title="REGISTER" description="라벨, 게이트웨이 URL, 토큰을 입력해 새 연결을 추가합니다." />
           <InfoCard step="02" title="VERIFY" description="사이드바에서 연결된 모든 게이트웨이의 상태를 확인할 수 있습니다." />
-          <InfoCard step="03" title="BIND" description="워크스페이스 단위 바인딩은 API 연동 이후 제공될 예정입니다." />
+          <InfoCard step="03" title="BIND" description="등록한 게이트웨이 주소와 토큰은 워크스페이스 연결 설정에서 바인딩에 활용됩니다." />
         </div>
       </div>
     </T4Screen>

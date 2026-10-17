@@ -71,8 +71,8 @@ test("task dashboard modal exposes summary board and selected task detail", () =
   assert.match(detailSource, /taskDashboardOpen/);
   assert.match(detailSource, /taskDashboardTab/);
   assert.match(detailSource, /aria-label="Task dashboard"/);
-  assert.match(detailSource, /API summary/);
-  assert.match(detailSource, /Local fallback/);
+  assert.match(detailSource, /전체 작업 요약/);
+  assert.match(detailSource, /진행 상태 요약/);
   assert.match(detailSource, /selectedDashboardTask/);
 });
 
