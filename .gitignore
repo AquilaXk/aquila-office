@@ -78,6 +78,9 @@ docs/
 .windsurf/
 .ai/
 .playwright-mcp/
+.worktrees/
+worktrees/
+.superpowers/
 
 # Local current-task helpers and hooks
 tools/guards/current-task-*.sh

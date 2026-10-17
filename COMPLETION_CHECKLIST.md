@@ -125,8 +125,8 @@ Frontend는 화면 구조, 정보 밀도, asset, interaction, API client contrac
 
 - 서비스명은 navigation, auth, dashboard, settings, metadata에서 Aquila Office로 통일한다.
 - favicon, apple touch icon, Open Graph 이미지, 대표 preview 이미지는 Aquila 계열 asset을 사용한다.
-- `aquila-bank`, `aquila-blog`에서 쓰는 gothic sci-fi tone을 Aquila Office에 맞게 적용한다.
-- Warhammer 40k st visual direction은 과한 장식보다 묵직한 contrast, metallic border, command panel density, 붉은 accent로 표현한다.
+- 쿨 슬레이트 모노크롬 다크 팔레트(#121317~#212226), 단일 기능성 블루 액센트(#3279f9), 1px 구조적 헤어라인, 문장형 대소문자(Sentence case)를 표준으로 적용한다.
+- 과장된 네온 글로우, 모서리 브래킷, 장식용 특수문자, 가짜 상태 게이지 및 침묵 데모 폴백을 배제한다.
 - 깨진 이미지, 임시 logo, generic placeholder, 빈 alt text가 남지 않는다.
 - brand color token과 shadow, border, focus ring은 공통 theme에서만 확장한다.
 

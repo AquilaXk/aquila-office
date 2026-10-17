@@ -26,9 +26,6 @@ on:
         required: false
         type: string
         default: ""
-  push:
-    tags:
-      - "backend-v*"
 
 permissions:
   contents: read

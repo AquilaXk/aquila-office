@@ -55,8 +55,8 @@ jobs:
         with:
           projectPath: "front"
           tagName: ${{ github.ref_name }}
-          releaseName: "Aquila Office v${{ github.ref_name }}"
-          releaseBody: "Automated desktop release for Aquila Office."
+          releaseName: "Aquila Office ${{ github.ref_name }}"
+          releaseBody: "Aquila Office desktop and workspace platform release ${{ github.ref_name }}."
           releaseDraft: false
           prerelease: false
           args: ${{ matrix.args }}

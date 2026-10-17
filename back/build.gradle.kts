@@ -11,7 +11,7 @@ plugins {
 }
 
 group = "com.aquilaoffice"
-version = "0.0.1-SNAPSHOT"
+version = "0.1.0"
 description = "aquila-office-back"
 
 java {

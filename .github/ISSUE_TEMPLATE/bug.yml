@@ -1,0 +1,26 @@
+name: "Bug Report (버그 제보 및 수정)"
+description: "재현 가능한 결함, 회귀, 또는 계약 위반 사항을 기록합니다."
+title: "[Fix] "
+labels: ["type:fix"]
+body:
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: "현상 및 재현 경로"
+      description: "발생한 문제와 재현 단계를 구체적으로 기술합니다."
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: "기대 동작 및 원인"
+      description: "정상 동작 기준과 파악된 원인을 기술합니다."
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: "인수 기준"
+      description: "회귀 방지 테스트 및 검증 게이트 통과 기준을 명시합니다."
+    validations:
+      required: true
