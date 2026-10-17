@@ -3267,7 +3267,7 @@ function ActorTaskPanel({
                       ) : null}
                     </div>
                   ) : null}
-                  {message.optimistic ? <span>optimistic</span> : null}
+                  {message.optimistic ? <span>전송 중</span> : null}
                 </article>
               ))
             ) : (

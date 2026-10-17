@@ -71,10 +71,13 @@ test("Uint32Array 2D spatial bitset sets, clears, queries, and counts bits via S
   setSpatialBit(bitset, width, 31, 0);
   assert.equal(countOccupiedBits(bitset), 4);
 
-  // Clear bit 31 (tests unsigned high-bit handling)
+  // Clear bit 31 and a non-zero row bit (39, 23)
   clearSpatialBit(bitset, width, 31, 0);
   assert.equal(hasSpatialBit(bitset, width, 31, 0), false);
   assert.equal(countOccupiedBits(bitset), 3);
+  clearSpatialBit(bitset, width, 39, 23);
+  assert.equal(hasSpatialBit(bitset, width, 39, 23), false);
+  assert.equal(countOccupiedBits(bitset), 2);
 
   // Direct SWAR popcount32 boundary checks
   assert.equal(popcount32(0), 0);

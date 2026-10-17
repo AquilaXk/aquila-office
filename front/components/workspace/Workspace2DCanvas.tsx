@@ -402,7 +402,9 @@ export default function Workspace2DCanvas({
         </div>
         <div>
           <span>Grid</span>
-          <strong>{stageSpatialMetrics.occupiedTiles}</strong>
+          <strong>
+            {stageSpatialMetrics.occupiedTiles} · {stageSpatialMetrics.onlineAgentCount}
+          </strong>
         </div>
         <div>
           <span>Player</span>
@@ -1162,7 +1164,6 @@ function QuestMarker({ active, position }: { active: boolean; position: StageAct
       style={{ left: position.left, top: position.top }}
       aria-label="Task marker"
     >
-      ★
       <span>TASK</span>
       {active ? <strong>/ 태스크 보드</strong> : null}
     </button>
@@ -1318,7 +1319,7 @@ function MapHud({
       </div>
       <div className="workspace-2d-map-caption">
         <span>
-          <GlyphText glyph="◆">{String(totalActors).padStart(2, "0")} ALLIES</GlyphText>
+          <GlyphText glyph="◆">{String(totalActors).padStart(2, "0")} ACTORS</GlyphText>
         </span>
         <span>
           <GlyphText glyph="●">YOU</GlyphText>
@@ -1381,7 +1382,7 @@ function DialogueBox({
     ? isAgent
       ? `"${actor.detail}. 다음 task를 맡길 수 있습니다."`
       : `"${speaker} is ${actor.sourceStatus}. Wave hi or hand off a task."`
-    : `"No allies on the floor yet. Hire an agent or invite teammates from WORKSPACE."`;
+    : `"No members or agents on the floor yet. Hire an agent or invite teammates from WORKSPACE."`;
 
   return (
     <div className="workspace-2d-dialogue" aria-live="polite">
