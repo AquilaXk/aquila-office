@@ -97,3 +97,66 @@ test("workspace detail operation panels use readable gothic contrast", () => {
   assert.match(roleBadgeBody, /background:\s*rgba\(50,\s*121,\s*249,\s*0\.1\)/);
   assert.match(roleBadgeBody, /color:\s*var\(--gothic-brass\)/);
 });
+
+test("route pages and shared wrappers eliminate inline neon glows, border-cutting legends, and arcade copy", () => {
+  const checkedFiles = [
+    "app/page.tsx",
+    "app/auth/page.tsx",
+    "app/auth/character/page.tsx",
+    "app/workspaces/page.tsx",
+    "app/workspaces/new/page.tsx",
+    "app/workspaces/gateway/page.tsx",
+    "app/workspaces/[workspaceId]/settings/page.tsx",
+    "app/invites/[token]/page.tsx",
+    "components/arcade/Panel.tsx",
+    "components/workspace/WorkspaceShell.tsx",
+    "components/workspace/Workspace2DCanvas.tsx",
+  ];
+
+  for (const relPath of checkedFiles) {
+    const content = readFileSync(path.join(appRoot, relPath), "utf8");
+    assert.doesNotMatch(
+      content,
+      /textShadow\s*:/,
+      `${relPath} must not contain inline textShadow glow`,
+    );
+    assert.doesNotMatch(
+      content,
+      /boxShadow\s*:\s*[`"'][^`"']*0 0 (?:10|12|14|16|18|20|22|24)px/,
+      `${relPath} must not contain inline neon boxShadow glow`,
+    );
+  }
+
+  const panelSource = readFileSync(path.join(appRoot, "components/arcade/Panel.tsx"), "utf8");
+  assert.doesNotMatch(panelSource, /top:\s*-9/);
+
+  const workspacesSource = readFileSync(path.join(appRoot, "app/workspaces/page.tsx"), "utf8");
+  assert.match(workspacesSource, /gridTemplateRows:\s*"auto auto auto"/);
+
+  const newWorkspaceSource = readFileSync(path.join(appRoot, "app/workspaces/new/page.tsx"), "utf8");
+  assert.doesNotMatch(newWorkspaceSource, /STEP 01 \/ 02/);
+
+  const settingsSource = readFileSync(
+    path.join(appRoot, "app/workspaces/[workspaceId]/settings/page.tsx"),
+    "utf8",
+  );
+  assert.doesNotMatch(settingsSource, /COMMAND DECK/);
+  assert.doesNotMatch(settingsSource, />KICK</);
+
+  const sceneSource = readFileSync(path.join(appRoot, "lib/workspace-2d.ts"), "utf8");
+  assert.doesNotMatch(sceneSource, /meeting in progress/);
+  assert.match(sceneSource, /collaboration zone/);
+
+  assert.doesNotMatch(pageSource, /PRESS START/);
+});
+
+test("2d stage floorplan and modals enforce editorial slate palette and primary chat hierarchy", () => {
+  assert.doesNotMatch(cssSource, /#090b16/i);
+  assert.doesNotMatch(cssSource, /#f7d774/i);
+  assert.doesNotMatch(cssSource, /#fde68a/i);
+
+  const reportParagraphBody = finalCssRuleBodyForSelector(".workspace-report-card p");
+  assert.match(reportParagraphBody, /font-size:\s*14px/);
+  assert.match(reportParagraphBody, /color:\s*var\(--text-primary\)/);
+});
+

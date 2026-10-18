@@ -107,8 +107,8 @@ const PLAYER_MOVE_FAST_SPEED_PX = 270;
 const AGENT_TRAVEL_MIN_SEGMENT_MS = 90;
 const CAMERA_FOLLOW_SMOOTHING = 0.18;
 const QUEST_MARKER_POSITION: StageActorPosition = { left: "90.4%", top: "75.8%" };
-const AGENT_DESK_COL_CENTERS = [16, 33, 50, 67];
-const AGENT_DESK_W_PCT = 13.5;
+const AGENT_DESK_COL_CENTERS = [14, 38, 62, 85];
+const AGENT_DESK_W_PCT = 14;
 
 export default function Workspace2DCanvas({
   agents,
@@ -951,8 +951,7 @@ function StageRoom({ room, engineeringRows }: { room: StageRoomSpec; engineering
   const doorHalfPct = 5;
   const wallStyle = {
     position: "absolute" as const,
-    background: room.color ?? t4.line,
-    boxShadow: `0 0 10px ${(room.color ?? t4.line)}80`,
+    background: "rgba(230, 234, 240, 0.16)",
   };
 
   return (
@@ -963,44 +962,43 @@ function StageRoom({ room, engineeringRows }: { room: StageRoomSpec; engineering
         top: room.top,
         width: room.width,
         height: room.height,
-        borderColor: room.color ?? t4.line,
-        background: `${room.color ?? t4.line}08`,
-        boxShadow: `inset 0 0 42px ${(room.color ?? t4.line)}18`,
+        borderColor: "rgba(230, 234, 240, 0.12)",
+        background: "rgba(24, 25, 29, 0.72)",
       }}
     >
       {room.doorSide === "top" ? (
         <>
-          <div style={{ ...wallStyle, left: 0, top: 0, height: 3, width: `${Math.max(0, doorPct - doorHalfPct)}%` }} />
-          <div style={{ ...wallStyle, left: `${Math.min(100, doorPct + doorHalfPct)}%`, top: 0, height: 3, right: 0 }} />
+          <div style={{ ...wallStyle, left: 0, top: 0, height: 2, width: `${Math.max(0, doorPct - doorHalfPct)}%` }} />
+          <div style={{ ...wallStyle, left: `${Math.min(100, doorPct + doorHalfPct)}%`, top: 0, height: 2, right: 0 }} />
         </>
       ) : (
-        <div style={{ ...wallStyle, left: 0, top: 0, right: 0, height: 3 }} />
+        <div style={{ ...wallStyle, left: 0, top: 0, right: 0, height: 2 }} />
       )}
       {room.doorSide === "bottom" ? (
         <>
-          <div style={{ ...wallStyle, left: 0, bottom: 0, height: 3, width: `${Math.max(0, doorPct - doorHalfPct)}%` }} />
-          <div style={{ ...wallStyle, left: `${Math.min(100, doorPct + doorHalfPct)}%`, bottom: 0, height: 3, right: 0 }} />
+          <div style={{ ...wallStyle, left: 0, bottom: 0, height: 2, width: `${Math.max(0, doorPct - doorHalfPct)}%` }} />
+          <div style={{ ...wallStyle, left: `${Math.min(100, doorPct + doorHalfPct)}%`, bottom: 0, height: 2, right: 0 }} />
         </>
       ) : (
-        <div style={{ ...wallStyle, left: 0, bottom: 0, right: 0, height: 3 }} />
+        <div style={{ ...wallStyle, left: 0, bottom: 0, right: 0, height: 2 }} />
       )}
       {room.doorSide === "left" ? (
         <>
-          <div style={{ ...wallStyle, left: 0, top: 0, width: 3, height: `${Math.max(0, doorPct - doorHalfPct)}%` }} />
-          <div style={{ ...wallStyle, left: 0, top: `${Math.min(100, doorPct + doorHalfPct)}%`, width: 3, bottom: 0 }} />
+          <div style={{ ...wallStyle, left: 0, top: 0, width: 2, height: `${Math.max(0, doorPct - doorHalfPct)}%` }} />
+          <div style={{ ...wallStyle, left: 0, top: `${Math.min(100, doorPct + doorHalfPct)}%`, width: 2, bottom: 0 }} />
         </>
       ) : (
-        <div style={{ ...wallStyle, left: 0, top: 0, bottom: 0, width: 3 }} />
+        <div style={{ ...wallStyle, left: 0, top: 0, bottom: 0, width: 2 }} />
       )}
       {room.doorSide === "right" ? (
         <>
-          <div style={{ ...wallStyle, right: 0, top: 0, width: 3, height: `${Math.max(0, doorPct - doorHalfPct)}%` }} />
-          <div style={{ ...wallStyle, right: 0, top: `${Math.min(100, doorPct + doorHalfPct)}%`, width: 3, bottom: 0 }} />
+          <div style={{ ...wallStyle, right: 0, top: 0, width: 2, height: `${Math.max(0, doorPct - doorHalfPct)}%` }} />
+          <div style={{ ...wallStyle, right: 0, top: `${Math.min(100, doorPct + doorHalfPct)}%`, width: 2, bottom: 0 }} />
         </>
       ) : (
-        <div style={{ ...wallStyle, right: 0, top: 0, bottom: 0, width: 3 }} />
+        <div style={{ ...wallStyle, right: 0, top: 0, bottom: 0, width: 2 }} />
       )}
-      <div className="stage-room-label" style={{ color: room.color ?? t4.ink }}>
+      <div className="stage-room-label" style={{ color: t4.dim }}>
         <GlyphText glyph="♦">
           {room.label}
           {room.sub ? ` · ${room.sub}` : ""}
@@ -1073,8 +1071,8 @@ function EngineeringPlatforms({ rows }: { rows: number }) {
           />
         )),
       )}
-      <StagePlant left="84%" top="8%" color={t4.ok} />
-      <StagePlant left="84%" top="82%" color={t4.ok} />
+      <StagePlant left="92%" top="8%" color={t4.ok} />
+      <StagePlant left="92%" top="82%" color={t4.ok} />
     </>
   );
 }
@@ -1101,7 +1099,7 @@ function StagePlant({ left, top, color = t4.ok }: { left: string; top: string; c
   return (
     <div className="stage-plant" style={{ left, top }}>
       <div style={{ borderColor: `${color}55` }} />
-      <span style={{ background: color, boxShadow: `0 0 6px ${color}80` }} />
+      <span style={{ background: color }} />
       <span style={{ background: color }} />
       <span style={{ background: color }} />
     </div>
@@ -1195,7 +1193,7 @@ function StageActor({
   onContextMenu: (payload: { actor: WorkspaceStageActor; x: number; y: number }) => void;
   onSelect: (actor: WorkspaceStageActor) => void;
 }) {
-  const accent = actor.kind === "agent" ? t4.agent : t4.pink;
+  const accent = actor.kind === "agent" ? t4.agent : t4.mp;
   const speech = getWorkspaceActorSpeech(actor);
   const visibleSpeech = isPlayer ? null : speech;
   const motion = walking ? "walking" : "idle";
@@ -1235,11 +1233,11 @@ function StageActor({
           {visibleSpeech.text ? <span>{visibleSpeech.text}</span> : null}
         </div>
       ) : null}
-      <div className="stage-actor__badge" style={{ borderColor: accent, boxShadow: selected ? `0 0 14px ${accent}` : undefined }}>
+      <div className="stage-actor__badge" style={{ borderColor: selected ? accent : "rgba(230, 234, 240, 0.18)" }}>
         {!isPlayer ? <span className={`stage-actor__dot stage-actor__dot-${actor.status}`} /> : null}
         <span>{isPlayer ? "YOU" : actor.label}</span>
       </div>
-      <div className="stage-actor__avatar" style={{ filter: selected ? `drop-shadow(0 0 14px ${accent})` : undefined }}>
+      <div className="stage-actor__avatar">
         <PixelAvatar
           kind={avatarKind}
           paletteOverride={isPlayer ? playerAvatar?.paletteOverride : undefined}
@@ -1283,7 +1281,7 @@ function MapHud({
   );
 
   return (
-    <T4Panel label="MAP · FLOOR 01" accent={t4.mp} className="workspace-2d-map-hud">
+    <T4Panel label="MAP · FLOOR 01" accent={t4.mp} className="workspace-2d-map-hud" style={{ padding: 8 }}>
       <div className="workspace-2d-minimap" aria-label="Office scene minimap">
         {rooms.map((room) => (
           <button
@@ -1377,16 +1375,16 @@ function DialogueBox({
   const isAgent = actor?.kind === "agent";
   const isSelf = Boolean(actor && playerActorId === actor.id);
   const speaker = actor?.label ?? "GUIDE";
-  const accent = actor ? (isAgent ? t4.agent : t4.pink) : t4.dim;
+  const accent = actor ? (isAgent ? t4.agent : t4.mp) : t4.dim;
   const line = actor
     ? isAgent
-      ? `"${actor.detail}. 다음 task를 맡길 수 있습니다."`
-      : `"${speaker} is ${actor.sourceStatus}. Wave hi or hand off a task."`
-    : `"No members or agents on the floor yet. Hire an agent or invite teammates from WORKSPACE."`;
+      ? `${actor.detail} · 다음 작업을 할당할 수 있습니다.`
+      : `${speaker} · ${actor.sourceStatus}`
+    : "No members or agents on the floor yet. Hire an agent or invite teammates from WORKSPACE.";
 
   return (
     <div className="workspace-2d-dialogue" aria-live="polite">
-      <div className="workspace-2d-dialogue-avatar" style={{ borderColor: accent, boxShadow: `0 0 10px ${accent}50` }}>
+      <div className="workspace-2d-dialogue-avatar" style={{ borderColor: "rgba(230, 234, 240, 0.14)" }}>
         <PixelAvatar kind={actor?.avatarKind ?? "agent"} size={3} />
       </div>
       <div>

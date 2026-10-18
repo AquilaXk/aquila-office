@@ -214,7 +214,7 @@ const ACTOR_INTERACTION_RADIUS_PCT = 7;
 const WALL_DOOR_HALF_PCT = 5;
 const PLAYER_WALL_PADDING_PCT = 0.6;
 const AGENT_DOOR_OUT_OFFSET_PCT = 1.6;
-const AGENT_DESK_COL_CENTERS = [16, 33, 50, 67];
+const AGENT_DESK_COL_CENTERS = [14, 38, 62, 85];
 const STAGE_WORLD_WIDTH = 1800;
 const STAGE_WORLD_MIN_HEIGHT = 950;
 const ENGINEERING_X = 40;
@@ -335,7 +335,7 @@ export function getStageRooms(
     },
     {
       label: "HUDDLE",
-      sub: "meeting in progress",
+      sub: "collaboration zone",
       left: pxToStagePct(HUDDLE_X, worldSize.width),
       top: pxToStagePct(HUDDLE_Y, worldSize.height),
       width: pxToStagePct(HUDDLE_W, worldSize.width),

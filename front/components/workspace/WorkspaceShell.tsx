@@ -20,33 +20,33 @@ export function WorkspaceErrorState({ message }: { message: string }) {
   return (
     <main
       className="theme-web flex min-h-screen items-center justify-center px-4"
-      style={{ background: "var(--t4-bg)" }}
+      style={{ background: "var(--surface-canvas, #121317)" }}
     >
       <section
         className="w-full max-w-md px-6 py-8 text-center"
         style={{
-          border: "1px solid var(--t4-hp)",
-          background: "rgba(31,35,39,0.92)",
-          boxShadow: "0 0 24px rgba(208,106,94,0.24)",
+          border: "1px solid rgba(234, 67, 53, 0.32)",
+          borderRadius: 12,
+          background: "#18191d",
         }}
       >
         <p
           style={{
-            fontFamily: "var(--font-pixel)",
+            fontFamily: "var(--font-sans)",
             fontSize: 12,
-            letterSpacing: 2,
-            color: "var(--t4-hp)",
-            textShadow: "0 0 6px var(--t4-hp)",
-            marginBottom: 16,
+            fontWeight: 600,
+            letterSpacing: "0.04em",
+            color: "var(--status-danger, #ea4335)",
+            marginBottom: 12,
           }}
         >
           <GlyphText glyph="⚠">ERROR</GlyphText>
         </p>
         <p
           style={{
-            fontFamily: "var(--font-mono-arcade)",
+            fontFamily: "var(--font-sans)",
             fontSize: 14,
-            color: "var(--t4-ink)",
+            color: "var(--text-primary, #f8f9fc)",
           }}
         >
           {message}
@@ -65,19 +65,17 @@ export function WorkspaceLoadingState() {
   return (
     <main
       className="theme-web flex min-h-screen items-center justify-center px-4"
-      style={{ background: "var(--t4-bg)" }}
+      style={{ background: "var(--surface-canvas, #121317)" }}
     >
       <div
         style={{
-          fontFamily: "var(--font-pixel)",
-          fontSize: 14,
-          letterSpacing: 3,
-          color: "var(--t4-pink)",
-          textShadow: "0 0 8px var(--t4-pink)",
-          animation: "t4-pulse 1.4s ease-in-out infinite",
+          fontFamily: "var(--font-sans)",
+          fontSize: 13,
+          fontWeight: 500,
+          color: "var(--text-secondary, #b2bbc5)",
         }}
       >
-        <GlyphText glyph="◆">LOADING WORKSPACE...</GlyphText>
+        <GlyphText glyph="◆">Loading workspace...</GlyphText>
       </div>
     </main>
   );

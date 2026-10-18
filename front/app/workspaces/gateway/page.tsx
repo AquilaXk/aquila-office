@@ -118,9 +118,9 @@ export default function GatewayPage() {
         <Link
           href="/workspaces"
           style={{
-            fontFamily: "var(--font-pixel)",
+            fontFamily: "var(--font-sans)",
             fontSize: 12,
-            letterSpacing: 2,
+            fontWeight: 500,
             color: t4.dim,
             textDecoration: "none",
           }}
@@ -131,10 +131,11 @@ export default function GatewayPage() {
         <div>
           <div
             style={{
-              fontFamily: "var(--font-pixel)",
+              fontFamily: "var(--font-sans)",
               fontSize: 12,
+              fontWeight: 600,
               color: t4.mp,
-              letterSpacing: 3,
+              letterSpacing: "0.04em",
               marginBottom: 4,
             }}
           >
@@ -142,19 +143,19 @@ export default function GatewayPage() {
           </div>
           <h1
             style={{
-              fontFamily: "var(--font-pixel)",
+              fontFamily: "var(--font-sans)",
               fontSize: 22,
-              letterSpacing: 2,
+              fontWeight: 600,
+              letterSpacing: "-0.02em",
               margin: 0,
               color: t4.ink,
-              textShadow: `0 0 12px ${t4.mp}80`,
             }}
           >
             REGISTER A GATEWAY
           </h1>
           <p
             style={{
-              fontFamily: "var(--font-mono-arcade)",
+              fontFamily: "var(--font-sans)",
               fontSize: 13,
               color: t4.dim,
               marginTop: 8,
@@ -166,11 +167,11 @@ export default function GatewayPage() {
 
         <div className="grid gap-5 lg:grid-cols-[300px_minmax(0,1fr)]">
           <aside className="flex flex-col gap-4">
-            <T4Panel label={`LINKED · ${String(gateways.length).padStart(2, "0")}`} accent={t4.mp} style={{ position: "relative", padding: 12 }}>
+            <T4Panel label={`LINKED · ${String(gateways.length).padStart(2, "0")}`} accent={t4.mp} style={{ position: "relative", padding: 14 }}>
               {gateways.length === 0 ? (
                 <p
                   style={{
-                    fontFamily: "var(--font-mono-arcade)",
+                    fontFamily: "var(--font-sans)",
                     fontSize: 13,
                     color: t4.dim,
                     padding: "14px 6px",
@@ -190,10 +191,10 @@ export default function GatewayPage() {
                         onClick={() => setSelectedId(gateway.id)}
                         style={{
                           padding: "10px 12px",
+                          borderRadius: 8,
                           textAlign: "left",
-                          background: active ? "rgba(90,168,255,0.08)" : "rgba(0,0,0,0.3)",
+                          background: active ? "rgba(50, 121, 249, 0.1)" : "#141519",
                           border: `1px solid ${active ? t4.mp : t4.line}`,
-                          boxShadow: active ? `0 0 10px ${t4.mp}40` : "none",
                           cursor: "pointer",
                           color: t4.ink,
                         }}
@@ -202,31 +203,33 @@ export default function GatewayPage() {
                           <span
                             className="truncate"
                             style={{
-                              fontFamily: "var(--font-pixel)",
-                              fontSize: 12,
-                              letterSpacing: 1.5,
-                              color: active ? t4.mp : t4.ink,
+                              fontFamily: "var(--font-sans)",
+                              fontSize: 13,
+                              fontWeight: 600,
+                              color: active ? t4.ink : t4.dim,
                             }}
                           >
                             <GlyphText glyph="♦" truncate>{gateway.displayName.toUpperCase()}</GlyphText>
                           </span>
                           <span
                             style={{
-                              fontFamily: "var(--font-pixel)",
+                              fontFamily: "var(--font-sans)",
                               fontSize: 12,
-                              letterSpacing: 1,
+                              fontWeight: 500,
                               color: t4.ok,
-                              border: `1px solid ${t4.ok}`,
-                              padding: "2px 5px",
+                              borderRadius: 9999,
+                              border: `1px solid rgba(52, 168, 83, 0.35)`,
+                              background: "rgba(52, 168, 83, 0.1)",
+                              padding: "1px 7px",
                             }}
                           >
                             ON
                           </span>
                         </div>
                         <p
-                          className="mt-2 truncate"
+                          className="mt-1.5 truncate"
                           style={{
-                            fontFamily: "var(--font-mono-arcade)",
+                            fontFamily: "var(--font-mono)",
                             fontSize: 12,
                             color: t4.dim,
                           }}
@@ -236,9 +239,9 @@ export default function GatewayPage() {
                         <p
                           className="mt-1"
                           style={{
-                            fontFamily: "var(--font-mono-arcade)",
+                            fontFamily: "var(--font-mono)",
                             fontSize: 12,
-                            color: t4.dim,
+                            color: t4.mute,
                           }}
                         >
                           <GlyphText glyph="◆">{formatDateTime(gateway.createdAt)}</GlyphText>
@@ -254,30 +257,29 @@ export default function GatewayPage() {
               <T4Panel label="ACTIVE LINK" accent={t4.ok} style={{ position: "relative", padding: 14 }}>
                 <p
                   style={{
-                    fontFamily: "var(--font-pixel)",
+                    fontFamily: "var(--font-sans)",
                     fontSize: 12,
+                    fontWeight: 600,
                     color: t4.dim,
-                    letterSpacing: 2,
                   }}
                 >
                   TARGET
                 </p>
                 <p
-                  className="mt-2 truncate"
+                  className="mt-1.5 truncate"
                   style={{
-                    fontFamily: "var(--font-pixel)",
+                    fontFamily: "var(--font-sans)",
                     fontSize: 13,
-                    color: t4.ok,
-                    letterSpacing: 1.5,
-                    textShadow: `0 0 6px ${t4.ok}`,
+                    fontWeight: 600,
+                    color: t4.ink,
                   }}
                 >
                   {selectedGateway.displayName.toUpperCase()}
                 </p>
                 <p
-                  className="mt-3"
+                  className="mt-2"
                   style={{
-                    fontFamily: "var(--font-mono-arcade)",
+                    fontFamily: "var(--font-mono)",
                     fontSize: 12,
                     color: t4.dim,
                   }}
@@ -332,7 +334,7 @@ export default function GatewayPage() {
               {error && (
                 <p
                   style={{
-                    fontFamily: "var(--font-mono-arcade)",
+                    fontFamily: "var(--font-sans)",
                     fontSize: 13,
                     color: t4.hp,
                   }}
@@ -343,11 +345,10 @@ export default function GatewayPage() {
               {createdMessage && !error && (
                 <p
                   style={{
-                    fontFamily: "var(--font-pixel)",
+                    fontFamily: "var(--font-sans)",
                     fontSize: 12,
-                    letterSpacing: 2,
+                    fontWeight: 500,
                     color: t4.ok,
-                    textShadow: `0 0 6px ${t4.ok}`,
                   }}
                 >
                   <GlyphText glyph="★">{createdMessage}</GlyphText>
@@ -394,9 +395,9 @@ function Field({
       <span className="flex items-center justify-between">
         <span
           style={{
-            fontFamily: "var(--font-pixel)",
+            fontFamily: "var(--font-sans)",
             fontSize: 12,
-            letterSpacing: 2,
+            fontWeight: 500,
             color: t4.dim,
           }}
         >
@@ -408,9 +409,9 @@ function Field({
         {counter && (
           <span
             style={{
-              fontFamily: "var(--font-mono-arcade)",
+              fontFamily: "var(--font-mono)",
               fontSize: 12,
-              color: t4.dim,
+              color: t4.mute,
             }}
           >
             {counter}
@@ -435,29 +436,29 @@ function InfoCard({
     <T4Panel accent={t4.agent} style={{ position: "relative", padding: 14 }}>
       <p
         style={{
-          fontFamily: "var(--font-pixel)",
+          fontFamily: "var(--font-mono)",
           fontSize: 12,
-          letterSpacing: 2,
-          color: t4.agent,
+          fontWeight: 500,
+          color: t4.mute,
         }}
       >
         STEP {step}
       </p>
       <p
-        className="mt-2"
+        className="mt-1"
         style={{
-          fontFamily: "var(--font-pixel)",
-          fontSize: 12,
-          letterSpacing: 1.5,
+          fontFamily: "var(--font-sans)",
+          fontSize: 13,
+          fontWeight: 600,
           color: t4.ink,
         }}
       >
-        ▸ {title}
+        {title}
       </p>
       <p
-        className="mt-2"
+        className="mt-1.5"
         style={{
-          fontFamily: "var(--font-mono-arcade)",
+          fontFamily: "var(--font-sans)",
           fontSize: 13,
           color: t4.dim,
           lineHeight: 1.5,

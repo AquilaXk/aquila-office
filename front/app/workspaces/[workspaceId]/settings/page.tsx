@@ -300,7 +300,7 @@ export default function WorkspaceSettingsPage({
   }
 
   return (
-    <T4Screen title="WORKSPACE ADMIN · COMMAND DECK">
+    <T4Screen title="WORKSPACE ADMINISTRATION">
       <div
         style={{
           padding: "26px 28px",
@@ -317,9 +317,9 @@ export default function WorkspaceSettingsPage({
         <Link
           href={`/workspaces/${workspaceIdNumber}`}
           style={{
-            fontFamily: "var(--font-pixel)",
+            fontFamily: "var(--font-sans)",
             fontSize: 12,
-            letterSpacing: 2,
+            fontWeight: 500,
             color: t4.dim,
             textDecoration: "none",
           }}
@@ -330,10 +330,11 @@ export default function WorkspaceSettingsPage({
         <div>
           <div
             style={{
-              fontFamily: "var(--font-pixel)",
+              fontFamily: "var(--font-sans)",
               fontSize: 12,
-              color: isAdmin ? t4.pink : t4.mp,
-              letterSpacing: 3,
+              fontWeight: 600,
+              color: t4.mp,
+              letterSpacing: "0.04em",
               marginBottom: 4,
             }}
           >
@@ -341,19 +342,19 @@ export default function WorkspaceSettingsPage({
           </div>
           <h1
             style={{
-              fontFamily: "var(--font-pixel)",
+              fontFamily: "var(--font-sans)",
               fontSize: 22,
-              letterSpacing: 2,
+              fontWeight: 600,
+              letterSpacing: "-0.02em",
               margin: 0,
               color: t4.ink,
-              textShadow: `0 0 12px ${t4.pink}80`,
             }}
           >
             {state.workspace.name.toUpperCase()}
           </h1>
           <p
             style={{
-              fontFamily: "var(--font-mono-arcade)",
+              fontFamily: "var(--font-sans)",
               fontSize: 13,
               color: t4.dim,
               marginTop: 8,
@@ -397,32 +398,31 @@ export default function WorkspaceSettingsPage({
             <T4Panel label="STATUS" accent={t4.agent} style={{ position: "relative", padding: 14 }}>
               <p
                 style={{
-                  fontFamily: "var(--font-pixel)",
+                  fontFamily: "var(--font-sans)",
                   fontSize: 12,
+                  fontWeight: 600,
                   color: t4.dim,
-                  letterSpacing: 2,
                 }}
               >
                 CURRENT WORKSPACE
               </p>
               <p
-                className="mt-2 truncate"
+                className="mt-1.5 truncate"
                 style={{
-                  fontFamily: "var(--font-pixel)",
+                  fontFamily: "var(--font-sans)",
                   fontSize: 13,
+                  fontWeight: 600,
                   color: t4.ink,
-                  letterSpacing: 1.5,
                 }}
               >
                 <GlyphText glyph="♦" truncate>{state.workspace.name.toUpperCase()}</GlyphText>
               </p>
               <p
-                className="mt-3"
+                className="mt-2"
                 style={{
-                  fontFamily: "var(--font-mono-arcade)",
-                  fontSize: 13,
+                  fontFamily: "var(--font-mono)",
+                  fontSize: 12,
                   color: t4.dim,
-                  letterSpacing: 1,
                 }}
               >
                 <GlyphText glyph="◇">
@@ -435,7 +435,7 @@ export default function WorkspaceSettingsPage({
           <section className="min-w-0 flex flex-col gap-5">
             {activeSection === "workspace" && (
               <div className="grid gap-4">
-                <T4Panel label="WORKSPACE INFO" accent={t4.pink} style={{ position: "relative", padding: 22 }}>
+                <T4Panel label="WORKSPACE INFO" accent={t4.mp} style={{ position: "relative", padding: 22 }}>
                   <SectionTitle title="WORKSPACE INFO" description="ADMIN만 워크스페이스 이름과 소개를 수정할 수 있습니다." />
                   <form onSubmit={handleUpdateWorkspace} className="mt-5 grid gap-4">
                     <Field label="WORKSPACE NAME">
@@ -448,10 +448,11 @@ export default function WorkspaceSettingsPage({
                         disabled={!isAdmin || updateBusy}
                         className="min-h-32 px-3 py-2"
                         style={{
-                          background: "rgba(10,13,26,0.8)",
+                          background: "#121317",
                           border: `1px solid ${t4.line}`,
+                          borderRadius: 8,
                           color: t4.ink,
-                          fontFamily: "var(--font-mono-arcade)",
+                          fontFamily: "var(--font-sans)",
                           fontSize: 14,
                           outline: "none",
                           resize: "vertical",
@@ -473,27 +474,26 @@ export default function WorkspaceSettingsPage({
                   style={{
                     position: "relative",
                     padding: 22,
-                    background: "rgba(255,85,119,0.05)",
+                    background: "rgba(234, 67, 53, 0.04)",
                   }}
                 >
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                       <h2
                         style={{
-                          fontFamily: "var(--font-pixel)",
+                          fontFamily: "var(--font-sans)",
                           fontSize: 14,
+                          fontWeight: 600,
                           color: t4.hp,
-                          letterSpacing: 2,
-                          textShadow: `0 0 6px ${t4.hp}`,
                           margin: 0,
                         }}
                       >
                         <GlyphText glyph="⚠">DELETE WORKSPACE</GlyphText>
                       </h2>
                       <p
-                        className="mt-2"
+                        className="mt-1.5"
                         style={{
-                          fontFamily: "var(--font-mono-arcade)",
+                          fontFamily: "var(--font-sans)",
                           fontSize: 13,
                           color: t4.dim,
                         }}
@@ -515,19 +515,20 @@ export default function WorkspaceSettingsPage({
                   {state.members.map((member) => (
                     <div
                       key={member.memberId}
-                      className="flex flex-wrap items-center justify-between gap-3 px-3 py-2"
+                      className="flex flex-wrap items-center justify-between gap-3 px-3 py-2.5"
                       style={{
+                        borderRadius: 8,
                         border: `1px solid ${t4.line}`,
-                        background: "rgba(0,0,0,0.3)",
+                        background: "#141519",
                       }}
                     >
                       <div className="min-w-0">
                         <p
                           className="truncate"
                           style={{
-                            fontFamily: "var(--font-pixel)",
-                            fontSize: 12,
-                            letterSpacing: 1.5,
+                            fontFamily: "var(--font-sans)",
+                            fontSize: 13,
+                            fontWeight: 600,
                             color: t4.ink,
                           }}
                         >
@@ -536,10 +537,10 @@ export default function WorkspaceSettingsPage({
                         <p
                           className="truncate"
                           style={{
-                            fontFamily: "var(--font-mono-arcade)",
+                            fontFamily: "var(--font-sans)",
                             fontSize: 12,
                             color: t4.dim,
-                            marginTop: 3,
+                            marginTop: 2,
                           }}
                         >
                           {member.email}
@@ -565,7 +566,7 @@ export default function WorkspaceSettingsPage({
                           disabled={!isAdmin || removingMemberId !== null || changingRoleMemberId !== null}
                           onClick={() => handleRemoveMember(member.memberId)}
                         >
-                          KICK
+                          REMOVE
                         </Button>
                       </div>
                     </div>
@@ -583,9 +584,9 @@ export default function WorkspaceSettingsPage({
                       <p
                         className="mb-1.5"
                         style={{
-                          fontFamily: "var(--font-pixel)",
+                          fontFamily: "var(--font-sans)",
                           fontSize: 12,
-                          letterSpacing: 2,
+                          fontWeight: 500,
                           color: t4.dim,
                         }}
                       >
@@ -594,8 +595,9 @@ export default function WorkspaceSettingsPage({
                       <div
                         className="grid grid-cols-2 p-1"
                         style={{
+                          borderRadius: 8,
                           border: `1px solid ${t4.line}`,
-                          background: "rgba(0,0,0,0.4)",
+                          background: "#121317",
                         }}
                       >
                         <InviteModeButton
@@ -638,24 +640,25 @@ export default function WorkspaceSettingsPage({
                         <div
                           className="px-3 py-3"
                           style={{
+                            borderRadius: 8,
                             border: `1px solid ${t4.line}`,
-                            background: "rgba(0,0,0,0.3)",
+                            background: "#121317",
                           }}
                         >
                           <p
                             style={{
-                              fontFamily: "var(--font-pixel)",
+                              fontFamily: "var(--font-sans)",
                               fontSize: 12,
-                              letterSpacing: 1.5,
+                              fontWeight: 600,
                               color: t4.ink,
                             }}
                           >
                             <GlyphText glyph="◆">SHARE LINK MODE</GlyphText>
                           </p>
                           <p
-                            className="mt-2"
+                            className="mt-1.5"
                             style={{
-                              fontFamily: "var(--font-mono-arcade)",
+                              fontFamily: "var(--font-sans)",
                               fontSize: 13,
                               color: t4.dim,
                             }}
@@ -691,27 +694,27 @@ export default function WorkspaceSettingsPage({
                   <div
                     className="flex min-h-[260px] flex-col p-4"
                     style={{
+                      borderRadius: 10,
                       border: `1px solid ${t4.line}`,
-                      background: "rgba(0,0,0,0.3)",
+                      background: "#121317",
                     }}
                   >
                     <div className="flex items-center justify-between gap-3">
                       <div>
                         <h3
                           style={{
-                            fontFamily: "var(--font-pixel)",
-                            fontSize: 12,
-                            letterSpacing: 2,
-                            color: t4.xp,
-                            textShadow: `0 0 6px ${t4.xp}`,
+                            fontFamily: "var(--font-sans)",
+                            fontSize: 13,
+                            fontWeight: 600,
+                            color: t4.ink,
                           }}
                         >
                           <GlyphText glyph="★">INVITE LINK</GlyphText>
                         </h3>
                         <p
-                          className="mt-2"
+                          className="mt-1.5"
                           style={{
-                            fontFamily: "var(--font-mono-arcade)",
+                            fontFamily: "var(--font-sans)",
                             fontSize: 13,
                             color: t4.dim,
                           }}
@@ -736,17 +739,17 @@ export default function WorkspaceSettingsPage({
                       <div
                         className="mt-4 px-3 py-3"
                         style={{
-                          border: `1px solid ${t4.ok}`,
-                          background: "rgba(95,227,154,0.06)",
+                          borderRadius: 8,
+                          border: `1px solid rgba(52, 168, 83, 0.35)`,
+                          background: "rgba(52, 168, 83, 0.08)",
                         }}
                       >
                         <p
                           style={{
-                            fontFamily: "var(--font-pixel)",
+                            fontFamily: "var(--font-sans)",
                             fontSize: 12,
-                            letterSpacing: 2,
+                            fontWeight: 600,
                             color: t4.ok,
-                            textShadow: `0 0 4px ${t4.ok}`,
                           }}
                         >
                           <GlyphText glyph="★">
@@ -756,7 +759,7 @@ export default function WorkspaceSettingsPage({
                         <p
                           className="mt-2 break-all"
                           style={{
-                            fontFamily: "var(--font-mono-arcade)",
+                            fontFamily: "var(--font-mono)",
                             fontSize: 13,
                             color: t4.ink,
                             lineHeight: 1.5,
@@ -769,13 +772,14 @@ export default function WorkspaceSettingsPage({
                       <div
                         className="flex flex-1 items-center justify-center px-4 py-8 text-center"
                         style={{
+                          borderRadius: 8,
                           border: `1px dashed ${t4.line}`,
                           marginTop: 16,
                         }}
                       >
                         <p
                           style={{
-                            fontFamily: "var(--font-mono-arcade)",
+                            fontFamily: "var(--font-sans)",
                             fontSize: 13,
                             color: t4.dim,
                           }}
@@ -822,9 +826,10 @@ export default function WorkspaceSettingsPage({
                       <p
                         className="px-3 py-6 text-center"
                         style={{
-                          fontFamily: "var(--font-mono-arcade)",
+                          fontFamily: "var(--font-sans)",
                           fontSize: 13,
                           color: t4.dim,
+                          borderRadius: 8,
                           border: `1px dashed ${t4.line}`,
                         }}
                       >
@@ -843,13 +848,13 @@ export default function WorkspaceSettingsPage({
         <Modal.Body>
           <p
             style={{
-              fontFamily: "var(--font-mono-arcade)",
+              fontFamily: "var(--font-sans)",
               fontSize: 14,
               color: t4.ink,
               lineHeight: 1.5,
             }}
           >
-            <span style={{ color: t4.hp, fontWeight: 700 }}>{state.workspace.name}</span> 워크스페이스를 영구 삭제합니다.
+            <span style={{ color: t4.hp, fontWeight: 600 }}>{state.workspace.name}</span> 워크스페이스를 영구 삭제합니다.
           </p>
           {deleteError && <p className="mt-3" style={errorStyle}><GlyphText glyph="⚠">{deleteError}</GlyphText></p>}
         </Modal.Body>
@@ -862,7 +867,7 @@ export default function WorkspaceSettingsPage({
 }
 
 const errorStyle = {
-  fontFamily: "var(--font-mono-arcade)",
+  fontFamily: "var(--font-sans)",
   fontSize: 13,
   color: t4.hp,
 } as const;
@@ -872,9 +877,9 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
     <label className="flex flex-col gap-2">
       <span
         style={{
-          fontFamily: "var(--font-pixel)",
+          fontFamily: "var(--font-sans)",
           fontSize: 12,
-          letterSpacing: 2,
+          fontWeight: 500,
           color: t4.dim,
         }}
       >
@@ -902,9 +907,9 @@ function SelectField({
     <label className="flex flex-col gap-2">
       <span
         style={{
-          fontFamily: "var(--font-pixel)",
+          fontFamily: "var(--font-sans)",
           fontSize: 12,
-          letterSpacing: 2,
+          fontWeight: 500,
           color: t4.dim,
         }}
       >
@@ -916,12 +921,12 @@ function SelectField({
         disabled={disabled}
         className="h-9 px-3"
         style={{
-          background: "rgba(10,13,26,0.8)",
+          background: "#121317",
           border: `1px solid ${t4.line}`,
+          borderRadius: 8,
           color: t4.ink,
-          fontFamily: "var(--font-mono-arcade)",
-          fontSize: 14,
-          letterSpacing: 1,
+          fontFamily: "var(--font-sans)",
+          fontSize: 13,
           outline: "none",
         }}
       >
@@ -946,24 +951,23 @@ function ArcadeNavButton({
     <button
       type="button"
       onClick={onClick}
-      className="flex w-full items-center gap-3 px-3 py-3 text-left"
+      className="flex w-full items-center gap-3 px-3 py-2.5 text-left"
       style={{
-        background: active ? "rgba(255,122,220,0.1)" : "rgba(0,0,0,0.3)",
-        border: `1px solid ${active ? t4.pink : t4.line}`,
-        boxShadow: active ? `0 0 10px ${t4.pink}40` : "none",
+        background: active ? "rgba(50, 121, 249, 0.14)" : "#141519",
+        border: `1px solid ${active ? t4.mp : t4.line}`,
+        borderRadius: 8,
         cursor: "pointer",
-        fontFamily: "var(--font-pixel)",
+        fontFamily: "var(--font-sans)",
         fontSize: 12,
-        letterSpacing: 1.5,
-        color: active ? t4.pink : t4.dim,
-        textTransform: "uppercase",
+        fontWeight: 500,
+        color: active ? "#ffffff" : t4.dim,
       }}
     >
       <span className="flex h-4 w-4 shrink-0 items-center justify-center [&>svg]:h-4 [&>svg]:w-4">
         {icon}
       </span>
       <span className="min-w-0 truncate">
-        {active ? <GlyphText glyph="▶" truncate>{label}</GlyphText> : <span className="pl-[calc(1.1em+6px)]">{label}</span>}
+        {active ? <GlyphText glyph="▶" truncate>{label}</GlyphText> : <span>{label}</span>}
       </span>
     </button>
   );
@@ -986,13 +990,14 @@ function InviteModeButton({
       onClick={onClick}
       className="flex items-center justify-center gap-2 px-3 py-2"
       style={{
-        background: active ? "rgba(255,216,74,0.1)" : "transparent",
-        border: `1px solid ${active ? t4.xp : "transparent"}`,
+        background: active ? "rgba(50, 121, 249, 0.16)" : "transparent",
+        border: `1px solid ${active ? t4.mp : "transparent"}`,
+        borderRadius: 6,
         cursor: "pointer",
-        fontFamily: "var(--font-pixel)",
+        fontFamily: "var(--font-sans)",
         fontSize: 12,
-        letterSpacing: 1.5,
-        color: active ? t4.xp : t4.dim,
+        fontWeight: 500,
+        color: active ? "#ffffff" : t4.dim,
       }}
     >
       <span className="flex h-3.5 w-3.5 shrink-0 items-center justify-center [&>svg]:h-3.5 [&>svg]:w-3.5">
@@ -1008,9 +1013,9 @@ function SectionTitle({ title, description }: { title: string; description: stri
     <div>
       <h2
         style={{
-          fontFamily: "var(--font-pixel)",
-          fontSize: 14,
-          letterSpacing: 2,
+          fontFamily: "var(--font-sans)",
+          fontSize: 15,
+          fontWeight: 600,
           color: t4.ink,
           margin: 0,
         }}
@@ -1018,9 +1023,9 @@ function SectionTitle({ title, description }: { title: string; description: stri
         <GlyphText glyph="◆">{title}</GlyphText>
       </h2>
       <p
-        className="mt-2"
+        className="mt-1.5"
         style={{
-          fontFamily: "var(--font-mono-arcade)",
+          fontFamily: "var(--font-sans)",
           fontSize: 13,
           color: t4.dim,
           lineHeight: 1.5,
@@ -1033,16 +1038,18 @@ function SectionTitle({ title, description }: { title: string; description: stri
 }
 
 function RoleTag({ role }: { role: WorkspaceRole }) {
-  const color = role === "ADMIN" ? t4.pink : t4.mp;
+  const color = role === "ADMIN" ? "#79a6fc" : t4.dim;
   return (
     <span
       style={{
-        fontFamily: "var(--font-pixel)",
+        fontFamily: "var(--font-sans)",
         fontSize: 12,
-        letterSpacing: 1,
+        fontWeight: 500,
         color,
-        padding: "3px 6px",
-        border: `1px solid ${color}`,
+        padding: "2px 8px",
+        borderRadius: 9999,
+        border: `1px solid ${t4.line}`,
+        background: role === "ADMIN" ? "rgba(50, 121, 249, 0.12)" : "rgba(230, 234, 240, 0.06)",
       }}
     >
       {role}
@@ -1068,13 +1075,14 @@ function RoleToggle({
       aria-label="역할 변경"
       style={{
         display: "inline-flex",
+        borderRadius: 8,
+        overflow: "hidden",
         border: `1px solid ${t4.line}`,
-        background: "rgba(0,0,0,0.3)",
+        background: "#121317",
       }}
     >
       {ROLES.map((r) => {
         const active = r === role;
-        const color = r === "ADMIN" ? t4.pink : t4.mp;
         return (
           <button
             key={r}
@@ -1086,12 +1094,12 @@ function RoleToggle({
             disabled={disabled || active}
             aria-pressed={active}
             style={{
-              fontFamily: "var(--font-pixel)",
+              fontFamily: "var(--font-sans)",
               fontSize: 12,
-              letterSpacing: 1,
-              padding: "4px 8px",
-              color: active ? "#000" : color,
-              background: active ? color : "transparent",
+              fontWeight: 500,
+              padding: "5px 10px",
+              color: active ? "#ffffff" : t4.dim,
+              background: active ? "#3279f9" : "transparent",
               border: "none",
               cursor: active || disabled ? "default" : "pointer",
               opacity: disabled && !active ? 0.5 : 1,

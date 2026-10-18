@@ -70,10 +70,10 @@ export default function Home() {
             priority
           />
         </div>
-        <p className="eyebrow">PRESS START</p>
+        <p className="eyebrow">WORKSPACE PLATFORM</p>
         <h1>{SERVICE_NAME.toUpperCase()}</h1>
-        <p className="title-screen-subtitle">cooperative workspace operations</p>
-        <p className="title-screen-subtitle">USER {user?.name ?? "MEMBER"}</p>
+        <p className="title-screen-subtitle">Collaborative AI agent workspace operations</p>
+        <p className="title-screen-subtitle">Signed in as {user?.name ?? "Guest"}</p>
 
         <div className="title-menu" role="menu" aria-label="시작 메뉴">
           {MENU.map((item, index) => {
@@ -87,14 +87,14 @@ export default function Home() {
                 onMouseEnter={() => setSelected(index)}
                 onClick={() => activate(item)}
               >
-                <span aria-hidden="true">{active ? ">" : ""}</span>
+                <span aria-hidden="true">{active ? "→" : ""}</span>
                 <strong>{item.label}</strong>
               </button>
             );
           })}
         </div>
 
-        <p className="title-screen-hint">[ ↑↓ SELECT ] [ ENTER CONFIRM ]</p>
+        <p className="title-screen-hint">Use arrow keys to select and Enter to confirm</p>
       </section>
     </main>
   );

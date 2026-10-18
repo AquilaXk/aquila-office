@@ -23,7 +23,7 @@ test("auth page uses google login button and handles success failure and return 
   assert.match(source, /WORKSPACE MEMBER VERIFICATION/);
   assert.match(source, /CONTINUE WITH GOOGLE/);
   assert.doesNotMatch(source, /PRESS TO CONTINUE/);
-  assert.match(source, />\s*© aquilaXk 2026\s*<\/div>/);
+  assert.match(source, />\s*Aquila Office\s*<\/div>/);
   assert.match(source, /className="auth-google-frame"/);
   assert.match(readSource("app/globals.css"), /\.auth-google-visible-label/);
   assert.match(source, /containerProps/);
@@ -55,7 +55,7 @@ test("title screen keeps unauthenticated continue on title screen", () => {
   assert.doesNotMatch(source, /SETTINGS/);
   assert.doesNotMatch(source, /\/auth\/character/);
   assert.match(source, /useState<AuthUser \| null>\(null\)/);
-  assert.match(source, /USER \{user\?\.name \?\? "MEMBER"\}/);
+  assert.match(source, /Signed in as \{user\?\.name \?\? "Guest"\}/);
   assert.match(source, /router\.push\(item\.href\)/);
   assert.match(source, /router\.push\("\/"\)/);
   assert.doesNotMatch(source, /router\.push\("\/auth\?returnTo=\/workspaces"\)/);

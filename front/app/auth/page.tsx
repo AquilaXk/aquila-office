@@ -58,56 +58,53 @@ function AuthPageInner() {
           justifyContent: "center",
         }}
       >
-        <div style={{ textAlign: "center", marginBottom: 12 }}>
+        <div style={{ textAlign: "center", marginBottom: 8 }}>
           <div
             style={{
-              fontFamily: "var(--font-pixel)",
-              fontSize: 13,
-              color: t4.pink,
-              letterSpacing: 4,
-              marginBottom: 10,
-              textShadow: `0 0 12px ${t4.pink}`,
-              animation: "t4-pulse 1.4s ease-in-out infinite",
+              fontFamily: "var(--font-sans)",
+              fontSize: 18,
+              fontWeight: 600,
+              color: t4.ink,
+              letterSpacing: "-0.01em",
+              marginBottom: 6,
             }}
           >
             <GlyphText glyph="▶">SIGN IN TO CONTINUE</GlyphText>
           </div>
           <div
             style={{
-              fontFamily: "var(--font-mono-arcade)",
-              fontSize: 14,
+              fontFamily: "var(--font-sans)",
+              fontSize: 13,
               color: t4.dim,
-              letterSpacing: 4,
             }}
           >
-            ─ AUTHENTICATE WITH GOOGLE ─
+            Authenticate with your workspace Google account
           </div>
         </div>
 
-        <div style={{ maxWidth: 560, width: "100%", margin: "0 auto" }}>
+        <div style={{ maxWidth: 460, width: "100%", margin: "0 auto" }}>
           <T4Panel
             label="SIGN IN"
-            style={{ padding: "20px 22px", position: "relative" }}
+            style={{ padding: "22px 24px", position: "relative" }}
           >
             <div
               style={{
-                fontFamily: "var(--font-pixel)",
-                fontSize: 12,
-                color: t4.pink,
-                letterSpacing: 2,
-                marginBottom: 8,
-                textShadow: `0 0 6px ${t4.pink}`,
+                fontFamily: "var(--font-sans)",
+                fontSize: 13,
+                fontWeight: 600,
+                color: t4.ink,
+                marginBottom: 6,
               }}
             >
               <GlyphText glyph="◆">WORKSPACE MEMBER VERIFICATION</GlyphText>
             </div>
             <div
               style={{
-                fontFamily: "var(--font-mono-arcade)",
+                fontFamily: "var(--font-sans)",
                 fontSize: 13,
                 color: t4.dim,
-                lineHeight: 1.6,
-                marginBottom: 18,
+                lineHeight: 1.55,
+                marginBottom: 20,
               }}
             >
               Sign in with your work Google account.
@@ -145,7 +142,7 @@ function AuthPageInner() {
                       placeItems: "center",
                       overflow: "hidden",
                       border: "1px solid rgba(230, 234, 240, 0.14)",
-                      borderRadius: 4,
+                      borderRadius: 8,
                       background: "#202124",
                       colorScheme: "dark",
                       lineHeight: 0,
@@ -163,7 +160,7 @@ function AuthPageInner() {
               <div
                 style={{
                   marginTop: 14,
-                  fontFamily: "var(--font-mono-arcade)",
+                  fontFamily: "var(--font-sans)",
                   fontSize: 12,
                   color: t4.hp,
                   textAlign: "center",
@@ -176,7 +173,7 @@ function AuthPageInner() {
               <div
                 style={{
                   marginTop: 14,
-                  fontFamily: "var(--font-mono-arcade)",
+                  fontFamily: "var(--font-sans)",
                   fontSize: 12,
                   color: t4.mp,
                   textAlign: "center",
@@ -191,26 +188,18 @@ function AuthPageInner() {
         <div
           style={{
             position: "absolute",
-            bottom: 14,
+            bottom: 16,
             left: 0,
             right: 0,
             textAlign: "center",
-            fontFamily: "var(--font-mono-arcade)",
+            fontFamily: "var(--font-sans)",
             fontSize: 12,
-            color: t4.dim,
-            letterSpacing: 3,
+            color: t4.mute,
           }}
         >
-          © aquilaXk 2026
+          Aquila Office
         </div>
       </div>
-
-      <style jsx global>{`
-        @keyframes t4-pulse {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.4; }
-        }
-      `}</style>
     </T4Screen>
   );
 }

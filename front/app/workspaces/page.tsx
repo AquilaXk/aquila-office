@@ -81,13 +81,17 @@ export default function WorkspacesPage() {
       <div
         className="workspace-list-layout"
         style={{
-          padding: 20,
+          padding: "24px 28px",
           height: "100%",
+          maxWidth: 1200,
+          width: "100%",
+          margin: "0 auto",
           boxSizing: "border-box",
           display: "grid",
-          gridTemplateRows: "auto auto minmax(0, 1fr)",
-          gap: 14,
-          overflow: "hidden",
+          gridTemplateRows: "auto auto auto",
+          alignContent: "start",
+          gap: 18,
+          overflowY: "auto",
         }}
       >
         {/* Header */}
@@ -103,10 +107,11 @@ export default function WorkspacesPage() {
           <div>
             <div
               style={{
-                fontFamily: "var(--font-pixel)",
+                fontFamily: "var(--font-sans)",
                 fontSize: 12,
-                color: t4.pink,
-                letterSpacing: 3,
+                fontWeight: 600,
+                color: t4.mp,
+                letterSpacing: "0.04em",
                 marginBottom: 4,
               }}
             >
@@ -114,20 +119,20 @@ export default function WorkspacesPage() {
             </div>
             <h2
               style={{
-                fontFamily: "var(--font-pixel)",
+                fontFamily: "var(--font-sans)",
                 fontSize: 22,
-                letterSpacing: 2,
+                fontWeight: 600,
+                letterSpacing: "-0.02em",
                 margin: 0,
                 color: t4.ink,
-                textShadow: `0 0 12px ${t4.pink}80`,
               }}
             >
               WORKSPACES
             </h2>
             <div
               style={{
-                fontFamily: "var(--font-mono-arcade)",
-                fontSize: 12,
+                fontFamily: "var(--font-sans)",
+                fontSize: 13,
                 color: t4.dim,
                 marginTop: 4,
               }}
@@ -142,7 +147,7 @@ export default function WorkspacesPage() {
               </ArcadeButton>
             </Link>
             <Link href="/workspaces/new">
-              <ArcadeButton color={t4.pink} primary>
+              <ArcadeButton color={t4.mp} primary>
                 <GlyphText glyph="▶">NEW WORKSPACE</GlyphText>
               </ArcadeButton>
             </Link>
@@ -158,14 +163,14 @@ export default function WorkspacesPage() {
           style={{
             display: "grid",
             gridTemplateColumns: "repeat(4, 1fr)",
-            gap: 10,
+            gap: 12,
           }}
         >
           {[
             {
               label: "WORKPLACES JOINED",
               value: String(workspaces.length).padStart(2, "0"),
-              color: t4.pink,
+              color: t4.ink,
               sub: "활성 워크스페이스",
             },
             {
@@ -183,41 +188,42 @@ export default function WorkspacesPage() {
             {
               label: "TASKS · DONE",
               value: String(completedCount).padStart(2, "0"),
-              color: t4.xp,
+              color: t4.ok,
               sub: "누적 완료",
             },
           ].map((tile) => (
             <T4Panel
               key={tile.label}
               accent={tile.color}
-              style={{ padding: "10px 12px", position: "relative" }}
+              style={{ padding: "14px 16px", position: "relative" }}
             >
               <div
                 style={{
-                  fontFamily: "var(--font-pixel)",
+                  fontFamily: "var(--font-sans)",
                   fontSize: 12,
+                  fontWeight: 600,
                   color: t4.dim,
-                  letterSpacing: 2,
+                  letterSpacing: "0.04em",
                 }}
               >
                 {tile.label}
               </div>
               <div
                 style={{
-                  fontFamily: "var(--font-pixel)",
-                  fontSize: 22,
+                  fontFamily: "var(--font-mono)",
+                  fontSize: 24,
+                  fontWeight: 600,
                   color: tile.color,
-                  marginTop: 4,
-                  textShadow: `0 0 10px ${tile.color}`,
+                  marginTop: 6,
                 }}
               >
                 {tile.value}
               </div>
               <div
                 style={{
-                  fontFamily: "var(--font-mono-arcade)",
+                  fontFamily: "var(--font-sans)",
                   fontSize: 12,
-                  color: t4.dim,
+                  color: t4.mute,
                   marginTop: 4,
                 }}
               >
@@ -230,10 +236,10 @@ export default function WorkspacesPage() {
         {/* Workspace list */}
         <T4Panel
           label="ACTIVE WORKPLACES"
-          accent={t4.pink}
+          accent={t4.mp}
           style={{
             position: "relative",
-            padding: 14,
+            padding: 16,
             display: "flex",
             flexDirection: "column",
             minHeight: 0,
@@ -244,13 +250,12 @@ export default function WorkspacesPage() {
               display: "flex",
               alignItems: "center",
               justifyContent: "space-between",
-              padding: "2px 4px 8px",
+              padding: "0 4px 10px",
               borderBottom: `1px solid ${t4.line}`,
-              marginBottom: 8,
-              fontFamily: "var(--font-mono-arcade)",
+              marginBottom: 10,
+              fontFamily: "var(--font-mono)",
               fontSize: 12,
               color: t4.dim,
-              letterSpacing: 1,
               flexShrink: 0,
             }}
           >
@@ -259,7 +264,7 @@ export default function WorkspacesPage() {
                 {String(workspaces.length).padStart(2, "0")} ENTRIES
               </GlyphText>
             </span>
-            <span style={{ color: workspaces.length > 8 ? t4.pink : t4.dim }}>
+            <span style={{ color: workspaces.length > 8 ? t4.mp : t4.mute }}>
               {workspaces.length > 8 ? "SCROLL ↓" : "—"}
             </span>
           </div>
@@ -268,7 +273,7 @@ export default function WorkspacesPage() {
           ) : error ? (
             <div
               style={{
-                fontFamily: "var(--font-mono-arcade)",
+                fontFamily: "var(--font-sans)",
                 fontSize: 13,
                 color: t4.hp,
                 padding: 20,
@@ -286,10 +291,8 @@ export default function WorkspacesPage() {
                 display: "flex",
                 flexDirection: "column",
                 gap: 8,
-                flex: 1,
-                minHeight: 0,
+                maxHeight: 460,
                 overflowY: "auto",
-                paddingRight: 6,
               }}
             >
               {workspaces.map((ws, idx) => (
@@ -311,38 +314,39 @@ function WorkspaceRow({
   index: number;
 }) {
   const isAdmin = workspace.myRole === "ADMIN";
-  const accent = isAdmin ? t4.pink : t4.mp;
+  const accent = isAdmin ? t4.mp : t4.dim;
   return (
     <Link
       className="workspace-list-row-card"
       href={`/workspaces/${workspace.workspaceId}`}
       style={{
         display: "grid",
-        gridTemplateColumns: "60px 1fr 140px 140px 80px",
-        gap: 12,
+        gridTemplateColumns: "64px 1fr 130px 130px 88px",
+        gap: 14,
         alignItems: "center",
-        padding: "10px 12px",
-        border: `1px solid ${accent}40`,
-        background: "rgba(0,0,0,0.25)",
+        padding: "14px 16px",
+        borderRadius: 10,
+        border: `1px solid ${t4.line}`,
+        background: "#141519",
         textDecoration: "none",
         color: "inherit",
-        transition: "background 80ms ease",
+        transition: "background 120ms ease, border-color 120ms ease",
       }}
       onMouseEnter={(e) => {
-        e.currentTarget.style.background = `${accent}15`;
-        e.currentTarget.style.borderColor = accent;
+        e.currentTarget.style.background = "#1d1f25";
+        e.currentTarget.style.borderColor = "rgba(50, 121, 249, 0.36)";
       }}
       onMouseLeave={(e) => {
-        e.currentTarget.style.background = "rgba(0,0,0,0.25)";
-        e.currentTarget.style.borderColor = `${accent}40`;
+        e.currentTarget.style.background = "#141519";
+        e.currentTarget.style.borderColor = t4.line;
       }}
     >
       <div
         style={{
-          fontFamily: "var(--font-pixel)",
+          fontFamily: "var(--font-mono)",
           fontSize: 12,
-          color: t4.dim,
-          letterSpacing: 1,
+          fontWeight: 500,
+          color: t4.mute,
         }}
       >
         W{String(index + 1).padStart(3, "0")}
@@ -350,68 +354,82 @@ function WorkspaceRow({
       <div>
         <div
           style={{
-            fontFamily: "var(--font-mixed-ko)",
-            fontSize: 14,
-            fontWeight: 700,
-            letterSpacing: 0,
-            lineHeight: 1.25,
-            color: t4.ink,
-            marginBottom: 4,
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            flexWrap: "wrap",
           }}
         >
-          {workspace.name}
+          <span
+            style={{
+              fontFamily: "var(--font-sans)",
+              fontSize: 14,
+              fontWeight: 600,
+              lineHeight: 1.3,
+              color: t4.ink,
+            }}
+          >
+            {workspace.name}
+          </span>
+          <span
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              padding: "2px 8px",
+              borderRadius: 9999,
+              fontFamily: "var(--font-sans)",
+              fontSize: 12,
+              fontWeight: 500,
+              background: isAdmin
+                ? "rgba(50, 121, 249, 0.14)"
+                : "rgba(230, 234, 240, 0.08)",
+              color: isAdmin ? "#79a6fc" : t4.dim,
+            }}
+          >
+            {workspace.myRole}
+          </span>
         </div>
         <div
           style={{
-            fontFamily: "var(--font-mono-arcade)",
+            fontFamily: "var(--font-sans)",
             fontSize: 13,
             color: t4.dim,
-            marginTop: 2,
-          }}
-        >
-          {workspace.description || "no description"}
-        </div>
-        <div
-          style={{
-            fontFamily: "var(--font-mono-arcade)",
-            fontSize: 12,
-            color: accent,
             marginTop: 4,
-            letterSpacing: 1,
-            textTransform: "uppercase",
           }}
         >
-          [{workspace.myRole}]
+          {workspace.description || "No description"}
         </div>
       </div>
       <div
         className="workspace-list-row-enter"
         style={{
-          fontFamily: "var(--font-mono-arcade)",
+          fontFamily: "var(--font-mono)",
           fontSize: 12,
-          color: t4.agent,
+          color: t4.dim,
         }}
       >
         <GlyphText glyph="◇">{workspace.agentCount} agents</GlyphText>
       </div>
       <div
         style={{
-          fontFamily: "var(--font-mono-arcade)",
+          fontFamily: "var(--font-mono)",
           fontSize: 12,
-          color: t4.ok,
+          color: (workspace.runningTaskCount ?? 0) > 0 ? t4.ok : t4.mute,
         }}
       >
-        <GlyphText glyph="▷">{workspace.runningTaskCount} active</GlyphText>
+        <GlyphText glyph="▷">{workspace.runningTaskCount ?? 0} active</GlyphText>
       </div>
       <div
         style={{
-          fontFamily: "var(--font-pixel)",
+          fontFamily: "var(--font-sans)",
           fontSize: 12,
-          letterSpacing: 1,
-          color: accent,
+          fontWeight: 500,
+          color: t4.ink,
           textAlign: "center",
-          padding: "6px 8px",
-          border: `1px solid ${accent}`,
+          padding: "6px 10px",
+          borderRadius: 8,
+          background: "#212226",
+          border: `1px solid ${accent === t4.mp ? "rgba(50, 121, 249, 0.35)" : t4.line}`,
         }}
       >
         <GlyphText glyph="▶">ENTER</GlyphText>
@@ -422,7 +440,6 @@ function WorkspaceRow({
 
 function ArcadeButton({
   children,
-  color = t4.pink,
   onClick,
   primary = false,
 }: {
@@ -436,18 +453,18 @@ function ArcadeButton({
       type="button"
       onClick={onClick}
       style={{
-        fontFamily: "var(--font-pixel)",
+        fontFamily: "var(--font-sans)",
         fontSize: 12,
-        letterSpacing: 1.5,
-        padding: "9px 14px",
-        background: primary ? color : "transparent",
-        color: primary ? "#000" : color,
-        border: `1px solid ${color}`,
-        boxShadow: primary
-          ? `0 0 14px ${color}`
-          : `0 0 6px ${color}30`,
+        fontWeight: 500,
+        letterSpacing: "0.02em",
+        padding: "8px 14px",
+        borderRadius: 8,
+        background: primary ? "#3279f9" : "#212226",
+        color: primary ? "#ffffff" : t4.ink,
+        border: primary
+          ? "1px solid #3279f9"
+          : "1px solid rgba(230, 234, 240, 0.12)",
         cursor: "pointer",
-        textTransform: "uppercase",
       }}
     >
       {children}
@@ -459,30 +476,31 @@ function EmptyState() {
   return (
     <div
       style={{
-        padding: "40px 20px",
+        padding: "36px 20px",
         textAlign: "center",
-        fontFamily: "var(--font-mono-arcade)",
+        fontFamily: "var(--font-sans)",
         color: t4.dim,
         fontSize: 13,
       }}
     >
-      <div style={{ marginBottom: 14 }}>
+      <div style={{ marginBottom: 12 }}>
         <PixelAvatar kind="agent" size={3} style={{ margin: "0 auto" }} />
       </div>
-      <div style={{ marginBottom: 14 }}>
-        no workspaces yet — create one to start collaborating
+      <div style={{ marginBottom: 16 }}>
+        아직 참여 중인 워크스페이스가 없습니다. 새 워크스페이스를 생성해 협업을 시작하세요.
       </div>
       <Link
         href="/workspaces/new"
         style={{
-          fontFamily: "var(--font-pixel)",
+          display: "inline-flex",
+          fontFamily: "var(--font-sans)",
           fontSize: 12,
-          color: "#000",
-          background: t4.pink,
-          padding: "10px 16px",
-          letterSpacing: 1.5,
+          fontWeight: 500,
+          color: "#ffffff",
+          background: "#3279f9",
+          padding: "9px 16px",
+          borderRadius: 8,
           textDecoration: "none",
-          boxShadow: `0 0 14px ${t4.pink}`,
         }}
       >
         <GlyphText glyph="▶">CREATE WORKSPACE</GlyphText>
@@ -499,8 +517,9 @@ function ListSkeleton() {
           key={i}
           style={{
             height: 60,
+            borderRadius: 10,
             border: `1px solid ${t4.line}`,
-            background: "rgba(0,0,0,0.25)",
+            background: "#141519",
             opacity: 0.5,
           }}
         />

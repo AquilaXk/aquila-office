@@ -9,7 +9,8 @@ test("workspace settings page renders integration overview and action rail", () 
   const source = readSource("app/workspaces/[workspaceId]/settings/page.tsx");
 
   assert.match(source, /T4Screen/);
-  assert.match(source, /WORKSPACE ADMIN · COMMAND DECK/);
+  assert.match(source, /WORKSPACE ADMINISTRATION/);
+  assert.doesNotMatch(source, /COMMAND DECK/);
   assert.match(source, /WORKSPACE INFO/);
   assert.match(source, /ROSTER/);
   assert.match(source, /INVITE/);

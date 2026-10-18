@@ -301,31 +301,31 @@ function CharacterInner() {
         <div style={{ flex: "0 0 auto" }}>
           <div
             style={{
-              fontFamily: "var(--font-pixel)",
+              fontFamily: "var(--font-sans)",
               fontSize: 12,
-              color: t4.pink,
-              letterSpacing: 3,
-              marginBottom: 6,
-              textShadow: `0 0 8px ${t4.pink}`,
+              fontWeight: 600,
+              color: t4.mp,
+              letterSpacing: "0.04em",
+              marginBottom: 4,
             }}
           >
             <GlyphText glyph="◆">CHOOSE YOUR AVATAR</GlyphText>
           </div>
           <h2
             style={{
-              fontFamily: "var(--font-pixel)",
+              fontFamily: "var(--font-sans)",
               fontSize: 20,
-              letterSpacing: 2,
+              fontWeight: 600,
+              letterSpacing: "-0.01em",
               margin: 0,
               color: t4.ink,
-              textShadow: `0 0 12px ${t4.pink}80`,
             }}
           >
             SET UP YOUR OFFICE PROFILE
           </h2>
           <div
             style={{
-              fontFamily: "var(--font-mono-arcade)",
+              fontFamily: "var(--font-sans)",
               fontSize: 13,
               color: t4.dim,
               marginTop: 4,
@@ -352,12 +352,10 @@ function CharacterInner() {
                 onClick={() => setKind(a.kind)}
                 style={{
                   position: "relative",
-                  background: sel
-                    ? "rgba(255,122,220,0.06)"
-                    : "rgba(20,28,55,0.5)",
-                  border: `1px solid ${sel ? t4.pink : t4.line}`,
-                  boxShadow: sel ? `0 0 16px ${t4.pink}60` : "none",
-                  padding: "10px 6px",
+                  background: sel ? "rgba(50, 121, 249, 0.1)" : "#18191d",
+                  border: `1px solid ${sel ? t4.mp : t4.line}`,
+                  borderRadius: 10,
+                  padding: "12px 8px",
                   cursor: "pointer",
                   display: "flex",
                   flexDirection: "column",
@@ -367,29 +365,12 @@ function CharacterInner() {
                   color: t4.ink,
                 }}
               >
-                {sel && (
-                  <div
-                    style={{
-                      position: "absolute",
-                      top: -1,
-                      left: -1,
-                      background: t4.pink,
-                      color: "#000",
-                      fontFamily: "var(--font-pixel)",
-                      fontSize: 12,
-                      letterSpacing: 1,
-                      padding: "2px 6px",
-                    }}
-                  >
-                    ◆
-                  </div>
-                )}
                 <div
                   style={{
-                    background: "rgba(0,0,0,0.4)",
+                    background: "#121317",
                     padding: 8,
-                    border: `1px solid ${sel ? t4.pink : t4.line}`,
-                    boxShadow: sel ? `0 0 10px ${t4.pink}40` : "none",
+                    borderRadius: 8,
+                    border: `1px solid ${sel ? "rgba(50, 121, 249, 0.4)" : t4.line}`,
                   }}
                 >
                   <PixelAvatar
@@ -400,10 +381,10 @@ function CharacterInner() {
                 </div>
                 <div
                   style={{
-                    fontFamily: "var(--font-pixel)",
+                    fontFamily: "var(--font-sans)",
                     fontSize: 12,
-                    letterSpacing: 1.5,
-                    color: sel ? t4.pink : t4.ink,
+                    fontWeight: 600,
+                    color: sel ? t4.ink : t4.dim,
                     textAlign: "center",
                   }}
                 >
@@ -411,10 +392,9 @@ function CharacterInner() {
                 </div>
                 <div
                   style={{
-                    fontFamily: "var(--font-mono-arcade)",
+                    fontFamily: "var(--font-sans)",
                     fontSize: 12,
-                    fontStyle: "italic",
-                    color: t4.dim,
+                    color: t4.mute,
                     textAlign: "center",
                     lineHeight: 1.3,
                   }}
@@ -428,10 +408,10 @@ function CharacterInner() {
 
         <T4Panel
           label="PROFILE"
-          accent={t4.pink}
+          accent={t4.mp}
           style={{
             position: "relative",
-            padding: 14,
+            padding: 18,
             flex: "0 0 auto",
             display: "grid",
             gridTemplateColumns: "150px 1fr",
@@ -453,9 +433,9 @@ function CharacterInner() {
               style={{
                 width: 96,
                 height: 96,
-                background: "rgba(0,0,0,0.4)",
-                border: `1px solid ${t4.pink}`,
-                boxShadow: `0 0 18px ${t4.pink}40`,
+                background: "#121317",
+                border: `1px solid ${t4.lineBright}`,
+                borderRadius: 12,
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
@@ -466,30 +446,27 @@ function CharacterInner() {
             </div>
             <div
               style={{
-                fontFamily: "var(--font-pixel)",
+                fontFamily: "var(--font-sans)",
                 fontSize: 13,
+                fontWeight: 600,
                 color: t4.ink,
-                letterSpacing: 1,
                 textAlign: "center",
-                height: 14,
-                lineHeight: "14px",
               }}
             >
               {kind.toUpperCase()}
             </div>
             <div
               style={{
-                fontFamily: "var(--font-mono-arcade)",
+                fontFamily: "var(--font-sans)",
                 fontSize: 12,
-                fontStyle: "italic",
                 color: t4.dim,
                 textAlign: "center",
                 lineHeight: 1.4,
-                width: 130,
+                width: 136,
                 minHeight: 28,
               }}
             >
-              <span style={{ color: t4.ink }}>{selected.role}</span>
+              <span style={{ color: t4.ink, fontWeight: 500 }}>{selected.role}</span>
               <br />
               {selected.sub}
             </div>
@@ -505,10 +482,10 @@ function CharacterInner() {
           >
             <div
               style={{
-                fontFamily: "var(--font-pixel)",
+                fontFamily: "var(--font-sans)",
                 fontSize: 12,
+                fontWeight: 500,
                 color: t4.dim,
-                letterSpacing: 2,
               }}
             >
               DISPLAY NAME
@@ -517,7 +494,7 @@ function CharacterInner() {
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="type your name…"
+              placeholder="Enter display name"
               maxLength={24}
               autoFocus
               onKeyDown={(e) => {
@@ -526,32 +503,29 @@ function CharacterInner() {
               style={{
                 width: "100%",
                 boxSizing: "border-box",
-                background: "rgba(0,0,0,0.4)",
+                background: "#121317",
                 border: `1px solid ${t4.line}`,
+                borderRadius: 8,
                 color: t4.ink,
-                fontFamily: "var(--font-mono-arcade)",
+                fontFamily: "var(--font-sans)",
                 fontSize: 13,
-                letterSpacing: 1,
                 padding: "10px 12px",
                 outline: "none",
               }}
               onFocus={(e) => {
-                e.currentTarget.style.borderColor = t4.pink;
-                e.currentTarget.style.boxShadow = `0 0 10px ${t4.pink}40`;
+                e.currentTarget.style.borderColor = t4.mp;
               }}
               onBlur={(e) => {
                 e.currentTarget.style.borderColor = t4.line;
-                e.currentTarget.style.boxShadow = "none";
               }}
             />
 
             <div
               style={{
-                fontFamily: "var(--font-mono-arcade)",
+                fontFamily: "var(--font-sans)",
                 fontSize: 12,
                 color: t4.dim,
-                letterSpacing: 1,
-                lineHeight: 1.6,
+                lineHeight: 1.5,
               }}
             >
               <GlyphText glyph="›">
@@ -567,7 +541,7 @@ function CharacterInner() {
               style={{
                 display: "grid",
                 gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-                gap: 6,
+                gap: 8,
               }}
             >
               <ModeButton active={colorMode === "original"} onClick={() => setColorMode("original")}>
@@ -609,9 +583,10 @@ function CharacterInner() {
               <div
                 style={{
                   border: `1px solid ${t4.line}`,
-                  background: "rgba(0,0,0,0.25)",
+                  borderRadius: 8,
+                  background: "#121317",
                   padding: "10px 12px",
-                  fontFamily: "var(--font-mono-arcade)",
+                  fontFamily: "var(--font-sans)",
                   fontSize: 12,
                   color: t4.dim,
                   lineHeight: 1.5,
@@ -627,14 +602,14 @@ function CharacterInner() {
               disabled={!canSubmit || saving}
               style={{
                 marginTop: "auto",
-                fontFamily: "var(--font-pixel)",
+                fontFamily: "var(--font-sans)",
                 fontSize: 13,
-                letterSpacing: 3,
-                color: canSubmit && !saving ? "#000" : t4.dim,
-                background: canSubmit && !saving ? t4.pink : "transparent",
-                border: `1px solid ${canSubmit && !saving ? t4.pink : t4.line}`,
-                padding: "12px 0",
-                boxShadow: canSubmit && !saving ? `0 0 18px ${t4.pink}80` : "none",
+                fontWeight: 500,
+                color: canSubmit && !saving ? "#ffffff" : t4.mute,
+                background: canSubmit && !saving ? t4.mp : "#212226",
+                border: `1px solid ${canSubmit && !saving ? t4.mp : t4.line}`,
+                borderRadius: 8,
+                padding: "10px 14px",
                 cursor: canSubmit && !saving ? "pointer" : "not-allowed",
                 width: "100%",
               }}
@@ -662,14 +637,14 @@ function ModeButton({
       type="button"
       onClick={onClick}
       style={{
-        fontFamily: "var(--font-pixel)",
+        fontFamily: "var(--font-sans)",
         fontSize: 12,
-        letterSpacing: 2,
-        color: active ? "#000" : t4.dim,
-        background: active ? t4.pink : "rgba(0,0,0,0.25)",
-        border: `1px solid ${active ? t4.pink : t4.line}`,
-        padding: "9px 0",
-        boxShadow: active ? `0 0 12px ${t4.pink}70` : "none",
+        fontWeight: 500,
+        color: active ? "#ffffff" : t4.dim,
+        background: active ? "rgba(50, 121, 249, 0.18)" : "#121317",
+        border: `1px solid ${active ? t4.mp : t4.line}`,
+        borderRadius: 8,
+        padding: "8px 10px",
         cursor: "pointer",
       }}
     >
@@ -693,16 +668,16 @@ function ColorPicker({
     <div>
       <div
         style={{
-          fontFamily: "var(--font-pixel)",
+          fontFamily: "var(--font-sans)",
           fontSize: 12,
+          fontWeight: 500,
           color: t4.dim,
-          letterSpacing: 1.5,
           marginBottom: 6,
         }}
       >
         {label}
       </div>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
         {COLOR_OPTIONS[target].map((option) => {
           const selected = option.value === value;
           return (
@@ -714,9 +689,9 @@ function ColorPicker({
               style={{
                 width: 22,
                 height: 22,
-                border: `1px solid ${selected ? t4.pink : t4.line}`,
+                borderRadius: 6,
+                border: `2px solid ${selected ? t4.mp : t4.line}`,
                 background: option.value,
-                boxShadow: selected ? `0 0 10px ${t4.pink}80` : "none",
                 cursor: "pointer",
               }}
             />

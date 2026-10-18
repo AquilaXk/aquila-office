@@ -99,10 +99,11 @@ export default function InviteAcceptPage({
           <header style={{ textAlign: "center" }}>
             <div
               style={{
-                fontFamily: "var(--font-pixel)",
+                fontFamily: "var(--font-sans)",
                 fontSize: 12,
-                letterSpacing: 3,
-                color: t4.pink,
+                fontWeight: 600,
+                letterSpacing: "0.04em",
+                color: t4.mp,
                 marginBottom: 6,
               }}
             >
@@ -110,19 +111,19 @@ export default function InviteAcceptPage({
             </div>
             <h1
               style={{
-                fontFamily: "var(--font-pixel)",
+                fontFamily: "var(--font-sans)",
                 fontSize: 22,
-                letterSpacing: 2,
+                fontWeight: 600,
+                letterSpacing: "-0.02em",
                 margin: 0,
                 color: t4.ink,
-                textShadow: `0 0 12px ${t4.pink}80`,
               }}
             >
               JOIN A WORKSPACE
             </h1>
             <p
               style={{
-                fontFamily: "var(--font-mono-arcade)",
+                fontFamily: "var(--font-sans)",
                 fontSize: 13,
                 color: t4.dim,
                 marginTop: 8,
@@ -132,13 +133,13 @@ export default function InviteAcceptPage({
             </p>
           </header>
 
-          <T4Panel label="INVITE" accent={t4.pink} style={{ position: "relative", padding: 22 }}>
+          <T4Panel label="INVITE" accent={t4.mp} style={{ position: "relative", padding: 22 }}>
             {state.kind === "loading" && <Skeleton />}
             {state.kind === "error" && (
               <p
                 style={{
                   textAlign: "center",
-                  fontFamily: "var(--font-mono-arcade)",
+                  fontFamily: "var(--font-sans)",
                   fontSize: 14,
                   color: t4.hp,
                 }}
@@ -159,9 +160,9 @@ export default function InviteAcceptPage({
           <Link
             href="/workspaces"
             style={{
-              fontFamily: "var(--font-pixel)",
+              fontFamily: "var(--font-sans)",
               fontSize: 12,
-              letterSpacing: 2,
+              fontWeight: 500,
               color: t4.dim,
               textDecoration: "none",
               textAlign: "center",
@@ -195,7 +196,7 @@ function InviteBody({
         : invite.expired || invite.status === "EXPIRED"
           ? "만료된 초대입니다."
           : null;
-  const roleColor = invite.role === "ADMIN" ? t4.pink : t4.mp;
+  const roleColor = invite.role === "ADMIN" ? t4.mp : t4.dim;
 
   return (
     <div className="flex flex-col gap-5">
@@ -203,9 +204,9 @@ function InviteBody({
         <div
           style={{
             padding: 8,
-            border: `1px solid ${t4.pink}`,
-            background: "rgba(0,0,0,0.4)",
-            boxShadow: `0 0 10px ${t4.pink}50`,
+            borderRadius: 10,
+            border: `1px solid ${t4.line}`,
+            background: "#121317",
             flexShrink: 0,
           }}
         >
@@ -215,12 +216,11 @@ function InviteBody({
           <p
             className="break-words"
             style={{
-              fontFamily: "var(--font-pixel)",
-              fontSize: 14,
-              letterSpacing: 1.5,
+              fontFamily: "var(--font-sans)",
+              fontSize: 15,
+              fontWeight: 600,
               color: t4.ink,
               margin: 0,
-              textShadow: `0 0 6px ${t4.pink}80`,
             }}
           >
             <GlyphText glyph="♦" truncate>{invite.workspaceName.toUpperCase()}</GlyphText>
@@ -228,24 +228,26 @@ function InviteBody({
           <div className="flex flex-wrap items-center gap-2">
             <span
               style={{
-                fontFamily: "var(--font-pixel)",
+                fontFamily: "var(--font-sans)",
                 fontSize: 12,
-                letterSpacing: 1,
+                fontWeight: 500,
                 color: roleColor,
-                padding: "3px 6px",
-                border: `1px solid ${roleColor}`,
+                padding: "2px 8px",
+                borderRadius: 9999,
+                border: `1px solid ${t4.line}`,
+                background: "rgba(50, 121, 249, 0.1)",
               }}
             >
               {invite.role}
             </span>
             <span
               style={{
-                fontFamily: "var(--font-mono-arcade)",
+                fontFamily: "var(--font-mono)",
                 fontSize: 12,
                 color: t4.dim,
               }}
             >
-              ⌛ expires {formatDateTime(invite.expiresAt)}
+              Expires {formatDateTime(invite.expiresAt)}
             </span>
           </div>
         </div>

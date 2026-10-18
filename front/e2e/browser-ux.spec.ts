@@ -107,9 +107,9 @@ test.describe("브라우저 UI UX 회귀", () => {
     await page.goto("/workspaces");
 
     await expect(page.getByText("00 ENTRIES")).toBeVisible();
-    await expect(page.getByText("no workspaces yet — create one to start collaborating")).toHaveCount(0);
+    await expect(page.getByText("아직 참여 중인 워크스페이스가 없습니다. 새 워크스페이스를 생성해 협업을 시작하세요.")).toHaveCount(0);
     gate.resolve();
-    await expect(page.getByText("no workspaces yet — create one to start collaborating")).toBeVisible();
+    await expect(page.getByText("아직 참여 중인 워크스페이스가 없습니다. 새 워크스페이스를 생성해 협업을 시작하세요.")).toBeVisible();
     await expect(page.getByRole("link", { name: "CREATE WORKSPACE" })).toHaveAttribute(
       "href",
       "/workspaces/new",
@@ -300,13 +300,13 @@ test.describe("브라우저 UI UX 회귀", () => {
 
     await page.goto("/auth/character?returnTo=/workspaces");
     await expect(page.getByText("SET UP YOUR OFFICE PROFILE")).toBeVisible();
-    await expect(page.getByPlaceholder("type your name…")).toHaveValue("Aquila User");
+    await expect(page.getByPlaceholder("Enter display name")).toHaveValue("Aquila User");
 
     await page.getByRole("button", { name: /KENJI/ }).click();
     await page.getByRole("button", { name: "CUSTOM" }).click();
     await page.getByLabel("OUTFIT 02").click();
-    await page.getByPlaceholder("type your name…").fill("Aquila Pilot");
-    await expect(page.getByPlaceholder("type your name…")).toHaveValue("Aquila Pilot");
+    await page.getByPlaceholder("Enter display name").fill("Aquila Pilot");
+    await expect(page.getByPlaceholder("Enter display name")).toHaveValue("Aquila Pilot");
     const profileUpdateRequest = page.waitForRequest((request) => {
       const url = new URL(request.url());
       return request.method() === "PATCH" && url.pathname === "/api/v1/members/me/profile";
@@ -705,7 +705,7 @@ test.describe("브라우저 UI UX 회귀", () => {
       .toContain("Local Gate");
 
     await page.goto(`/workspaces/${workspaceId}/settings`);
-    await expect(page.getByText("WORKSPACE ADMIN · COMMAND DECK")).toBeVisible();
+    await expect(page.getByText("WORKSPACE ADMINISTRATION")).toBeVisible();
     await expect(page.getByRole("link", { name: /BACK TO WORKSPACE/ })).toHaveAttribute(
       "href",
       `/workspaces/${workspaceId}`,
@@ -743,7 +743,7 @@ test.describe("브라우저 UI UX 회귀", () => {
     await expect(page.getByRole("heading", { name: "JOIN A WORKSPACE" })).toBeVisible();
     await expect(page.getByText("Product Engineering")).toBeVisible();
     await expect(page.getByText("MEMBER")).toBeVisible();
-    await expect(page.getByText(/expires/)).toBeVisible();
+    await expect(page.getByText(/expires/i)).toBeVisible();
     await expect(page.getByRole("button", { name: /ACCEPT INVITE/ })).toBeVisible();
     await page.getByRole("button", { name: /ACCEPT INVITE/ }).click();
     await page.waitForURL((url) => url.pathname === "/workspaces");

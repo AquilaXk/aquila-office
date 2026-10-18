@@ -111,10 +111,10 @@ test("workspace list matches workspace metadata and empty states", () => {
   assert.match(source, /ENTRIES/);
   assert.match(source, /SCROLL ↓/);
   assert.match(source, /workspaces\.length > 8/);
-  assert.match(source, /no workspaces yet — create one to start collaborating/);
+  assert.match(source, /아직 참여 중인 워크스페이스가 없습니다/);
   assert.match(source, /CREATE WORKSPACE/);
   assert.match(source, /워크스페이스를 불러오지 못했습니다\./);
-  assert.match(source, /workspace\.description \|\| "no description"/);
+  assert.match(source, /workspace\.description \|\| "No description"/);
   assert.match(source, /workspace\.agentCount/);
   assert.match(source, /workspace\.runningTaskCount/);
   assert.match(source, /ENTER/);

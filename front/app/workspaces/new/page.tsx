@@ -77,9 +77,9 @@ export default function NewWorkspacePage() {
         <Link
           href="/workspaces"
           style={{
-            fontFamily: "var(--font-pixel)",
+            fontFamily: "var(--font-sans)",
             fontSize: 12,
-            letterSpacing: 2,
+            fontWeight: 500,
             color: t4.dim,
             textDecoration: "none",
           }}
@@ -90,30 +90,31 @@ export default function NewWorkspacePage() {
         <div>
           <div
             style={{
-              fontFamily: "var(--font-pixel)",
+              fontFamily: "var(--font-sans)",
               fontSize: 12,
-              color: t4.pink,
-              letterSpacing: 3,
+              fontWeight: 600,
+              color: t4.mp,
+              letterSpacing: "0.04em",
               marginBottom: 4,
             }}
           >
-            <GlyphText glyph="◆">STEP 01 / 02</GlyphText>
+            <GlyphText glyph="◆">WORKSPACE SETUP</GlyphText>
           </div>
           <h1
             style={{
-              fontFamily: "var(--font-pixel)",
+              fontFamily: "var(--font-sans)",
               fontSize: 22,
-              letterSpacing: 2,
+              fontWeight: 600,
+              letterSpacing: "-0.02em",
               margin: 0,
               color: t4.ink,
-              textShadow: `0 0 12px ${t4.pink}80`,
             }}
           >
             CREATE A NEW WORKSPACE
           </h1>
           <p
             style={{
-              fontFamily: "var(--font-mono-arcade)",
+              fontFamily: "var(--font-sans)",
               fontSize: 13,
               color: t4.dim,
               marginTop: 8,
@@ -123,7 +124,7 @@ export default function NewWorkspacePage() {
           </p>
         </div>
 
-        <T4Panel label="WORKSPACE DETAILS" accent={t4.pink} style={{ position: "relative", padding: 22 }}>
+        <T4Panel label="WORKSPACE DETAILS" accent={t4.mp} style={{ position: "relative", padding: 22 }}>
           <form onSubmit={handleSubmit} className="flex flex-col gap-5">
             <Field
               label="WORKSPACE NAME"
@@ -157,7 +158,7 @@ export default function NewWorkspacePage() {
             {error && (
               <p
                 style={{
-                  fontFamily: "var(--font-mono-arcade)",
+                  fontFamily: "var(--font-sans)",
                   fontSize: 13,
                   color: t4.hp,
                 }}
@@ -199,9 +200,9 @@ function Field({
       <span className="flex items-center justify-between">
         <span
           style={{
-            fontFamily: "var(--font-pixel)",
+            fontFamily: "var(--font-sans)",
             fontSize: 12,
-            letterSpacing: 2,
+            fontWeight: 500,
             color: t4.dim,
           }}
         >
@@ -215,9 +216,9 @@ function Field({
         {counter && (
           <span
             style={{
-              fontFamily: "var(--font-mono-arcade)",
+              fontFamily: "var(--font-mono)",
               fontSize: 12,
-              color: t4.dim,
+              color: t4.mute,
             }}
           >
             {counter}

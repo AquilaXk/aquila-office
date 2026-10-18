@@ -32,25 +32,22 @@ export default function T4Panel({
       {(label || rightSlot) && (
         <div
           style={{
-            position: "absolute",
-            top: -9,
-            left: 12,
-            right: 12,
+            gridColumn: "1 / -1",
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
-            pointerEvents: "none",
-            zIndex: 1,
+            gap: 8,
+            paddingBottom: 6,
+            marginBottom: 6,
+            borderBottom: "1px solid rgba(230, 234, 240, 0.06)",
           }}
         >
           {label ? (
             <span
               style={{
-                padding: "0 6px",
-                background: "var(--surface-canvas, #121317)",
                 fontFamily: "var(--font-sans)",
                 fontSize: 12,
-                fontWeight: 500,
+                fontWeight: 600,
                 letterSpacing: "0.04em",
                 color: "var(--text-secondary, #b2bbc5)",
               }}
@@ -63,8 +60,6 @@ export default function T4Panel({
           {rightSlot ? (
             <span
               style={{
-                padding: "0 6px",
-                background: "var(--surface-canvas, #121317)",
                 fontFamily: "var(--font-mono)",
                 fontSize: 12,
                 color: "var(--text-muted, #6e7681)",
