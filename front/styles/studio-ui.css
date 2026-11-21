@@ -1,0 +1,1017 @@
+/* ==========================================================================
+   Aquila Office Studio UI Layer
+   Adapted patterns from Paperclip (MIT) & Pixel Agents (MIT) layered on
+   Aquila Office semantic tokens (front/styles/tokens.css).
+   Loaded after globals.css in app/layout.tsx for clean light/dark parity.
+   ========================================================================== */
+
+:root {
+  color-scheme: dark light;
+  --studio-surface-1: color-mix(in oklab, var(--ui-surface) 92%, var(--ui-bg));
+  --studio-surface-2: color-mix(in oklab, var(--ui-panel-bg) 96%, transparent);
+  --studio-surface-glass: color-mix(in oklab, var(--ui-panel-bg) 82%, transparent);
+  --studio-border-soft: color-mix(in oklab, var(--ui-border) 72%, transparent);
+  --studio-border-strong: color-mix(in oklab, var(--ui-border) 94%, var(--ui-text));
+  --studio-accent-tint: color-mix(in oklab, var(--accent-primary) 14%, transparent);
+  --studio-accent-ring: color-mix(in oklab, var(--accent-primary) 42%, transparent);
+  --studio-ok: #10b981;
+  --studio-warn: #f59e0b;
+  --studio-danger: #ef4444;
+  --studio-info: #3b82f6;
+  --studio-violet: #8b5cf6;
+  --studio-shadow-card: 0 1px 2px rgba(0, 0, 0, 0.14), 0 8px 24px -12px rgba(0, 0, 0, 0.35);
+  --studio-shadow-float: 0 12px 32px -10px rgba(0, 0, 0, 0.45);
+}
+
+:root[data-theme="light"] {
+  color-scheme: light dark;
+  --studio-surface-1: #ffffff;
+  --studio-surface-2: color-mix(in oklab, var(--ui-panel-bg) 98%, #ffffff);
+  --studio-surface-glass: color-mix(in oklab, #ffffff 86%, var(--ui-surface));
+  --studio-border-soft: color-mix(in oklab, var(--ui-border) 75%, transparent);
+  --studio-border-strong: color-mix(in oklab, var(--ui-border) 96%, var(--ui-text-strong));
+  --studio-ok: #047857;
+  --studio-warn: #b45309;
+  --studio-danger: #dc2626;
+  --studio-info: #1d4ed8;
+  --studio-violet: #6d28d9;
+  --studio-shadow-card: 0 1px 2px rgba(15, 23, 42, 0.05), 0 8px 20px -12px rgba(15, 23, 42, 0.12);
+  --studio-shadow-float: 0 12px 28px -10px rgba(15, 23, 42, 0.16);
+}
+
+/* Scrollbar styling & containment per Modern Web Guidance */
+.chrome-sidebar,
+.chrome-inspector,
+.chrome-main,
+.ao-scroll-pane {
+  scrollbar-gutter: stable;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in oklab, var(--ui-text-muted) 42%, transparent) transparent;
+}
+
+@supports not (scrollbar-color: auto) {
+  .chrome-sidebar::-webkit-scrollbar,
+  .chrome-inspector::-webkit-scrollbar,
+  .chrome-main::-webkit-scrollbar,
+  .ao-scroll-pane::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  .chrome-sidebar::-webkit-scrollbar-thumb,
+  .chrome-inspector::-webkit-scrollbar-thumb,
+  .chrome-main::-webkit-scrollbar-thumb,
+  .ao-scroll-pane::-webkit-scrollbar-thumb {
+    background: color-mix(in oklab, var(--ui-text-muted) 40%, transparent);
+    border-radius: 999px;
+  }
+}
+
+/* Crisp pixel art rendering & block canvas */
+.pixel-avatar,
+.pixel-avatar__canvas,
+.office-tilemap-canvas {
+  display: block;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+.pixel-avatar {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  overflow: visible;
+}
+
+.pixel-avatar__frame {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  opacity: 0.01;
+  pointer-events: none;
+}
+
+/* Accessible non-wrapping status pills & badges (Paperclip OKLab tint + WCAG dot) */
+.role-badge,
+.task-status-badge,
+.ao-status-chip,
+.ao-live-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: -0.01em;
+  border: 1px solid color-mix(in oklab, var(--ui-border) 85%, transparent);
+  background: color-mix(in oklab, var(--ui-surface) 88%, transparent);
+  color: var(--ui-text-strong);
+}
+
+.ao-status-chip::before,
+.ao-live-pill::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: currentColor;
+  flex-shrink: 0;
+}
+
+.role-badge.role-owner,
+.ao-tone-violet {
+  color: var(--studio-violet);
+  background: color-mix(in oklab, var(--studio-violet) 14%, transparent);
+  border-color: color-mix(in oklab, var(--studio-violet) 36%, transparent);
+}
+
+.role-badge.role-admin,
+.ao-tone-info,
+.task-status-badge.task-status-requested,
+.task-status-badge.task-status-assigned {
+  color: var(--studio-info);
+  background: color-mix(in oklab, var(--studio-info) 14%, transparent);
+  border-color: color-mix(in oklab, var(--studio-info) 36%, transparent);
+}
+
+.role-badge.role-member,
+.ao-tone-ok,
+.task-status-badge.status-DONE,
+.task-status-badge.status-ACTIVE,
+.task-status-badge.status-READY,
+.task-status-badge.task-status-done,
+.task-status-badge.task-status-completed {
+  color: var(--studio-ok);
+  background: color-mix(in oklab, var(--studio-ok) 14%, transparent);
+  border-color: color-mix(in oklab, var(--studio-ok) 36%, transparent);
+}
+
+.ao-tone-warn,
+.task-status-badge.status-RUNNING,
+.task-status-badge.status-PENDING,
+.task-status-badge.status-WAITING_APPROVAL,
+.task-status-badge.task-status-in-progress,
+.task-status-badge.task-status-waiting-user {
+  color: var(--studio-warn);
+  background: color-mix(in oklab, var(--studio-warn) 14%, transparent);
+  border-color: color-mix(in oklab, var(--studio-warn) 36%, transparent);
+}
+
+.ao-tone-danger,
+.task-status-badge.status-FAILED,
+.task-status-badge.status-CANCELLED,
+.task-status-badge.status-ERROR,
+.task-status-badge.task-status-failed,
+.task-status-badge.task-status-canceled {
+  color: var(--studio-danger);
+  background: color-mix(in oklab, var(--studio-danger) 14%, transparent);
+  border-color: color-mix(in oklab, var(--studio-danger) 36%, transparent);
+}
+
+.ao-live-pill[data-live="true"]::before {
+  box-shadow: 0 0 0 3px color-mix(in oklab, currentColor 24%, transparent);
+}
+
+/* Flex ellipsis hygiene in sidebars & cards */
+.chrome-sidebar-item {
+  min-width: 0;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 7px;
+  transition: background-color 140ms ease, border-color 140ms ease;
+}
+
+.chrome-sidebar-item > span:not(.role-badge):not(.chrome-count) {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chrome-sidebar-zone-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  flex-shrink: 0;
+  border: 1px solid color-mix(in oklab, currentColor 40%, transparent);
+}
+
+/* Studio buttons (32px height, crisp focus ring) */
+.primary-action,
+.secondary-action,
+.danger-action {
+  min-height: 32px;
+  padding: 0 12px;
+  border-radius: 7px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: transform 120ms ease, background-color 140ms ease, border-color 140ms ease;
+}
+
+.primary-action {
+  background: var(--accent-primary);
+  color: #ffffff;
+  border: 1px solid color-mix(in oklab, var(--accent-primary) 75%, #000000);
+}
+
+.primary-action:hover:not(:disabled) {
+  background: var(--accent-strong);
+}
+
+.secondary-action {
+  background: var(--studio-surface-1);
+  color: var(--ui-text-strong);
+  border: 1px solid var(--studio-border-soft);
+}
+
+.secondary-action:hover:not(:disabled) {
+  background: var(--ui-hover);
+  border-color: var(--studio-border-strong);
+}
+
+/* Tab active underline indicator without color-only cue or layout shift */
+[role="tab"] {
+  position: relative;
+}
+
+[role="tab"][aria-selected="true"]::after {
+  content: "";
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 0;
+  height: 2px;
+  border-radius: 2px 2px 0 0;
+  background: var(--accent-primary);
+}
+
+/* ==========================================================================
+   2D Virtual Office Viewport over <OfficeTilemapCanvas>
+   ========================================================================== */
+.workspace-2d-shell {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+  height: 100%;
+}
+
+/* Compact glass top HUD bar (replaces 5 heavy stacked stat boxes) */
+.workspace-2d-hud {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  background: var(--studio-surface-glass);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--studio-border-soft);
+  box-shadow: var(--studio-shadow-card);
+  z-index: 4;
+}
+
+.workspace-2d-hud > div {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: color-mix(in oklab, var(--ui-surface) 70%, transparent);
+  border: 1px solid color-mix(in oklab, var(--ui-border) 55%, transparent);
+  min-width: 0;
+}
+
+.workspace-2d-hud span {
+  font-size: 12px;
+  color: var(--ui-text-muted);
+  white-space: nowrap;
+}
+
+.workspace-2d-hud strong {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ui-text-strong);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.workspace-2d-viewport {
+  position: relative;
+  border-radius: 12px;
+  border: 1px solid var(--studio-border-soft);
+  background: var(--stage-bg, #0d1320);
+  box-shadow: var(--studio-shadow-card);
+  overflow: hidden;
+  min-height: 520px;
+}
+
+/* Make DOM room/desk/corridor layers transparent hit targets above pixel tilemap */
+.workspace-2d-stage.is-tilemap-backed :is(.stage-desk, .stage-chair, .stage-plant, .stage-coffee, .stage-corridor) {
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+
+.workspace-2d-stage.is-tilemap-backed :is(.stage-desk, .stage-chair, .stage-plant, .stage-coffee, .stage-corridor)::before,
+.workspace-2d-stage.is-tilemap-backed :is(.stage-desk, .stage-chair, .stage-plant, .stage-coffee, .stage-corridor)::after {
+  display: none !important;
+}
+
+.workspace-2d-stage.is-tilemap-backed .stage-corridor {
+  pointer-events: none;
+}
+
+.workspace-2d-stage.is-tilemap-backed .stage-room {
+  background: transparent !important;
+  border: 1.5px solid transparent !important;
+  box-shadow: none !important;
+  transition: border-color 140ms ease, background-color 140ms ease;
+}
+
+.workspace-2d-stage.is-tilemap-backed .stage-room:hover {
+  background: color-mix(in oklab, var(--accent-primary) 5%, transparent) !important;
+  border-color: color-mix(in oklab, var(--accent-primary) 35%, transparent) !important;
+}
+
+.workspace-2d-stage.is-tilemap-backed .stage-room.is-selected {
+  background: color-mix(in oklab, var(--accent-primary) 8%, transparent) !important;
+  border-color: var(--accent-primary) !important;
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--accent-primary) 35%, transparent) !important;
+}
+
+.workspace-2d-stage.is-tilemap-backed .stage-room-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px;
+  margin: 8px;
+  border-radius: 7px;
+  background: var(--studio-surface-glass);
+  border: 1px solid var(--studio-border-soft);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.22);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ui-text-strong);
+  white-space: nowrap;
+}
+
+.workspace-2d-stage.is-tilemap-backed .stage-room-engineering .stage-room-label {
+  position: absolute;
+  top: auto;
+  left: auto;
+  right: 10px;
+  bottom: 8px;
+  margin: 0;
+  z-index: 2;
+}
+
+.workspace-2d-stage.is-tilemap-backed .stage-desk {
+  border: 1px solid transparent !important;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  padding: 2px;
+}
+
+.workspace-2d-stage.is-tilemap-backed .stage-desk:hover {
+  background: color-mix(in oklab, var(--accent-primary) 10%, transparent) !important;
+  border-color: color-mix(in oklab, var(--accent-primary) 50%, transparent) !important;
+  border-radius: 6px;
+}
+
+.workspace-2d-stage.is-tilemap-backed .stage-desk.is-selected {
+  background: color-mix(in oklab, var(--accent-primary) 14%, transparent) !important;
+  border-color: var(--accent-primary) !important;
+  border-radius: 6px;
+}
+
+.workspace-2d-stage.is-tilemap-backed .stage-furniture-action {
+  position: absolute !important;
+  transform: none !important;
+  width: auto !important;
+  height: auto !important;
+  min-height: 28px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--studio-surface-glass) !important;
+  border: 1px solid var(--studio-border-soft) !important;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.28);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ui-text-strong);
+  white-space: nowrap;
+  z-index: 3;
+}
+
+.workspace-2d-stage.is-tilemap-backed .stage-huddle-table.stage-furniture-action {
+  left: 10px !important;
+  bottom: 10px !important;
+  top: auto !important;
+  right: auto !important;
+}
+
+.workspace-2d-stage.is-tilemap-backed .stage-library-shelf.stage-furniture-action {
+  top: 8px !important;
+  right: 10px !important;
+  left: auto !important;
+  bottom: auto !important;
+}
+
+.workspace-2d-stage.is-tilemap-backed .stage-furniture-action::before,
+.workspace-2d-stage.is-tilemap-backed .stage-furniture-action::after {
+  display: none !important;
+}
+
+.workspace-2d-stage.is-tilemap-backed .stage-furniture-action:hover {
+  border-color: var(--accent-primary) !important;
+  background: color-mix(in oklab, var(--accent-primary) 18%, var(--studio-surface-glass)) !important;
+}
+
+/* Actor shadow + floating nameplate */
+.stage-actor__shadow {
+  position: absolute;
+  left: 50%;
+  bottom: 2px;
+  width: 28px;
+  height: 8px;
+  transform: translateX(-50%);
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.36);
+  filter: blur(1.5px);
+  pointer-events: none;
+}
+
+.stage-actor__tag {
+  background: var(--studio-surface-glass);
+  border: 1px solid var(--studio-border-soft);
+  border-radius: 7px;
+  padding: 2px 7px;
+  backdrop-filter: blur(6px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  white-space: nowrap;
+}
+
+.stage-actor__tag strong {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* Floating Hero HUD & Dialogue Card */
+.workspace-2d-hero-hud {
+  background: var(--studio-surface-glass);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--studio-border-soft);
+  border-radius: 10px;
+  box-shadow: var(--studio-shadow-float);
+  padding: 8px 12px;
+}
+
+.workspace-2d-dialogue {
+  background: var(--studio-surface-glass);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--studio-border-strong);
+  border-radius: 12px;
+  box-shadow: var(--studio-shadow-float);
+}
+
+.workspace-2d-map-hud {
+  background: var(--studio-surface-glass);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--studio-border-soft);
+  border-radius: 10px;
+  box-shadow: var(--studio-shadow-float);
+}
+
+.workspace-2d-map-controls button {
+  min-width: 28px;
+  min-height: 28px;
+  border-radius: 7px;
+  background: var(--studio-surface-1);
+  border: 1px solid var(--studio-border-soft);
+  color: var(--ui-text-strong);
+}
+
+/* ==========================================================================
+   Stage Display Toolbar (WAI-ARIA toolbar + focusgroup + reduced-motion)
+   ========================================================================== */
+.ao-stage-toolbar {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: 9px;
+  background: var(--studio-surface-glass);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--studio-border-soft);
+  box-shadow: var(--studio-shadow-card);
+  max-width: 100%;
+  overflow-x: auto;
+  z-index: 45;
+}
+
+.chrome-viewport .workspace-2d-frame-fullscreen .ao-stage-toolbar {
+  position: absolute;
+  top: 56px;
+  left: 14px;
+  max-width: calc(100% - 210px);
+  pointer-events: auto;
+}
+
+.ao-toolbar-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-inline-size: 0;
+}
+
+.ao-toolbar-sep {
+  align-self: stretch;
+  margin-block: 3px;
+  border-inline-start: 1px solid var(--studio-border-strong);
+  flex-shrink: 0;
+}
+
+.ao-toolbar-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 24px;
+  max-width: 144px;
+  padding: 0 7px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--ui-text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-inline-size: 0;
+  cursor: pointer;
+  transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease;
+}
+
+.ao-toolbar-btn:hover {
+  background: var(--ui-hover);
+  color: var(--ui-text-strong);
+}
+
+.ao-toolbar-btn:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 1px;
+}
+
+.ao-toolbar-btn[aria-pressed="true"] {
+  background: var(--studio-accent-tint);
+  border-color: var(--accent-primary);
+  color: var(--ui-text-strong);
+}
+
+/* ==========================================================================
+   Paperclip Kanban Column Tones, Task Segmentation & Studio Cards
+   ========================================================================== */
+.ao-task-segment-bar {
+  display: flex;
+  gap: 2px;
+  width: 100%;
+  height: 6px;
+  margin-top: 8px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: color-mix(in oklab, var(--ui-border) 45%, transparent);
+}
+
+.ao-task-segment {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+}
+
+.ao-task-segment--done {
+  background: var(--studio-ok);
+}
+
+.ao-task-segment--progress {
+  background: var(--studio-warn);
+}
+
+.ao-task-segment--waiting {
+  background: var(--studio-info);
+}
+
+.ao-task-segment--halted {
+  background: var(--studio-danger);
+}
+
+.chrome-kanban-col {
+  border-radius: 10px;
+  border: 1px solid var(--studio-border-soft);
+  background: color-mix(in oklab, var(--ui-surface) 82%, var(--ui-bg));
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.chrome-kanban-col-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 7px;
+  border-left: 3px solid var(--studio-border-strong);
+  background: var(--studio-surface-1);
+}
+
+.chrome-kanban-col-waiting .chrome-kanban-col-header {
+  border-left-color: var(--studio-info);
+  background: color-mix(in oklab, var(--studio-info) 9%, var(--studio-surface-1));
+}
+
+.chrome-kanban-col-progress .chrome-kanban-col-header {
+  border-left-color: var(--studio-warn);
+  background: color-mix(in oklab, var(--studio-warn) 10%, var(--studio-surface-1));
+}
+
+.chrome-kanban-col-done .chrome-kanban-col-header {
+  border-left-color: var(--studio-ok);
+  background: color-mix(in oklab, var(--studio-ok) 10%, var(--studio-surface-1));
+}
+
+.chrome-kanban-col-halted .chrome-kanban-col-header {
+  border-left-color: var(--studio-danger);
+  background: color-mix(in oklab, var(--studio-danger) 9%, var(--studio-surface-1));
+}
+
+.chrome-kanban-card {
+  background: var(--studio-surface-1);
+  border: 1px solid var(--studio-border-soft);
+  border-radius: 8px;
+  padding: 10px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+  transition: border-color 140ms ease, transform 120ms ease;
+}
+
+.chrome-kanban-card:hover {
+  border-color: var(--studio-accent-ring);
+}
+
+.ao-surface-panel {
+  background: var(--studio-surface-1);
+  border: 1px solid var(--studio-border-soft);
+  border-radius: 10px;
+  box-shadow: var(--studio-shadow-card);
+}
+
+.ao-kpi-card {
+  background: var(--studio-surface-1);
+  border: 1px solid var(--studio-border-soft);
+  border-radius: 10px;
+  padding: 14px 16px;
+  box-shadow: var(--studio-shadow-card);
+  transition: border-color 150ms ease;
+}
+
+.ao-kpi-card:hover {
+  border-color: var(--studio-accent-ring);
+}
+
+/* ==========================================================================
+   Workspaces Studio 2-Pane Switcher & Crew Showcase
+   ========================================================================== */
+.ao-studio-layout {
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+
+.ao-studio-rail {
+  position: sticky;
+  top: 48px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 12px;
+  background: var(--studio-surface-1);
+  border: 1px solid var(--studio-border-soft);
+  box-shadow: var(--studio-shadow-card);
+}
+
+.ao-crew-avatar-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ao-crew-avatar-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.ao-wardrobe-pill-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.ao-wardrobe-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: 7px;
+  border: 1px solid var(--studio-border-soft);
+  background: var(--studio-surface-2);
+  color: var(--ui-text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease;
+}
+
+.ao-wardrobe-pill:hover {
+  border-color: var(--studio-border-strong);
+  color: var(--ui-text-strong);
+}
+
+.ao-wardrobe-pill[aria-pressed="true"] {
+  background: var(--studio-accent-tint);
+  border-color: var(--accent-primary);
+  color: var(--ui-text-strong);
+}
+
+.ao-crew-mugshot-chip {
+  min-width: 34px;
+  min-height: 34px;
+  padding: 3px;
+  border-radius: 9px;
+  border: 1px solid var(--studio-border-soft);
+  background: color-mix(in oklab, var(--ui-surface) 90%, var(--accent-primary) 10%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.ao-usage-meter {
+  width: 100%;
+  height: 6px;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--ui-border) 60%, transparent);
+  overflow: hidden;
+}
+
+.ao-usage-meter > span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--accent-primary), var(--studio-violet));
+}
+
+/* ==========================================================================
+   Topological Orchestration DAG Pipeline View (SVG Cubic-Bezier Stage)
+   ========================================================================== */
+.ao-dag-card {
+  background: var(--studio-surface-1);
+  border: 1px solid var(--studio-border-soft);
+  border-radius: 10px;
+  padding: 14px;
+  box-shadow: var(--studio-shadow-card);
+}
+
+.ao-dag-canvas-scroll {
+  overflow-x: auto;
+  padding: 4px 2px;
+}
+
+.ao-dag-stage {
+  position: relative;
+  min-width: 100%;
+  border-radius: 9px;
+  border: 1px solid color-mix(in oklab, var(--ui-border) 55%, transparent);
+  background:
+    radial-gradient(circle at 1px 1px, color-mix(in oklab, var(--ui-text-muted) 18%, transparent) 1px, transparent 0)
+      0 0 / 18px 18px,
+    color-mix(in oklab, var(--ui-surface) 55%, transparent);
+}
+
+.ao-dag-level-header {
+  position: absolute;
+  top: 10px;
+  z-index: 2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ao-dag-svg {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.ao-dag-edge {
+  fill: none;
+  stroke: color-mix(in oklab, var(--ui-text-muted) 65%, transparent);
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+.ao-dag-edge--ok {
+  stroke: var(--studio-ok);
+}
+
+.ao-dag-edge--active {
+  stroke: var(--studio-warn);
+}
+
+.ao-dag-edge-flow {
+  fill: none;
+  stroke: var(--accent-primary);
+  stroke-width: 2.25;
+  stroke-dasharray: 6 6;
+  stroke-linecap: round;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .ao-dag-edge-flow {
+    animation: ao-dag-edge-dash 1.1s linear infinite;
+  }
+}
+
+@keyframes ao-dag-edge-dash {
+  to {
+    stroke-dashoffset: -24;
+  }
+}
+
+.ao-dag-level-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ui-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.ao-dag-node {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 5px;
+  padding: 10px 12px;
+  border-radius: 9px;
+  border: 1px solid var(--studio-border-soft);
+  background: var(--studio-surface-1);
+  box-shadow: var(--studio-shadow-card);
+  z-index: 2;
+}
+
+.ao-dag-node-positioned {
+  position: absolute;
+}
+
+.ao-dag-node[data-status="DONE"],
+.ao-dag-node[data-status="SUCCEEDED"] {
+  border-color: color-mix(in oklab, var(--studio-ok) 55%, transparent);
+  background: color-mix(in oklab, var(--studio-ok) 9%, var(--studio-surface-1));
+}
+
+.ao-dag-node[data-status="RUNNING"],
+.ao-dag-node[data-status="IN_PROGRESS"] {
+  border-color: color-mix(in oklab, var(--studio-warn) 60%, transparent);
+  background: color-mix(in oklab, var(--studio-warn) 10%, var(--studio-surface-1));
+}
+
+.ao-dag-node[data-status="FAILED"] {
+  border-color: color-mix(in oklab, var(--studio-danger) 60%, transparent);
+  background: color-mix(in oklab, var(--studio-danger) 9%, var(--studio-surface-1));
+}
+
+/* ==========================================================================
+   Launcher Crew Preview & Character Studio Controls
+   ========================================================================== */
+.ao-launcher-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+  gap: 20px;
+  align-items: center;
+}
+
+.ao-crew-stage-strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.ao-crew-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 8px;
+  border-radius: 10px;
+  border: 1px solid var(--studio-border-soft);
+  background: color-mix(in oklab, var(--ui-surface) 78%, var(--accent-primary) 6%);
+}
+
+/* ==========================================================================
+   Approval Card & Provider Settings Polish
+   ========================================================================== */
+.ao-approval-card {
+  background: var(--studio-surface-1);
+  border: 1px solid var(--studio-border-soft);
+  border-left: 3px solid var(--studio-warn);
+  border-radius: 10px;
+  padding: 14px 16px;
+  box-shadow: var(--studio-shadow-card);
+}
+
+.ao-provider-icon-well {
+  width: 36px;
+  height: 36px;
+  border-radius: 9px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--studio-border-soft);
+  background: color-mix(in oklab, var(--accent-primary) 12%, var(--studio-surface-1));
+  color: var(--accent-primary);
+  flex-shrink: 0;
+}
+
+@media (max-width: 960px) {
+  .ao-studio-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* Keep KPIs & first workspace "열기" button inside 390x727 mobile fold */
+  .ao-studio-rail {
+    display: none;
+  }
+
+  .chrome-viewport .workspace-2d-frame-fullscreen .ao-stage-toolbar {
+    display: none;
+  }
+
+  .ao-launcher-hero {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .ao-crew-stage-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .workspace-2d-viewport {
+    min-height: 400px;
+  }
+
+  .chrome-viewport .workspace-2d-frame-fullscreen .workspace-2d-hud > div {
+    min-height: 28px;
+    padding: 3px 6px;
+  }
+
+  .chrome-viewport .workspace-2d-frame-fullscreen .workspace-2d-hud span,
+  .chrome-viewport .workspace-2d-frame-fullscreen .workspace-2d-hud strong {
+    font-size: 12px;
+    line-height: 1.2;
+  }
+
+  .workspace-2d-map-controls button {
+    min-width: 36px;
+    min-height: 36px;
+  }
+}

@@ -1,0 +1,222 @@
+package com.aquilaoffice.adapter.in.web.auth;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.willThrow;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import com.aquilaoffice.application.port.in.GoogleLoginCommand;
+import com.aquilaoffice.application.port.in.GoogleLoginResult;
+import com.aquilaoffice.application.port.in.GoogleLoginUseCase;
+import com.aquilaoffice.application.port.in.LogoutAuthCommand;
+import com.aquilaoffice.application.port.in.LogoutAuthUseCase;
+import com.aquilaoffice.application.port.in.RefreshAuthTokenCommand;
+import com.aquilaoffice.application.port.in.RefreshAuthTokenResult;
+import com.aquilaoffice.application.port.in.RefreshAuthTokenUseCase;
+import com.aquilaoffice.global.handler.GlobalExceptionHandler;
+import jakarta.servlet.http.Cookie;
+import java.time.Duration;
+import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
+
+/**
+ * Auth web adapter가 Google 로그인 요청을 command로 변환하고 공통 응답 계약을 지키는지 검증한다.
+ */
+@WebMvcTest(AuthController.class)
+@AutoConfigureMockMvc(addFilters = false)
+@Import({GlobalExceptionHandler.class, AuthControllerTest.TestConfig.class})
+class AuthControllerTest {
+
+    private static final String REFRESH_COOKIE_NAME = "AQUILA_REFRESH_TOKEN";
+
+    @Autowired
+    private MockMvc mockMvc;
+
+    @MockitoBean
+    private GoogleLoginUseCase googleLoginUseCase;
+
+    @MockitoBean
+    private RefreshAuthTokenUseCase refreshAuthTokenUseCase;
+
+    @MockitoBean
+    private LogoutAuthUseCase logoutAuthUseCase;
+
+    @Test
+    void loginWithGoogleReturnsTokenEnvelope() throws Exception {
+        given(googleLoginUseCase.login(any(GoogleLoginCommand.class)))
+                .willReturn(new GoogleLoginResult(
+                        1L,
+                        "User One",
+                        "user@example.com",
+                        "USER",
+                        "access-token",
+                        "refresh-token"));
+
+        MvcResult mvcResult = mockMvc.perform(post("/api/v1/auth/google/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"idToken\":\" id-token \"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.code").value("200"))
+                .andExpect(jsonPath("$.message").value("OK"))
+                .andExpect(jsonPath("$.data.memberId").value(1))
+                .andExpect(jsonPath("$.data.name").value("User One"))
+                .andExpect(jsonPath("$.data.email").value("user@example.com"))
+                .andExpect(jsonPath("$.data.role").value("USER"))
+                .andExpect(jsonPath("$.data.accessToken").value("access-token"))
+                .andExpect(jsonPath("$.data.refreshToken").doesNotExist())
+                .andReturn();
+
+        assertRefreshCookie(mvcResult, "refresh-token", Duration.ofDays(14));
+
+        ArgumentCaptor<GoogleLoginCommand> commandCaptor = ArgumentCaptor.forClass(GoogleLoginCommand.class);
+        verify(googleLoginUseCase).login(commandCaptor.capture());
+        assertThat(commandCaptor.getValue().idToken()).isEqualTo("id-token");
+    }
+
+    @Test
+    void loginWithGoogleRejectsBlankIdToken() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/google/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"idToken\":\" \"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code").value("400"));
+
+        verifyNoInteractions(googleLoginUseCase);
+    }
+
+    @Test
+    void loginWithGoogleReturnsUnauthorizedWhenTokenIsInvalid() throws Exception {
+        willThrow(new IllegalArgumentException("invalid google id token"))
+                .given(googleLoginUseCase)
+                .login(any(GoogleLoginCommand.class));
+
+        mockMvc.perform(post("/api/v1/auth/google/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"idToken\":\"bad-token\"}"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code").value("401"));
+    }
+
+    @Test
+    void refreshTokenReturnsRotatedTokenEnvelope() throws Exception {
+        given(refreshAuthTokenUseCase.refresh(any(RefreshAuthTokenCommand.class)))
+                .willReturn(new RefreshAuthTokenResult("new-access-token", "new-refresh-token"));
+
+        MvcResult mvcResult = mockMvc.perform(post("/api/v1/auth/token/refresh")
+                        .cookie(new Cookie(REFRESH_COOKIE_NAME, "old-refresh-token")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.code").value("200"))
+                .andExpect(jsonPath("$.message").value("OK"))
+                .andExpect(jsonPath("$.data.accessToken").value("new-access-token"))
+                .andExpect(jsonPath("$.data.refreshToken").doesNotExist())
+                .andReturn();
+
+        assertRefreshCookie(mvcResult, "new-refresh-token", Duration.ofDays(14));
+
+        ArgumentCaptor<RefreshAuthTokenCommand> commandCaptor =
+                ArgumentCaptor.forClass(RefreshAuthTokenCommand.class);
+        verify(refreshAuthTokenUseCase).refresh(commandCaptor.capture());
+        assertThat(commandCaptor.getValue().refreshToken()).isEqualTo("old-refresh-token");
+    }
+
+    @Test
+    void refreshTokenRejectsMissingRefreshCookie() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/token/refresh"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code").value("401"));
+
+        verifyNoInteractions(refreshAuthTokenUseCase);
+    }
+
+    @Test
+    void refreshTokenReturnsUnauthorizedWhenRefreshTokenIsInvalid() throws Exception {
+        willThrow(new IllegalArgumentException("refreshToken is invalid"))
+                .given(refreshAuthTokenUseCase)
+                .refresh(any(RefreshAuthTokenCommand.class));
+
+        mockMvc.perform(post("/api/v1/auth/token/refresh")
+                        .cookie(new Cookie(REFRESH_COOKIE_NAME, "bad-refresh-token")))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code").value("401"));
+    }
+
+    @Test
+    void logoutDeletesRefreshTokenAndReturnsEnvelope() throws Exception {
+        MvcResult mvcResult = mockMvc.perform(post("/api/v1/auth/logout")
+                        .cookie(new Cookie(REFRESH_COOKIE_NAME, "old-refresh-token")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.code").value("200"))
+                .andExpect(jsonPath("$.message").value("OK"))
+                .andReturn();
+
+        assertRefreshCookie(mvcResult, "", Duration.ZERO);
+
+        ArgumentCaptor<LogoutAuthCommand> commandCaptor = ArgumentCaptor.forClass(LogoutAuthCommand.class);
+        verify(logoutAuthUseCase).logout(commandCaptor.capture());
+        assertThat(commandCaptor.getValue().refreshToken()).isEqualTo("old-refresh-token");
+    }
+
+    @Test
+    void logoutRejectsMissingRefreshCookie() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/logout"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code").value("401"));
+
+        verifyNoInteractions(logoutAuthUseCase);
+    }
+
+    @Test
+    void logoutReturnsUnauthorizedWhenRefreshTokenIsInvalid() throws Exception {
+        willThrow(new IllegalArgumentException("refreshToken is invalid"))
+                .given(logoutAuthUseCase)
+                .logout(any(LogoutAuthCommand.class));
+
+        mockMvc.perform(post("/api/v1/auth/logout")
+                        .cookie(new Cookie(REFRESH_COOKIE_NAME, "bad-refresh-token")))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code").value("401"));
+    }
+
+    private void assertRefreshCookie(MvcResult mvcResult, String value, Duration maxAge) {
+        String setCookie = mvcResult.getResponse().getHeader(HttpHeaders.SET_COOKIE);
+        assertThat(setCookie).contains(REFRESH_COOKIE_NAME + "=" + value);
+        assertThat(setCookie).contains("Path=/api/v1/auth");
+        assertThat(setCookie).contains("HttpOnly");
+        assertThat(setCookie).contains("SameSite=Lax");
+        assertThat(setCookie).contains("Max-Age=" + maxAge.toSeconds());
+    }
+
+    @TestConfiguration
+    static class TestConfig {
+
+        @Bean
+        AuthRefreshCookieFactory authRefreshCookieFactory() {
+            return new AuthRefreshCookieFactory(Duration.ofDays(14));
+        }
+    }
+}

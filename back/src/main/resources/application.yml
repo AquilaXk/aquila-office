@@ -1,0 +1,82 @@
+spring:
+  application:
+    name: aquila-office-back
+  flyway:
+    enabled: ${SPRING_FLYWAY_ENABLED:true}
+    baseline-on-migrate: ${SPRING_FLYWAY_BASELINE_ON_MIGRATE:true}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  mail:
+    host: ${SPRING_MAIL_HOST:localhost}
+    port: ${SPRING_MAIL_PORT:1025}
+    username: ${SPRING_MAIL_USERNAME:}
+    password: ${SPRING_MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: ${SPRING_MAIL_PROPERTIES_MAIL_SMTP_AUTH:false}
+          starttls:
+            enable: ${SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_ENABLE:false}
+
+server:
+  port: 8080
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: ${MANAGEMENT_ENDPOINT_HEALTH_SHOW_DETAILS:when_authorized}
+      probes:
+        enabled: true
+
+custom:
+  cors:
+    allowed-origin-patterns:
+      - http://localhost:3000
+      - http://localhost:5173
+
+aquila:
+  auth-token:
+    issuer: ${AQUILA_AUTH_TOKEN_ISSUER:aquila-office}
+    secret: ${AQUILA_AUTH_TOKEN_SECRET:local-development-jwt-secret-change-before-production-0123456789abcdef}
+    access-token-ttl: ${AQUILA_AUTH_ACCESS_TOKEN_TTL:15m}
+    refresh-token-ttl: ${AQUILA_AUTH_REFRESH_TOKEN_TTL:14d}
+  auth-refresh-cookie:
+    secure: ${AQUILA_AUTH_REFRESH_COOKIE_SECURE:false}
+  google-oauth:
+    client-ids: ${AQUILA_GOOGLE_OAUTH_CLIENT_IDS:development-client-id.apps.googleusercontent.com}
+    allowed-hosted-domains: ${AQUILA_GOOGLE_ALLOWED_HOSTED_DOMAINS:}
+    require-email-verified: ${AQUILA_GOOGLE_REQUIRE_EMAIL_VERIFIED:true}
+    application-name: ${AQUILA_GOOGLE_APPLICATION_NAME:aquila-office}
+  external-token:
+    key: ${AQUILA_EXTERNAL_TOKEN_KEY:local-development-external-token-key-change-before-production-0123456789abcdef}
+    key-id: ${AQUILA_EXTERNAL_TOKEN_KEY_ID:local}
+  gateway-rpc:
+    request-timeout: ${AQUILA_GATEWAY_RPC_REQUEST_TIMEOUT:30s}
+    path: ${AQUILA_GATEWAY_RPC_PATH:/rpc}
+  slack:
+    client-id: ${AQUILA_SLACK_CLIENT_ID:}
+    client-secret: ${AQUILA_SLACK_CLIENT_SECRET:}
+    signing-secret: ${AQUILA_SLACK_SIGNING_SECRET:}
+    redirect-uri: ${AQUILA_SLACK_REDIRECT_URI:http://localhost:8080/api/v1/slack/oauth/callback}
+    scopes: ${AQUILA_SLACK_SCOPES:app_mentions:read,channels:read,chat:write,incoming-webhook}
+  vertex-ai:
+    project-id: ${GOOGLE_CLOUD_PROJECT_ID:}
+    location: ${VERTEX_AI_LOCATION:us-central1}
+    model: ${VERTEX_AI_MODEL:gemini-2.5-flash}
+    credentials-path: ${GOOGLE_APPLICATION_CREDENTIALS:}
+  invite-email:
+    enabled: ${AQUILA_INVITE_EMAIL_ENABLED:false}
+    from: ${AQUILA_INVITE_EMAIL_FROM:noreply@aquila-office.local}
+    accept-url-base: ${AQUILA_INVITE_ACCEPT_URL_BASE:http://localhost:3000/invites/accept}
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html

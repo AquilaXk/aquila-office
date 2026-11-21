@@ -1,0 +1,30 @@
+changelog:
+  exclude:
+    labels:
+      - duplicate
+      - invalid
+      - wontfix
+      - chore
+      - ci
+      - skip-changelog
+      - "type:chore"
+  categories:
+    - title: "✨ 주요 기능 (Features)"
+      labels:
+        - enhancement
+        - "type:feat"
+    - title: "🐛 결함 수정 (Bug Fixes)"
+      labels:
+        - bug
+        - "type:fix"
+    - title: "🔒 보안 및 안정성 (Security & Hardening)"
+      labels:
+        - security
+        - "type:security"
+    - title: "📦 데스크톱 및 인프라 (Desktop & Infrastructure)"
+      labels:
+        - "area:desktop"
+        - "area:infra"
+    - title: "🔧 기타 개선 (Other Changes)"
+      labels:
+        - "*"

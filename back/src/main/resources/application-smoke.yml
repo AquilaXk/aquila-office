@@ -1,0 +1,26 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:aquila-office-smoke;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: false
+  flyway:
+    enabled: false
+  sql:
+    init:
+      mode: never
+
+aquila:
+  smoke-fixture:
+    enabled: ${AQUILA_SMOKE_FIXTURE_ENABLED:true}
+    google-id-token: ${SMOKE_GOOGLE_ID_TOKEN:smoke-google-id-token}
+    google-sub: ${AQUILA_SMOKE_GOOGLE_SUB:smoke-google-sub}
+    email: ${AQUILA_SMOKE_EMAIL:smoke.user@aquila-office.local}
+    name: ${AQUILA_SMOKE_NAME:Smoke User}

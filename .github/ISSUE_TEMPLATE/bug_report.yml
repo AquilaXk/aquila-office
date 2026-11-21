@@ -1,0 +1,108 @@
+name: 버그 신고 / Bug report
+description: 앱이나 웹 워크스페이스에서 생긴 문제를 알려 주세요. / Report a problem in the app or web workspace.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        기능 요청과 PR은 받지 않습니다. 버그 신고만 받습니다. 보안 문제는 이슈로 올리지 말고 [SECURITY.md](https://github.com/AquilaXk/aquila-office/blob/main/SECURITY.md)의 비공개 신고를 이용해 주세요.
+
+        Feature requests and pull requests are not accepted. Only bug reports are. Do not file security problems here; use the private report described in [SECURITY.md](https://github.com/AquilaXk/aquila-office/blob/main/SECURITY.md).
+
+  - type: dropdown
+    id: module
+    attributes:
+      label: 모듈 / Module
+      options:
+        - 워크스페이스 대시보드 / Workspace Dashboard
+        - 2D 가상 오피스 / 2D Virtual Office
+        - 에이전트 및 스킬 / Agents & Skills
+        - 태스크·채팅·리포트 / Tasks, Chat & Reports
+        - 산출물 뷰어 / Artifacts
+        - 게이트웨이·외부 연동 / Gateway & Integrations
+        - 데스크톱 앱 / Desktop Shell
+        - 인증·멤버·초대 / Auth, Members & Invites
+        - 기타 / Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: 운영체제 / Operating system
+      options:
+        - macOS (Apple Silicon)
+        - macOS (Intel)
+        - Windows
+        - Linux (Ubuntu/Debian 계열)
+        - Linux (Fedora/RHEL 계열)
+        - Linux (기타 / other)
+    validations:
+      required: true
+
+  - type: input
+    id: os-version
+    attributes:
+      label: OS 및 브라우저 버전 / OS & browser version
+      placeholder: "예: macOS 15.4, Windows 11 24H2, Chrome 136"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: runtime
+    attributes:
+      label: 실행 환경 / Runtime environment
+      options:
+        - dmg (macOS)
+        - Windows 설치 프로그램 / Windows installer
+        - deb (Linux)
+        - rpm (Linux)
+        - AppImage (Linux)
+        - 웹 브라우저 / Web browser
+        - Docker Compose 자체 호스팅 / Self-hosted Docker Compose
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: 앱 또는 릴리스 버전 / App or release version
+      placeholder: "예: 0.1.0"
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: 재현 절차 / Steps to reproduce
+      value: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: 기대한 결과 / Expected result
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: 실제 결과 / Actual result
+      description: 화면 캡처나 오류 문구를 붙여 주세요. / Add screenshots or error messages.
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: 확인 / Checklist
+      options:
+        - label: 첨부한 내용에 토큰, 개인정보, 기밀 정보가 없습니다. / The report contains no tokens, personal data, or confidential secrets.
+          required: true
+        - label: 최신 버전에서 다시 확인했습니다. / I confirmed the problem on the latest version.
+          required: true

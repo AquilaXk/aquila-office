@@ -1,0 +1,37 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:aquila-office-test;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+  flyway:
+    enabled: false
+  sql:
+    init:
+      mode: never
+
+aquila:
+  auth-token:
+    issuer: aquila-office-test
+    secret: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+    access-token-ttl: 15m
+    refresh-token-ttl: 14d
+  google-oauth:
+    client-ids:
+      - test-client.apps.googleusercontent.com
+    allowed-hosted-domains: []
+    require-email-verified: true
+    application-name: aquila-office-test
+  external-token:
+    key: test-external-token-key-0123456789abcdef
+    key-id: test-key
+  gateway-rpc:
+    request-timeout: 1s
+    path: /rpc

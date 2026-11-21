@@ -1,0 +1,45 @@
+# Git and local agent state
+.git
+.github
+.codex
+docs
+AGENTS.md
+CLAUDE.md
+GEMINI.md
+CURSOR.md
+COPILOT.md
+
+# IDE metadata
+.DS_Store
+.idea
+.vscode
+.fleet
+
+# Build outputs
+back/build
+!back/build/
+!back/build/libs/
+!back/build/libs/*.jar
+back/.gradle
+back/.gradle-user
+back/.kotlin
+front/.next
+front/out
+front/build
+front/dist
+front/coverage
+front/playwright-report
+front/test-results
+
+# Dependencies
+front/node_modules
+front/src-tauri
+
+# Runtime and secrets
+.env
+.env.*
+!*.env.example
+logs
+tmp
+temp
+*.log

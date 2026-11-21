@@ -1,0 +1,370 @@
+/* styles/tokens.css - shared desktop light/dark semantic tokens */
+
+:root {
+  color-scheme: dark;
+
+  /* Dark desktop slate surfaces */
+  --surface-canvas: #121317;
+  --surface-1: #18191d;
+  --surface-panel: #18191d;
+  --surface-2: #212226;
+  --surface-3: #2f3034;
+
+  /* Ink hierarchy (4.5:1+ contrast on dark surfaces) */
+  --text-primary: #f8f9fc;
+  --text-secondary: #b8c1cc;
+  --text-muted: #949ba6;
+
+  /* Structural hairlines */
+  --border-subtle: rgba(230, 234, 240, 0.08);
+  --border-default: rgba(230, 234, 240, 0.14);
+  --border-strong: rgba(230, 234, 240, 0.24);
+
+  /* Functional accent & status tokens */
+  --accent-primary: #3279f9;
+  --status-success: #34a853;
+  --status-warning: #fbbc04;
+  --status-danger: #ea4335;
+
+  --accent-subtle: rgba(50, 121, 249, 0.14);
+  --accent-border: rgba(50, 121, 249, 0.36);
+  --status-success-bg: rgba(52, 168, 83, 0.14);
+  --status-success-border: rgba(52, 168, 83, 0.36);
+  --status-warning-bg: rgba(251, 188, 4, 0.14);
+  --status-warning-border: rgba(251, 188, 4, 0.36);
+  --status-danger-bg: rgba(234, 67, 53, 0.14);
+  --status-danger-border: rgba(234, 67, 53, 0.36);
+
+  /* Diff tokens */
+  --diff-add-bg: rgba(52, 168, 83, 0.14);
+  --diff-add-text: #81e6a2;
+  --diff-del-bg: rgba(234, 67, 53, 0.14);
+  --diff-del-text: #fca5a5;
+  --diff-hunk-bg: rgba(50, 121, 249, 0.12);
+  --diff-hunk-text: #8ab4f8;
+
+  /* Brand scale */
+  --brand-50: #f8f9fc;
+  --brand-100: #eef2ff;
+  --brand-200: #dbe6fe;
+  --brand-300: #bcd2fd;
+  --brand-400: #6ea0fb;
+  --brand-500: #3279f9;
+  --brand-600: #2563eb;
+  --brand-700: #1d4ed8;
+  --brand-800: #1e40af;
+  --brand-900: #1e3a8a;
+  --brand-950: #172554;
+
+  /* Surface & ink compatibility variables */
+  --bg-scaffold: var(--surface-canvas);
+  --surface-card: var(--surface-1);
+  --surface-subtle: var(--surface-2);
+  --ink-primary: var(--text-primary);
+  --ink-secondary: var(--text-secondary);
+  --ink-muted: var(--text-muted);
+
+  /* Legacy compatibility token bindings */
+  --gothic-page: var(--surface-canvas);
+  --gothic-surface: var(--surface-1);
+  --gothic-surface-raised: var(--surface-2);
+  --gothic-iron: var(--surface-3);
+  --gothic-line: var(--border-subtle);
+  --gothic-line-strong: var(--border-strong);
+  --gothic-brass: var(--accent-primary);
+  --gothic-parchment: var(--text-primary);
+  --gothic-muted: var(--text-secondary);
+  --gothic-red: var(--status-danger);
+
+  --t4-bg: var(--surface-canvas);
+  --t4-bg2: var(--surface-1);
+  --t4-panel: var(--surface-1);
+  --t4-panel-2: var(--surface-2);
+  --t4-ink: var(--text-primary);
+  --t4-dim: var(--text-secondary);
+  --t4-line: var(--border-subtle);
+  --t4-line-soft: var(--border-subtle);
+
+  /* Stat / accent colors */
+  --t4-hp: var(--status-danger);
+  --t4-mp: var(--accent-primary);
+  --t4-xp: var(--status-warning);
+  --t4-ok: var(--status-success);
+  --t4-agent: var(--accent-primary);
+  --t4-pink: var(--accent-primary);
+  --t4-orange: var(--status-warning);
+
+  /* Accent aliases */
+  --neon-pink: var(--accent-primary);
+  --neon-blue: var(--accent-primary);
+  --neon-purple: #5c6bc0;
+  --neon-yellow: var(--status-warning);
+  --neon-green: var(--status-success);
+  --neon-red: var(--status-danger);
+  --neon-border: var(--border-default);
+
+  /* Legacy semantic mapping */
+  --color-primary: var(--accent-primary);
+  --color-primary-light: var(--brand-400);
+  --color-primary-hover: var(--brand-600);
+  --color-primary-muted: rgba(50, 121, 249, 0.14);
+
+  --color-agent: var(--accent-primary);
+  --color-agent-dark: var(--brand-800);
+
+  --color-danger: var(--status-danger);
+  --color-danger-hover: #c5221f;
+  --color-danger-bg: rgba(234, 67, 53, 0.14);
+  --color-info: var(--accent-primary);
+  --color-success: var(--status-success);
+  --color-meeting: var(--accent-primary);
+  --color-warning: var(--status-warning);
+  --color-working: var(--accent-primary);
+  --color-stalled: var(--status-warning);
+
+  /* Text */
+  --text: var(--text-primary);
+  --text-dim: var(--text-muted);
+
+  /* Semantic desktop chrome UI tokens */
+  --ui-bg: var(--surface-canvas);
+  --ui-bg-light: var(--surface-1);
+  --ui-surface: var(--surface-1);
+  --ui-surface-raised: var(--surface-2);
+  --ui-surface-muted: var(--surface-3);
+  --ui-panel-bg: var(--surface-panel);
+
+  --ui-border: var(--border-default);
+  --ui-border-light: rgba(230, 234, 240, 0.12);
+  --ui-border-subtle: var(--border-subtle);
+  --ui-border-strong: var(--border-strong);
+
+  --ui-text: var(--text-primary);
+  --ui-text-strong: var(--text-primary);
+  --ui-text-secondary: var(--text-secondary);
+  --ui-text-muted: var(--text-muted);
+  --ui-text-hint: #848d9a;
+
+  --ui-hover: rgba(230, 234, 240, 0.06);
+  --ui-hover-strong: rgba(230, 234, 240, 0.12);
+  --ui-active: rgba(50, 121, 249, 0.18);
+  --ui-selected: rgba(50, 121, 249, 0.16);
+  --ui-menu-open: rgba(230, 234, 240, 0.1);
+  --ui-toolbar-bg-start: #1b1c21;
+  --ui-toolbar-bg-end: #16171b;
+  --ui-shadow: 0 12px 32px rgba(0, 0, 0, 0.42);
+
+  --accent-strong: var(--brand-600);
+  --accent-light: var(--brand-400);
+  --focus-ring: rgba(50, 121, 249, 0.64);
+
+  /* 2D stage & overlay tokens (dark baseline) */
+  --stage-hud-bg: rgba(24, 25, 29, 0.92);
+  --stage-hud-strong: rgba(24, 25, 29, 0.94);
+  --stage-pill-bg: rgba(18, 19, 23, 0.94);
+  --stage-status-bg: rgba(16, 18, 20, 0.88);
+  --stage-minimap-bg: rgba(16, 18, 20, 0.88);
+  --stage-minimap-view-bg: rgba(241, 230, 204, 0.12);
+  --stage-node-bg: rgba(31, 35, 39, 0.76);
+  --stage-room-bg: rgba(24, 25, 29, 0.72);
+  --stage-room-wall: rgba(230, 234, 240, 0.16);
+  --stage-room-border: rgba(230, 234, 240, 0.12);
+  --stage-grid-line: rgba(230, 234, 240, 0.035);
+  --stage-corridor-bg: rgba(230, 234, 240, 0.025);
+  --stage-furniture-bg: #21242c;
+  --stage-furniture-surface: #1e222b;
+  --stage-monitor-bg: #14171f;
+  --stage-plant-pot: #2b2623;
+  --stage-card-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+  --stage-furniture-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+
+  /* Font & typography scale */
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-family-ui: var(--font-sans);
+  --font-mixed-ko: var(--font-sans);
+  --font-pixel: var(--font-sans);
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  --font-family-mono: var(--font-mono);
+  --font-mono-arcade: var(--font-mono);
+  --font-arcade-mono: var(--font-mono);
+
+  --font-size-xs: 12px;
+  --font-size-sm: 12px;
+  --font-size-base: 13px;
+  --font-size-md: 14px;
+  --font-size-lg: 16px;
+  --font-size-xl: 18px;
+
+  /* Control density & radii */
+  --control-height-sm: 24px;
+  --control-height-md: 28px;
+  --control-height-lg: 32px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+
+  /* Spacing aliases */
+  --gap-tight: 4px;
+  --gap-normal: 8px;
+  --gap-loose: 16px;
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  /* Surface scale (Light desktop slate/paper) */
+  --surface-canvas: #f3f5f8;
+  --surface-1: #ffffff;
+  --surface-panel: #ffffff;
+  --surface-2: #ebeef4;
+  --surface-3: #dde2ec;
+
+  /* Text hierarchy (4.5:1+ contrast on light surfaces) */
+  --text-primary: #111827;
+  --text-secondary: #334155;
+  --text-muted: #525e70;
+
+  /* Hairlines & dividers */
+  --border-subtle: rgba(15, 23, 42, 0.08);
+  --border-default: rgba(15, 23, 42, 0.16);
+  --border-strong: rgba(15, 23, 42, 0.28);
+
+  /* Semantic accent & status */
+  --accent-primary: #2563eb;
+  --status-success: #15803d;
+  --status-warning: #b45309;
+  --status-danger: #dc2626;
+
+  --accent-subtle: rgba(37, 99, 235, 0.10);
+  --accent-border: rgba(37, 99, 235, 0.34);
+  --status-success-bg: rgba(21, 128, 61, 0.10);
+  --status-success-border: rgba(21, 128, 61, 0.32);
+  --status-warning-bg: rgba(180, 83, 9, 0.10);
+  --status-warning-border: rgba(180, 83, 9, 0.32);
+  --status-danger-bg: rgba(220, 38, 38, 0.10);
+  --status-danger-border: rgba(220, 38, 38, 0.32);
+
+  /* Diff tokens (light mode high contrast) */
+  --diff-add-bg: rgba(22, 163, 74, 0.12);
+  --diff-add-text: #166534;
+  --diff-del-bg: rgba(220, 38, 38, 0.10);
+  --diff-del-text: #991b1b;
+  --diff-hunk-bg: rgba(37, 99, 235, 0.10);
+  --diff-hunk-text: #1d4ed8;
+
+  /* Legacy theme-web bridges */
+  --bg: var(--surface-canvas);
+  --bg-deep: #e5e9f0;
+  --surface: var(--surface-1);
+  --surface-raised: var(--surface-2);
+  --surface-muted: var(--surface-2);
+  --surface-control: rgba(255, 255, 255, 0.92);
+  --surface-control-muted: rgba(235, 238, 244, 0.9);
+  --surface-info: rgba(37, 99, 235, 0.1);
+  --surface-success: rgba(21, 128, 61, 0.1);
+  --surface-warning: rgba(180, 83, 9, 0.1);
+  --surface-danger: rgba(220, 38, 38, 0.1);
+  --border: var(--border-subtle);
+  --t4-tile-bg: rgba(255, 255, 255, 0.92);
+
+  --gothic-page: #f3f5f8;
+  --gothic-surface: #ffffff;
+  --gothic-surface-raised: #ebeef4;
+  --gothic-iron: #dde2ec;
+  --gothic-line: rgba(15, 23, 42, 0.12);
+  --gothic-line-strong: rgba(15, 23, 42, 0.26);
+  --gothic-brass: #2563eb;
+  --gothic-parchment: #111827;
+  --gothic-muted: #475569;
+  --gothic-red: #dc2626;
+  --background: var(--surface-canvas);
+
+  /* Legacy token bridges */
+  --bg-scaffold: var(--surface-canvas);
+  --surface-card: var(--surface-1);
+  --surface-subtle: var(--surface-2);
+  --ink-primary: var(--text-primary);
+  --ink-secondary: var(--text-secondary);
+  --ink-muted: var(--text-muted);
+
+  --t4-bg: var(--surface-canvas);
+  --t4-bg2: var(--surface-1);
+  --t4-panel: var(--surface-1);
+  --t4-panel-2: var(--surface-2);
+  --t4-ink: var(--text-primary);
+  --t4-dim: var(--text-secondary);
+  --t4-line: var(--border-subtle);
+  --t4-line-soft: var(--border-subtle);
+
+  --color-primary: var(--accent-primary);
+  --color-primary-light: #3b82f6;
+  --color-primary-hover: #1d4ed8;
+  --color-primary-muted: rgba(37, 99, 235, 0.12);
+  --color-agent: var(--accent-primary);
+  --color-agent-dark: #1e40af;
+  --color-danger: var(--status-danger);
+  --color-danger-hover: #b91c1c;
+  --color-danger-bg: rgba(220, 38, 38, 0.10);
+
+  --text: var(--text-primary);
+  --text-dim: var(--text-muted);
+
+  /* Desktop shell semantic tokens (--ui-*) */
+  --ui-bg: var(--surface-canvas);
+  --ui-bg-light: var(--surface-1);
+  --ui-surface: var(--surface-1);
+  --ui-surface-raised: var(--surface-2);
+  --ui-surface-muted: var(--surface-3);
+  --ui-panel-bg: var(--surface-panel);
+
+  --ui-border: var(--border-default);
+  --ui-border-light: rgba(15, 23, 42, 0.12);
+  --ui-border-subtle: var(--border-subtle);
+  --ui-border-strong: var(--border-strong);
+
+  --ui-text: var(--text-primary);
+  --ui-text-strong: var(--text-primary);
+  --ui-text-secondary: var(--text-secondary);
+  --ui-text-muted: var(--text-muted);
+  --ui-text-hint: #525e70;
+
+  --ui-hover: rgba(15, 23, 42, 0.05);
+  --ui-hover-strong: rgba(15, 23, 42, 0.10);
+  --ui-active: rgba(37, 99, 235, 0.14);
+  --ui-selected: rgba(37, 99, 235, 0.12);
+  --ui-menu-open: rgba(15, 23, 42, 0.08);
+  --ui-toolbar-bg-start: #f8fafc;
+  --ui-toolbar-bg-end: #eef2f6;
+  --ui-shadow: 0 12px 32px rgba(15, 23, 42, 0.12);
+
+  --accent-strong: #1d4ed8;
+  --accent-light: #60a5fa;
+  --focus-ring: rgba(37, 99, 235, 0.48);
+
+  /* Light-safe semantic aliases overriding :root globals */
+  --blue: #2563eb;
+  --green: #15803d;
+  --red: #dc2626;
+  --yellow: #b45309;
+  --shadow: 0 12px 32px rgba(15, 23, 42, 0.12);
+
+  /* 2D stage & overlay tokens (light desktop paper) */
+  --stage-hud-bg: rgba(255, 255, 255, 0.92);
+  --stage-hud-strong: rgba(255, 255, 255, 0.96);
+  --stage-pill-bg: rgba(255, 255, 255, 0.96);
+  --stage-status-bg: rgba(255, 255, 255, 0.94);
+  --stage-minimap-bg: rgba(241, 245, 249, 0.96);
+  --stage-minimap-view-bg: rgba(37, 99, 235, 0.1);
+  --stage-node-bg: rgba(255, 255, 255, 0.92);
+  --stage-room-bg: rgba(255, 255, 255, 0.88);
+  --stage-room-wall: rgba(15, 23, 42, 0.22);
+  --stage-room-border: rgba(15, 23, 42, 0.14);
+  --stage-grid-line: rgba(15, 23, 42, 0.045);
+  --stage-corridor-bg: rgba(15, 23, 42, 0.03);
+  --stage-furniture-bg: #e2e8f0;
+  --stage-furniture-surface: #dbe4f0;
+  --stage-monitor-bg: #cbd5e1;
+  --stage-plant-pot: #94a3b8;
+  --stage-card-shadow: 0 6px 20px rgba(15, 23, 42, 0.08);
+  --stage-furniture-shadow: 0 2px 6px rgba(15, 23, 42, 0.08);
+}

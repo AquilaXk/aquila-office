@@ -1,0 +1,102 @@
+name: aquila-office-prod
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-aquila_office}
+      POSTGRES_USER: ${POSTGRES_USER:-aquila}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me_before_prod}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-prod}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-aquila_office}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-aquila}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-change_me_before_prod}
+      SPRING_JPA_HIBERNATE_DDL_AUTO: ${SPRING_JPA_HIBERNATE_DDL_AUTO:-validate}
+      CUSTOM_CORS_ALLOWED_ORIGIN_PATTERNS: ${CUSTOM_CORS_ALLOWED_ORIGIN_PATTERNS:-http://localhost,http://localhost:3000}
+      AQUILA_AUTH_TOKEN_ISSUER: ${AQUILA_AUTH_TOKEN_ISSUER:-aquila-office}
+      AQUILA_AUTH_TOKEN_SECRET: ${AQUILA_AUTH_TOKEN_SECRET:-change_me_to_at_least_32_bytes_before_prod}
+      AQUILA_AUTH_ACCESS_TOKEN_TTL: ${AQUILA_AUTH_ACCESS_TOKEN_TTL:-15m}
+      AQUILA_AUTH_REFRESH_TOKEN_TTL: ${AQUILA_AUTH_REFRESH_TOKEN_TTL:-14d}
+      AQUILA_GOOGLE_OAUTH_CLIENT_IDS: ${AQUILA_GOOGLE_OAUTH_CLIENT_IDS:-google-client-id.apps.googleusercontent.com}
+      AQUILA_GOOGLE_ALLOWED_HOSTED_DOMAINS: ${AQUILA_GOOGLE_ALLOWED_HOSTED_DOMAINS:-}
+      AQUILA_GOOGLE_REQUIRE_EMAIL_VERIFIED: ${AQUILA_GOOGLE_REQUIRE_EMAIL_VERIFIED:-true}
+      AQUILA_GOOGLE_APPLICATION_NAME: ${AQUILA_GOOGLE_APPLICATION_NAME:-aquila-office}
+      AQUILA_EXTERNAL_TOKEN_KEY: ${AQUILA_EXTERNAL_TOKEN_KEY:-change_me_to_at_least_32_bytes_before_prod}
+      AQUILA_EXTERNAL_TOKEN_KEY_ID: ${AQUILA_EXTERNAL_TOKEN_KEY_ID:-prod}
+      AQUILA_GATEWAY_RPC_REQUEST_TIMEOUT: ${AQUILA_GATEWAY_RPC_REQUEST_TIMEOUT:-30s}
+      AQUILA_GATEWAY_RPC_PATH: ${AQUILA_GATEWAY_RPC_PATH:-/rpc}
+      SPRING_MAIL_HOST: ${SPRING_MAIL_HOST:-localhost}
+      SPRING_MAIL_PORT: ${SPRING_MAIL_PORT:-587}
+      SPRING_MAIL_USERNAME: ${SPRING_MAIL_USERNAME:-}
+      SPRING_MAIL_PASSWORD: ${SPRING_MAIL_PASSWORD:-}
+      SPRING_MAIL_PROPERTIES_MAIL_SMTP_AUTH: ${SPRING_MAIL_PROPERTIES_MAIL_SMTP_AUTH:-true}
+      SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_ENABLE: ${SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_ENABLE:-true}
+      AQUILA_INVITE_EMAIL_ENABLED: ${AQUILA_INVITE_EMAIL_ENABLED:-false}
+      AQUILA_INVITE_EMAIL_FROM: ${AQUILA_INVITE_EMAIL_FROM:-noreply@aquila-office.local}
+      AQUILA_INVITE_ACCEPT_URL_BASE: ${AQUILA_INVITE_ACCEPT_URL_BASE:-http://localhost/invites/accept}
+      GOOGLE_CLOUD_PROJECT_ID: ${GOOGLE_CLOUD_PROJECT_ID:-grepp-ai-project}
+      VERTEX_AI_LOCATION: ${VERTEX_AI_LOCATION:-us-central1}
+      VERTEX_AI_MODEL: ${VERTEX_AI_MODEL:-gemini-2.5-flash}
+      GOOGLE_APPLICATION_CREDENTIALS: ${GOOGLE_APPLICATION_CREDENTIALS:-/run/secrets/vertex-key.json}
+    volumes:
+      - type: bind
+        source: ${VERTEX_AI_CREDENTIALS_HOST_PATH:-../vertex-key.json}
+        target: /run/secrets/vertex-key.json
+        read_only: true
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ..
+      dockerfile: front/Dockerfile
+      args:
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost/api}
+        NEXT_PUBLIC_GOOGLE_CLIENT_ID: ${NEXT_PUBLIC_GOOGLE_CLIENT_ID:-google-client-id.apps.googleusercontent.com}
+        NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost}
+    environment:
+      NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost/api}
+      NEXT_PUBLIC_GOOGLE_CLIENT_ID: ${NEXT_PUBLIC_GOOGLE_CLIENT_ID:-google-client-id.apps.googleusercontent.com}
+      NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost}
+      PORT: 3000
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:1.27-alpine
+    ports:
+      - "${NGINX_HTTP_PORT:-80}:80"
+    volumes:
+      - ../nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      backend:
+        condition: service_healthy
+      frontend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/healthz | grep -q ok"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+
+volumes:
+  postgres-data:

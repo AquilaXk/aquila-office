@@ -1,0 +1,312 @@
+name: CI
+
+on:
+  pull_request:
+    branches: ["main"]
+    paths:
+      - ".github/**"
+      - ".gitignore"
+      - "CONTRIBUTING.md"
+      - "LICENSE"
+      - "NOTICE"
+      - "README.md"
+      - "SECURITY.md"
+      - "THIRD_PARTY_NOTICES.md"
+      - "TODO.md"
+      - "back/**"
+      - "compose.dev.yml"
+      - "compose.prod.yml"
+      - "docker/**"
+      - "front/**"
+      - "infra/**"
+      - "perf/**"
+      - "scripts/deploy/**"
+      - "tools/ci/**"
+      - "tools/readme/**"
+      - "tools/release/**"
+      - "tools/test/**"
+      - "tools/perf/**"
+  push:
+    branches: ["main"]
+    paths:
+      - ".github/**"
+      - ".gitignore"
+      - "CONTRIBUTING.md"
+      - "LICENSE"
+      - "NOTICE"
+      - "README.md"
+      - "SECURITY.md"
+      - "THIRD_PARTY_NOTICES.md"
+      - "TODO.md"
+      - "back/**"
+      - "compose.dev.yml"
+      - "compose.prod.yml"
+      - "docker/**"
+      - "front/**"
+      - "infra/**"
+      - "perf/**"
+      - "scripts/deploy/**"
+      - "tools/ci/**"
+      - "tools/readme/**"
+      - "tools/release/**"
+      - "tools/test/**"
+      - "tools/perf/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  changes:
+    name: Resolve Changed Files
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.gates.outputs.backend }}
+      docs: ${{ steps.gates.outputs.docs }}
+      frontend: ${{ steps.gates.outputs.frontend }}
+      infra: ${{ steps.gates.outputs.infra }}
+      smoke: ${{ steps.gates.outputs.smoke }}
+      workflow: ${{ steps.gates.outputs.workflow }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve changed files
+        id: files
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PUSH_BEFORE: ${{ github.event.before }}
+          CURRENT_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+
+          : > changed-files.txt
+          if [[ "$EVENT_NAME" == "pull_request" ]]; then
+            git diff --name-only "$PR_BASE_SHA" "$PR_HEAD_SHA" > changed-files.txt
+          elif [[ "$EVENT_NAME" == "push" ]]; then
+            if [[ "$PUSH_BEFORE" =~ ^0+$ ]] || ! git cat-file -e "${PUSH_BEFORE}^{commit}" 2>/dev/null; then
+              git ls-files > changed-files.txt
+              echo "run_all=true" >> "$GITHUB_OUTPUT"
+            else
+              git diff --name-only "$PUSH_BEFORE" "$CURRENT_SHA" > changed-files.txt
+            fi
+          else
+            git ls-files > changed-files.txt
+            echo "run_all=true" >> "$GITHUB_OUTPUT"
+          fi
+
+          {
+            echo "### Changed files"
+            echo ""
+            head -n 50 changed-files.txt | sed 's/^/- `/' | sed 's/$/`/'
+            total_changed="$(wc -l < changed-files.txt)"
+            if (( total_changed > 50 )); then
+              echo "- ... and $((total_changed - 50)) more files"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Resolve CI gates
+        id: gates
+        shell: bash
+        env:
+          RUN_ALL: ${{ steps.files.outputs.run_all }}
+        run: |
+          set -euo pipefail
+
+          args=(--files=changed-files.txt)
+          if [[ "$RUN_ALL" == "true" ]]; then
+            args+=(--all)
+          fi
+
+          node tools/ci/resolve-ci-gates.mjs "${args[@]}" | tee ci-gates.env
+          cat ci-gates.env >> "$GITHUB_OUTPUT"
+
+          {
+            echo ""
+            echo "### CI gates"
+            echo ""
+            echo "| gate | enabled |"
+            echo "| --- | --- |"
+            sed 's/=/ | /; s/^/| /; s/$/ |/' ci-gates.env
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  docs:
+    name: README Documentation Gate
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.docs == 'true'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Validate README contract
+        run: node tools/readme/validate-readme.mjs
+
+      - name: Run repository hygiene guard
+        run: node tools/ci/check-repo-hygiene.mjs
+
+  backend:
+    name: Backend Quality Gate
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+
+      - name: Grant Gradle wrapper permission
+        run: chmod +x back/gradlew
+
+      - name: Run backend quality gate
+        run: ./back/gradlew -p back check
+
+      - name: Upload backend check reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-check-reports
+          path: |
+            back/build/reports/tests/test/
+            back/build/reports/checkstyle/
+            back/build/reports/spotbugs/
+            back/build/reports/jacoco/test/
+            back/build/reports/problems/
+          if-no-files-found: ignore
+          retention-days: 14
+
+  frontend:
+    name: Frontend Quality Gate
+    runs-on: ubuntu-24.04
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: front/package-lock.json
+
+      - name: Install dependencies
+        working-directory: front
+        run: npm ci
+
+      - name: Run frontend lint
+        working-directory: front
+        run: npm run lint
+
+      - name: Run frontend node tests
+        working-directory: front
+        run: npm run test:node
+
+      - name: Run frontend build
+        working-directory: front
+        run: npm run build
+
+      - name: Install frontend browser dependencies
+        working-directory: front
+        run: npx playwright install --with-deps chromium
+
+      - name: Run frontend browser regression
+        working-directory: front
+        run: npm run test:browser
+
+      - name: Run frontend audit
+        working-directory: front
+        run: npm audit --audit-level=moderate
+
+  smoke:
+    name: Smoke Definition Gate
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.smoke == 'true'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Validate service journey smoke definition
+        run: node tools/perf/validate-k6-smoke.mjs
+
+  workflow-contract:
+    name: Workflow Contract Gate
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.workflow == 'true'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Run repository hygiene guard
+        run: node tools/ci/check-repo-hygiene.mjs
+
+      - name: Validate CI gate resolver
+        run: node --test tools/ci/resolve-ci-gates.test.mjs
+
+      - name: Validate desktop release asset contract
+        run: node --test tools/release/release-assets.test.mjs
+
+      - name: Validate staging CD workflow contract
+        run: bash tools/test/check-staging-cd-contract.sh
+
+  infra:
+    name: Terraform Infra Gate
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.infra == 'true'
+    defaults:
+      run:
+        working-directory: infra/terraform/oci/always-free-a1-flex
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.13.5"
+
+      - name: Check Terraform format
+        run: terraform fmt -check
+
+      - name: Initialize Terraform without backend
+        run: terraform init -backend=false
+
+      - name: Validate Terraform
+        run: terraform validate

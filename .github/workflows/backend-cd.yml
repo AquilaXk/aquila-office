@@ -1,0 +1,539 @@
+name: Staging CD
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: ["main"]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Run deployment checks without changing running containers
+        required: true
+        type: boolean
+        default: true
+      target_slot:
+        description: Optional blue/green slot override for both apps
+        required: true
+        type: choice
+        default: auto
+        options:
+          - auto
+          - blue
+          - green
+      ref:
+        description: Optional branch, tag, or SHA to deploy for manual runs
+        required: false
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+  deployments: write
+  packages: write
+
+concurrency:
+  group: staging-cd
+  cancel-in-progress: false
+
+env:
+  BACKEND_IMAGE_NAME: aquila-office-back
+  DEPLOY_ENVIRONMENT: staging
+  FRONTEND_IMAGE_NAME: aquila-office-front
+  RELOAD_COMMAND: "sudo nginx -t && sudo nginx -s reload"
+
+jobs:
+  prepare:
+    name: Resolve Deployment Context
+    runs-on: ubuntu-latest
+    outputs:
+      backend_image_ref: ${{ steps.context.outputs.backend_image_ref }}
+      deploy_sha: ${{ steps.context.outputs.deploy_sha }}
+      dry_run: ${{ steps.context.outputs.dry_run }}
+      frontend_image_ref: ${{ steps.context.outputs.frontend_image_ref }}
+      short_sha: ${{ steps.context.outputs.short_sha }}
+      should_deploy: ${{ steps.context.outputs.should_deploy }}
+      skip_reason: ${{ steps.context.outputs.skip_reason }}
+      target_slot: ${{ steps.context.outputs.target_slot }}
+
+    steps:
+      - name: Checkout metadata
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve deployment context
+        id: context
+        shell: bash
+        env:
+          DISPATCH_DRY_RUN: ${{ inputs.dry_run }}
+          DISPATCH_REF: ${{ inputs.ref }}
+          DISPATCH_TARGET_SLOT: ${{ inputs.target_slot }}
+          WORKFLOW_RUN_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          WORKFLOW_RUN_HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          WORKFLOW_RUN_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+
+          event_name="$GITHUB_EVENT_NAME"
+          dry_run="false"
+          target_slot="auto"
+          should_deploy="true"
+          skip_reason=""
+
+          if [[ "$event_name" == "workflow_run" ]]; then
+            deploy_sha="$WORKFLOW_RUN_HEAD_SHA"
+            if [[ "$WORKFLOW_RUN_CONCLUSION" != "success" ]]; then
+              should_deploy="false"
+              skip_reason="CI conclusion is $WORKFLOW_RUN_CONCLUSION"
+            elif [[ "$WORKFLOW_RUN_HEAD_BRANCH" != "main" ]]; then
+              should_deploy="false"
+              skip_reason="CI head branch is $WORKFLOW_RUN_HEAD_BRANCH"
+            fi
+          elif [[ "$event_name" == "workflow_dispatch" ]]; then
+            dry_run="${DISPATCH_DRY_RUN:-true}"
+            target_slot="${DISPATCH_TARGET_SLOT:-auto}"
+            if [[ -n "${DISPATCH_REF:-}" ]]; then
+              git fetch --no-tags origin "$DISPATCH_REF"
+              deploy_sha="$(git rev-parse FETCH_HEAD)"
+            else
+              deploy_sha="$GITHUB_SHA"
+            fi
+          else
+            deploy_sha="$GITHUB_SHA"
+          fi
+
+          git fetch --no-tags origin main
+          main_sha="$(git rev-parse origin/main)"
+
+          if [[ "$dry_run" != "true" && "$deploy_sha" != "$main_sha" ]]; then
+            should_deploy="false"
+            skip_reason="stale deployment SHA $deploy_sha does not match origin/main $main_sha"
+          fi
+
+          if [[ "$event_name" == "workflow_run" && "$should_deploy" == "true" ]]; then
+            changed_files="$(mktemp)"
+            if git rev-parse "${deploy_sha}^" >/dev/null 2>&1; then
+              git diff --name-only "${deploy_sha}^" "$deploy_sha" > "$changed_files"
+            else
+              git diff-tree --no-commit-id --name-only -r "$deploy_sha" > "$changed_files"
+            fi
+
+            gate_output="$(node tools/ci/resolve-ci-gates.mjs --files="$changed_files")"
+            deploy_changed="$(printf '%s\n' "$gate_output" | awk -F= '$1 == "deploy" { print $2 }')"
+
+            if [[ "$deploy_changed" != "true" ]]; then
+              should_deploy="false"
+              skip_reason="no deployment-impacting files changed"
+            fi
+          fi
+
+          short_sha="${deploy_sha:0:12}"
+          image_owner="${GITHUB_REPOSITORY_OWNER:-${GITHUB_REPOSITORY%%/*}}"
+          image_owner="${image_owner,,}"
+          backend_image_ref="ghcr.io/${image_owner}/${BACKEND_IMAGE_NAME}:${short_sha}"
+          frontend_image_ref="ghcr.io/${image_owner}/${FRONTEND_IMAGE_NAME}:${short_sha}"
+
+          {
+            echo "backend_image_ref=$backend_image_ref"
+            echo "deploy_sha=$deploy_sha"
+            echo "dry_run=$dry_run"
+            echo "frontend_image_ref=$frontend_image_ref"
+            echo "short_sha=$short_sha"
+            echo "should_deploy=$should_deploy"
+            echo "skip_reason=$skip_reason"
+            echo "target_slot=$target_slot"
+          } >> "$GITHUB_OUTPUT"
+
+          {
+            echo "### Staging CD context"
+            echo ""
+            echo "| key | value |"
+            echo "| --- | --- |"
+            echo "| event | $event_name |"
+            echo "| deploy_sha | $deploy_sha |"
+            echo "| origin/main | $main_sha |"
+            echo "| dry_run | $dry_run |"
+            echo "| target_slot | $target_slot |"
+            echo "| should_deploy | $should_deploy |"
+            if [[ -n "$skip_reason" ]]; then
+              echo "| skip_reason | $skip_reason |"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  noop:
+    name: Explain Skipped Deployment
+    runs-on: ubuntu-latest
+    needs: prepare
+    if: needs.prepare.outputs.should_deploy != 'true'
+
+    steps:
+      - name: Write skip summary
+        shell: bash
+        run: |
+          {
+            echo "### Staging CD skipped"
+            echo ""
+            echo "${{ needs.prepare.outputs.skip_reason }}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  build-backend-image:
+    name: Build Backend ARM64 Image
+    runs-on: ubuntu-latest
+    needs: prepare
+    if: needs.prepare.outputs.should_deploy == 'true'
+    env:
+      BACKEND_IMAGE_REF: ${{ needs.prepare.outputs.backend_image_ref }}
+
+    steps:
+      - name: Checkout deployment SHA
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.deploy_sha }}
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+
+      - name: Grant Gradle wrapper permission
+        run: chmod +x back/gradlew
+
+      - name: Build backend artifact
+        run: ./back/gradlew -p back bootJar --stacktrace
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Prepare ARM64 buildx
+        run: |
+          docker run --privileged --rm tonistiigi/binfmt --install arm64
+          docker buildx create --name aquila-staging-builder --driver docker-container --use
+          docker buildx inspect --bootstrap
+
+      - name: Build and push backend Docker image
+        run: |
+          docker buildx build \
+            --platform linux/arm64 \
+            -f docker/Dockerfile \
+            -t "$BACKEND_IMAGE_REF" \
+            --push \
+            .
+
+      - name: Collect backend image diagnostics
+        shell: bash
+        run: |
+          mkdir -p deploy-debug
+          docker buildx imagetools inspect "$BACKEND_IMAGE_REF" | tee deploy-debug/backend-image-inspect.txt
+          {
+            echo "### Backend image"
+            echo ""
+            echo "| key | value |"
+            echo "| --- | --- |"
+            echo "| image | $BACKEND_IMAGE_REF |"
+            echo "| platform | linux/arm64 |"
+            echo "| sha | ${{ needs.prepare.outputs.deploy_sha }} |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload backend build diagnostics
+        uses: actions/upload-artifact@v4
+        with:
+          name: deploy-debug-backend-build-${{ needs.prepare.outputs.short_sha }}
+          path: deploy-debug/
+          retention-days: 14
+
+  build-frontend-image:
+    name: Build Frontend ARM64 Image
+    runs-on: ubuntu-latest
+    needs: prepare
+    if: needs.prepare.outputs.should_deploy == 'true'
+    env:
+      FRONTEND_ENV_B64: ${{ secrets.OCI_A1_FRONTEND_ENV_B64 || secrets.FRONTEND_ENV_B64 }}
+      FRONTEND_IMAGE_REF: ${{ needs.prepare.outputs.frontend_image_ref }}
+
+    steps:
+      - name: Checkout deployment SHA
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.deploy_sha }}
+
+      - name: Prepare deploy debug directory
+        run: mkdir -p deploy-debug
+
+      - name: Validate frontend build env
+        shell: bash
+        run: scripts/deploy/materialize-frontend-env.sh --output deploy-debug/frontend.env
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Prepare ARM64 buildx
+        run: |
+          docker run --privileged --rm tonistiigi/binfmt --install arm64
+          docker buildx create --name aquila-staging-builder --driver docker-container --use
+          docker buildx inspect --bootstrap
+
+      - name: Build and push frontend Docker image
+        shell: bash
+        run: |
+          set -euo pipefail
+          set -a
+          source deploy-debug/frontend.env
+          set +a
+
+          docker buildx build \
+            --platform linux/arm64 \
+            -f front/Dockerfile \
+            --build-arg NEXT_PUBLIC_API_BASE_URL="$NEXT_PUBLIC_API_BASE_URL" \
+            --build-arg NEXT_PUBLIC_GOOGLE_CLIENT_ID="$NEXT_PUBLIC_GOOGLE_CLIENT_ID" \
+            --build-arg NEXT_PUBLIC_SITE_URL="$NEXT_PUBLIC_SITE_URL" \
+            -t "$FRONTEND_IMAGE_REF" \
+            --push \
+            .
+
+      - name: Collect frontend image diagnostics
+        shell: bash
+        run: |
+          rm -f deploy-debug/frontend.env
+          docker buildx imagetools inspect "$FRONTEND_IMAGE_REF" | tee deploy-debug/frontend-image-inspect.txt
+          {
+            echo "### Frontend image"
+            echo ""
+            echo "| key | value |"
+            echo "| --- | --- |"
+            echo "| image | $FRONTEND_IMAGE_REF |"
+            echo "| platform | linux/arm64 |"
+            echo "| sha | ${{ needs.prepare.outputs.deploy_sha }} |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload frontend build diagnostics
+        uses: actions/upload-artifact@v4
+        with:
+          name: deploy-debug-frontend-build-${{ needs.prepare.outputs.short_sha }}
+          path: deploy-debug/
+          retention-days: 14
+
+  deploy:
+    name: Deploy Backend and Frontend to Staging
+    runs-on: [self-hosted, oci-a1-staging]
+    needs:
+      - prepare
+      - build-backend-image
+      - build-frontend-image
+    if: needs.prepare.outputs.should_deploy == 'true'
+    env:
+      BACKEND_ENV_B64: ${{ secrets.OCI_A1_BACKEND_ENV_B64 || secrets.BACKEND_ENV_B64 }}
+      BACKEND_IMAGE_REF: ${{ needs.prepare.outputs.backend_image_ref }}
+      DEPLOY_SHA: ${{ needs.prepare.outputs.deploy_sha }}
+      DRY_RUN: ${{ needs.prepare.outputs.dry_run }}
+      FRONTEND_ENV_B64: ${{ secrets.OCI_A1_FRONTEND_ENV_B64 || secrets.FRONTEND_ENV_B64 }}
+      FRONTEND_IMAGE_REF: ${{ needs.prepare.outputs.frontend_image_ref }}
+      SHORT_SHA: ${{ needs.prepare.outputs.short_sha }}
+      TARGET_SLOT: ${{ needs.prepare.outputs.target_slot }}
+      VERTEX_KEY_JSON_B64: ${{ secrets.OCI_A1_VERTEX_KEY_JSON_B64 || secrets.VERTEX_KEY_JSON_B64 }}
+
+    steps:
+      - name: Checkout deployment SHA
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.deploy_sha }}
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Prepare deploy debug directory
+        run: mkdir -p deploy-debug
+
+      - name: Validate and materialize deploy env
+        shell: bash
+        run: |
+          set -euo pipefail
+          scripts/deploy/materialize-backend-env.sh --output deploy-debug/backend.env
+          scripts/deploy/materialize-frontend-env.sh --output deploy-debug/frontend.env
+          scripts/deploy/materialize-vertex-key.sh --output deploy-debug/vertex-key.json
+          {
+            echo "### Deploy env"
+            echo ""
+            echo "Backend/frontend env files and Vertex key were decoded and validated. Values are not printed or uploaded."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Create GitHub deployment
+        id: deployment
+        if: env.DRY_RUN != 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          api_url="${GITHUB_API_URL:-https://api.github.com}"
+          payload="$(jq -n \
+            --arg ref "$DEPLOY_SHA" \
+            --arg environment "$DEPLOY_ENVIRONMENT" \
+            '{
+              ref: $ref,
+              environment: $environment,
+              auto_merge: false,
+              required_contexts: [],
+              production_environment: false,
+              transient_environment: false,
+              description: "Staging backend/frontend deployment"
+            }')"
+          deployment="$(curl -fsSL \
+            -X POST \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "$api_url/repos/${GITHUB_REPOSITORY}/deployments" \
+            -d "$payload")"
+          deployment_id="$(jq -r '.id' <<< "$deployment")"
+          echo "deployment_id=$deployment_id" >> "$GITHUB_OUTPUT"
+          status_payload="$(jq -n \
+            --arg state in_progress \
+            --arg environment "$DEPLOY_ENVIRONMENT" \
+            --arg log_url "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" \
+            --arg description "Staging deployment started" \
+            '{state: $state, environment: $environment, log_url: $log_url, description: $description}')"
+          curl -fsSL \
+            -X POST \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "$api_url/repos/${GITHUB_REPOSITORY}/deployments/${deployment_id}/statuses" \
+            -d "$status_payload" >/dev/null
+
+      - name: Run preflight doctor
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x scripts/deploy/*.sh scripts/deploy-bluegreen.sh
+          scripts/deploy/oci-staging-doctor.sh --phase before --image "$BACKEND_IMAGE_REF" \
+            | tee deploy-debug/doctor-before.log
+
+      - name: Deploy backend
+        shell: bash
+        run: |
+          set -euo pipefail
+          slot_arg=()
+          if [[ "$TARGET_SLOT" != "auto" ]]; then
+            slot_arg=(--slot "$TARGET_SLOT")
+          fi
+          dry_run_arg=()
+          if [[ "$DRY_RUN" == "true" ]]; then
+            dry_run_arg=(--dry-run)
+          fi
+
+          scripts/deploy/oci-backend-hook.sh \
+            "${dry_run_arg[@]}" \
+            --image "$BACKEND_IMAGE_REF" \
+            --env-file deploy-debug/backend.env \
+            --vertex-key-file deploy-debug/vertex-key.json \
+            --doctor-script scripts/deploy/oci-staging-doctor.sh \
+            "${slot_arg[@]}" \
+            | tee deploy-debug/backend-deploy.log
+
+      - name: Deploy frontend
+        shell: bash
+        run: |
+          set -euo pipefail
+          slot_arg=()
+          if [[ "$TARGET_SLOT" != "auto" ]]; then
+            slot_arg=(--slot "$TARGET_SLOT")
+          fi
+          dry_run_arg=()
+          if [[ "$DRY_RUN" == "true" ]]; then
+            dry_run_arg=(--dry-run)
+          fi
+
+          scripts/deploy/oci-frontend-hook.sh \
+            "${dry_run_arg[@]}" \
+            --image "$FRONTEND_IMAGE_REF" \
+            --env-file deploy-debug/frontend.env \
+            --doctor-script scripts/deploy/oci-staging-doctor.sh \
+            "${slot_arg[@]}" \
+            | tee deploy-debug/frontend-deploy.log
+
+      - name: Run postflight doctor
+        shell: bash
+        run: |
+          scripts/deploy/oci-staging-doctor.sh --phase after --image "$BACKEND_IMAGE_REF" \
+            | tee deploy-debug/doctor-after.log
+
+      - name: Collect failure diagnostics
+        if: failure()
+        continue-on-error: true
+        shell: bash
+        run: |
+          scripts/deploy/oci-staging-doctor.sh --phase failure --include-logs --image "$BACKEND_IMAGE_REF" \
+            | tee deploy-debug/doctor-failure.log
+
+      - name: Remove transient env files
+        if: always()
+        shell: bash
+        run: rm -f deploy-debug/backend.env deploy-debug/frontend.env deploy-debug/vertex-key.json
+
+      - name: Mark deployment success
+        if: success() && steps.deployment.outputs.deployment_id != ''
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          api_url="${GITHUB_API_URL:-https://api.github.com}"
+          status_payload="$(jq -n \
+            --arg state success \
+            --arg environment "$DEPLOY_ENVIRONMENT" \
+            --arg log_url "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" \
+            --arg description "Staging deployment completed" \
+            '{state: $state, environment: $environment, log_url: $log_url, description: $description}')"
+          curl -fsSL \
+            -X POST \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "$api_url/repos/${GITHUB_REPOSITORY}/deployments/${{ steps.deployment.outputs.deployment_id }}/statuses" \
+            -d "$status_payload" >/dev/null
+
+      - name: Mark deployment failure
+        if: failure() && steps.deployment.outputs.deployment_id != ''
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          api_url="${GITHUB_API_URL:-https://api.github.com}"
+          status_payload="$(jq -n \
+            --arg state failure \
+            --arg environment "$DEPLOY_ENVIRONMENT" \
+            --arg log_url "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" \
+            --arg description "Staging deployment failed; inspect deploy-debug artifact" \
+            '{state: $state, environment: $environment, log_url: $log_url, description: $description}')"
+          curl -fsSL \
+            -X POST \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "$api_url/repos/${GITHUB_REPOSITORY}/deployments/${{ steps.deployment.outputs.deployment_id }}/statuses" \
+            -d "$status_payload" >/dev/null
+
+      - name: Upload deploy debug artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: deploy-debug-${{ needs.prepare.outputs.short_sha }}
+          path: deploy-debug/
+          if-no-files-found: ignore
+          retention-days: 14

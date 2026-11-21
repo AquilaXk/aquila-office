@@ -1,0 +1,87 @@
+name: aquila-office-dev
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-aquila_office}
+      POSTGRES_USER: ${POSTGRES_USER:-aquila}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-aquila_dev_password}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-dev}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-aquila_office}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-aquila}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-aquila_dev_password}
+      SPRING_JPA_HIBERNATE_DDL_AUTO: ${SPRING_JPA_HIBERNATE_DDL_AUTO:-update}
+      CUSTOM_CORS_ALLOWED_ORIGIN_PATTERNS: ${CUSTOM_CORS_ALLOWED_ORIGIN_PATTERNS:-http://localhost:3000,http://localhost}
+      AQUILA_AUTH_TOKEN_ISSUER: ${AQUILA_AUTH_TOKEN_ISSUER:-aquila-office}
+      AQUILA_AUTH_TOKEN_SECRET: ${AQUILA_AUTH_TOKEN_SECRET:-local-development-jwt-secret-change-before-production-0123456789abcdef}
+      AQUILA_AUTH_ACCESS_TOKEN_TTL: ${AQUILA_AUTH_ACCESS_TOKEN_TTL:-15m}
+      AQUILA_AUTH_REFRESH_TOKEN_TTL: ${AQUILA_AUTH_REFRESH_TOKEN_TTL:-14d}
+      AQUILA_GOOGLE_OAUTH_CLIENT_IDS: ${AQUILA_GOOGLE_OAUTH_CLIENT_IDS:-development-client-id.apps.googleusercontent.com}
+      AQUILA_GOOGLE_ALLOWED_HOSTED_DOMAINS: ${AQUILA_GOOGLE_ALLOWED_HOSTED_DOMAINS:-}
+      AQUILA_GOOGLE_REQUIRE_EMAIL_VERIFIED: ${AQUILA_GOOGLE_REQUIRE_EMAIL_VERIFIED:-true}
+      AQUILA_GOOGLE_APPLICATION_NAME: ${AQUILA_GOOGLE_APPLICATION_NAME:-aquila-office}
+      AQUILA_EXTERNAL_TOKEN_KEY: ${AQUILA_EXTERNAL_TOKEN_KEY:-local-development-external-token-key-change-before-production-0123456789abcdef}
+      AQUILA_EXTERNAL_TOKEN_KEY_ID: ${AQUILA_EXTERNAL_TOKEN_KEY_ID:-local}
+      AQUILA_GATEWAY_RPC_REQUEST_TIMEOUT: ${AQUILA_GATEWAY_RPC_REQUEST_TIMEOUT:-30s}
+      AQUILA_GATEWAY_RPC_PATH: ${AQUILA_GATEWAY_RPC_PATH:-/rpc}
+      SPRING_MAIL_HOST: ${SPRING_MAIL_HOST:-localhost}
+      SPRING_MAIL_PORT: ${SPRING_MAIL_PORT:-1025}
+      SPRING_MAIL_USERNAME: ${SPRING_MAIL_USERNAME:-}
+      SPRING_MAIL_PASSWORD: ${SPRING_MAIL_PASSWORD:-}
+      SPRING_MAIL_PROPERTIES_MAIL_SMTP_AUTH: ${SPRING_MAIL_PROPERTIES_MAIL_SMTP_AUTH:-false}
+      SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_ENABLE: ${SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_ENABLE:-false}
+      AQUILA_INVITE_EMAIL_ENABLED: ${AQUILA_INVITE_EMAIL_ENABLED:-false}
+      AQUILA_INVITE_EMAIL_FROM: ${AQUILA_INVITE_EMAIL_FROM:-noreply@aquila-office.local}
+      AQUILA_INVITE_ACCEPT_URL_BASE: ${AQUILA_INVITE_ACCEPT_URL_BASE:-http://localhost:3000/invites/accept}
+      GOOGLE_CLOUD_PROJECT_ID: ${GOOGLE_CLOUD_PROJECT_ID:-grepp-ai-project}
+      VERTEX_AI_LOCATION: ${VERTEX_AI_LOCATION:-us-central1}
+      VERTEX_AI_MODEL: ${VERTEX_AI_MODEL:-gemini-2.5-flash}
+      GOOGLE_APPLICATION_CREDENTIALS: ${GOOGLE_APPLICATION_CREDENTIALS:-/run/secrets/vertex-key.json}
+    volumes:
+      - type: bind
+        source: ${VERTEX_AI_CREDENTIALS_HOST_PATH:-../vertex-key.json}
+        target: /run/secrets/vertex-key.json
+        read_only: true
+    ports:
+      - "${BACKEND_PORT:-8080}:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ..
+      dockerfile: front/Dockerfile
+      args:
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8080}
+        NEXT_PUBLIC_GOOGLE_CLIENT_ID: ${NEXT_PUBLIC_GOOGLE_CLIENT_ID:-development-client-id.apps.googleusercontent.com}
+        NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:3000}
+    environment:
+      NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8080}
+      NEXT_PUBLIC_GOOGLE_CLIENT_ID: ${NEXT_PUBLIC_GOOGLE_CLIENT_ID:-development-client-id.apps.googleusercontent.com}
+      NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:3000}
+      PORT: 3000
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  postgres-data:

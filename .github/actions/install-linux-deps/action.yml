@@ -1,0 +1,29 @@
+name: Install Linux build dependencies
+description: >-
+  Install Ubuntu 22.04 packages required to compile and bundle the Tauri v2 desktop application
+  into AppImage, deb, and rpm installers.
+
+runs:
+  using: composite
+  steps:
+    - name: Install WebKitGTK, GTK, tray indicator, and packaging tools
+      shell: bash
+      run: |
+        set -euo pipefail
+        sudo apt-get update
+        sudo apt-get install -y \
+          build-essential \
+          curl \
+          file \
+          libayatana-appindicator3-dev \
+          libdbus-1-dev \
+          libfuse2 \
+          libgtk-3-dev \
+          librsvg2-dev \
+          libssl-dev \
+          libwebkit2gtk-4.1-dev \
+          libxdo-dev \
+          patchelf \
+          pkg-config \
+          rpm \
+          wget
