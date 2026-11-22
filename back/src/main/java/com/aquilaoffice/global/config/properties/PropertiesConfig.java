@@ -14,6 +14,7 @@ import org.springframework.context.annotation.Configuration;
     ExternalTokenEncryptionProperties.class,
     GatewayRpcProperties.class,
     GoogleOAuthProperties.class,
+    ModelProviderProperties.class,
     VertexAiProperties.class,
     WorkspaceInviteEmailProperties.class
 })

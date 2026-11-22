@@ -19,6 +19,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -49,11 +50,15 @@ public class TaskPersistenceAdapter
         return toSavedTask(taskJpaRepository.save(TaskJpaEntity.from(task, workspaceEntity)));
     }
 
+    private static final int MAX_TASKS_PAGE_SIZE = 500;
+
     @Override
     @Transactional(readOnly = true)
     public List<TaskSummary> findByWorkspaceId(Long workspaceId) {
         Objects.requireNonNull(workspaceId, "workspaceId must not be null");
-        return taskJpaRepository.findByWorkspace_IdOrderByIdDesc(workspaceId).stream()
+        return taskJpaRepository
+                .findByWorkspace_IdOrderByIdDesc(workspaceId, PageRequest.of(0, MAX_TASKS_PAGE_SIZE))
+                .stream()
                 .map(this::toTaskSummary)
                 .toList();
     }

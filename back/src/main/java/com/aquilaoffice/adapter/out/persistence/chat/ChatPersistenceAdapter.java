@@ -70,12 +70,19 @@ public class ChatPersistenceAdapter
                 ChatMessageJpaEntity.from(message, workspaceEntity, sessionEntity)));
     }
 
+    private static final int MAX_CHAT_MESSAGE_PAGE_SIZE = 200;
+
     @Override
     @Transactional(readOnly = true)
     public List<SavedChatMessage> findByWorkspaceIdAndTaskId(Long workspaceId, Long taskId) {
         Objects.requireNonNull(workspaceId, "workspaceId must not be null");
         Objects.requireNonNull(taskId, "taskId must not be null");
-        return chatMessageJpaRepository.findByWorkspace_IdAndTaskIdOrderByIdAsc(workspaceId, taskId).stream()
+        return chatMessageJpaRepository
+                .findByWorkspace_IdAndTaskIdOrderByIdAsc(
+                        workspaceId,
+                        taskId,
+                        PageRequest.of(0, MAX_CHAT_MESSAGE_PAGE_SIZE))
+                .stream()
                 .map(this::toSavedChatMessage)
                 .toList();
     }
@@ -89,7 +96,7 @@ public class ChatPersistenceAdapter
             int limit) {
         Objects.requireNonNull(workspaceId, "workspaceId must not be null");
         Objects.requireNonNull(chatSessionId, "chatSessionId must not be null");
-        int pageSize = Math.max(limit, 1);
+        int pageSize = Math.min(Math.max(limit, 1), MAX_CHAT_MESSAGE_PAGE_SIZE);
         return chatMessageJpaRepository
                 .findByWorkspaceIdAndChatSessionIdAfter(
                         workspaceId,

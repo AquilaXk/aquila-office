@@ -1,7 +1,10 @@
 package com.aquilaoffice.adapter.out.gateway;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.aquilaoffice.global.security.OutboundDestinationPolicy;
+import java.net.URI;
 import java.net.http.WebSocket;
 import java.nio.ByteBuffer;
 import java.time.Duration;
@@ -75,6 +78,23 @@ class JdkGatewayWebSocketTransportTest {
         assertThat(recordedError.get())
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("exceeds maximum length");
+    }
+
+    @Test
+    void connectBlocksLoopbackAndPrivateDestinationsByDefault() {
+        JdkGatewayWebSocketTransport transport = new JdkGatewayWebSocketTransport(OutboundDestinationPolicy.strict());
+        GatewayWebSocketListener noop = new GatewayWebSocketListener() {
+            @Override
+            public void onText(String message) {}
+
+            @Override
+            public void onError(Throwable error) {}
+        };
+
+        assertThatThrownBy(() -> transport.connect(URI.create("ws://127.0.0.1:18789/rpc"), noop))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> transport.connect(URI.create("ws://169.254.169.254/latest"), noop))
+                .isInstanceOf(IllegalArgumentException.class);
     }
 
     private static final class RecordingWebSocket implements WebSocket {

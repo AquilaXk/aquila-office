@@ -1,5 +1,6 @@
 package com.aquilaoffice.adapter.out.gateway;
 
+import com.aquilaoffice.global.security.OutboundDestinationPolicy;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.WebSocket;
@@ -8,6 +9,7 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 /**
@@ -20,17 +22,34 @@ public final class JdkGatewayWebSocketTransport implements GatewayWebSocketTrans
     static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(10);
 
     private final HttpClient httpClient;
+    private final OutboundDestinationPolicy outboundDestinationPolicy;
 
     public JdkGatewayWebSocketTransport() {
-        this(HttpClient.newBuilder().connectTimeout(CONNECT_TIMEOUT).build());
+        this(
+                HttpClient.newBuilder().connectTimeout(CONNECT_TIMEOUT).build(),
+                OutboundDestinationPolicy.strict());
+    }
+
+    @Autowired
+    public JdkGatewayWebSocketTransport(OutboundDestinationPolicy outboundDestinationPolicy) {
+        this(
+                HttpClient.newBuilder().connectTimeout(CONNECT_TIMEOUT).build(),
+                outboundDestinationPolicy);
     }
 
     JdkGatewayWebSocketTransport(HttpClient httpClient) {
+        this(httpClient, OutboundDestinationPolicy.strict());
+    }
+
+    JdkGatewayWebSocketTransport(HttpClient httpClient, OutboundDestinationPolicy outboundDestinationPolicy) {
         this.httpClient = Objects.requireNonNull(httpClient, "httpClient must not be null");
+        this.outboundDestinationPolicy =
+                Objects.requireNonNull(outboundDestinationPolicy, "outboundDestinationPolicy must not be null");
     }
 
     @Override
     public GatewayWebSocketSession connect(URI uri, GatewayWebSocketListener listener) {
+        outboundDestinationPolicy.validateUri(uri, false);
         try {
             WebSocket webSocket = httpClient
                     .newWebSocketBuilder()

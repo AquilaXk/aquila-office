@@ -11,6 +11,7 @@ import com.aquilaoffice.application.port.out.LoadWorkspaceMemberPort;
 import com.aquilaoffice.application.port.out.LoadWorkspacePort;
 import com.aquilaoffice.domain.member.Member;
 import com.aquilaoffice.domain.workspace.WorkspacePresenceMessage;
+import java.time.Duration;
 import java.util.List;
 import java.util.Objects;
 
@@ -68,6 +69,29 @@ public class OpenWorkspacePresenceStreamService
                 workspacePresenceRegistry.leave(command.workspaceId(), command.memberId(), command.sink());
         if (result.leaveEvent() != null) {
             broadcast(command.workspaceId(), result.leaveEvent(), List.of(command.sink()));
+        }
+    }
+
+    public void pulseHeartbeatsAndPruneStale(Duration staleIdleDuration) {
+        for (WorkspacePresenceRegistry.WorkspacePresenceConnection connection :
+                workspacePresenceRegistry.snapshotAllConnections()) {
+            try {
+                connection.sink().sendHeartbeat();
+                workspacePresenceRegistry.touchSinkHeartbeat(
+                        connection.workspaceId(),
+                        connection.memberId(),
+                        connection.sink());
+            } catch (RuntimeException exception) {
+                connection.sink().closeSilently();
+                closeStream(new CloseWorkspacePresenceStreamCommand(
+                        connection.workspaceId(),
+                        connection.memberId(),
+                        connection.sink()));
+            }
+        }
+        for (WorkspacePresenceMessage leaveEvent :
+                workspacePresenceRegistry.evictStaleConnections(staleIdleDuration)) {
+            broadcast(leaveEvent.workspaceId(), leaveEvent, List.of());
         }
     }
 

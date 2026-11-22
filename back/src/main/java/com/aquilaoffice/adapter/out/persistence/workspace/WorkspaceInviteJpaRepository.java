@@ -3,6 +3,7 @@ package com.aquilaoffice.adapter.out.persistence.workspace;
 import com.aquilaoffice.domain.workspace.WorkspaceInviteStatus;
 import java.util.List;
 import java.util.Optional;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -21,7 +22,9 @@ public interface WorkspaceInviteJpaRepository extends JpaRepository<WorkspaceInv
             where w.id = :workspaceId
             order by wi.id desc
             """)
-    List<WorkspaceInviteJpaEntity> findAllByWorkspaceIdOrderByIdDesc(@Param("workspaceId") Long workspaceId);
+    List<WorkspaceInviteJpaEntity> findAllByWorkspaceIdOrderByIdDesc(
+            @Param("workspaceId") Long workspaceId,
+            Pageable pageable);
 
     @Query("""
             select wi
@@ -33,7 +36,8 @@ public interface WorkspaceInviteJpaRepository extends JpaRepository<WorkspaceInv
             """)
     List<WorkspaceInviteJpaEntity> findAllByWorkspaceIdAndStatusOrderByIdDesc(
             @Param("workspaceId") Long workspaceId,
-            @Param("status") WorkspaceInviteStatus status);
+            @Param("status") WorkspaceInviteStatus status,
+            Pageable pageable);
 
     @Query("""
             select wi

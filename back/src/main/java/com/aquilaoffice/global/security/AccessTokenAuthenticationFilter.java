@@ -11,6 +11,8 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -19,21 +21,37 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 /**
- * Bearer access token을 검증해 Spring Security 인증으로 변환하는 filter다.
+ * Bearer access token 또는 presence SSE 단기 티켓을 검증해 Spring Security 인증으로 변환한다.
  */
 public class AccessTokenAuthenticationFilter extends OncePerRequestFilter {
+
+    private static final Pattern PRESENCE_STREAM_PATH_PATTERN =
+            Pattern.compile("^/api/v1/workspaces/(\\d+)/presence/stream$");
 
     private final BearerTokenResolver bearerTokenResolver;
     private final ResolveAccessTokenPort resolveAccessTokenPort;
     private final LoadMemberPort loadMemberPort;
+    private final PresenceStreamTicketService presenceStreamTicketService;
+    private final boolean publicDocsAndMetrics;
 
     public AccessTokenAuthenticationFilter(
             BearerTokenResolver bearerTokenResolver,
             ResolveAccessTokenPort resolveAccessTokenPort,
             LoadMemberPort loadMemberPort) {
+        this(bearerTokenResolver, resolveAccessTokenPort, loadMemberPort, null, false);
+    }
+
+    public AccessTokenAuthenticationFilter(
+            BearerTokenResolver bearerTokenResolver,
+            ResolveAccessTokenPort resolveAccessTokenPort,
+            LoadMemberPort loadMemberPort,
+            PresenceStreamTicketService presenceStreamTicketService,
+            boolean publicDocsAndMetrics) {
         this.bearerTokenResolver = bearerTokenResolver;
         this.resolveAccessTokenPort = resolveAccessTokenPort;
         this.loadMemberPort = loadMemberPort;
+        this.presenceStreamTicketService = presenceStreamTicketService;
+        this.publicDocsAndMetrics = publicDocsAndMetrics;
     }
 
     @Override
@@ -46,11 +64,7 @@ public class AccessTokenAuthenticationFilter extends OncePerRequestFilter {
         return isPublicPostEndpoint(request, path)
                 || isPublicGetEndpoint(request, path)
                 || path.startsWith("/actuator/health")
-                || path.startsWith("/actuator/metrics")
-                || path.startsWith("/actuator/prometheus")
-                || path.startsWith("/v3/api-docs")
-                || "/swagger-ui.html".equals(path)
-                || path.startsWith("/swagger-ui/");
+                || isPublicOpsOrDocsPath(path);
     }
 
     @Override
@@ -59,32 +73,99 @@ public class AccessTokenAuthenticationFilter extends OncePerRequestFilter {
             HttpServletResponse response,
             FilterChain filterChain) throws ServletException, IOException {
         String authorizationHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
-        if (authorizationHeader == null || authorizationHeader.isBlank()) {
-            filterChain.doFilter(request, response);
-            return;
-        }
-
         try {
-            String accessToken = bearerTokenResolver.resolve(authorizationHeader);
-            ResolvedAccessToken resolvedAccessToken = resolveAccessTokenPort.resolveAccessToken(accessToken);
-            Member member = resolveMember(resolvedAccessToken)
-                    .orElseThrow(() -> new IllegalArgumentException("authenticated member is not found"));
-            AuthenticatedMember authenticatedMember = new AuthenticatedMember(
-                    resolvedAccessToken.memberId(),
-                    member.getGoogleSub(),
-                    member.getEmail(),
-                    member.getRole());
-            UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
-                    authenticatedMember,
-                    null,
-                    List.of(new SimpleGrantedAuthority("ROLE_" + member.getRole().name())));
+            if (authorizationHeader != null && !authorizationHeader.isBlank()) {
+                authenticateAccessToken(bearerTokenResolver.resolve(authorizationHeader));
+                filterChain.doFilter(request, response);
+                return;
+            }
 
-            SecurityContextHolder.getContext().setAuthentication(authentication);
+            Long presenceWorkspaceId = resolvePresenceStreamWorkspaceId(request);
+            if (presenceWorkspaceId != null && tryAuthenticatePresenceStream(request, presenceWorkspaceId)) {
+                filterChain.doFilter(request, response);
+                return;
+            }
+
             filterChain.doFilter(request, response);
         } catch (IllegalArgumentException exception) {
             SecurityContextHolder.clearContext();
             response.sendError(HttpServletResponse.SC_UNAUTHORIZED);
         }
+    }
+
+    private void authenticateAccessToken(String accessToken) {
+        ResolvedAccessToken resolvedAccessToken = resolveAccessTokenPort.resolveAccessToken(accessToken);
+        Member member = resolveMember(resolvedAccessToken)
+                .orElseThrow(() -> new IllegalArgumentException("authenticated member is not found"));
+        setAuthenticationContext(
+                resolvedAccessToken.memberId() != null ? resolvedAccessToken.memberId() : member.getId(),
+                member);
+    }
+
+    private boolean tryAuthenticatePresenceStream(HttpServletRequest request, Long workspaceId) {
+        String ticket = request.getParameter("ticket");
+        if (ticket != null && !ticket.isBlank()) {
+            if (presenceStreamTicketService == null) {
+                throw new IllegalArgumentException("presence stream ticket service unavailable");
+            }
+            PresenceStreamTicketService.PresenceTicketPrincipal principal = presenceStreamTicketService
+                    .consumeTicket(ticket, workspaceId)
+                    .orElseThrow(() -> new IllegalArgumentException("invalid or expired presence stream ticket"));
+            Member member = loadMemberPort
+                    .findByGoogleSub(principal.memberGoogleSub())
+                    .orElseThrow(() -> new IllegalArgumentException("authenticated member is not found"));
+            setAuthenticationContext(member.getId(), member);
+            return true;
+        }
+
+        String accessTokenParam = firstNonBlank(
+                request.getParameter("accessToken"),
+                request.getParameter("token"));
+        if (accessTokenParam != null) {
+            authenticateAccessToken(accessTokenParam);
+            return true;
+        }
+        return false;
+    }
+
+    private void setAuthenticationContext(Long memberId, Member member) {
+        AuthenticatedMember authenticatedMember = new AuthenticatedMember(
+                memberId,
+                member.getGoogleSub(),
+                member.getEmail(),
+                member.getRole());
+        UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
+                authenticatedMember,
+                null,
+                List.of(new SimpleGrantedAuthority("ROLE_" + member.getRole().name())));
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+    }
+
+    private Long resolvePresenceStreamWorkspaceId(HttpServletRequest request) {
+        if (!HttpMethod.GET.matches(request.getMethod())) {
+            return null;
+        }
+        String path = resolvePathWithinApplication(request);
+        Matcher matcher = PRESENCE_STREAM_PATH_PATTERN.matcher(path);
+        if (!matcher.matches()) {
+            return null;
+        }
+        try {
+            return Long.parseLong(matcher.group(1));
+        } catch (NumberFormatException exception) {
+            return null;
+        }
+    }
+
+    private boolean isPublicOpsOrDocsPath(String path) {
+        if (!publicDocsAndMetrics) {
+            return false;
+        }
+        return path.startsWith("/actuator/metrics")
+                || path.startsWith("/actuator/prometheus")
+                || path.startsWith("/v3/api-docs")
+                || "/swagger-ui.html".equals(path)
+                || path.startsWith("/swagger-ui/");
     }
 
     private Optional<Member> resolveMember(ResolvedAccessToken resolvedAccessToken) {
@@ -117,6 +198,16 @@ public class AccessTokenAuthenticationFilter extends OncePerRequestFilter {
             return false;
         }
         return path.indexOf('/', prefix.length()) < 0;
+    }
+
+    private static String firstNonBlank(String first, String second) {
+        if (first != null && !first.isBlank()) {
+            return first.trim();
+        }
+        if (second != null && !second.isBlank()) {
+            return second.trim();
+        }
+        return null;
     }
 
     private String resolvePathWithinApplication(HttpServletRequest request) {

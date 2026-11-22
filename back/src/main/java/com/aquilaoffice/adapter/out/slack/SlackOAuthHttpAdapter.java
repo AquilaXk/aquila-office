@@ -3,6 +3,7 @@ package com.aquilaoffice.adapter.out.slack;
 import com.aquilaoffice.application.port.out.ExchangeSlackOAuthCodePort;
 import com.aquilaoffice.application.port.out.SlackOAuthCodeExchangeRequest;
 import com.aquilaoffice.application.port.out.SlackOAuthCodeExchangeResult;
+import com.aquilaoffice.global.security.BoundedHttpBodySubscribers;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -15,6 +16,7 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Objects;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Repository;
@@ -38,7 +40,17 @@ public class SlackOAuthHttpAdapter implements ExchangeSlackOAuthCodePort {
     @Autowired
     public SlackOAuthHttpAdapter(
             @Value("${aquila.slack.client-id:}") String clientId,
-            @Value("${aquila.slack.client-secret:}") String clientSecret) {
+            @Value("${aquila.slack.client-secret:}") String clientSecret,
+            ObjectProvider<ObjectMapper> objectMapperProvider) {
+        this(
+                clientId,
+                clientSecret,
+                HttpClient.newBuilder().connectTimeout(CONNECT_TIMEOUT).build(),
+                DEFAULT_OAUTH_ACCESS_URI,
+                objectMapperProvider.getIfAvailable(ObjectMapper::new));
+    }
+
+    public SlackOAuthHttpAdapter(String clientId, String clientSecret) {
         this(
                 clientId,
                 clientSecret,
@@ -69,7 +81,7 @@ public class SlackOAuthHttpAdapter implements ExchangeSlackOAuthCodePort {
         try {
             HttpResponse<String> response = httpClient.send(
                     toHttpRequest(request),
-                    HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+                    BoundedHttpBodySubscribers.ofDefaultString());
             return toResult(response);
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();

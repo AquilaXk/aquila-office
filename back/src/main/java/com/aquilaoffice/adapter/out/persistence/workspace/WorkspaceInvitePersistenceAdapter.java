@@ -22,6 +22,7 @@ import com.aquilaoffice.domain.workspace.WorkspaceInviteStatus;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -78,14 +79,18 @@ public class WorkspaceInvitePersistenceAdapter
         return workspaceInviteJpaRepository.findByToken(token).map(this::toLookup);
     }
 
+    private static final int MAX_INVITES_PAGE_SIZE = 200;
+
     @Override
     @Transactional(readOnly = true)
     public List<WorkspaceInviteManagement> findWorkspaceInvites(Long workspaceId, WorkspaceInviteStatus status) {
         Objects.requireNonNull(workspaceId, "workspaceId must not be null");
 
+        PageRequest pageRequest = PageRequest.of(0, MAX_INVITES_PAGE_SIZE);
         List<WorkspaceInviteJpaEntity> inviteEntities = status == null
-                ? workspaceInviteJpaRepository.findAllByWorkspaceIdOrderByIdDesc(workspaceId)
-                : workspaceInviteJpaRepository.findAllByWorkspaceIdAndStatusOrderByIdDesc(workspaceId, status);
+                ? workspaceInviteJpaRepository.findAllByWorkspaceIdOrderByIdDesc(workspaceId, pageRequest)
+                : workspaceInviteJpaRepository.findAllByWorkspaceIdAndStatusOrderByIdDesc(
+                        workspaceId, status, pageRequest);
         return inviteEntities.stream()
                 .map(this::toManagement)
                 .toList();

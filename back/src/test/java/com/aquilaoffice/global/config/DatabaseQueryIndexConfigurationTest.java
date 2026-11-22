@@ -65,6 +65,23 @@ class DatabaseQueryIndexConfigurationTest {
                 .contains("model_name");
     }
 
+    @Test
+    void v5ModelProvidersAndCompositeQueryIndexesAreDefined() throws IOException {
+        String v5Sql = Files.readString(repositoryRoot().resolve(
+                "back/src/main/resources/db/migration/V5__add_ai_model_providers_and_query_indexes.sql"));
+
+        assertThat(v5Sql)
+                .contains("create table workspace_model_providers")
+                .contains("idx_workspace_model_providers_ws_priority")
+                .contains("fk_workspace_agents_model_provider")
+                .contains("idx_task_executions_workspace_created_id")
+                .contains("idx_tasks_workspace_id_desc")
+                .contains("idx_workspace_invites_workspace_id_desc")
+                .contains("idx_chat_messages_workspace_session_id")
+                .contains("idx_chat_messages_workspace_task_id")
+                .contains("idx_orchestration_sessions_workspace_id_desc");
+    }
+
     private static Path repositoryRoot() {
         return Path.of(System.getProperty("user.dir")).getParent();
     }

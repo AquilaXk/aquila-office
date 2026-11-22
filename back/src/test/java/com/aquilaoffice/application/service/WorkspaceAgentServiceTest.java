@@ -14,10 +14,13 @@ import com.aquilaoffice.application.port.in.WorkspaceAgentSkillFileCommand;
 import com.aquilaoffice.application.port.out.CreateWorkspaceAgentGatewayCommand;
 import com.aquilaoffice.application.port.out.CreateWorkspaceAgentGatewayPort;
 import com.aquilaoffice.application.port.out.CreateWorkspaceAgentGatewayResult;
+import com.aquilaoffice.application.port.out.DeleteWorkspaceAgentGatewayCommand;
+import com.aquilaoffice.application.port.out.DeleteWorkspaceAgentGatewayResult;
 import com.aquilaoffice.application.port.out.DeleteWorkspaceAgentPort;
 import com.aquilaoffice.application.port.out.LoadMemberPort;
 import com.aquilaoffice.application.port.out.LoadWorkspaceAgentPort;
 import com.aquilaoffice.application.port.out.LoadWorkspaceGatewayBindingPort;
+import com.aquilaoffice.application.port.out.LoadWorkspaceModelProviderPort;
 import com.aquilaoffice.application.port.out.LoadWorkspacePort;
 import com.aquilaoffice.application.port.out.SaveWorkspaceAgentPort;
 import com.aquilaoffice.application.port.out.SavedWorkspaceAgent;
@@ -29,6 +32,9 @@ import com.aquilaoffice.domain.agent.WorkspaceAgentSkillFileSyncStatus;
 import com.aquilaoffice.domain.agent.WorkspaceAgentStatus;
 import com.aquilaoffice.domain.gateway.WorkspaceGatewayBinding;
 import com.aquilaoffice.domain.member.Member;
+import com.aquilaoffice.domain.model.ModelProviderKind;
+import com.aquilaoffice.domain.model.ModelWireProtocol;
+import com.aquilaoffice.domain.model.WorkspaceModelProvider;
 import com.aquilaoffice.domain.workspace.WorkspaceMemberRole;
 import com.aquilaoffice.application.port.in.GetWorkspaceDetailResult;
 import com.aquilaoffice.application.port.in.ListWorkspacesResult;
@@ -37,6 +43,7 @@ import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -355,6 +362,88 @@ class WorkspaceAgentServiceTest {
 
         assertThat(deletePort.disabledWorkspaceId).isEqualTo(101L);
         assertThat(deletePort.disabledAgentId).isEqualTo(501L);
+    }
+
+    @Test
+    void createsDirectModelReadyAgentWithoutGatewayWhenWorkspaceModelProviderExists() {
+        FakeSaveWorkspaceAgentPort savePort = new FakeSaveWorkspaceAgentPort(null);
+        WorkspaceModelProvider provider = WorkspaceModelProvider.restore(
+                77L, 101L, ModelProviderKind.OPENAI, ModelWireProtocol.OPENAI_RESPONSES,
+                "OpenAI", "https://api.openai.com/v1", "sk-test", "gpt-5.4",
+                List.of("gpt-5.4"), 1, true, null, null, null, null, "google-1",
+                LocalDateTime.of(2026, 5, 16, 10, 0), LocalDateTime.of(2026, 5, 16, 10, 0), null);
+        LoadWorkspaceModelProviderPort modelProviderPort = new LoadWorkspaceModelProviderPort() {
+            @Override
+            public List<WorkspaceModelProvider> findActiveByWorkspaceId(Long workspaceId) {
+                return List.of(provider);
+            }
+
+            @Override
+            public Optional<WorkspaceModelProvider> findActiveByWorkspaceIdAndProviderId(
+                    Long workspaceId,
+                    Long providerId) {
+                return providerId.equals(77L) ? Optional.of(provider) : Optional.empty();
+            }
+        };
+
+        CreateWorkspaceAgentService service = new CreateWorkspaceAgentService(
+                new FakeLoadMemberPort(Optional.of(Member.createUser("google-1", "admin@example.com", "Admin"))),
+                new FakeLoadWorkspacePort(Optional.of(workspaceDetail(WorkspaceMemberRole.ADMIN))),
+                savePort,
+                new FakeLoadWorkspaceGatewayBindingPort(Optional.empty()),
+                command -> {
+                    throw new AssertionError("gateway create must not run for direct-model agent");
+                },
+                command -> new DeleteWorkspaceAgentGatewayResult(true, null),
+                modelProviderPort);
+
+        CreateWorkspaceAgentResult result = service.createWorkspaceAgent(new CreateWorkspaceAgentCommand(
+                101L, "google-1", "Direct AI Agent", null, WorkspaceAgentCategory.BACKEND, null, List.of(),
+                77L, "gpt-5.4", "gpt-5.4-mini"));
+
+        assertThat(result.status()).isEqualTo(WorkspaceAgentStatus.READY);
+        assertThat(result.openClawAgentId()).startsWith("direct-model:");
+        assertThat(savePort.savedAgent.getModelProviderId()).isEqualTo(77L);
+        assertThat(savePort.savedAgent.getModelId()).isEqualTo("gpt-5.4");
+        assertThat(savePort.savedAgent.getFallbackModelId()).isEqualTo("gpt-5.4-mini");
+    }
+
+    @Test
+    void compensatesCreatedGatewayAgentWhenDbSaveFails() {
+        AtomicReference<DeleteWorkspaceAgentGatewayCommand> compensated = new AtomicReference<>();
+        CreateWorkspaceAgentService service = new CreateWorkspaceAgentService(
+                new FakeLoadMemberPort(Optional.of(Member.createUser("google-1", "admin@example.com", "Admin"))),
+                new FakeLoadWorkspacePort(Optional.of(workspaceDetail(WorkspaceMemberRole.ADMIN))),
+                (agent, skillFiles) -> {
+                    throw new IllegalStateException("db constraint failure");
+                },
+                new FakeLoadWorkspaceGatewayBindingPort(Optional.of(gatewayBinding())),
+                new FakeCreateWorkspaceAgentGatewayPort(gatewayCreateSuccess()),
+                command -> {
+                    compensated.set(command);
+                    return new DeleteWorkspaceAgentGatewayResult(true, null);
+                },
+                new LoadWorkspaceModelProviderPort() {
+                    @Override
+                    public List<WorkspaceModelProvider> findActiveByWorkspaceId(Long workspaceId) {
+                        return List.of();
+                    }
+
+                    @Override
+                    public Optional<WorkspaceModelProvider> findActiveByWorkspaceIdAndProviderId(
+                            Long workspaceId,
+                            Long providerId) {
+                        return Optional.empty();
+                    }
+                });
+
+        assertThatThrownBy(() -> service.createWorkspaceAgent(new CreateWorkspaceAgentCommand(
+                101L, "google-1", "Backend Agent", WorkspaceAgentCategory.BACKEND, null, List.of())))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("db constraint failure");
+
+        assertThat(compensated.get()).isNotNull();
+        assertThat(compensated.get().openClawAgentId()).isEqualTo("oc-agent-1");
     }
 
     private static GetWorkspaceDetailResult workspaceDetail(WorkspaceMemberRole role) {

@@ -4,6 +4,7 @@ import com.aquilaoffice.domain.agent.WorkspaceAgentStatus;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -22,7 +23,9 @@ public interface WorkspaceAgentJpaRepository extends JpaRepository<WorkspaceAgen
               and a.status <> com.aquilaoffice.domain.agent.WorkspaceAgentStatus.DISABLED
             order by a.id desc
             """)
-    List<WorkspaceAgentJpaEntity> findActiveByWorkspaceId(@Param("workspaceId") Long workspaceId);
+    List<WorkspaceAgentJpaEntity> findActiveByWorkspaceId(
+            @Param("workspaceId") Long workspaceId,
+            Pageable pageable);
 
     @Query("""
             select a

@@ -11,8 +11,11 @@ import com.aquilaoffice.application.port.out.LoadMemberPort;
 import com.aquilaoffice.application.port.out.LoadTaskPort;
 import com.aquilaoffice.application.port.out.LoadWorkspaceAgentPort;
 import com.aquilaoffice.application.port.out.LoadWorkspaceGatewayBindingPort;
+import com.aquilaoffice.application.port.out.LoadWorkspaceModelProviderPort;
 import com.aquilaoffice.application.port.out.LoadWorkspacePort;
 import com.aquilaoffice.application.port.out.RunWorkspaceAgentPort;
+import com.aquilaoffice.application.port.out.WorkspaceModelRunCommand;
+import com.aquilaoffice.application.port.out.WorkspaceModelRunResult;
 import com.aquilaoffice.application.port.out.SaveTaskExecutionLogPort;
 import com.aquilaoffice.application.port.out.SaveTaskExecutionPort;
 import com.aquilaoffice.application.port.out.SavedTaskExecution;
@@ -37,6 +40,9 @@ import com.aquilaoffice.domain.execution.TaskExecution;
 import com.aquilaoffice.domain.execution.TaskExecutionStatus;
 import com.aquilaoffice.domain.gateway.WorkspaceGatewayBinding;
 import com.aquilaoffice.domain.member.Member;
+import com.aquilaoffice.domain.model.ModelProviderKind;
+import com.aquilaoffice.domain.model.ModelWireProtocol;
+import com.aquilaoffice.domain.model.WorkspaceModelProvider;
 import com.aquilaoffice.domain.task.TaskPriority;
 import com.aquilaoffice.domain.task.TaskStatus;
 import com.aquilaoffice.domain.task.TaskType;
@@ -45,6 +51,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
@@ -844,5 +851,88 @@ class RunTaskServiceTest {
         public void close() {
             closed = true;
         }
+    }
+
+    @Test
+    void runsDirectModelWithMultiProviderFailoverAndRecordsRealUsageTokens() {
+        WorkspaceModelProvider primary = WorkspaceModelProvider.restore(
+                11L, 101L, ModelProviderKind.OPENAI, ModelWireProtocol.OPENAI_RESPONSES,
+                "OpenAI", "https://api.openai.com/v1", "sk-primary-secret", "gpt-5.4",
+                List.of("gpt-5.4", "gpt-5.4-mini"), 1, true, null, null, null, null, "google-1",
+                LocalDateTime.of(2026, 5, 16, 10, 0), LocalDateTime.of(2026, 5, 16, 10, 0), null);
+        WorkspaceModelProvider backup = WorkspaceModelProvider.restore(
+                12L, 101L, ModelProviderKind.GOOGLE, ModelWireProtocol.GOOGLE_GEMINI,
+                "Gemini", "https://example.invalid", "AIzaBackupSecret12345", "gemini-2.5-flash",
+                List.of("gemini-2.5-flash"), 2, true, null, null, null, null, "google-1",
+                LocalDateTime.of(2026, 5, 16, 10, 0), LocalDateTime.of(2026, 5, 16, 10, 0), null);
+
+        SavedWorkspaceAgent directAgent = new SavedWorkspaceAgent(
+                501L, 101L, "Direct Agent", WorkspaceAgentCategory.BACKEND,
+                "direct-model:uuid-1", ".aquila/workspaces/101", WorkspaceAgentStatus.READY,
+                null, "google-1", LocalDateTime.of(2026, 5, 16, 10, 0),
+                LocalDateTime.of(2026, 5, 16, 10, 0), List.of(), 11L, "gpt-5.4", "gpt-5.4-mini");
+
+        FakeUpdateTaskExecutionPort updateExecutionPort = new FakeUpdateTaskExecutionPort();
+        FakeUpdateTaskStatusPort updateTaskStatusPort = new FakeUpdateTaskStatusPort();
+        FakeSaveTaskExecutionLogPort saveLogPort = new FakeSaveTaskExecutionLogPort();
+        List<String> attemptedModels = new ArrayList<>();
+
+        RunTaskService service = new RunTaskService(
+                new FakeLoadMemberPort(Optional.of(Member.createUser("google-1", "user@example.com", "User"))),
+                new FakeLoadWorkspacePort(Optional.of(workspaceDetail(WorkspaceMemberRole.ADMIN))),
+                new FakeLoadTaskPort(Optional.of(taskDetail(TaskStatus.ASSIGNED, 501L))),
+                new FakeLoadWorkspaceAgentPort(List.of(directAgent)),
+                new FakeLoadWorkspaceGatewayBindingPort(Optional.empty()),
+                new FakeSaveTaskExecutionPort(),
+                updateExecutionPort,
+                updateTaskStatusPort,
+                saveLogPort,
+                command -> {
+                    throw new AssertionError("gateway port should not be called");
+                },
+                new FakeWorkspaceExecutionLockPort(true),
+                WorkflowMetrics.noop(),
+                (workspaceId, sinceUtc) -> 0L,
+                Clock.fixed(Instant.parse("2026-05-16T10:00:00Z"), ZoneOffset.UTC),
+                "gemini-2.5-flash",
+                new LoadWorkspaceModelProviderPort() {
+                    @Override
+                    public List<WorkspaceModelProvider> findActiveByWorkspaceId(Long workspaceId) {
+                        return List.of(primary, backup);
+                    }
+
+                    @Override
+                    public Optional<WorkspaceModelProvider> findActiveByWorkspaceIdAndProviderId(
+                            Long workspaceId,
+                            Long providerId) {
+                        return findActiveByWorkspaceId(workspaceId).stream()
+                                .filter(p -> p.getId().equals(providerId))
+                                .findFirst();
+                    }
+                },
+                (WorkspaceModelRunCommand cmd) -> {
+                    attemptedModels.add(cmd.modelId());
+                    if ("gpt-5.4".equals(cmd.modelId()) || "gpt-5.4-mini".equals(cmd.modelId())) {
+                        return WorkspaceModelRunResult.fail(
+                                "rate limited sk-primary-secret", cmd.modelId(), true);
+                    }
+                    return WorkspaceModelRunResult.ok(
+                            "Completed via backup Gemini", "gemini-2.5-flash-001", 44, 19);
+                },
+                new WorkspaceTokenBudgetGate(),
+                com.aquilaoffice.global.security.SecretRedactor::redactText);
+
+        RunTaskResult result = service.runTask(new RunTaskCommand(101L, 301L, "google-1", false));
+
+        assertThat(result.taskStatus()).isEqualTo(TaskStatus.COMPLETED);
+        assertThat(result.executionStatus()).isEqualTo(TaskExecutionStatus.SUCCEEDED);
+        assertThat(result.finalText()).isEqualTo("Completed via backup Gemini");
+        assertThat(attemptedModels).containsExactly("gpt-5.4", "gpt-5.4-mini", "gemini-2.5-flash");
+        TaskExecutionStatusUpdate finalUpdate = updateExecutionPort.updates.getLast();
+        assertThat(finalUpdate.promptTokens()).isEqualTo(44);
+        assertThat(finalUpdate.completionTokens()).isEqualTo(19);
+        assertThat(finalUpdate.modelName()).isEqualTo("gemini-2.5-flash-001");
+        assertThat(saveLogPort.logs)
+                .noneMatch(log -> log.message().contains("sk-primary-secret"));
     }
 }

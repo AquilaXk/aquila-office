@@ -36,6 +36,29 @@ public class SseWorkspacePresenceEventSink implements WorkspacePresenceEventSink
         }
     }
 
+    @Override
+    public void sendHeartbeat() {
+        synchronized (emitterLock) {
+            if (completed) {
+                throw new IllegalStateException("presence event sink already completed");
+            }
+            try {
+                emitter.send(SseEmitter.event().comment("keepalive"));
+            } catch (IOException | IllegalStateException exception) {
+                throw new IllegalStateException("presence heartbeat send failed", exception);
+            }
+        }
+    }
+
+    @Override
+    public void closeSilently() {
+        try {
+            complete();
+        } catch (RuntimeException ignored) {
+            // 이미 끊어진 SSE emitter 정리 시 추가 예외를 전파하지 않는다.
+        }
+    }
+
     public void complete() {
         synchronized (emitterLock) {
             if (!completed) {

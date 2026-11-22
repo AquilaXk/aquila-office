@@ -1,3 +1,4 @@
+use crate::validate_and_canonicalize_dir;
 use notify_debouncer_mini::{new_debouncer, notify::RecursiveMode, DebounceEventResult, Debouncer};
 use serde::{Deserialize, Serialize};
 use std::{
@@ -26,6 +27,14 @@ impl Default for WatcherState {
     fn default() -> Self {
         Self {
             watchers: Arc::new(Mutex::new(HashMap::new())),
+        }
+    }
+}
+
+impl WatcherState {
+    pub fn clear_all(&self) {
+        if let Ok(mut lock) = self.watchers.lock() {
+            lock.clear();
         }
     }
 }
@@ -64,63 +73,76 @@ pub fn validate_watcher_capacity(
 }
 
 #[tauri::command]
-pub fn start_watching_workspace(
+pub async fn start_watching_workspace(
     app: AppHandle,
     path: String,
     state: State<'_, WatcherState>,
 ) -> Result<(), String> {
-    let watch_path = PathBuf::from(&path);
-    if !watch_path.exists() {
-        return Err(format!("Path does not exist: {}", path));
-    }
+    let watchers = state.watchers.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let canonical_dir = validate_and_canonicalize_dir(&path)?;
+        let canonical_key = canonical_dir.to_string_lossy().to_string();
 
-    {
-        let lock = state.watchers.lock().map_err(|e| e.to_string())?;
-        validate_watcher_capacity(lock.len(), lock.contains_key(&path), MAX_ACTIVE_WATCHERS)?;
-    }
+        {
+            let lock = watchers.lock().map_err(|e| e.to_string())?;
+            validate_watcher_capacity(lock.len(), lock.contains_key(&canonical_key), MAX_ACTIVE_WATCHERS)?;
+        }
 
-    let app_handle = app.clone();
-    let mut debouncer = new_debouncer(
-        Duration::from_millis(500),
-        move |res: DebounceEventResult| match res {
-            Ok(events) => {
-                let raw_paths: Vec<PathBuf> = events.into_iter().map(|e| e.path).collect();
-                let paths = filter_relevant_paths(&raw_paths, MAX_BATCH_PATHS);
-                if !paths.is_empty() {
-                    let _ = app_handle.emit("workspace:file-changed", WorkspaceFileChangeEvent { paths });
+        let app_handle = app.clone();
+        let mut debouncer = new_debouncer(
+            Duration::from_millis(500),
+            move |res: DebounceEventResult| match res {
+                Ok(events) => {
+                    let raw_paths: Vec<PathBuf> = events.into_iter().map(|e| e.path).collect();
+                    let paths = filter_relevant_paths(&raw_paths, MAX_BATCH_PATHS);
+                    if !paths.is_empty() {
+                        let _ = app_handle.emit("workspace:file-changed", WorkspaceFileChangeEvent { paths });
+                    }
                 }
-            }
-            Err(e) => {
-                eprintln!("watcher error: {:?}", e);
-            }
-        },
-    )
-    .map_err(|e| e.to_string())?;
-
-    debouncer
-        .watcher()
-        .watch(&watch_path, RecursiveMode::Recursive)
+                Err(e) => {
+                    eprintln!("watcher error: {:?}", e);
+                }
+            },
+        )
         .map_err(|e| e.to_string())?;
 
-    let mut lock = state.watchers.lock().map_err(|e| e.to_string())?;
-    validate_watcher_capacity(lock.len(), lock.contains_key(&path), MAX_ACTIVE_WATCHERS)?;
-    lock.insert(path, debouncer);
+        debouncer
+            .watcher()
+            .watch(&canonical_dir, RecursiveMode::Recursive)
+            .map_err(|e| e.to_string())?;
 
-    Ok(())
+        let mut lock = watchers.lock().map_err(|e| e.to_string())?;
+        validate_watcher_capacity(lock.len(), lock.contains_key(&canonical_key), MAX_ACTIVE_WATCHERS)?;
+        lock.insert(canonical_key, debouncer);
+
+        Ok(())
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
-pub fn stop_watching_workspace(
+pub async fn stop_watching_workspace(
     path: Option<String>,
     state: State<'_, WatcherState>,
 ) -> Result<(), String> {
-    let mut lock = state.watchers.lock().map_err(|e| e.to_string())?;
-    if let Some(p) = path {
-        lock.remove(&p);
-    } else {
-        lock.clear();
-    }
-    Ok(())
+    let watchers = state.watchers.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let mut lock = watchers.lock().map_err(|e| e.to_string())?;
+        if let Some(p) = path {
+            let trimmed = p.trim();
+            if let Ok(canonical) = std::fs::canonicalize(trimmed) {
+                lock.remove(&canonical.to_string_lossy().to_string());
+            } else {
+                lock.remove(trimmed);
+            }
+        } else {
+            lock.clear();
+        }
+        Ok(())
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[cfg(test)]

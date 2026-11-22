@@ -5,12 +5,15 @@ import com.aquilaoffice.application.port.out.ResolveAccessTokenPort;
 import com.aquilaoffice.global.config.properties.CorsProperties;
 import jakarta.servlet.http.HttpServletResponse;
 import java.util.List;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
+import org.springframework.security.authorization.AuthorizationDecision;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
@@ -24,9 +27,13 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 public class SecurityConfig {
 
     private final CorsProperties corsProperties;
+    private final boolean publicDocsAndMetrics;
 
-    public SecurityConfig(CorsProperties corsProperties) {
+    public SecurityConfig(
+            CorsProperties corsProperties,
+            @Value("${aquila.ops.public-docs-and-metrics:false}") boolean publicDocsAndMetrics) {
         this.corsProperties = corsProperties;
+        this.publicDocsAndMetrics = publicDocsAndMetrics;
     }
 
     @Bean
@@ -53,12 +60,32 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/v1/invites/*", "/api/v1/workspace-invites/*").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/health", "/api/v1/health").permitAll()
                         .requestMatchers(HttpMethod.GET, "/actuator/health", "/actuator/health/**").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/actuator/metrics", "/actuator/metrics/**").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/actuator/prometheus").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/v3/api-docs", "/v3/api-docs/**").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/swagger-ui.html", "/swagger-ui/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/actuator/metrics", "/actuator/metrics/**")
+                        .access((authentication, context) ->
+                                allowPublicOrAuthenticated(publicDocsAndMetrics, authentication.get()))
+                        .requestMatchers(HttpMethod.GET, "/actuator/prometheus")
+                        .access((authentication, context) ->
+                                allowPublicOrAuthenticated(publicDocsAndMetrics, authentication.get()))
+                        .requestMatchers(HttpMethod.GET, "/v3/api-docs", "/v3/api-docs/**")
+                        .access((authentication, context) ->
+                                allowPublicOrAuthenticated(publicDocsAndMetrics, authentication.get()))
+                        .requestMatchers(HttpMethod.GET, "/swagger-ui.html", "/swagger-ui/**")
+                        .access((authentication, context) ->
+                                allowPublicOrAuthenticated(publicDocsAndMetrics, authentication.get()))
                         .anyRequest().authenticated())
                 .build();
+    }
+
+    private static AuthorizationDecision allowPublicOrAuthenticated(
+            boolean allowPublic,
+            Authentication authentication) {
+        if (allowPublic) {
+            return new AuthorizationDecision(true);
+        }
+        boolean isAuthenticated = authentication != null
+                && authentication.isAuthenticated()
+                && authentication.getPrincipal() instanceof AuthenticatedMember;
+        return new AuthorizationDecision(isAuthenticated);
     }
 
     @Bean
@@ -85,7 +112,13 @@ public class SecurityConfig {
     public AccessTokenAuthenticationFilter accessTokenAuthenticationFilter(
             BearerTokenResolver bearerTokenResolver,
             ResolveAccessTokenPort resolveAccessTokenPort,
-            LoadMemberPort loadMemberPort) {
-        return new AccessTokenAuthenticationFilter(bearerTokenResolver, resolveAccessTokenPort, loadMemberPort);
+            LoadMemberPort loadMemberPort,
+            PresenceStreamTicketService presenceStreamTicketService) {
+        return new AccessTokenAuthenticationFilter(
+                bearerTokenResolver,
+                resolveAccessTokenPort,
+                loadMemberPort,
+                presenceStreamTicketService,
+                publicDocsAndMetrics);
     }
 }

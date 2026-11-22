@@ -74,6 +74,10 @@ aquila:
     enabled: ${AQUILA_INVITE_EMAIL_ENABLED:false}
     from: ${AQUILA_INVITE_EMAIL_FROM:noreply@aquila-office.local}
     accept-url-base: ${AQUILA_INVITE_ACCEPT_URL_BASE:http://localhost:3000/invites/accept}
+  ops:
+    public-docs-and-metrics: ${AQUILA_OPS_PUBLIC_DOCS_AND_METRICS:false}
+  model-provider:
+    allow-local-hosts: ${AQUILA_MODEL_PROVIDER_ALLOW_LOCAL_HOSTS:true}
 
 springdoc:
   api-docs:

@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -58,11 +59,15 @@ public class WorkspaceAgentPersistenceAdapter
         return toSavedAgentFromEntities(agentEntity, skillFileEntities);
     }
 
+    private static final int MAX_ACTIVE_AGENTS_PAGE_SIZE = 200;
+
     @Override
     @Transactional(readOnly = true)
     public List<SavedWorkspaceAgent> findActiveByWorkspaceId(Long workspaceId) {
         Objects.requireNonNull(workspaceId, "workspaceId must not be null");
-        List<WorkspaceAgentJpaEntity> agentEntities = workspaceAgentJpaRepository.findActiveByWorkspaceId(workspaceId);
+        List<WorkspaceAgentJpaEntity> agentEntities = workspaceAgentJpaRepository.findActiveByWorkspaceId(
+                workspaceId,
+                PageRequest.of(0, MAX_ACTIVE_AGENTS_PAGE_SIZE));
         Map<Long, List<WorkspaceAgentSkillFileDetail>> skillFilesByAgentId =
                 findSkillFileDetailsByAgentId(agentEntities);
 
@@ -97,7 +102,10 @@ public class WorkspaceAgentPersistenceAdapter
                 agent.getCategory(),
                 agent.getWorkspacePath(),
                 agent.getStatus(),
-                agent.getSyncError());
+                agent.getSyncError(),
+                agent.getModelProviderId(),
+                agent.getModelId(),
+                agent.getFallbackModelId());
 
         if (replacedSkillFiles == null) {
             return toSavedAgent(
@@ -174,7 +182,10 @@ public class WorkspaceAgentPersistenceAdapter
                 agent.getUpdatedAt(),
                 skillFiles.stream()
                         .map(this::toSavedSkillFile)
-                        .toList());
+                        .toList(),
+                agent.getModelProviderId(),
+                agent.getModelId(),
+                agent.getFallbackModelId());
     }
 
     private SavedWorkspaceAgentSkillFile toSavedSkillFile(WorkspaceAgentSkillFileDetail skillFile) {

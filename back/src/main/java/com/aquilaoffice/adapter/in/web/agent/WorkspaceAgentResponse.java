@@ -37,7 +37,13 @@ public record WorkspaceAgentResponse(
         LocalDateTime createdAt,
         LocalDateTime updatedAt,
         @Schema(description = "Agent skill file 동기화 상태")
-        List<WorkspaceAgentSkillFileResponse> skillFiles) {
+        List<WorkspaceAgentSkillFileResponse> skillFiles,
+        @Schema(description = "연결된 AI 모델 공급자 id", nullable = true)
+        Long modelProviderId,
+        @Schema(description = "기본 모델 id", nullable = true)
+        String modelId,
+        @Schema(description = "폴백 모델 id", nullable = true)
+        String fallbackModelId) {
 
     public WorkspaceAgentResponse {
         skillFiles = skillFiles == null ? List.of() : List.copyOf(skillFiles);
@@ -56,7 +62,10 @@ public record WorkspaceAgentResponse(
                 result.createdByGoogleSub(),
                 result.createdAt(),
                 result.updatedAt(),
-                toSkillFileResponses(result.skillFiles()));
+                toSkillFileResponses(result.skillFiles()),
+                result.modelProviderId(),
+                result.modelId(),
+                result.fallbackModelId());
     }
 
     public static WorkspaceAgentResponse from(ListWorkspaceAgentsResult result) {
@@ -72,7 +81,10 @@ public record WorkspaceAgentResponse(
                 result.createdByGoogleSub(),
                 result.createdAt(),
                 result.updatedAt(),
-                toSkillFileResponses(result.skillFiles()));
+                toSkillFileResponses(result.skillFiles()),
+                result.modelProviderId(),
+                result.modelId(),
+                result.fallbackModelId());
     }
 
     public static WorkspaceAgentResponse from(GetWorkspaceAgentResult result) {
@@ -88,7 +100,10 @@ public record WorkspaceAgentResponse(
                 result.createdByGoogleSub(),
                 result.createdAt(),
                 result.updatedAt(),
-                toSkillFileResponses(result.skillFiles()));
+                toSkillFileResponses(result.skillFiles()),
+                result.modelProviderId(),
+                result.modelId(),
+                result.fallbackModelId());
     }
 
     public static WorkspaceAgentResponse from(UpdateWorkspaceAgentResult result) {
@@ -104,7 +119,10 @@ public record WorkspaceAgentResponse(
                 result.createdByGoogleSub(),
                 result.createdAt(),
                 result.updatedAt(),
-                toSkillFileResponses(result.skillFiles()));
+                toSkillFileResponses(result.skillFiles()),
+                result.modelProviderId(),
+                result.modelId(),
+                result.fallbackModelId());
     }
 
     private static List<WorkspaceAgentSkillFileResponse> toSkillFileResponses(

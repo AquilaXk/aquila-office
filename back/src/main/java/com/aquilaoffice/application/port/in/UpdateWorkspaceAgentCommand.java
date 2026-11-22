@@ -14,7 +14,10 @@ public record UpdateWorkspaceAgentCommand(
         String name,
         WorkspaceAgentCategory category,
         String workspacePath,
-        List<WorkspaceAgentSkillFileCommand> skillFiles) {
+        List<WorkspaceAgentSkillFileCommand> skillFiles,
+        Long modelProviderId,
+        String modelId,
+        String fallbackModelId) {
 
     public UpdateWorkspaceAgentCommand {
         workspaceId = requirePositive(workspaceId, "workspaceId");
@@ -28,6 +31,22 @@ public record UpdateWorkspaceAgentCommand(
                 throw new IllegalArgumentException("skillFiles must not exceed 20 entries");
             }
         }
+        if (modelProviderId != null && modelProviderId <= 0) {
+            throw new IllegalArgumentException("modelProviderId must be positive");
+        }
+        modelId = normalizeOptional(modelId);
+        fallbackModelId = normalizeOptional(fallbackModelId);
+    }
+
+    public UpdateWorkspaceAgentCommand(
+            Long workspaceId,
+            Long agentId,
+            String requesterGoogleSub,
+            String name,
+            WorkspaceAgentCategory category,
+            String workspacePath,
+            List<WorkspaceAgentSkillFileCommand> skillFiles) {
+        this(workspaceId, agentId, requesterGoogleSub, name, category, workspacePath, skillFiles, null, null, null);
     }
 
     private static Long requirePositive(Long value, String fieldName) {
@@ -40,6 +59,13 @@ public record UpdateWorkspaceAgentCommand(
     private static String requireNotBlank(String value, String fieldName) {
         if (value == null || value.isBlank()) {
             throw new IllegalArgumentException(fieldName + " must not be blank");
+        }
+        return value.trim();
+    }
+
+    private static String normalizeOptional(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
         }
         return value.trim();
     }

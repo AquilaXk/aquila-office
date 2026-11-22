@@ -24,6 +24,8 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Repository;
 
 /**
@@ -43,6 +45,11 @@ public class WorkspaceArtifactFilesystemAdapter
 
     private final Path artifactRoot;
     private final ObjectMapper objectMapper;
+
+    @Autowired
+    public WorkspaceArtifactFilesystemAdapter(ObjectProvider<ObjectMapper> objectMapperProvider) {
+        this(Path.of(".aquila", "artifacts"), objectMapperProvider.getIfAvailable(ObjectMapper::new));
+    }
 
     public WorkspaceArtifactFilesystemAdapter() {
         this(Path.of(".aquila", "artifacts"), new ObjectMapper());

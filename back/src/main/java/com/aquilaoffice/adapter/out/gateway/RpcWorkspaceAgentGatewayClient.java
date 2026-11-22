@@ -59,10 +59,11 @@ final class RpcWorkspaceAgentGatewayClient implements WorkspaceAgentGatewayClien
     RpcWorkspaceAgentGatewayClient(
             GatewayWebSocketTransport transport,
             GatewayRpcProperties properties,
+            ObjectProvider<ObjectMapper> objectMapperProvider,
             ObjectProvider<WorkflowMetrics> workflowMetricsProvider) {
         this(
                 transport,
-                new ObjectMapper(),
+                objectMapperProvider.getIfAvailable(ObjectMapper::new),
                 properties,
                 workflowMetricsProvider.getIfAvailable(WorkflowMetrics::noop));
     }

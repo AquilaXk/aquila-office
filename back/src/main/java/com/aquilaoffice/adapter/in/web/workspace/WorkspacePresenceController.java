@@ -10,19 +10,20 @@ import com.aquilaoffice.global.exception.CommonErrorCode;
 import com.aquilaoffice.global.exception.ServiceException;
 import com.aquilaoffice.global.response.RsData;
 import com.aquilaoffice.global.security.AuthenticatedMember;
+import com.aquilaoffice.global.security.PresenceStreamTicketService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
-import java.util.Locale;
-import org.springframework.http.HttpHeaders;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
@@ -38,25 +39,42 @@ public class WorkspacePresenceController {
     private final UpdateWorkspacePresencePositionUseCase updateWorkspacePresencePositionUseCase;
     private final OpenWorkspacePresenceStreamUseCase openWorkspacePresenceStreamUseCase;
     private final CloseWorkspacePresenceStreamUseCase closeWorkspacePresenceStreamUseCase;
+    private final PresenceStreamTicketService presenceStreamTicketService;
 
+    @Autowired
     public WorkspacePresenceController(
             UpdateWorkspacePresencePositionUseCase updateWorkspacePresencePositionUseCase,
             OpenWorkspacePresenceStreamUseCase openWorkspacePresenceStreamUseCase,
-            CloseWorkspacePresenceStreamUseCase closeWorkspacePresenceStreamUseCase) {
+            CloseWorkspacePresenceStreamUseCase closeWorkspacePresenceStreamUseCase,
+            PresenceStreamTicketService presenceStreamTicketService) {
         this.updateWorkspacePresencePositionUseCase = updateWorkspacePresencePositionUseCase;
         this.openWorkspacePresenceStreamUseCase = openWorkspacePresenceStreamUseCase;
         this.closeWorkspacePresenceStreamUseCase = closeWorkspacePresenceStreamUseCase;
+        this.presenceStreamTicketService = presenceStreamTicketService;
+    }
+
+    @PostMapping("/stream-ticket")
+    @Operation(summary = "presence SSE 연결용 일회성 티켓 발급")
+    public ResponseEntity<RsData<PresenceStreamTicketResponse>> issueStreamTicket(
+            @PathVariable Long workspaceId,
+            Authentication authentication) {
+        String memberGoogleSub = requireAuthenticatedMemberGoogleSub(authentication);
+        PresenceStreamTicketService.IssuedTicket issued;
+        try {
+            issued = presenceStreamTicketService.issueTicket(workspaceId, memberGoogleSub);
+        } catch (IllegalArgumentException exception) {
+            throw new ServiceException(CommonErrorCode.BAD_REQUEST);
+        }
+        return ResponseEntity.ok(RsData.ok(
+                new PresenceStreamTicketResponse(issued.ticket(), issued.expiresInSeconds())));
     }
 
     @GetMapping(path = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    @Operation(summary = "워크스페이스 presence SSE 스트림 연결")
     public SseEmitter stream(
             @PathVariable Long workspaceId,
-            Authentication authentication,
-            @RequestHeader(name = HttpHeaders.AUTHORIZATION, required = false) String authorizationHeader,
-            @RequestParam(required = false) String token,
-            @RequestParam(required = false) String accessToken) {
-        String resolvedMemberGoogleSub =
-                resolveMemberGoogleSub(authentication, authorizationHeader, token, accessToken);
+            Authentication authentication) {
+        String resolvedMemberGoogleSub = requireAuthenticatedMemberGoogleSub(authentication);
         SseEmitter emitter = new SseEmitter(SSE_TIMEOUT_MILLIS);
         SseWorkspacePresenceEventSink sink = new SseWorkspacePresenceEventSink(emitter);
 
@@ -87,6 +105,7 @@ public class WorkspacePresenceController {
     }
 
     @PatchMapping("/me/position")
+    @Operation(summary = "현재 사용자의 워크스페이스 오피스 위치 갱신")
     public ResponseEntity<RsData<Void>> updateMyPosition(
             @PathVariable Long workspaceId,
             Authentication authentication,
@@ -114,37 +133,8 @@ public class WorkspacePresenceController {
         return authenticatedMember.googleSub();
     }
 
-    private String resolveMemberGoogleSub(
-            Authentication authentication,
-            String authorizationHeader,
-            String token,
-            String accessToken) {
-        if (authentication != null
-                && authentication.getPrincipal() instanceof AuthenticatedMember authenticatedMember) {
-            return authenticatedMember.googleSub();
-        }
-        String bearerToken = resolveBearerToken(authorizationHeader);
-        if (bearerToken != null) {
-            return bearerToken;
-        }
-        if (token != null && !token.isBlank()) {
-            return token.trim();
-        }
-        if (accessToken != null && !accessToken.isBlank()) {
-            return accessToken.trim();
-        }
-        throw new ServiceException(CommonErrorCode.BAD_REQUEST);
-    }
-
-    private String resolveBearerToken(String authorizationHeader) {
-        if (authorizationHeader == null || authorizationHeader.isBlank()) {
-            return null;
-        }
-        String trimmed = authorizationHeader.trim();
-        if (trimmed.toLowerCase(Locale.ROOT).startsWith("bearer ")) {
-            String bearerValue = trimmed.substring("bearer ".length()).trim();
-            return bearerValue.isBlank() ? null : bearerValue;
-        }
-        return trimmed;
-    }
+    @Schema(description = "SSE presence 연결용 일회성 티켓 응답")
+    public record PresenceStreamTicketResponse(
+            @Schema(description = "일회성 SSE 연결 티켓") String ticket,
+            @Schema(description = "만료 시간(초)") int expiresInSeconds) {}
 }

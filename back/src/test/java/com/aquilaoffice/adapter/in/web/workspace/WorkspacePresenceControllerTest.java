@@ -9,6 +9,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.request;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -23,6 +24,7 @@ import com.aquilaoffice.application.service.WorkspacePresenceEventSink;
 import com.aquilaoffice.domain.member.MemberRole;
 import com.aquilaoffice.global.handler.GlobalExceptionHandler;
 import com.aquilaoffice.global.security.AuthenticatedMember;
+import com.aquilaoffice.global.security.PresenceStreamTicketService;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -56,6 +58,9 @@ class WorkspacePresenceControllerTest {
     @MockitoBean
     private CloseWorkspacePresenceStreamUseCase closeWorkspacePresenceStreamUseCase;
 
+    @MockitoBean
+    private PresenceStreamTicketService presenceStreamTicketService;
+
     @Test
     void openStreamReturnsSseEmitterAndPassesPrincipalCommand() throws Exception {
         given(openWorkspacePresenceStreamUseCase.openStream(
@@ -78,49 +83,43 @@ class WorkspacePresenceControllerTest {
     }
 
     @Test
-    void openStreamAcceptsTokenQueryParameter() throws Exception {
-        given(openWorkspacePresenceStreamUseCase.openStream(
-                        any(OpenWorkspacePresenceStreamCommand.class),
-                        any(WorkspacePresenceEventSink.class)))
-                .willReturn(new OpenWorkspacePresenceStreamResult(101L, 2L));
-
+    void openStreamRejectsMissingPrincipalAndUnverifiedTokenQueryParamWithUnauthorized() throws Exception {
         mockMvc.perform(get("/api/v1/workspaces/101/presence/stream")
-                        .param("token", " google-2 "))
-                .andExpect(request().asyncStarted());
-
-        ArgumentCaptor<OpenWorkspacePresenceStreamCommand> commandCaptor =
-                ArgumentCaptor.forClass(OpenWorkspacePresenceStreamCommand.class);
-        verify(openWorkspacePresenceStreamUseCase)
-                .openStream(commandCaptor.capture(), any(WorkspacePresenceEventSink.class));
-        assertThat(commandCaptor.getValue().memberGoogleSub()).isEqualTo("google-2");
-    }
-
-    @Test
-    void openStreamAcceptsAccessTokenQueryParameter() throws Exception {
-        given(openWorkspacePresenceStreamUseCase.openStream(
-                        any(OpenWorkspacePresenceStreamCommand.class),
-                        any(WorkspacePresenceEventSink.class)))
-                .willReturn(new OpenWorkspacePresenceStreamResult(101L, 2L));
-
-        mockMvc.perform(get("/api/v1/workspaces/101/presence/stream")
-                        .param("accessToken", " google-2 "))
-                .andExpect(request().asyncStarted());
-
-        ArgumentCaptor<OpenWorkspacePresenceStreamCommand> commandCaptor =
-                ArgumentCaptor.forClass(OpenWorkspacePresenceStreamCommand.class);
-        verify(openWorkspacePresenceStreamUseCase)
-                .openStream(commandCaptor.capture(), any(WorkspacePresenceEventSink.class));
-        assertThat(commandCaptor.getValue().memberGoogleSub()).isEqualTo("google-2");
-    }
-
-    @Test
-    void openStreamRejectsMissingIdentity() throws Exception {
-        mockMvc.perform(get("/api/v1/workspaces/101/presence/stream"))
-                .andExpect(status().isBadRequest())
+                        .param("token", "google-2"))
+                .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.success").value(false))
-                .andExpect(jsonPath("$.code").value("400"));
+                .andExpect(jsonPath("$.code").value("401"));
+
+        mockMvc.perform(get("/api/v1/workspaces/101/presence/stream")
+                        .param("accessToken", "google-2"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code").value("401"));
 
         verifyNoInteractions(openWorkspacePresenceStreamUseCase);
+    }
+
+    @Test
+    void issueStreamTicketReturnsOneTimeTicketForAuthenticatedMember() throws Exception {
+        given(presenceStreamTicketService.issueTicket(101L, "google-2"))
+                .willReturn(new PresenceStreamTicketService.IssuedTicket("ticket-abc", 30));
+
+        mockMvc.perform(post("/api/v1/workspaces/101/presence/stream-ticket")
+                        .principal(authenticatedPrincipal("google-2")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.ticket").value("ticket-abc"))
+                .andExpect(jsonPath("$.data.expiresInSeconds").value(30));
+    }
+
+    @Test
+    void issueStreamTicketRejectsMissingPrincipalWithUnauthorized() throws Exception {
+        mockMvc.perform(post("/api/v1/workspaces/101/presence/stream-ticket"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code").value("401"));
+
+        verifyNoInteractions(presenceStreamTicketService);
     }
 
     @Test

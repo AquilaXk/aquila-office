@@ -21,6 +21,7 @@ import com.aquilaoffice.domain.execution.TaskExecutionStatus;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Objects;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -171,10 +172,17 @@ public class TaskExecutionPersistenceAdapter
                 nowUtc);
     }
 
+    private static final int MAX_EXECUTION_REPORTS_PAGE_SIZE = 100;
+
     @Override
     @Transactional(readOnly = true)
     public List<SavedTaskExecution> findByWorkspaceIdAndTaskIdOrderByCreatedAtDesc(Long workspaceId, Long taskId) {
-        return taskExecutionJpaRepository.findByWorkspace_IdAndTask_IdOrderByCreatedAtDesc(workspaceId, taskId).stream()
+        return taskExecutionJpaRepository
+                .findByWorkspace_IdAndTask_IdOrderByCreatedAtDesc(
+                        workspaceId,
+                        taskId,
+                        PageRequest.of(0, MAX_EXECUTION_REPORTS_PAGE_SIZE))
+                .stream()
                 .map(this::toSavedTaskExecution)
                 .toList();
     }

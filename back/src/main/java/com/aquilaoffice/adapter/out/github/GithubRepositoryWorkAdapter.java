@@ -15,6 +15,8 @@ import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Repository;
 
 /**
@@ -28,6 +30,16 @@ public class GithubRepositoryWorkAdapter implements RunGithubRepositoryWorkPort 
 
     private final GitCommandRunner gitCommandRunner;
     private final GithubPullRequestClient pullRequestClient;
+
+    @Autowired
+    public GithubRepositoryWorkAdapter(ObjectProvider<ObjectMapper> objectMapperProvider) {
+        this(
+                new ProcessGitCommandRunner(),
+                new HttpGithubPullRequestClient(
+                        HttpClient.newBuilder().connectTimeout(CONNECT_TIMEOUT).build(),
+                        GITHUB_API_REPOS_URI,
+                        objectMapperProvider.getIfAvailable(ObjectMapper::new)));
+    }
 
     public GithubRepositoryWorkAdapter() {
         this(

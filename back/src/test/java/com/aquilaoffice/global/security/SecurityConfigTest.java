@@ -49,6 +49,9 @@ class SecurityConfigTest {
     @Autowired
     private AuthTokenProperties authTokenProperties;
 
+    @Autowired
+    private PresenceStreamTicketService presenceStreamTicketService;
+
     @Test
     void healthEndpointDoesNotRequireAuthentication() throws Exception {
         mockMvc.perform(get("/api/health"))
@@ -185,6 +188,36 @@ class SecurityConfigTest {
                         .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, "GET"))
                 .andExpect(status().isOk())
                 .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "http://localhost:3000"));
+    }
+
+    @Test
+    void metricsAndDocsRequireAuthenticationByDefaultAndPresenceStreamRejectsRawSub() throws Exception {
+        mockMvc.perform(get("/actuator/health")).andExpect(status().isOk());
+        mockMvc.perform(get("/actuator/metrics")).andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/actuator/prometheus")).andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/v3/api-docs")).andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/swagger-ui.html")).andExpect(status().isUnauthorized());
+
+        mockMvc.perform(get("/api/v1/workspaces/9999/presence/stream")
+                        .param("token", "google-1"))
+                .andExpect(status().isUnauthorized());
+
+        SavedGoogleLoginMember member = saveGoogleLoginMemberPort.saveOrUpdate(
+                "google-ticket-user", "ticket@example.com", "Ticket User", MemberRole.USER);
+        String accessToken = issueAuthTokenPort.issue(member.memberId(), member.email(), member.role()).accessToken();
+
+        mockMvc.perform(get("/v3/api-docs")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken))
+                .andExpect(status().isOk());
+
+        String ticket = presenceStreamTicketService.issueTicket(9999L, member.googleSub()).ticket();
+        mockMvc.perform(get("/api/v1/workspaces/9999/presence/stream")
+                        .param("ticket", ticket))
+                .andExpect(status().isNotFound());
+
+        mockMvc.perform(get("/api/v1/workspaces/9999/presence/stream")
+                        .param("ticket", ticket))
+                .andExpect(status().isUnauthorized());
     }
 
     @TestConfiguration(proxyBeanMethods = false)

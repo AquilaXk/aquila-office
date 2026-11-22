@@ -7,6 +7,7 @@ public class WorkspaceAgent {
 
     private static final int MAX_NAME_LENGTH = 120;
     private static final int MAX_WORKSPACE_PATH_LENGTH = 512;
+    private static final int MAX_MODEL_ID_LENGTH = 160;
 
     private final Long id;
     private final Long workspaceId;
@@ -17,6 +18,9 @@ public class WorkspaceAgent {
     private WorkspaceAgentStatus status;
     private String syncError;
     private final String createdByGoogleSub;
+    private Long modelProviderId;
+    private String modelId;
+    private String fallbackModelId;
 
     private WorkspaceAgent(
             Long id,
@@ -27,7 +31,10 @@ public class WorkspaceAgent {
             String workspacePath,
             WorkspaceAgentStatus status,
             String syncError,
-            String createdByGoogleSub) {
+            String createdByGoogleSub,
+            Long modelProviderId,
+            String modelId,
+            String fallbackModelId) {
         this.id = id;
         this.workspaceId = requirePositive(workspaceId, "workspaceId");
         this.name = validateName(name);
@@ -37,6 +44,9 @@ public class WorkspaceAgent {
         this.status = status == null ? WorkspaceAgentStatus.CREATING : status;
         this.syncError = normalizeError(syncError);
         this.createdByGoogleSub = requireNotBlank(createdByGoogleSub, "createdByGoogleSub");
+        this.modelProviderId = validateOptionalPositive(modelProviderId, "modelProviderId");
+        this.modelId = validateOptionalModelId(modelId, "modelId");
+        this.fallbackModelId = validateOptionalModelId(fallbackModelId, "fallbackModelId");
     }
 
     public static WorkspaceAgent create(
@@ -45,6 +55,18 @@ public class WorkspaceAgent {
             WorkspaceAgentCategory category,
             String workspacePath,
             String createdByGoogleSub) {
+        return create(workspaceId, name, category, workspacePath, createdByGoogleSub, null, null, null);
+    }
+
+    public static WorkspaceAgent create(
+            Long workspaceId,
+            String name,
+            WorkspaceAgentCategory category,
+            String workspacePath,
+            String createdByGoogleSub,
+            Long modelProviderId,
+            String modelId,
+            String fallbackModelId) {
         return new WorkspaceAgent(
                 null,
                 workspaceId,
@@ -54,7 +76,10 @@ public class WorkspaceAgent {
                 workspacePath,
                 WorkspaceAgentStatus.CREATING,
                 null,
-                createdByGoogleSub);
+                createdByGoogleSub,
+                modelProviderId,
+                modelId,
+                fallbackModelId);
     }
 
     public static WorkspaceAgent restore(
@@ -67,6 +92,34 @@ public class WorkspaceAgent {
             WorkspaceAgentStatus status,
             String syncError,
             String createdByGoogleSub) {
+        return restore(
+                id,
+                workspaceId,
+                name,
+                category,
+                openClawAgentId,
+                workspacePath,
+                status,
+                syncError,
+                createdByGoogleSub,
+                null,
+                null,
+                null);
+    }
+
+    public static WorkspaceAgent restore(
+            Long id,
+            Long workspaceId,
+            String name,
+            WorkspaceAgentCategory category,
+            String openClawAgentId,
+            String workspacePath,
+            WorkspaceAgentStatus status,
+            String syncError,
+            String createdByGoogleSub,
+            Long modelProviderId,
+            String modelId,
+            String fallbackModelId) {
         return new WorkspaceAgent(
                 requirePositive(id, "id"),
                 workspaceId,
@@ -76,7 +129,10 @@ public class WorkspaceAgent {
                 workspacePath,
                 status,
                 syncError,
-                createdByGoogleSub);
+                createdByGoogleSub,
+                modelProviderId,
+                modelId,
+                fallbackModelId);
     }
 
     public void update(String name, WorkspaceAgentCategory category, String workspacePath) {
@@ -89,6 +145,12 @@ public class WorkspaceAgent {
         if (workspacePath != null && !workspacePath.isBlank()) {
             this.workspacePath = validateWorkspacePath(workspacePath);
         }
+    }
+
+    public void updateModelConfig(Long modelProviderId, String modelId, String fallbackModelId) {
+        this.modelProviderId = validateOptionalPositive(modelProviderId, "modelProviderId");
+        this.modelId = validateOptionalModelId(modelId, "modelId");
+        this.fallbackModelId = validateOptionalModelId(fallbackModelId, "fallbackModelId");
     }
 
     public Long getId() {
@@ -146,6 +208,36 @@ public class WorkspaceAgent {
 
     public String getCreatedByGoogleSub() {
         return createdByGoogleSub;
+    }
+
+    public Long getModelProviderId() {
+        return modelProviderId;
+    }
+
+    public String getModelId() {
+        return modelId;
+    }
+
+    public String getFallbackModelId() {
+        return fallbackModelId;
+    }
+
+    private static Long validateOptionalPositive(Long value, String fieldName) {
+        if (value == null) {
+            return null;
+        }
+        return requirePositive(value, fieldName);
+    }
+
+    private static String validateOptionalModelId(String value, String fieldName) {
+        String normalized = normalizeNullable(value);
+        if (normalized == null) {
+            return null;
+        }
+        if (normalized.length() > MAX_MODEL_ID_LENGTH) {
+            throw new IllegalArgumentException(fieldName + " exceeds max length");
+        }
+        return normalized;
     }
 
     private static Long requirePositive(Long value, String fieldName) {

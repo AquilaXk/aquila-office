@@ -16,6 +16,7 @@ public class SlackSignatureVerifier {
 
     private final String signingSecret;
     private final SecretKeySpec signingKeySpec;
+    private final ThreadLocal<Mac> hmacThreadLocal;
     private final Clock clock;
     private final Duration timestampTolerance;
 
@@ -27,6 +28,9 @@ public class SlackSignatureVerifier {
         this.signingKeySpec = this.signingSecret.isBlank()
                 ? null
                 : new SecretKeySpec(this.signingSecret.getBytes(StandardCharsets.UTF_8), HMAC_ALGORITHM);
+        this.hmacThreadLocal = this.signingKeySpec == null
+                ? null
+                : ThreadLocal.withInitial(() -> createInitializedMac(this.signingKeySpec));
         this.clock = Objects.requireNonNull(clock, "clock must not be null");
         this.timestampTolerance = Objects.requireNonNull(timestampTolerance, "timestampTolerance must not be null");
     }
@@ -65,13 +69,22 @@ public class SlackSignatureVerifier {
 
     private String computeSignature(String timestamp, String rawBody) {
         try {
-            Mac mac = Mac.getInstance(HMAC_ALGORITHM);
-            mac.init(signingKeySpec);
+            Mac mac = hmacThreadLocal.get();
             String baseString = SIGNATURE_VERSION + ":" + timestamp.trim() + ":" + rawBody;
             byte[] digest = mac.doFinal(baseString.getBytes(StandardCharsets.UTF_8));
             return SIGNATURE_VERSION + "=" + HexFormat.of().formatHex(digest);
         } catch (Exception exception) {
             throw new IllegalStateException("slack request signature verification failed", exception);
+        }
+    }
+
+    private static Mac createInitializedMac(SecretKeySpec keySpec) {
+        try {
+            Mac mac = Mac.getInstance(HMAC_ALGORITHM);
+            mac.init(keySpec);
+            return mac;
+        } catch (Exception exception) {
+            throw new IllegalStateException("slack request signature initialization failed", exception);
         }
     }
 }

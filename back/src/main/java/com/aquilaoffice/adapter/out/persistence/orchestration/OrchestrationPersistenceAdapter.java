@@ -18,6 +18,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -64,12 +65,16 @@ public class OrchestrationPersistenceAdapter
                 .map(this::toDomain);
     }
 
+    private static final int MAX_SESSIONS_PAGE_SIZE = 200;
+
     @Override
     @Transactional(readOnly = true)
     public List<SavedOrchestrationSession> findByWorkspaceIdOrderByIdDesc(Long workspaceId) {
         Objects.requireNonNull(workspaceId, "workspaceId must not be null");
         List<OrchestrationSessionJpaEntity> sessions =
-                orchestrationSessionJpaRepository.findByWorkspace_IdOrderByIdDesc(workspaceId);
+                orchestrationSessionJpaRepository.findByWorkspace_IdOrderByIdDesc(
+                        workspaceId,
+                        PageRequest.of(0, MAX_SESSIONS_PAGE_SIZE));
         if (sessions.isEmpty()) {
             return List.of();
         }

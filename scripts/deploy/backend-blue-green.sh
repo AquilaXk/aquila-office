@@ -15,7 +15,7 @@ HEALTH_RETRIES="${HEALTH_RETRIES:-30}"
 HEALTH_INTERVAL_SECONDS="${HEALTH_INTERVAL_SECONDS:-2}"
 UPSTREAM_FILE="${UPSTREAM_FILE:-/etc/nginx/conf.d/aquila-office-backend-upstream.conf}"
 RELOAD_COMMAND="${RELOAD_COMMAND:-nginx -t && nginx -s reload}"
-DOCKER_NETWORK="${DOCKER_NETWORK:-bridge}"
+DOCKER_NETWORK="${DOCKER_NETWORK:-aquila-office}"
 SKIP_IMAGE_PULL="${SKIP_IMAGE_PULL:-false}"
 DRY_RUN="${DRY_RUN:-false}"
 TARGET_SLOT=""
@@ -37,7 +37,7 @@ Environment:
   HEALTH_PATH                  Default: /actuator/health
   UPSTREAM_FILE                Default: /etc/nginx/conf.d/aquila-office-backend-upstream.conf
   RELOAD_COMMAND               Default: nginx -t && nginx -s reload
-  DOCKER_NETWORK               Default: bridge
+  DOCKER_NETWORK               Default: aquila-office
   SKIP_IMAGE_PULL              Default: false
 USAGE
 }

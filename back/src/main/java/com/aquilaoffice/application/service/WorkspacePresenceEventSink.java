@@ -8,4 +8,8 @@ import com.aquilaoffice.domain.workspace.WorkspacePresenceMessage;
 public interface WorkspacePresenceEventSink {
 
     void send(WorkspacePresenceMessage message);
+
+    default void sendHeartbeat() {}
+
+    default void closeSilently() {}
 }

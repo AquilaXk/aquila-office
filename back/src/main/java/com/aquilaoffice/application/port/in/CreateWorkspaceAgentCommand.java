@@ -14,7 +14,10 @@ public record CreateWorkspaceAgentCommand(
         String emoji,
         WorkspaceAgentCategory category,
         String workspacePath,
-        List<WorkspaceAgentSkillFileCommand> skillFiles) {
+        List<WorkspaceAgentSkillFileCommand> skillFiles,
+        Long modelProviderId,
+        String modelId,
+        String fallbackModelId) {
 
     public CreateWorkspaceAgentCommand {
         workspaceId = requirePositive(workspaceId, "workspaceId");
@@ -27,6 +30,9 @@ public record CreateWorkspaceAgentCommand(
         if (skillFiles.size() > WorkspaceAgentSkillFile.MAX_SKILL_FILES) {
             throw new IllegalArgumentException("skillFiles must not exceed 20 entries");
         }
+        modelProviderId = validateOptionalPositive(modelProviderId, "modelProviderId");
+        modelId = normalizeOptional(modelId);
+        fallbackModelId = normalizeOptional(fallbackModelId);
     }
 
     public CreateWorkspaceAgentCommand(
@@ -36,7 +42,18 @@ public record CreateWorkspaceAgentCommand(
             WorkspaceAgentCategory category,
             String workspacePath,
             List<WorkspaceAgentSkillFileCommand> skillFiles) {
-        this(workspaceId, requesterGoogleSub, name, null, category, workspacePath, skillFiles);
+        this(workspaceId, requesterGoogleSub, name, null, category, workspacePath, skillFiles, null, null, null);
+    }
+
+    public CreateWorkspaceAgentCommand(
+            Long workspaceId,
+            String requesterGoogleSub,
+            String name,
+            String emoji,
+            WorkspaceAgentCategory category,
+            String workspacePath,
+            List<WorkspaceAgentSkillFileCommand> skillFiles) {
+        this(workspaceId, requesterGoogleSub, name, emoji, category, workspacePath, skillFiles, null, null, null);
     }
 
     private static Long requirePositive(Long value, String fieldName) {
@@ -44,6 +61,13 @@ public record CreateWorkspaceAgentCommand(
             throw new IllegalArgumentException(fieldName + " must be positive");
         }
         return value;
+    }
+
+    private static Long validateOptionalPositive(Long value, String fieldName) {
+        if (value == null) {
+            return null;
+        }
+        return requirePositive(value, fieldName);
     }
 
     private static String requireNotBlank(String value, String fieldName) {

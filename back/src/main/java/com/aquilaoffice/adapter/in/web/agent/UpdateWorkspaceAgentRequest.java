@@ -31,7 +31,15 @@ public record UpdateWorkspaceAgentRequest(
         @Size(max = 20)
         List<@NotNull @Valid WorkspaceAgentSkillFileRequest> skillFiles,
         @Schema(description = "선택적 emoji(무시됨)", nullable = true)
-        String emoji) {
+        String emoji,
+        @Schema(description = "연결할 AI 모델 공급자 id", nullable = true)
+        Long modelProviderId,
+        @Schema(description = "기본 모델 id", nullable = true)
+        @Size(max = 160)
+        String modelId,
+        @Schema(description = "폴백 모델 id", nullable = true)
+        @Size(max = 160)
+        String fallbackModelId) {
 
     public UpdateWorkspaceAgentRequest {
         if (skillFiles != null) {
@@ -47,7 +55,16 @@ public record UpdateWorkspaceAgentRequest(
             String category,
             String workspacePath,
             List<WorkspaceAgentSkillFileRequest> skillFiles) {
-        this(name, category, workspacePath, skillFiles, null);
+        this(name, category, workspacePath, skillFiles, null, null, null, null);
+    }
+
+    public UpdateWorkspaceAgentRequest(
+            String name,
+            String category,
+            String workspacePath,
+            List<WorkspaceAgentSkillFileRequest> skillFiles,
+            String emoji) {
+        this(name, category, workspacePath, skillFiles, emoji, null, null, null);
     }
 
     public UpdateWorkspaceAgentCommand toCommand(Long workspaceId, Long agentId, String requesterGoogleSub) {
@@ -62,7 +79,10 @@ public record UpdateWorkspaceAgentRequest(
                         ? null
                         : skillFiles.stream()
                                 .map(WorkspaceAgentSkillFileRequest::toCommand)
-                                .toList());
+                                .toList(),
+                modelProviderId,
+                modelId,
+                fallbackModelId);
     }
 
     private static WorkspaceAgentCategory parseOptionalCategory(String category) {

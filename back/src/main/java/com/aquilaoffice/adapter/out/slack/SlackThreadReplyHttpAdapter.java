@@ -4,6 +4,7 @@ import com.aquilaoffice.application.port.out.LoadSlackChannelMappingPort;
 import com.aquilaoffice.application.port.out.SendSlackReplyPort;
 import com.aquilaoffice.application.port.out.SlackReplyRequest;
 import com.aquilaoffice.domain.slack.SlackChannelMapping;
+import com.aquilaoffice.global.security.BoundedHttpBodySubscribers;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -16,6 +17,7 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Objects;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Repository;
 
@@ -35,6 +37,16 @@ public class SlackThreadReplyHttpAdapter implements SendSlackReplyPort {
     private final ObjectMapper objectMapper;
 
     @Autowired
+    public SlackThreadReplyHttpAdapter(
+            LoadSlackChannelMappingPort loadSlackChannelMappingPort,
+            ObjectProvider<ObjectMapper> objectMapperProvider) {
+        this(
+                loadSlackChannelMappingPort,
+                HttpClient.newBuilder().connectTimeout(CONNECT_TIMEOUT).build(),
+                DEFAULT_POST_MESSAGE_URI,
+                objectMapperProvider.getIfAvailable(ObjectMapper::new));
+    }
+
     public SlackThreadReplyHttpAdapter(LoadSlackChannelMappingPort loadSlackChannelMappingPort) {
         this(
                 loadSlackChannelMappingPort,
@@ -65,7 +77,7 @@ public class SlackThreadReplyHttpAdapter implements SendSlackReplyPort {
         try {
             HttpResponse<String> response = httpClient.send(
                     toHttpRequest(mapping, request),
-                    HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+                    BoundedHttpBodySubscribers.ofDefaultString());
             assertSuccessful(response);
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();

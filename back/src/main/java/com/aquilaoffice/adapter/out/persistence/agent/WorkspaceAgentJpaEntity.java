@@ -50,6 +50,15 @@ public class WorkspaceAgentJpaEntity extends BaseEntity {
     @Column(name = "created_by_google_sub", nullable = false, length = 120)
     private String createdByGoogleSub;
 
+    @Column(name = "model_provider_id")
+    private Long modelProviderId;
+
+    @Column(name = "model_id", length = 160)
+    private String modelId;
+
+    @Column(name = "fallback_model_id", length = 160)
+    private String fallbackModelId;
+
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
@@ -67,6 +76,9 @@ public class WorkspaceAgentJpaEntity extends BaseEntity {
             WorkspaceAgentStatus status,
             String syncError,
             String createdByGoogleSub,
+            Long modelProviderId,
+            String modelId,
+            String fallbackModelId,
             LocalDateTime createdAt,
             LocalDateTime updatedAt) {
         this.workspace = requireWorkspace(workspace);
@@ -77,6 +89,9 @@ public class WorkspaceAgentJpaEntity extends BaseEntity {
         this.status = status;
         this.syncError = syncError;
         this.createdByGoogleSub = createdByGoogleSub;
+        this.modelProviderId = modelProviderId;
+        this.modelId = modelId;
+        this.fallbackModelId = fallbackModelId;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
     }
@@ -92,6 +107,9 @@ public class WorkspaceAgentJpaEntity extends BaseEntity {
                 agent.getStatus(),
                 agent.getSyncError(),
                 agent.getCreatedByGoogleSub(),
+                agent.getModelProviderId(),
+                agent.getModelId(),
+                agent.getFallbackModelId(),
                 now,
                 now);
     }
@@ -101,12 +119,18 @@ public class WorkspaceAgentJpaEntity extends BaseEntity {
             WorkspaceAgentCategory category,
             String workspacePath,
             WorkspaceAgentStatus status,
-            String syncError) {
+            String syncError,
+            Long modelProviderId,
+            String modelId,
+            String fallbackModelId) {
         this.name = name;
         this.category = category;
         this.workspacePath = workspacePath;
         this.status = status;
         this.syncError = syncError;
+        this.modelProviderId = modelProviderId;
+        this.modelId = modelId;
+        this.fallbackModelId = fallbackModelId;
         this.updatedAt = LocalDateTime.now(ZoneOffset.UTC);
     }
 
@@ -146,6 +170,18 @@ public class WorkspaceAgentJpaEntity extends BaseEntity {
 
     public String getCreatedByGoogleSub() {
         return createdByGoogleSub;
+    }
+
+    public Long getModelProviderId() {
+        return modelProviderId;
+    }
+
+    public String getModelId() {
+        return modelId;
+    }
+
+    public String getFallbackModelId() {
+        return fallbackModelId;
     }
 
     public LocalDateTime getCreatedAt() {

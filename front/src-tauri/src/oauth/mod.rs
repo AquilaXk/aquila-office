@@ -35,48 +35,71 @@ pub struct OAuthState {
     pub active_port: Arc<Mutex<Option<u16>>>,
 }
 
-#[tauri::command]
-pub fn start_loopback_oauth(
-    app: AppHandle,
-    state: State<'_, OAuthState>,
-) -> Result<u16, String> {
-    let mut lock = state.active_port.lock().map_err(|e| e.to_string())?;
-    if let Some(prev_port) = *lock {
-        let _ = tauri_plugin_oauth::cancel(prev_port);
-        *lock = None;
-    }
-
-    let app_clone = app.clone();
-    let port = tauri_plugin_oauth::start(move |url| {
-        if url.len() > MAX_CALLBACK_URL_LEN {
-            eprintln!("oauth callback URL rejected: exceeds {} bytes", MAX_CALLBACK_URL_LEN);
-            return;
+impl OAuthState {
+    pub fn cancel_active(&self) -> Result<(), String> {
+        let mut lock = self.active_port.lock().map_err(|e| e.to_string())?;
+        if let Some(port) = lock.take() {
+            let _ = tauri_plugin_oauth::cancel(port);
         }
-        let code = parse_query_param(&url, "code");
-        let state = parse_query_param(&url, "state");
-
-        let _ = app_clone.emit(
-            "oauth:callback",
-            OAuthCallbackPayload {
-                url: url.clone(),
-                code,
-                state,
-            },
-        );
-    })
-    .map_err(|e| e.to_string())?;
-
-    *lock = Some(port);
-    Ok(port)
+        Ok(())
+    }
 }
 
 #[tauri::command]
-pub fn stop_loopback_oauth(state: State<'_, OAuthState>) -> Result<(), String> {
-    let mut lock = state.active_port.lock().map_err(|e| e.to_string())?;
-    if let Some(port) = lock.take() {
-        let _ = tauri_plugin_oauth::cancel(port);
-    }
-    Ok(())
+pub async fn start_loopback_oauth(
+    app: AppHandle,
+    state: State<'_, OAuthState>,
+) -> Result<u16, String> {
+    let active_port = state.active_port.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let mut lock = active_port.lock().map_err(|e| e.to_string())?;
+        if let Some(prev_port) = lock.take() {
+            let _ = tauri_plugin_oauth::cancel(prev_port);
+        }
+
+        let app_clone = app.clone();
+        let active_port_callback = active_port.clone();
+        let port = tauri_plugin_oauth::start(move |url| {
+            if let Ok(mut guard) = active_port_callback.lock() {
+                guard.take();
+            }
+            if url.len() > MAX_CALLBACK_URL_LEN {
+                eprintln!("oauth callback URL rejected: exceeds {} bytes", MAX_CALLBACK_URL_LEN);
+                return;
+            }
+            let code = parse_query_param(&url, "code");
+            let oauth_state = parse_query_param(&url, "state");
+
+            let _ = app_clone.emit(
+                "oauth:callback",
+                OAuthCallbackPayload {
+                    url,
+                    code,
+                    state: oauth_state,
+                },
+            );
+        })
+        .map_err(|e| e.to_string())?;
+
+        *lock = Some(port);
+        Ok(port)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+pub async fn stop_loopback_oauth(state: State<'_, OAuthState>) -> Result<(), String> {
+    let active_port = state.active_port.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let mut lock = active_port.lock().map_err(|e| e.to_string())?;
+        if let Some(port) = lock.take() {
+            let _ = tauri_plugin_oauth::cancel(port);
+        }
+        Ok(())
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 pub fn parse_query_param(url: &str, param: &str) -> Option<String> {
@@ -153,8 +176,11 @@ mod tests {
     #[test]
     fn test_oauth_state_initialization() {
         let state = OAuthState::default();
-        let lock = state.active_port.lock().unwrap();
-        assert!(lock.is_none());
+        {
+            let lock = state.active_port.lock().unwrap();
+            assert!(lock.is_none());
+        }
+        assert!(state.cancel_active().is_ok());
     }
 
     #[test]

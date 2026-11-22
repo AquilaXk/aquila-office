@@ -23,6 +23,7 @@ import com.aquilaoffice.application.port.in.ExtendWorkspaceInviteUseCase;
 import com.aquilaoffice.application.port.in.GetArtifactFileUseCase;
 import com.aquilaoffice.application.port.in.GetArtifactTreeUseCase;
 import com.aquilaoffice.application.port.in.GetMemberProfileUseCase;
+import com.aquilaoffice.application.port.in.GetModelCatalogUseCase;
 import com.aquilaoffice.application.port.in.GetOrchestrationPlanArtifactUseCase;
 import com.aquilaoffice.application.port.in.GetOrchestrationPlanFileUseCase;
 import com.aquilaoffice.application.port.in.GetOrchestrationSessionUseCase;
@@ -71,6 +72,7 @@ import com.aquilaoffice.application.port.out.ChangeWorkspaceMemberRolePort;
 import com.aquilaoffice.application.port.out.ClaimSlackEventPort;
 import com.aquilaoffice.application.port.out.CreateWorkspaceAgentGatewayPort;
 import com.aquilaoffice.application.port.out.DeleteRefreshTokenPort;
+import com.aquilaoffice.application.port.out.DeleteWorkspaceAgentGatewayPort;
 import com.aquilaoffice.application.port.out.DeleteWorkspacePort;
 import com.aquilaoffice.application.port.out.DeleteWorkspaceAgentPort;
 import com.aquilaoffice.application.port.out.DeleteGithubCredentialPort;
@@ -86,6 +88,7 @@ import com.aquilaoffice.application.port.out.LoadChatMessagesPort;
 import com.aquilaoffice.application.port.out.LoadChatSessionPort;
 import com.aquilaoffice.application.port.out.LoadMemberPort;
 import com.aquilaoffice.application.port.out.LoadMemberProfilePort;
+import com.aquilaoffice.application.port.out.LoadModelCatalogPort;
 import com.aquilaoffice.application.port.out.LoadOrchestrationPlanArtifactPort;
 import com.aquilaoffice.application.port.out.LoadOrchestrationSessionPort;
 import com.aquilaoffice.application.port.out.LoadSlackChannelMappingPort;
@@ -98,6 +101,7 @@ import com.aquilaoffice.application.port.out.LoadWorkspaceArtifactsPort;
 import com.aquilaoffice.application.port.out.LoadWorkspaceAgentPort;
 import com.aquilaoffice.application.port.out.LoadWorkspaceDashboardSummaryPort;
 import com.aquilaoffice.application.port.out.LoadWorkspaceGatewayBindingPort;
+import com.aquilaoffice.application.port.out.LoadWorkspaceModelProviderPort;
 import com.aquilaoffice.application.port.out.LoadWorkspaceInvitePort;
 import com.aquilaoffice.application.port.out.LoadWorkspaceInvitesPort;
 import com.aquilaoffice.application.port.out.LoadWorkspaceMemberPort;
@@ -105,12 +109,14 @@ import com.aquilaoffice.application.port.out.LoadWorkspacePort;
 import com.aquilaoffice.application.port.out.RecordWorkspaceInviteEmailFailurePort;
 import com.aquilaoffice.application.port.out.RecoverStaleExecutionsPort;
 import com.aquilaoffice.application.port.out.RecoverStaleTasksPort;
+import com.aquilaoffice.application.port.out.RedactSensitiveTextPort;
 import com.aquilaoffice.application.port.out.RemoveWorkspaceMemberPort;
 import com.aquilaoffice.application.port.out.ResolveRefreshTokenPort;
 import com.aquilaoffice.application.port.out.RevokeWorkspaceInvitePort;
 import com.aquilaoffice.application.port.out.RotateRefreshTokenPort;
 import com.aquilaoffice.application.port.out.RunAfterCommitPort;
 import com.aquilaoffice.application.port.out.RunWorkspaceAgentPort;
+import com.aquilaoffice.application.port.out.RunWorkspaceModelPort;
 import com.aquilaoffice.application.port.out.SaveGithubCredentialPort;
 import com.aquilaoffice.application.port.out.SaveChatMessagePort;
 import com.aquilaoffice.application.port.out.SaveChatSessionPort;
@@ -124,10 +130,12 @@ import com.aquilaoffice.application.port.out.SaveTaskExecutionPort;
 import com.aquilaoffice.application.port.out.SaveWorkspaceAgentPort;
 import com.aquilaoffice.application.port.out.SaveWorkspaceGatewayBindingPort;
 import com.aquilaoffice.application.port.out.SaveWorkspaceInvitePort;
+import com.aquilaoffice.application.port.out.SaveWorkspaceModelProviderPort;
 import com.aquilaoffice.application.port.out.SaveWorkspacePort;
 import com.aquilaoffice.application.port.out.SendSlackReplyPort;
 import com.aquilaoffice.application.port.out.SendWorkspaceInviteEmailPort;
 import com.aquilaoffice.application.port.out.SyncWorkspaceAgentSkillFilesGatewayPort;
+import com.aquilaoffice.application.port.out.TestWorkspaceModelProviderPort;
 import com.aquilaoffice.application.port.out.UpdateTaskExecutionPort;
 import com.aquilaoffice.application.port.out.UpdateGithubCredentialPort;
 import com.aquilaoffice.application.port.out.UpdateMemberProfilePort;
@@ -156,6 +164,7 @@ import com.aquilaoffice.application.service.DispatchOrchestrationSessionService;
 import com.aquilaoffice.application.service.ExtendWorkspaceInviteService;
 import com.aquilaoffice.application.service.GetArtifactFileService;
 import com.aquilaoffice.application.service.GetArtifactTreeService;
+import com.aquilaoffice.application.service.GetModelCatalogService;
 import com.aquilaoffice.application.service.GetOrchestrationPlanArtifactService;
 import com.aquilaoffice.application.service.GetOrchestrationPlanFileService;
 import com.aquilaoffice.application.service.GetOrchestrationSessionService;
@@ -196,7 +205,9 @@ import com.aquilaoffice.application.service.UpdateTaskStatusService;
 import com.aquilaoffice.application.service.UpdateWorkspaceAgentService;
 import com.aquilaoffice.application.service.UpdateWorkspacePresencePositionService;
 import com.aquilaoffice.application.service.UpdateWorkspaceService;
+import com.aquilaoffice.application.service.WorkspaceModelProviderService;
 import com.aquilaoffice.application.service.WorkspacePresenceRegistry;
+import com.aquilaoffice.application.service.WorkspaceTokenBudgetGate;
 import java.time.Clock;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -332,6 +343,27 @@ class ApplicationServiceConfigTest {
 
     @MockitoBean
     private DeleteWorkspaceAgentPort deleteWorkspaceAgentPort;
+
+    @MockitoBean
+    private DeleteWorkspaceAgentGatewayPort deleteWorkspaceAgentGatewayPort;
+
+    @MockitoBean
+    private LoadModelCatalogPort loadModelCatalogPort;
+
+    @MockitoBean
+    private LoadWorkspaceModelProviderPort loadWorkspaceModelProviderPort;
+
+    @MockitoBean
+    private SaveWorkspaceModelProviderPort saveWorkspaceModelProviderPort;
+
+    @MockitoBean
+    private TestWorkspaceModelProviderPort testWorkspaceModelProviderPort;
+
+    @MockitoBean
+    private RunWorkspaceModelPort runWorkspaceModelPort;
+
+    @MockitoBean
+    private RedactSensitiveTextPort redactSensitiveTextPort;
 
     @MockitoBean
     private SaveTaskPort saveTaskPort;
@@ -623,6 +655,15 @@ class ApplicationServiceConfigTest {
 
     @Autowired
     private SlackSignatureVerifier slackSignatureVerifier;
+
+    @Autowired
+    private GetModelCatalogUseCase getModelCatalogUseCase;
+
+    @Autowired
+    private WorkspaceModelProviderService workspaceModelProviderService;
+
+    @Autowired
+    private WorkspaceTokenBudgetGate workspaceTokenBudgetGate;
 
     @Test
     void registersAcceptWorkspaceInviteUseCase() {
@@ -967,5 +1008,12 @@ class ApplicationServiceConfigTest {
     @Test
     void registersSlackSignatureVerifier() {
         assertThat(slackSignatureVerifier).isNotNull();
+    }
+
+    @Test
+    void registersMultiProviderModelServicesAndBudgetGate() {
+        assertThat(getModelCatalogUseCase).isInstanceOf(GetModelCatalogService.class);
+        assertThat(workspaceModelProviderService).isNotNull();
+        assertThat(workspaceTokenBudgetGate).isNotNull();
     }
 }

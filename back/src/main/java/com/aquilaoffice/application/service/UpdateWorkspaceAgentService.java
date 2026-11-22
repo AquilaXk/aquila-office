@@ -7,6 +7,7 @@ import com.aquilaoffice.application.port.in.WorkspaceAgentSkillFileCommand;
 import com.aquilaoffice.application.port.out.LoadMemberPort;
 import com.aquilaoffice.application.port.out.LoadWorkspaceAgentPort;
 import com.aquilaoffice.application.port.out.LoadWorkspaceGatewayBindingPort;
+import com.aquilaoffice.application.port.out.LoadWorkspaceModelProviderPort;
 import com.aquilaoffice.application.port.out.LoadWorkspacePort;
 import com.aquilaoffice.application.port.out.SavedWorkspaceAgent;
 import com.aquilaoffice.application.port.out.SyncWorkspaceAgentSkillFilesCommand;
@@ -16,6 +17,7 @@ import com.aquilaoffice.application.port.out.UpdateWorkspaceAgentPort;
 import com.aquilaoffice.domain.agent.WorkspaceAgent;
 import com.aquilaoffice.domain.agent.WorkspaceAgentSkillFile;
 import com.aquilaoffice.domain.gateway.WorkspaceGatewayBinding;
+import com.aquilaoffice.domain.model.WorkspaceModelProvider;
 import com.aquilaoffice.domain.workspace.WorkspaceMemberRole;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -36,6 +38,7 @@ public class UpdateWorkspaceAgentService implements UpdateWorkspaceAgentUseCase 
     private final UpdateWorkspaceAgentPort updateWorkspaceAgentPort;
     private final LoadWorkspaceGatewayBindingPort loadWorkspaceGatewayBindingPort;
     private final SyncWorkspaceAgentSkillFilesGatewayPort syncWorkspaceAgentSkillFilesGatewayPort;
+    private final LoadWorkspaceModelProviderPort loadWorkspaceModelProviderPort;
 
     public UpdateWorkspaceAgentService(
             LoadMemberPort loadMemberPort,
@@ -44,6 +47,36 @@ public class UpdateWorkspaceAgentService implements UpdateWorkspaceAgentUseCase 
             UpdateWorkspaceAgentPort updateWorkspaceAgentPort,
             LoadWorkspaceGatewayBindingPort loadWorkspaceGatewayBindingPort,
             SyncWorkspaceAgentSkillFilesGatewayPort syncWorkspaceAgentSkillFilesGatewayPort) {
+        this(
+                loadMemberPort,
+                loadWorkspacePort,
+                loadWorkspaceAgentPort,
+                updateWorkspaceAgentPort,
+                loadWorkspaceGatewayBindingPort,
+                syncWorkspaceAgentSkillFilesGatewayPort,
+                new LoadWorkspaceModelProviderPort() {
+                    @Override
+                    public List<WorkspaceModelProvider> findActiveByWorkspaceId(Long workspaceId) {
+                        return List.of();
+                    }
+
+                    @Override
+                    public Optional<WorkspaceModelProvider> findActiveByWorkspaceIdAndProviderId(
+                            Long workspaceId,
+                            Long providerId) {
+                        return Optional.empty();
+                    }
+                });
+    }
+
+    public UpdateWorkspaceAgentService(
+            LoadMemberPort loadMemberPort,
+            LoadWorkspacePort loadWorkspacePort,
+            LoadWorkspaceAgentPort loadWorkspaceAgentPort,
+            UpdateWorkspaceAgentPort updateWorkspaceAgentPort,
+            LoadWorkspaceGatewayBindingPort loadWorkspaceGatewayBindingPort,
+            SyncWorkspaceAgentSkillFilesGatewayPort syncWorkspaceAgentSkillFilesGatewayPort,
+            LoadWorkspaceModelProviderPort loadWorkspaceModelProviderPort) {
         this.loadMemberPort = Objects.requireNonNull(loadMemberPort, "loadMemberPort must not be null");
         this.loadWorkspacePort = Objects.requireNonNull(loadWorkspacePort, "loadWorkspacePort must not be null");
         this.loadWorkspaceAgentPort =
@@ -55,6 +88,8 @@ public class UpdateWorkspaceAgentService implements UpdateWorkspaceAgentUseCase 
         this.syncWorkspaceAgentSkillFilesGatewayPort = Objects.requireNonNull(
                 syncWorkspaceAgentSkillFilesGatewayPort,
                 "syncWorkspaceAgentSkillFilesGatewayPort must not be null");
+        this.loadWorkspaceModelProviderPort = Objects.requireNonNull(
+                loadWorkspaceModelProviderPort, "loadWorkspaceModelProviderPort must not be null");
     }
 
     @Override
@@ -62,6 +97,7 @@ public class UpdateWorkspaceAgentService implements UpdateWorkspaceAgentUseCase 
         Objects.requireNonNull(command, "command must not be null");
         requireExistingMember(command.requesterGoogleSub());
         requireAdminMembership(command.workspaceId(), command.requesterGoogleSub());
+        validateRequestedModelProvider(command.workspaceId(), command.modelProviderId());
 
         SavedWorkspaceAgent existing = loadWorkspaceAgentPort
                 .findActiveByWorkspaceIdAndAgentId(command.workspaceId(), command.agentId())
@@ -76,8 +112,17 @@ public class UpdateWorkspaceAgentService implements UpdateWorkspaceAgentUseCase 
                 existing.workspacePath(),
                 existing.status(),
                 existing.syncError(),
-                existing.createdByGoogleSub());
+                existing.createdByGoogleSub(),
+                existing.modelProviderId(),
+                existing.modelId(),
+                existing.fallbackModelId());
         agent.update(command.name(), command.category(), command.workspacePath());
+        if (command.modelProviderId() != null || command.modelId() != null || command.fallbackModelId() != null) {
+            agent.updateModelConfig(
+                    command.modelProviderId() != null ? command.modelProviderId() : existing.modelProviderId(),
+                    command.modelId() != null ? command.modelId() : existing.modelId(),
+                    command.fallbackModelId() != null ? command.fallbackModelId() : existing.fallbackModelId());
+        }
 
         List<WorkspaceAgentSkillFile> replacedSkillFiles = toReplacedSkillFiles(command.skillFiles());
         if (replacedSkillFiles != null) {
@@ -86,6 +131,18 @@ public class UpdateWorkspaceAgentService implements UpdateWorkspaceAgentUseCase 
 
         return WorkspaceAgentResultMapper.toUpdateResult(
                 updateWorkspaceAgentPort.update(agent, replacedSkillFiles));
+    }
+
+    private void validateRequestedModelProvider(Long workspaceId, Long modelProviderId) {
+        if (modelProviderId == null) {
+            return;
+        }
+        WorkspaceModelProvider provider = loadWorkspaceModelProviderPort
+                .findActiveByWorkspaceIdAndProviderId(workspaceId, modelProviderId)
+                .orElseThrow(() -> new IllegalArgumentException("workspace model provider not found"));
+        if (!provider.isEnabled()) {
+            throw new IllegalArgumentException("workspace model provider is disabled");
+        }
     }
 
     private List<WorkspaceAgentSkillFile> toReplacedSkillFiles(List<WorkspaceAgentSkillFileCommand> skillFiles) {

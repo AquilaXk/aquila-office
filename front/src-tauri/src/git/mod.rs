@@ -1,6 +1,7 @@
+use crate::validate_and_canonicalize_dir;
 use git2::{Diff, DiffOptions, Repository, StatusOptions};
 use serde::{Deserialize, Serialize};
-use std::path::Path;
+use std::path::{Component, Path};
 
 pub const MAX_STATUS_ENTRIES: usize = 5000;
 pub const MAX_DIFF_BYTES: usize = 1_048_576;
@@ -18,11 +19,34 @@ pub struct GitStatusResult {
     pub files: Vec<GitFileChange>,
 }
 
+fn validate_optional_relative_file_path(file_path: Option<&str>) -> Result<Option<String>, String> {
+    let Some(raw) = file_path else {
+        return Ok(None);
+    };
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return Ok(None);
+    }
+    if trimmed.contains('\0') {
+        return Err("File path must not contain NUL bytes".to_string());
+    }
+    let path = Path::new(trimmed);
+    if path.is_absolute()
+        || path
+            .components()
+            .any(|component| matches!(component, Component::ParentDir))
+    {
+        return Err("File path must stay relative to workspace".to_string());
+    }
+    Ok(Some(trimmed.to_string()))
+}
+
 fn get_workspace_git_status_with_limit(
     path: String,
     max_entries: usize,
 ) -> Result<GitStatusResult, String> {
-    let repo = Repository::discover(Path::new(&path)).map_err(|e| e.to_string())?;
+    let canonical_dir = validate_and_canonicalize_dir(&path)?;
+    let repo = Repository::discover(&canonical_dir).map_err(|e| e.to_string())?;
 
     let branch = repo
         .head()
@@ -80,8 +104,12 @@ fn get_workspace_git_status_with_limit(
 }
 
 #[tauri::command]
-pub fn get_workspace_git_status(path: String) -> Result<GitStatusResult, String> {
-    get_workspace_git_status_with_limit(path, MAX_STATUS_ENTRIES)
+pub async fn get_workspace_git_status(path: String) -> Result<GitStatusResult, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        get_workspace_git_status_with_limit(path, MAX_STATUS_ENTRIES)
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 fn collect_git_diff_bounded(diff: &Diff<'_>, max_bytes: usize) -> Result<String, String> {
@@ -122,13 +150,15 @@ fn get_workspace_git_diff_with_limit(
     file_path: Option<String>,
     max_bytes: usize,
 ) -> Result<String, String> {
-    let repo = Repository::discover(Path::new(&path)).map_err(|e| e.to_string())?;
+    let canonical_dir = validate_and_canonicalize_dir(&path)?;
+    let validated_file_path = validate_optional_relative_file_path(file_path.as_deref())?;
+    let repo = Repository::discover(&canonical_dir).map_err(|e| e.to_string())?;
     let mut diff_opts = DiffOptions::new();
     diff_opts.include_untracked(true);
     diff_opts.show_untracked_content(true);
     diff_opts.recurse_untracked_dirs(true);
 
-    if let Some(ref fp) = file_path {
+    if let Some(ref fp) = validated_file_path {
         diff_opts.pathspec(fp);
     }
 
@@ -142,11 +172,15 @@ fn get_workspace_git_diff_with_limit(
 }
 
 #[tauri::command]
-pub fn get_workspace_git_diff(
+pub async fn get_workspace_git_diff(
     path: String,
     file_path: Option<String>,
 ) -> Result<String, String> {
-    get_workspace_git_diff_with_limit(path, file_path, MAX_DIFF_BYTES)
+    tauri::async_runtime::spawn_blocking(move || {
+        get_workspace_git_diff_with_limit(path, file_path, MAX_DIFF_BYTES)
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[cfg(test)]
@@ -178,13 +212,22 @@ mod tests {
         let mut f = fs::OpenOptions::new().append(true).open(&test_file).unwrap();
         writeln!(f, "second line").unwrap();
 
-        let status = get_workspace_git_status(temp_dir.to_string_lossy().to_string()).unwrap();
+        let status = get_workspace_git_status_with_limit(
+            temp_dir.to_string_lossy().to_string(),
+            MAX_STATUS_ENTRIES,
+        )
+        .unwrap();
         assert!(!status.is_clean);
         assert_eq!(status.files.len(), 1);
         assert_eq!(status.files[0].path, "hello.txt");
         assert_eq!(status.files[0].status, "modified");
 
-        let diff = get_workspace_git_diff(temp_dir.to_string_lossy().to_string(), None).unwrap();
+        let diff = get_workspace_git_diff_with_limit(
+            temp_dir.to_string_lossy().to_string(),
+            None,
+            MAX_DIFF_BYTES,
+        )
+        .unwrap();
         assert!(diff.contains("+second line"));
 
         // Test untracked file diff
@@ -194,16 +237,30 @@ mod tests {
         let mut f2 = File::create(&untracked_file).unwrap();
         writeln!(f2, "brand new untracked content").unwrap();
 
-        let status2 = get_workspace_git_status(temp_dir.to_string_lossy().to_string()).unwrap();
+        let status2 = get_workspace_git_status_with_limit(
+            temp_dir.to_string_lossy().to_string(),
+            MAX_STATUS_ENTRIES,
+        )
+        .unwrap();
         let untracked_entry = status2.files.iter().find(|f| f.path == "subdir/untracked.txt");
         assert!(untracked_entry.is_some(), "nested untracked file should be detected");
         assert_eq!(untracked_entry.unwrap().status, "untracked");
 
-        let diff_untracked = get_workspace_git_diff(
+        let diff_untracked = get_workspace_git_diff_with_limit(
             temp_dir.to_string_lossy().to_string(),
             Some("subdir/untracked.txt".to_string()),
-        ).unwrap();
+            MAX_DIFF_BYTES,
+        )
+        .unwrap();
         assert!(diff_untracked.contains("+brand new untracked content"));
+
+        let err_traversal = get_workspace_git_diff_with_limit(
+            temp_dir.to_string_lossy().to_string(),
+            Some("../secret.txt".to_string()),
+            MAX_DIFF_BYTES,
+        )
+        .unwrap_err();
+        assert!(err_traversal.contains("relative"));
 
         let _ = fs::remove_dir_all(&temp_dir);
     }

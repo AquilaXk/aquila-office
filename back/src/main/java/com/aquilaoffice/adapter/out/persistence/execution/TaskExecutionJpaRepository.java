@@ -12,7 +12,10 @@ import org.springframework.data.repository.query.Param;
 
 public interface TaskExecutionJpaRepository extends JpaRepository<TaskExecutionJpaEntity, Long> {
 
-    List<TaskExecutionJpaEntity> findByWorkspace_IdAndTask_IdOrderByCreatedAtDesc(Long workspaceId, Long taskId);
+    List<TaskExecutionJpaEntity> findByWorkspace_IdAndTask_IdOrderByCreatedAtDesc(
+            Long workspaceId,
+            Long taskId,
+            Pageable pageable);
 
     List<TaskExecutionJpaEntity> findByWorkspace_IdAndTask_IdAndStatusInOrderByCreatedAtDesc(
             Long workspaceId,

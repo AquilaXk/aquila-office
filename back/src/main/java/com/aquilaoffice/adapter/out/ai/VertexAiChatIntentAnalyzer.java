@@ -6,6 +6,7 @@ import com.aquilaoffice.application.port.out.ChatIntentAnalysisResult;
 import com.aquilaoffice.domain.task.TaskPriority;
 import com.aquilaoffice.domain.task.TaskType;
 import com.aquilaoffice.global.config.properties.VertexAiProperties;
+import com.aquilaoffice.global.security.BoundedHttpBodySubscribers;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -23,6 +24,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Repository;
 
@@ -41,6 +43,16 @@ public class VertexAiChatIntentAnalyzer implements AnalyzeChatIntentPort {
     private final ObjectMapper objectMapper;
 
     @Autowired
+    public VertexAiChatIntentAnalyzer(
+            VertexAiProperties properties,
+            ObjectProvider<ObjectMapper> objectMapperProvider) {
+        this(
+                properties,
+                new ServiceAccountAccessTokenProvider(properties),
+                new JavaHttpGenerateContentClient(),
+                objectMapperProvider.getIfAvailable(ObjectMapper::new));
+    }
+
     public VertexAiChatIntentAnalyzer(VertexAiProperties properties) {
         this(
                 properties,
@@ -288,7 +300,7 @@ public class VertexAiChatIntentAnalyzer implements AnalyzeChatIntentPort {
         public String generateContent(URI endpoint, String accessToken, String requestBody)
                 throws IOException, InterruptedException {
             HttpRequest request = toHttpRequest(endpoint, accessToken, requestBody);
-            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> response = httpClient.send(request, BoundedHttpBodySubscribers.ofDefaultString());
             if (response.statusCode() < 200 || response.statusCode() >= 300) {
                 throw new IOException("vertex ai request failed: " + response.statusCode());
             }

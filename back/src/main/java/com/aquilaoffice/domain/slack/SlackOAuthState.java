@@ -18,6 +18,13 @@ public record SlackOAuthState(
     private static final String VERSION = "v1";
     private static final String HMAC_ALGORITHM = "HmacSHA256";
     private static final int STATE_PARTS = 5;
+    private static final ThreadLocal<Mac> HMAC_THREAD_LOCAL = ThreadLocal.withInitial(() -> {
+        try {
+            return Mac.getInstance(HMAC_ALGORITHM);
+        } catch (Exception exception) {
+            throw new IllegalStateException("slack oauth state hmac unavailable", exception);
+        }
+    });
 
     public SlackOAuthState {
         workspaceId = requirePositive(workspaceId);
@@ -125,7 +132,7 @@ public record SlackOAuthState(
 
     private static String sign(String payload, String secret) {
         try {
-            Mac mac = Mac.getInstance(HMAC_ALGORITHM);
+            Mac mac = HMAC_THREAD_LOCAL.get();
             mac.init(new SecretKeySpec(requireSecret(secret).getBytes(StandardCharsets.UTF_8), HMAC_ALGORITHM));
             return Base64.getUrlEncoder().withoutPadding()
                     .encodeToString(mac.doFinal(payload.getBytes(StandardCharsets.UTF_8)));

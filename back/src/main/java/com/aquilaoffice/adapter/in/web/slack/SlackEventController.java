@@ -13,6 +13,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.Map;
 import java.util.Objects;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -33,17 +34,29 @@ public class SlackEventController {
     private final ReceiveSlackEventUseCase receiveSlackEventUseCase;
     private final SlackSignatureVerifier slackSignatureVerifier;
     private final WorkflowMetrics workflowMetrics;
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper;
 
+    @Autowired
     public SlackEventController(
             ReceiveSlackEventUseCase receiveSlackEventUseCase,
             SlackSignatureVerifier slackSignatureVerifier,
-            ObjectProvider<WorkflowMetrics> workflowMetricsProvider) {
+            ObjectProvider<WorkflowMetrics> workflowMetricsProvider,
+            ObjectProvider<ObjectMapper> objectMapperProvider) {
         this.receiveSlackEventUseCase =
                 Objects.requireNonNull(receiveSlackEventUseCase, "receiveSlackEventUseCase must not be null");
         this.slackSignatureVerifier =
                 Objects.requireNonNull(slackSignatureVerifier, "slackSignatureVerifier must not be null");
         this.workflowMetrics = workflowMetricsProvider.getIfAvailable(WorkflowMetrics::noop);
+        this.objectMapper = objectMapperProvider == null
+                ? new ObjectMapper()
+                : objectMapperProvider.getIfAvailable(ObjectMapper::new);
+    }
+
+    public SlackEventController(
+            ReceiveSlackEventUseCase receiveSlackEventUseCase,
+            SlackSignatureVerifier slackSignatureVerifier,
+            ObjectProvider<WorkflowMetrics> workflowMetricsProvider) {
+        this(receiveSlackEventUseCase, slackSignatureVerifier, workflowMetricsProvider, null);
     }
 
     @PostMapping("/api/v1/workspaces/{workspaceId}/slack/events")

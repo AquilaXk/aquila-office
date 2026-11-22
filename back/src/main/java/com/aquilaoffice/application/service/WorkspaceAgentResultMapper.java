@@ -27,7 +27,10 @@ final class WorkspaceAgentResultMapper {
                 agent.updatedAt(),
                 agent.skillFiles().stream()
                         .map(WorkspaceAgentResultMapper::toSkillFileResult)
-                        .toList());
+                        .toList(),
+                agent.modelProviderId(),
+                agent.modelId(),
+                agent.fallbackModelId());
     }
 
     static ListWorkspaceAgentsResult toListResult(SavedWorkspaceAgent agent) {
@@ -45,7 +48,10 @@ final class WorkspaceAgentResultMapper {
                 agent.updatedAt(),
                 agent.skillFiles().stream()
                         .map(WorkspaceAgentResultMapper::toSkillFileResult)
-                        .toList());
+                        .toList(),
+                agent.modelProviderId(),
+                agent.modelId(),
+                agent.fallbackModelId());
     }
 
     static GetWorkspaceAgentResult toGetResult(SavedWorkspaceAgent agent) {
@@ -63,7 +69,10 @@ final class WorkspaceAgentResultMapper {
                 agent.updatedAt(),
                 agent.skillFiles().stream()
                         .map(WorkspaceAgentResultMapper::toSkillFileResult)
-                        .toList());
+                        .toList(),
+                agent.modelProviderId(),
+                agent.modelId(),
+                agent.fallbackModelId());
     }
 
     static UpdateWorkspaceAgentResult toUpdateResult(SavedWorkspaceAgent agent) {
@@ -81,7 +90,10 @@ final class WorkspaceAgentResultMapper {
                 agent.updatedAt(),
                 agent.skillFiles().stream()
                         .map(WorkspaceAgentResultMapper::toSkillFileResult)
-                        .toList());
+                        .toList(),
+                agent.modelProviderId(),
+                agent.modelId(),
+                agent.fallbackModelId());
     }
 
     private static WorkspaceAgentSkillFileResult toSkillFileResult(SavedWorkspaceAgentSkillFile skillFile) {
