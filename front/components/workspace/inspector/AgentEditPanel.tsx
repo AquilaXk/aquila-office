@@ -134,6 +134,7 @@ export function AgentEditPanel({
         modelProviderId: modelProviderId ?? null,
         modelId: modelId.trim() || null,
         fallbackModelId: fallbackModelId.trim() || null,
+        updateModelConfig: true,
         skillFiles: validatedSkillFiles,
       });
       setSaveNotice({ tone: "success", message: "에이전트 설정을 저장했습니다." });

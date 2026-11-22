@@ -15,12 +15,14 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
+import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.http.HttpClient;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import okhttp3.OkHttpClient;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -238,5 +240,36 @@ class HttpMultiProviderModelAdapterTest {
                 "http://169.254.169.254/latest", "sk-test", "gpt-5.4", null, "hi"));
         assertThat(ssrfBlocked.success()).isFalse();
         assertThat(ssrfBlocked.retryable()).isFalse();
+    }
+
+    @Test
+    void pinsResolvedAddressOnFirstLookupPreventingDnsRebinding() {
+        AtomicInteger lookupCount = new AtomicInteger();
+        OutboundDestinationPolicy pinningPolicy = OutboundDestinationPolicy.withHostResolverForTesting(
+                true,
+                host -> {
+                    int call = lookupCount.incrementAndGet();
+                    if (call == 1) {
+                        return new InetAddress[] {InetAddress.getByName("127.0.0.1")};
+                    }
+                    // Second DNS lookup simulates TTL=0 rebinding attack to cloud metadata IP
+                    return new InetAddress[] {InetAddress.getByName("169.254.169.254")};
+                });
+        HttpMultiProviderModelAdapter pinnedAdapter = new HttpMultiProviderModelAdapter(
+                new OkHttpClient.Builder().followRedirects(false).build(),
+                pinningPolicy,
+                new HostCircuitBreakerRegistry(),
+                new ObjectMapper());
+
+        statusToReturn.set(200);
+        responseBody.set("{\"model\":\"qwen3:14b\",\"message\":{\"content\":\"pinned-ok\"},\"prompt_eval_count\":3,\"eval_count\":2}");
+        String localhostUrl = "http://localhost:" + server.getAddress().getPort();
+        WorkspaceModelRunResult result = pinnedAdapter.run(new WorkspaceModelRunCommand(
+                1L, 2L, 3L, 4L, ModelProviderKind.OLLAMA, ModelWireProtocol.OLLAMA_NATIVE,
+                localhostUrl, null, "qwen3:14b", null, "ping"));
+
+        assertThat(result.success()).isTrue();
+        assertThat(result.finalText()).isEqualTo("pinned-ok");
+        assertThat(lookupCount.get()).isEqualTo(1);
     }
 }

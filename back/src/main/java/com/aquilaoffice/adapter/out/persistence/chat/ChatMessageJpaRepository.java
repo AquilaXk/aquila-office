@@ -8,7 +8,7 @@ import org.springframework.data.repository.query.Param;
 
 public interface ChatMessageJpaRepository extends JpaRepository<ChatMessageJpaEntity, Long> {
 
-    List<ChatMessageJpaEntity> findByWorkspace_IdAndTaskIdOrderByIdAsc(
+    List<ChatMessageJpaEntity> findByWorkspace_IdAndTaskIdOrderByIdDesc(
             Long workspaceId,
             Long taskId,
             Pageable pageable);

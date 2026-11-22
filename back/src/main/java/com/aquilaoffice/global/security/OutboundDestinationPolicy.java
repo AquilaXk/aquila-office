@@ -3,6 +3,7 @@ package com.aquilaoffice.global.security;
 import java.net.InetAddress;
 import java.net.URI;
 import java.net.UnknownHostException;
+import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Set;
@@ -55,6 +56,58 @@ public class OutboundDestinationPolicy {
      * @param allowLoopbackForLocalProvider 로컬 AI 공급자(예: Ollama)에 한해 loopback 허용 요청 여부
      */
     public URI validateUri(URI uri, boolean allowLoopbackForLocalProvider) {
+        if (testBypassEnabled) {
+            validateBasicUriStructure(uri);
+            return uri;
+        }
+        return validateAndResolveUri(uri, allowLoopbackForLocalProvider).uri();
+    }
+
+    public URI validateUri(URI uri) {
+        return validateUri(uri, false);
+    }
+
+    /**
+     * 대상 URI를 검증함과 동시에 DNS를 단 1회만 조회하여 고정할 IP 목록을 반환한다(DNS Rebinding TOCTOU 방지).
+     */
+    public ValidatedDestination validateAndResolveUri(URI uri, boolean allowLoopbackForLocalProvider) {
+        String rawHost = validateBasicUriStructure(uri);
+        String host = stripIpv6Brackets(rawHost).toLowerCase(Locale.ROOT);
+        if (testBypassEnabled) {
+            InetAddress[] resolved = resolveAddressesFailClosed(host);
+            return new ValidatedDestination(uri, host, List.of(resolved));
+        }
+
+        boolean allowLoopback = allowLocalModelHosts && allowLoopbackForLocalProvider;
+        validateHostnameSuffix(host, allowLoopback);
+
+        InetAddress[] addresses = resolveAddressesFailClosed(host);
+        for (InetAddress address : addresses) {
+            if (isBlockedAddress(address, allowLoopback)) {
+                throw new IllegalArgumentException("outbound destination IP is not allowed: " + host);
+            }
+        }
+        return new ValidatedDestination(uri, host, List.of(addresses));
+    }
+
+    /**
+     * 아웃바운드 HTTP/WebSocket 클라이언트 DNS 훅에서 검증된 IP 목록만 반환하도록 강제한다.
+     */
+    public static List<InetAddress> lookupPinnedHost(
+            ValidatedDestination destination,
+            String requestedHost) throws UnknownHostException {
+        Objects.requireNonNull(destination, "destination must not be null");
+        if (requestedHost == null || requestedHost.isBlank()) {
+            throw new UnknownHostException("requested host must not be blank");
+        }
+        String normalized = stripIpv6Brackets(requestedHost.trim()).toLowerCase(Locale.ROOT);
+        if (!destination.host().equals(normalized)) {
+            throw new UnknownHostException("unexpected unpinned host lookup: " + requestedHost);
+        }
+        return destination.addresses();
+    }
+
+    private static String validateBasicUriStructure(URI uri) {
         if (uri == null) {
             throw new IllegalArgumentException("outbound uri must not be null");
         }
@@ -69,25 +122,21 @@ public class OutboundDestinationPolicy {
         if (rawHost == null || rawHost.isBlank()) {
             throw new IllegalArgumentException("outbound uri host is required");
         }
-        if (testBypassEnabled) {
-            return uri;
-        }
-
-        String host = stripIpv6Brackets(rawHost).toLowerCase(Locale.ROOT);
-        boolean allowLoopback = allowLocalModelHosts && allowLoopbackForLocalProvider;
-        validateHostnameSuffix(host, allowLoopback);
-
-        InetAddress[] addresses = resolveAddressesFailClosed(host);
-        for (InetAddress address : addresses) {
-            if (isBlockedAddress(address, allowLoopback)) {
-                throw new IllegalArgumentException("outbound destination IP is not allowed: " + host);
-            }
-        }
-        return uri;
+        return rawHost;
     }
 
-    public URI validateUri(URI uri) {
-        return validateUri(uri, false);
+    public record ValidatedDestination(URI uri, String host, List<InetAddress> addresses) {
+
+        public ValidatedDestination {
+            uri = Objects.requireNonNull(uri, "uri must not be null");
+            if (host == null || host.isBlank()) {
+                throw new IllegalArgumentException("host must not be blank");
+            }
+            addresses = List.copyOf(Objects.requireNonNull(addresses, "addresses must not be null"));
+            if (addresses.isEmpty()) {
+                throw new IllegalArgumentException("addresses must not be empty");
+            }
+        }
     }
 
     private void validateHostnameSuffix(String host, boolean allowLoopback) {
@@ -201,11 +250,17 @@ public class OutboundDestinationPolicy {
         if (isIpv4MappedOrCompatibleIpv6(b)) {
             return isBlockedIpv4(packIpv4(b, 12), allowLoopback);
         }
-        if (isNat64WellKnownPrefix(b) || isNat64LocalUsePrefix(b)) {
+        if (isNat64LocalUsePrefix(b)) {
+            return true; // 64:ff9b:1::/48 RFC 8215 local-use NAT64
+        }
+        if (isNat64WellKnownPrefix(b)) {
             return isBlockedIpv4(packIpv4(b, 12), allowLoopback);
         }
         if (b0 == 0x20 && b1 == 0x02) {
             return isBlockedIpv4(packIpv4(b, 2), allowLoopback); // 2002::/16 6to4
+        }
+        if (isTeredoPrefix(b) || isBenchmarkingIpv6Prefix(b) || isOrchidV2Prefix(b)) {
+            return true;
         }
         if (b0 == 0x20 && b1 == 0x01 && (b[2] & 0xFF) == 0x0D && (b[3] & 0xFF) == 0xB8) {
             return true; // 2001:db8::/32 documentation
@@ -238,6 +293,12 @@ public class OutboundDestinationPolicy {
                 && hasZeroPrefix(b, 4, 12);
     }
 
+    public static OutboundDestinationPolicy withHostResolverForTesting(
+            boolean allowLocalModelHosts,
+            HostResolver resolver) {
+        return new OutboundDestinationPolicy(allowLocalModelHosts, false, resolver);
+    }
+
     private static boolean isNat64LocalUsePrefix(byte[] b) {
         return (b[0] & 0xFF) == 0x00
                 && (b[1] & 0xFF) == 0x64
@@ -245,6 +306,29 @@ public class OutboundDestinationPolicy {
                 && (b[3] & 0xFF) == 0x9B
                 && (b[4] & 0xFF) == 0x00
                 && (b[5] & 0xFF) == 0x01;
+    }
+
+    private static boolean isTeredoPrefix(byte[] b) {
+        return (b[0] & 0xFF) == 0x20
+                && (b[1] & 0xFF) == 0x01
+                && b[2] == 0
+                && b[3] == 0;
+    }
+
+    private static boolean isBenchmarkingIpv6Prefix(byte[] b) {
+        return (b[0] & 0xFF) == 0x20
+                && (b[1] & 0xFF) == 0x01
+                && b[2] == 0
+                && (b[3] & 0xFF) == 0x02
+                && b[4] == 0
+                && b[5] == 0;
+    }
+
+    private static boolean isOrchidV2Prefix(byte[] b) {
+        return (b[0] & 0xFF) == 0x20
+                && (b[1] & 0xFF) == 0x01
+                && b[2] == 0
+                && (b[3] & 0xF0) == 0x20;
     }
 
     private static boolean hasZeroPrefix(byte[] b, int startInclusive, int endExclusive) {
@@ -271,7 +355,7 @@ public class OutboundDestinationPolicy {
     }
 
     @FunctionalInterface
-    interface HostResolver {
+    public interface HostResolver {
         InetAddress[] resolve(String host) throws UnknownHostException;
     }
 }

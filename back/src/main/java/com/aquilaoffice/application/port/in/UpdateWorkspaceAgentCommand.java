@@ -17,7 +17,8 @@ public record UpdateWorkspaceAgentCommand(
         List<WorkspaceAgentSkillFileCommand> skillFiles,
         Long modelProviderId,
         String modelId,
-        String fallbackModelId) {
+        String fallbackModelId,
+        boolean updateModelConfig) {
 
     public UpdateWorkspaceAgentCommand {
         workspaceId = requirePositive(workspaceId, "workspaceId");
@@ -46,7 +47,24 @@ public record UpdateWorkspaceAgentCommand(
             WorkspaceAgentCategory category,
             String workspacePath,
             List<WorkspaceAgentSkillFileCommand> skillFiles) {
-        this(workspaceId, agentId, requesterGoogleSub, name, category, workspacePath, skillFiles, null, null, null);
+        this(workspaceId, agentId, requesterGoogleSub, name, category, workspacePath, skillFiles,
+                null, null, null, false);
+    }
+
+    public UpdateWorkspaceAgentCommand(
+            Long workspaceId,
+            Long agentId,
+            String requesterGoogleSub,
+            String name,
+            WorkspaceAgentCategory category,
+            String workspacePath,
+            List<WorkspaceAgentSkillFileCommand> skillFiles,
+            Long modelProviderId,
+            String modelId,
+            String fallbackModelId) {
+        this(workspaceId, agentId, requesterGoogleSub, name, category, workspacePath, skillFiles,
+                modelProviderId, modelId, fallbackModelId,
+                modelProviderId != null || modelId != null || fallbackModelId != null);
     }
 
     private static Long requirePositive(Long value, String fieldName) {

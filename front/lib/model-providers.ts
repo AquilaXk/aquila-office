@@ -141,12 +141,15 @@ export function validateModelProviderBaseUrl(rawUrl: string): string {
   if (parsed.username || parsed.password) {
     throw new RangeError("Base URL에 인증 정보(username/password)를 포함할 수 없습니다.");
   }
+  if (parsed.search) {
+    throw new RangeError("Base URL에 쿼리 문자열(?)을 포함할 수 없습니다.");
+  }
   if (parsed.hash) {
     throw new RangeError("Base URL에 해시(#) 프래그먼트를 포함할 수 없습니다.");
   }
 
   const normalizedPath = parsed.pathname.replace(/\/+$/, "");
-  return `${parsed.origin}${normalizedPath}${parsed.search}`;
+  return `${parsed.origin}${normalizedPath}`;
 }
 
 function validateDisplayName(raw: string): string {

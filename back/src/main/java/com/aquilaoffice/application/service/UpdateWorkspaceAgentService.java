@@ -117,11 +117,11 @@ public class UpdateWorkspaceAgentService implements UpdateWorkspaceAgentUseCase 
                 existing.modelId(),
                 existing.fallbackModelId());
         agent.update(command.name(), command.category(), command.workspacePath());
-        if (command.modelProviderId() != null || command.modelId() != null || command.fallbackModelId() != null) {
+        if (command.updateModelConfig()) {
             agent.updateModelConfig(
-                    command.modelProviderId() != null ? command.modelProviderId() : existing.modelProviderId(),
-                    command.modelId() != null ? command.modelId() : existing.modelId(),
-                    command.fallbackModelId() != null ? command.fallbackModelId() : existing.fallbackModelId());
+                    command.modelProviderId(),
+                    command.modelId(),
+                    command.fallbackModelId());
         }
 
         List<WorkspaceAgentSkillFile> replacedSkillFiles = toReplacedSkillFiles(command.skillFiles());
@@ -161,6 +161,13 @@ public class UpdateWorkspaceAgentService implements UpdateWorkspaceAgentUseCase 
             WorkspaceAgent agent,
             List<WorkspaceAgentSkillFile> skillFiles) {
         if (agent.getOpenClawAgentId() == null || agent.getOpenClawAgentId().isBlank()) {
+            return;
+        }
+        if (agent.getOpenClawAgentId().startsWith("direct-model:")) {
+            for (WorkspaceAgentSkillFile file : skillFiles) {
+                file.markSynced();
+            }
+            agent.markReady(agent.getOpenClawAgentId());
             return;
         }
         Optional<WorkspaceGatewayBinding> bindingOptional =

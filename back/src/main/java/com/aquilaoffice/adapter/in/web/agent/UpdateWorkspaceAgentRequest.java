@@ -39,7 +39,9 @@ public record UpdateWorkspaceAgentRequest(
         String modelId,
         @Schema(description = "폴백 모델 id", nullable = true)
         @Size(max = 160)
-        String fallbackModelId) {
+        String fallbackModelId,
+        @Schema(description = "모델 설정 반영 여부(true면 null 값을 해제로 반영)", nullable = true)
+        Boolean updateModelConfig) {
 
     public UpdateWorkspaceAgentRequest {
         if (skillFiles != null) {
@@ -55,7 +57,7 @@ public record UpdateWorkspaceAgentRequest(
             String category,
             String workspacePath,
             List<WorkspaceAgentSkillFileRequest> skillFiles) {
-        this(name, category, workspacePath, skillFiles, null, null, null, null);
+        this(name, category, workspacePath, skillFiles, null, null, null, null, null);
     }
 
     public UpdateWorkspaceAgentRequest(
@@ -64,10 +66,26 @@ public record UpdateWorkspaceAgentRequest(
             String workspacePath,
             List<WorkspaceAgentSkillFileRequest> skillFiles,
             String emoji) {
-        this(name, category, workspacePath, skillFiles, emoji, null, null, null);
+        this(name, category, workspacePath, skillFiles, emoji, null, null, null, null);
+    }
+
+    public UpdateWorkspaceAgentRequest(
+            String name,
+            String category,
+            String workspacePath,
+            List<WorkspaceAgentSkillFileRequest> skillFiles,
+            String emoji,
+            Long modelProviderId,
+            String modelId,
+            String fallbackModelId) {
+        this(name, category, workspacePath, skillFiles, emoji, modelProviderId, modelId, fallbackModelId, null);
     }
 
     public UpdateWorkspaceAgentCommand toCommand(Long workspaceId, Long agentId, String requesterGoogleSub) {
+        boolean shouldUpdateModelConfig = Boolean.TRUE.equals(updateModelConfig)
+                || modelProviderId != null
+                || modelId != null
+                || fallbackModelId != null;
         return new UpdateWorkspaceAgentCommand(
                 workspaceId,
                 agentId,
@@ -82,7 +100,8 @@ public record UpdateWorkspaceAgentRequest(
                                 .toList(),
                 modelProviderId,
                 modelId,
-                fallbackModelId);
+                fallbackModelId,
+                shouldUpdateModelConfig);
     }
 
     private static WorkspaceAgentCategory parseOptionalCategory(String category) {

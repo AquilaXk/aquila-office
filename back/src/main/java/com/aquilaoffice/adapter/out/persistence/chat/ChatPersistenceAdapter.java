@@ -78,13 +78,14 @@ public class ChatPersistenceAdapter
         Objects.requireNonNull(workspaceId, "workspaceId must not be null");
         Objects.requireNonNull(taskId, "taskId must not be null");
         return chatMessageJpaRepository
-                .findByWorkspace_IdAndTaskIdOrderByIdAsc(
+                .findByWorkspace_IdAndTaskIdOrderByIdDesc(
                         workspaceId,
                         taskId,
                         PageRequest.of(0, MAX_CHAT_MESSAGE_PAGE_SIZE))
                 .stream()
                 .map(this::toSavedChatMessage)
-                .toList();
+                .toList()
+                .reversed();
     }
 
     @Override

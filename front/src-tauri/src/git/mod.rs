@@ -32,9 +32,12 @@ fn validate_optional_relative_file_path(file_path: Option<&str>) -> Result<Optio
     }
     let path = Path::new(trimmed);
     if path.is_absolute()
-        || path
-            .components()
-            .any(|component| matches!(component, Component::ParentDir))
+        || path.components().any(|component| {
+            matches!(
+                component,
+                Component::ParentDir | Component::RootDir | Component::Prefix(_)
+            )
+        })
     {
         return Err("File path must stay relative to workspace".to_string());
     }

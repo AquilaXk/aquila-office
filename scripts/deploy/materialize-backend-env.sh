@@ -109,6 +109,9 @@ normalize_schema_management_env() {
         printf 'SPRING_FLYWAY_ENABLED=true\n'
         printf 'SPRING_FLYWAY_BASELINE_ON_MIGRATE=true\n'
     } >> "$normalized_file"
+    if ! grep -Eq '^[[:space:]]*(export[[:space:]]+)?AQUILA_MODEL_PROVIDER_ALLOW_LOCAL_HOSTS=' "$normalized_file"; then
+        printf 'AQUILA_MODEL_PROVIDER_ALLOW_LOCAL_HOSTS=false\n' >> "$normalized_file"
+    fi
     mv "$normalized_file" "$file"
 }
 

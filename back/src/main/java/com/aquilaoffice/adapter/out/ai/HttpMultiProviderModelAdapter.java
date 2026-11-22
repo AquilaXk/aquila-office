@@ -17,13 +17,13 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InterruptedIOException;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
-import java.net.http.HttpTimeoutException;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.LinkedHashSet;
@@ -31,6 +31,12 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import okhttp3.MediaType;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.RequestBody;
+import okhttp3.Response;
+import okhttp3.ResponseBody;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Repository;
@@ -52,8 +58,9 @@ public class HttpMultiProviderModelAdapter implements RunWorkspaceModelPort, Tes
     private static final int RUN_MAX_OUTPUT_TOKENS = 4096;
     private static final int MAX_PREVIEW_CHARS = 160;
     private static final int MAX_ERROR_CHARS = 320;
+    private static final MediaType JSON_MEDIA_TYPE = MediaType.get("application/json; charset=utf-8");
 
-    private final HttpClient httpClient;
+    private final OkHttpClient baseHttpClient;
     private final OutboundDestinationPolicy outboundDestinationPolicy;
     private final HostCircuitBreakerRegistry hostCircuitBreakerRegistry;
     private final ObjectMapper objectMapper;
@@ -64,26 +71,39 @@ public class HttpMultiProviderModelAdapter implements RunWorkspaceModelPort, Tes
             HostCircuitBreakerRegistry hostCircuitBreakerRegistry,
             ObjectProvider<ObjectMapper> objectMapperProvider) {
         this(
-                HttpClient.newBuilder()
-                        .followRedirects(HttpClient.Redirect.NEVER)
-                        .connectTimeout(CONNECT_TIMEOUT)
-                        .build(),
+                defaultOkHttpClient(),
                 outboundDestinationPolicy,
                 hostCircuitBreakerRegistry,
                 objectMapperProvider.getIfAvailable(ObjectMapper::new));
     }
 
     public HttpMultiProviderModelAdapter(
-            HttpClient httpClient,
+            HttpClient ignoredLegacyClient,
             OutboundDestinationPolicy outboundDestinationPolicy,
             HostCircuitBreakerRegistry hostCircuitBreakerRegistry,
             ObjectMapper objectMapper) {
-        this.httpClient = Objects.requireNonNull(httpClient, "httpClient must not be null");
+        this(defaultOkHttpClient(), outboundDestinationPolicy, hostCircuitBreakerRegistry, objectMapper);
+    }
+
+    public HttpMultiProviderModelAdapter(
+            OkHttpClient baseHttpClient,
+            OutboundDestinationPolicy outboundDestinationPolicy,
+            HostCircuitBreakerRegistry hostCircuitBreakerRegistry,
+            ObjectMapper objectMapper) {
+        this.baseHttpClient = Objects.requireNonNull(baseHttpClient, "baseHttpClient must not be null");
         this.outboundDestinationPolicy = Objects.requireNonNull(
                 outboundDestinationPolicy, "outboundDestinationPolicy must not be null");
         this.hostCircuitBreakerRegistry = Objects.requireNonNull(
                 hostCircuitBreakerRegistry, "hostCircuitBreakerRegistry must not be null");
         this.objectMapper = Objects.requireNonNull(objectMapper, "objectMapper must not be null");
+    }
+
+    private static OkHttpClient defaultOkHttpClient() {
+        return new OkHttpClient.Builder()
+                .followRedirects(false)
+                .followSslRedirects(false)
+                .connectTimeout(CONNECT_TIMEOUT)
+                .build();
     }
 
     @Override
@@ -285,9 +305,9 @@ public class HttpMultiProviderModelAdapter implements RunWorkspaceModelPort, Tes
             Duration timeout,
             int maxBytes) {
         boolean allowLoopback = providerKind == ModelProviderKind.OLLAMA;
-        URI validatedUri;
+        OutboundDestinationPolicy.ValidatedDestination destination;
         try {
-            validatedUri = outboundDestinationPolicy.validateUri(targetUri, allowLoopback);
+            destination = outboundDestinationPolicy.validateAndResolveUri(targetUri, allowLoopback);
         } catch (IllegalArgumentException exception) {
             return HttpExecutionResult.fail(
                     ModelProviderConnectionStatus.UNREACHABLE,
@@ -295,7 +315,7 @@ public class HttpMultiProviderModelAdapter implements RunWorkspaceModelPort, Tes
                     false);
         }
 
-        String host = validatedUri.getHost();
+        String host = destination.host();
         HostCircuitBreakerRegistry.CircuitLease lease = hostCircuitBreakerRegistry.tryAcquire(host);
         if (!lease.allowed()) {
             return HttpExecutionResult.fail(
@@ -304,53 +324,67 @@ public class HttpMultiProviderModelAdapter implements RunWorkspaceModelPort, Tes
                     true);
         }
 
+        OkHttpClient pinnedClient = baseHttpClient.newBuilder()
+                .callTimeout(timeout)
+                .readTimeout(timeout)
+                .writeTimeout(timeout)
+                .dns(requestedHost -> OutboundDestinationPolicy.lookupPinnedHost(destination, requestedHost))
+                .build();
+
         try {
-            HttpRequest.Builder builder = HttpRequest.newBuilder(validatedUri)
-                    .timeout(timeout)
+            Request.Builder builder = new Request.Builder()
+                    .url(destination.uri().toString())
                     .header("Accept", "application/json");
             applyAuthHeaders(builder, wireProtocol, apiKey);
             if ("POST".equals(method)) {
                 builder.header("Content-Type", "application/json; charset=utf-8")
-                        .POST(HttpRequest.BodyPublishers.ofString(jsonBody, StandardCharsets.UTF_8));
+                        .post(RequestBody.create(jsonBody == null ? "" : jsonBody, JSON_MEDIA_TYPE));
             } else {
-                builder.GET();
+                builder.get();
             }
 
-            HttpResponse<String> response =
-                    httpClient.send(builder.build(), BoundedHttpBodySubscribers.ofString(maxBytes));
-            int code = response.statusCode();
-            if (code >= 200 && code < 300) {
-                hostCircuitBreakerRegistry.recordSuccess(host, lease);
-                return HttpExecutionResult.success(response.body());
-            }
-
-            if (code == 401 || code == 403) {
+            try (Response response = pinnedClient.newCall(builder.build()).execute()) {
+                String bodyText = readBoundedUtf8(response.body(), maxBytes);
+                int code = response.code();
+                if (code >= 200 && code < 300) {
+                    hostCircuitBreakerRegistry.recordSuccess(host, lease);
+                    return HttpExecutionResult.success(bodyText);
+                }
+                if (code == 401 || code == 403) {
+                    hostCircuitBreakerRegistry.recordSuccess(host, lease);
+                    return HttpExecutionResult.fail(
+                            ModelProviderConnectionStatus.TOKEN_INVALID,
+                            "Authentication rejected by provider (HTTP " + code + ")",
+                            false);
+                }
+                if (code == 429) {
+                    hostCircuitBreakerRegistry.recordFailure(host, lease);
+                    return HttpExecutionResult.fail(
+                            ModelProviderConnectionStatus.RATE_LIMITED,
+                            "Provider rate limited request (HTTP 429)",
+                            true);
+                }
+                if (code >= 500) {
+                    hostCircuitBreakerRegistry.recordFailure(host, lease);
+                    return HttpExecutionResult.fail(
+                            ModelProviderConnectionStatus.FAILED,
+                            buildHttpErrorSummary(code, bodyText),
+                            true);
+                }
                 hostCircuitBreakerRegistry.recordSuccess(host, lease);
                 return HttpExecutionResult.fail(
-                        ModelProviderConnectionStatus.TOKEN_INVALID,
-                        "Authentication rejected by provider (HTTP " + code + ")",
+                        ModelProviderConnectionStatus.FAILED,
+                        buildHttpErrorSummary(code, bodyText),
                         false);
             }
-            if (code == 429) {
-                hostCircuitBreakerRegistry.recordFailure(host, lease);
-                return HttpExecutionResult.fail(
-                        ModelProviderConnectionStatus.RATE_LIMITED,
-                        "Provider rate limited request (HTTP 429)",
-                        true);
-            }
-            if (code >= 500) {
+        } catch (InterruptedIOException exception) {
+            if (Thread.currentThread().isInterrupted()) {
                 hostCircuitBreakerRegistry.recordFailure(host, lease);
                 return HttpExecutionResult.fail(
                         ModelProviderConnectionStatus.FAILED,
-                        buildHttpErrorSummary(code, response.body()),
-                        true);
+                        "Provider request interrupted",
+                        false);
             }
-            hostCircuitBreakerRegistry.recordSuccess(host, lease);
-            return HttpExecutionResult.fail(
-                    ModelProviderConnectionStatus.FAILED,
-                    buildHttpErrorSummary(code, response.body()),
-                    false);
-        } catch (HttpTimeoutException exception) {
             hostCircuitBreakerRegistry.recordFailure(host, lease);
             return HttpExecutionResult.fail(
                     ModelProviderConnectionStatus.TIMEOUT,
@@ -362,18 +396,32 @@ public class HttpMultiProviderModelAdapter implements RunWorkspaceModelPort, Tes
                     ModelProviderConnectionStatus.UNREACHABLE,
                     "Provider IO failure: " + SecretRedactor.redactThrowable(exception, MAX_ERROR_CHARS),
                     true);
-        } catch (InterruptedException exception) {
-            Thread.currentThread().interrupt();
-            hostCircuitBreakerRegistry.recordFailure(host, lease);
-            return HttpExecutionResult.fail(
-                    ModelProviderConnectionStatus.FAILED,
-                    "Provider request interrupted",
-                    false);
         }
     }
 
+    private static String readBoundedUtf8(ResponseBody body, int maxBytes) throws IOException {
+        if (body == null) {
+            return "";
+        }
+        int limit = Math.max(1, maxBytes);
+        byte[] buffer = new byte[8192];
+        ByteArrayOutputStream out = new ByteArrayOutputStream(Math.min(limit, 8192));
+        try (InputStream input = body.byteStream()) {
+            int total = 0;
+            int read;
+            while ((read = input.read(buffer)) != -1) {
+                if (total + read > limit) {
+                    throw new IOException("HTTP response body exceeds maxBytes: " + limit);
+                }
+                out.write(buffer, 0, read);
+                total += read;
+            }
+        }
+        return out.toString(StandardCharsets.UTF_8);
+    }
+
     private static void applyAuthHeaders(
-            HttpRequest.Builder builder,
+            Request.Builder builder,
             ModelWireProtocol protocol,
             String apiKey) {
         if (apiKey == null || apiKey.isBlank()) {

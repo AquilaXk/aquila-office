@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.aquilaoffice.global.security.OutboundDestinationPolicy;
+import java.net.InetAddress;
 import java.net.URI;
 import java.net.http.WebSocket;
 import java.nio.ByteBuffer;
@@ -14,6 +15,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import okhttp3.OkHttpClient;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -95,6 +97,76 @@ class JdkGatewayWebSocketTransportTest {
                 .isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> transport.connect(URI.create("ws://169.254.169.254/latest"), noop))
                 .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void connectResolvesDnsOnceThroughPinnedPolicyAndEnforcesOkHttpFrameLimit() {
+        AtomicInteger lookupCount = new AtomicInteger();
+        OutboundDestinationPolicy policy = OutboundDestinationPolicy.withHostResolverForTesting(
+                false,
+                host -> {
+                    lookupCount.incrementAndGet();
+                    return new InetAddress[] {InetAddress.getByName("127.0.0.1")};
+                });
+        JdkGatewayWebSocketTransport transport = new JdkGatewayWebSocketTransport(new OkHttpClient(), policy);
+        GatewayWebSocketListener noop = new GatewayWebSocketListener() {
+            @Override
+            public void onText(String message) {}
+
+            @Override
+            public void onError(Throwable error) {}
+        };
+
+        assertThatThrownBy(() -> transport.connect(URI.create("ws://rebind.example:18789/rpc"), noop))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThat(lookupCount.get()).isEqualTo(1);
+
+        AtomicReference<Throwable> recordedError = new AtomicReference<>();
+        CompletableFuture<GatewayWebSocketSession> connected = new CompletableFuture<>();
+        okhttp3.WebSocketListener okListener = JdkGatewayWebSocketTransport.createOkHttpListener(
+                new GatewayWebSocketListener() {
+                    @Override
+                    public void onText(String message) {}
+
+                    @Override
+                    public void onError(Throwable error) {
+                        recordedError.set(error);
+                    }
+                },
+                connected);
+        okhttp3.WebSocket mockSocket = new okhttp3.WebSocket() {
+            @Override
+            public okhttp3.Request request() {
+                return new okhttp3.Request.Builder().url("http://127.0.0.1/").build();
+            }
+
+            @Override
+            public long queueSize() {
+                return 0;
+            }
+
+            @Override
+            public boolean send(String text) {
+                return false;
+            }
+
+            @Override
+            public boolean send(okio.ByteString bytes) {
+                return false;
+            }
+
+            @Override
+            public boolean close(int code, String reason) {
+                return false;
+            }
+
+            @Override
+            public void cancel() {}
+        };
+        okListener.onMessage(mockSocket, "x".repeat(JdkGatewayWebSocketTransport.MAX_FRAME_CHARS + 1));
+        assertThat(recordedError.get())
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("exceeds maximum length");
     }
 
     private static final class RecordingWebSocket implements WebSocket {

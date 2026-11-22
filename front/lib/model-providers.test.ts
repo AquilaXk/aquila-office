@@ -121,6 +121,7 @@ test("validateModelProviderInput enforces fail-closed URL scheme, character limi
     "javascript:alert(1)",
     "file:///etc/passwd",
     "https://user:pass@api.openai.com/v1",
+    "https://api.openai.com/v1?api-version=2025",
     `https://example.com/${"a".repeat(MAX_MODEL_PROVIDER_URL_CHARS)}`,
   ]) {
     assert.throws(

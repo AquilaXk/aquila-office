@@ -77,7 +77,7 @@ aquila:
   ops:
     public-docs-and-metrics: ${AQUILA_OPS_PUBLIC_DOCS_AND_METRICS:false}
   model-provider:
-    allow-local-hosts: ${AQUILA_MODEL_PROVIDER_ALLOW_LOCAL_HOSTS:true}
+    allow-local-hosts: ${AQUILA_MODEL_PROVIDER_ALLOW_LOCAL_HOSTS:false}
 
 springdoc:
   api-docs:

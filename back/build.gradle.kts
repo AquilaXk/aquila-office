@@ -36,6 +36,7 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-flyway")
     implementation("org.springframework.security:spring-security-oauth2-jose")
     implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.3")
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
 
     runtimeOnly("com.h2database:h2")
     runtimeOnly("io.micrometer:micrometer-registry-prometheus")

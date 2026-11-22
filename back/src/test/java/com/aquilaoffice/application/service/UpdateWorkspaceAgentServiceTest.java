@@ -180,6 +180,92 @@ class UpdateWorkspaceAgentServiceTest {
                 .hasMessage("skill file content exceeds max length");
     }
 
+    @Test
+    void clearsModelConfigWhenUpdateModelConfigFlagIsTrue() {
+        FakeLoadMemberPort memberPort =
+                new FakeLoadMemberPort(Optional.of(Member.createUser("admin-1", "admin@example.com", "Admin")));
+        FakeLoadWorkspacePort workspacePort = new FakeLoadWorkspacePort(Optional.of(workspaceDetail(WorkspaceMemberRole.ADMIN)));
+        SavedWorkspaceAgent agentWithModel = new SavedWorkspaceAgent(
+                501L,
+                101L,
+                "Model Agent",
+                WorkspaceAgentCategory.BACKEND,
+                "direct-model:abc",
+                ".aquila/workspaces/old",
+                WorkspaceAgentStatus.READY,
+                null,
+                "admin-1",
+                LocalDateTime.of(2026, 5, 16, 10, 0),
+                LocalDateTime.of(2026, 5, 16, 10, 0),
+                List.of(),
+                9L,
+                "gpt-5.2",
+                "claude-sonnet-4-5");
+        FakeAgentStore agentStore = new FakeAgentStore(agentWithModel);
+        UpdateWorkspaceAgentService service = new UpdateWorkspaceAgentService(
+                memberPort,
+                workspacePort,
+                agentStore,
+                agentStore,
+                new FakeLoadGatewayBindingPort(Optional.empty()),
+                new FakeSyncGatewayPort(null));
+
+        UpdateWorkspaceAgentResult result = service.updateWorkspaceAgent(new UpdateWorkspaceAgentCommand(
+                101L,
+                501L,
+                "admin-1",
+                "Model Agent",
+                WorkspaceAgentCategory.BACKEND,
+                null,
+                null,
+                null,
+                null,
+                null,
+                true));
+
+        assertThat(result.modelProviderId()).isNull();
+        assertThat(result.modelId()).isNull();
+        assertThat(result.fallbackModelId()).isNull();
+    }
+
+    @Test
+    void skipsGatewaySkillSyncForDirectModelAgentsEvenWhenGatewayBound() {
+        FakeLoadMemberPort memberPort =
+                new FakeLoadMemberPort(Optional.of(Member.createUser("admin-1", "admin@example.com", "Admin")));
+        FakeLoadWorkspacePort workspacePort = new FakeLoadWorkspacePort(Optional.of(workspaceDetail(WorkspaceMemberRole.ADMIN)));
+        FakeAgentStore agentStore = new FakeAgentStore(existingAgent("direct-model:uuid-1", WorkspaceAgentStatus.READY));
+        FakeLoadGatewayBindingPort gatewayBindingPort = new FakeLoadGatewayBindingPort(Optional.of(
+                WorkspaceGatewayBinding.create(101L, "https://gateway.example.com", "secret-token", "admin-1")));
+        FakeSyncGatewayPort syncGatewayPort = new FakeSyncGatewayPort(new SyncWorkspaceAgentSkillFilesResult(
+                false,
+                "gateway should not be called",
+                List.of()));
+
+        UpdateWorkspaceAgentService service = new UpdateWorkspaceAgentService(
+                memberPort,
+                workspacePort,
+                agentStore,
+                agentStore,
+                gatewayBindingPort,
+                syncGatewayPort);
+
+        UpdateWorkspaceAgentResult result = service.updateWorkspaceAgent(new UpdateWorkspaceAgentCommand(
+                101L,
+                501L,
+                "admin-1",
+                "Direct Agent",
+                WorkspaceAgentCategory.QA,
+                ".aquila/workspaces/direct",
+                List.of(new WorkspaceAgentSkillFileCommand("AGENTS.md", "# rules"))));
+
+        assertThat(syncGatewayPort.called).isFalse();
+        assertThat(result.status()).isEqualTo(WorkspaceAgentStatus.READY);
+        assertThat(result.skillFiles()).singleElement().satisfies(file -> {
+            assertThat(file.fileName()).isEqualTo("AGENTS.md");
+            assertThat(file.syncStatus()).isEqualTo(WorkspaceAgentSkillFileSyncStatus.SYNCED);
+        });
+    }
+
     private static GetWorkspaceDetailResult workspaceDetail(WorkspaceMemberRole role) {
         return new GetWorkspaceDetailResult(
                 101L,
@@ -271,7 +357,10 @@ class UpdateWorkspaceAgentServiceTest {
                     agent.getCreatedByGoogleSub(),
                     existing.createdAt(),
                     LocalDateTime.of(2026, 5, 16, 10, 5),
-                    files);
+                    files,
+                    agent.getModelProviderId(),
+                    agent.getModelId(),
+                    agent.getFallbackModelId());
         }
     }
 

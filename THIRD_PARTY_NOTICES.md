@@ -138,6 +138,7 @@ THE SOFTWARE.
 | Tauri (`tauri`) | Desktop Shell | `2` | `Apache-2.0 OR MIT` | Dual permissive; compatible |
 | `git2` / `libgit2` | Desktop Shell (Git) | `0.20` | `git2`: `MIT OR Apache-2.0`; `libgit2`: `GPL-2.0-only WITH GCC-exception-2.0` Linking Exception | Compatible via linking exception for compiled binaries |
 | Logback | Backend (Logging) | Managed by Spring Boot `4.0.5` | `EPL-2.0 OR LGPL-2.1` dual license | Used unmodified under EPL-2.0; compatible |
+| OkHttp (`okhttp3`) | Backend (Outbound HTTP/WS) | `4.12.0` | `Apache-2.0` | Native match; DNS-pinned transport |
 
 ---
 

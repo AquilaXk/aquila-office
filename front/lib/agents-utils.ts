@@ -68,6 +68,7 @@ export type UpdateWorkspaceAgentInput = {
   modelProviderId?: number | null;
   modelId?: string | null;
   fallbackModelId?: string | null;
+  updateModelConfig?: boolean;
 };
 
 export function validateAgentSkillFiles(

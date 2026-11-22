@@ -343,6 +343,13 @@ public class WorkspaceModelProvider {
         if (uri.getHost() == null || uri.getHost().isBlank()) {
             throw new IllegalArgumentException("baseUrl host is required");
         }
+        if (uri.getRawUserInfo() != null && !uri.getRawUserInfo().isBlank()) {
+            throw new IllegalArgumentException("baseUrl must not embed credentials");
+        }
+        if ((uri.getRawQuery() != null && !uri.getRawQuery().isBlank())
+                || (uri.getRawFragment() != null && !uri.getRawFragment().isBlank())) {
+            throw new IllegalArgumentException("baseUrl must not include query or fragment");
+        }
         if (normalized.endsWith("/")) {
             return normalized.substring(0, normalized.length() - 1);
         }

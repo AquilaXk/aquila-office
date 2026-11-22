@@ -51,6 +51,20 @@ class OutboundDestinationPolicyTest {
                         0x00, 0x64, (byte) 0xFF, (byte) 0x9B, 0, 0, 0, 0, 0, 0, 0, 0,
                         (byte) 169, (byte) 254, (byte) 169, (byte) 254
                 })}),
+                Map.entry("nat64-local.example", new InetAddress[] {InetAddress.getByAddress(new byte[] {
+                        0x00, 0x64, (byte) 0xFF, (byte) 0x9B, 0x00, 0x01, (byte) 0xA9, (byte) 0xFE,
+                        0, (byte) 0xA9, (byte) 0xFE, 0, 0x08, 0x08, 0x08, 0x08
+                })}),
+                Map.entry("teredo.example", new InetAddress[] {InetAddress.getByAddress(new byte[] {
+                        0x20, 0x01, 0x00, 0x00, 0x41, 0x36, (byte) 0xE3, 0x78,
+                        (byte) 0x80, 0x00, 0x63, (byte) 0xBF, 0x3F, (byte) 0xFF, (byte) 0xFD, (byte) 0xD2
+                })}),
+                Map.entry("benchmark6.example", new InetAddress[] {InetAddress.getByAddress(new byte[] {
+                        0x20, 0x01, 0x00, 0x02, 0x00, 0x00, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1
+                })}),
+                Map.entry("orchid6.example", new InetAddress[] {InetAddress.getByAddress(new byte[] {
+                        0x20, 0x01, 0x00, 0x20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1
+                })}),
                 Map.entry("v4mapped.example", new InetAddress[] {InetAddress.getByAddress(new byte[] {
                         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, (byte) 0xFF, (byte) 0xFF, 127, 0, 0, 1
                 })}),
@@ -63,6 +77,7 @@ class OutboundDestinationPolicyTest {
                 "loop.example", "loop6.example", "rfc1918-10.example", "rfc1918-172.example",
                 "rfc1918-192.example", "cgnat.example", "ali-meta.example", "aws-meta.example",
                 "ula6.example", "link6.example", "multicast.example", "nat64.example",
+                "nat64-local.example", "teredo.example", "benchmark6.example", "orchid6.example",
                 "v4mapped.example", "mixed.example"
         }) {
             assertThatThrownBy(() -> policy.validateUri(URI.create("https://" + host + "/v1")))
@@ -96,5 +111,22 @@ class OutboundDestinationPolicyTest {
                 .isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> enabled.validateUri(URI.create("http://private.example:11434/api/tags"), true))
                 .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void pinsResolvedAddressesToPreventSecondDnsLookup() throws Exception {
+        InetAddress pinnedIp = InetAddress.getByName("104.18.6.192");
+        OutboundDestinationPolicy policy = policyWithDns(false, Map.of(
+                "api.openai.com", new InetAddress[] {pinnedIp}));
+
+        OutboundDestinationPolicy.ValidatedDestination destination =
+                policy.validateAndResolveUri(URI.create("https://api.openai.com/v1/models"), false);
+
+        assertThat(OutboundDestinationPolicy.lookupPinnedHost(destination, "api.openai.com"))
+                .containsExactly(pinnedIp);
+        assertThat(OutboundDestinationPolicy.lookupPinnedHost(destination, "API.OPENAI.COM"))
+                .containsExactly(pinnedIp);
+        assertThatThrownBy(() -> OutboundDestinationPolicy.lookupPinnedHost(destination, "evil.example"))
+                .isInstanceOf(UnknownHostException.class);
     }
 }

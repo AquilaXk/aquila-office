@@ -21,6 +21,8 @@ public class SecretRedactor implements RedactSensitiveTextPort {
             "sk-proj-",
             "sk-svcacct-",
             "sk-",
+            "xai-",
+            "gsk_",
             "ghp_",
             "gho_",
             "ghu_",
