@@ -6,8 +6,9 @@ use std::sync::Mutex;
 
 const SERVICE_NAME: &str = "com.aquila.office";
 pub const MAX_VAULT_KEY_BYTES: usize = 256;
-// Windows Credential Manager limits credential blobs to 2,560 bytes.
 pub const MAX_VAULT_TOKEN_BYTES: usize = 2_048;
+// keyring-3.x Windows Credential Manager 백엔드는 시크릿을 UTF-16LE로 저장하며 2,560바이트 상한이 있다.
+pub const MAX_WINDOWS_CREDENTIAL_BYTES: usize = 2_560;
 
 #[cfg(test)]
 static TEST_VAULT: Mutex<Option<HashMap<String, String>>> = Mutex::new(None);
@@ -33,6 +34,13 @@ fn validate_vault_token(token: &str) -> Result<(), String> {
         return Err(format!(
             "Vault token length exceeds maximum ({} bytes)",
             MAX_VAULT_TOKEN_BYTES
+        ));
+    }
+    let utf16_bytes = token.encode_utf16().count().saturating_mul(2);
+    if utf16_bytes > MAX_WINDOWS_CREDENTIAL_BYTES {
+        return Err(format!(
+            "Vault token UTF-16 size exceeds Windows Credential Manager limit ({} bytes)",
+            MAX_WINDOWS_CREDENTIAL_BYTES
         ));
     }
     Ok(())
@@ -144,21 +152,24 @@ mod tests {
     fn test_vault_fail_closed_size_limits() {
         assert_eq!(MAX_VAULT_KEY_BYTES, 256);
         assert_eq!(MAX_VAULT_TOKEN_BYTES, 2_048);
+        assert_eq!(MAX_WINDOWS_CREDENTIAL_BYTES, 2_560);
 
         assert!(save_secure_token_sync(String::new(), "abc".to_string()).is_err());
         assert!(get_secure_token_sync(String::new()).is_err());
         assert!(delete_secure_token_sync(String::new()).is_err());
 
         let max_key = "k".repeat(MAX_VAULT_KEY_BYTES);
-        let max_token = "t".repeat(MAX_VAULT_TOKEN_BYTES);
-        assert!(save_secure_token_sync(max_key.clone(), max_token).is_ok());
+        let max_ascii_token = "t".repeat(MAX_WINDOWS_CREDENTIAL_BYTES / 2);
+        assert!(save_secure_token_sync(max_key.clone(), max_ascii_token).is_ok());
         assert!(delete_secure_token_sync(max_key).is_ok());
 
         let oversized_key = "k".repeat(MAX_VAULT_KEY_BYTES + 1);
-        let oversized_token = "t".repeat(MAX_VAULT_TOKEN_BYTES + 1);
+        let oversized_utf16_token = "t".repeat((MAX_WINDOWS_CREDENTIAL_BYTES / 2) + 1);
+        let oversized_utf8_token = "가".repeat((MAX_VAULT_TOKEN_BYTES / 3) + 1);
         assert!(save_secure_token_sync(oversized_key.clone(), "ok".to_string()).is_err());
         assert!(get_secure_token_sync(oversized_key.clone()).is_err());
         assert!(delete_secure_token_sync(oversized_key).is_err());
-        assert!(save_secure_token_sync("valid_key".to_string(), oversized_token).is_err());
+        assert!(save_secure_token_sync("valid_key".to_string(), oversized_utf16_token).is_err());
+        assert!(save_secure_token_sync("valid_key".to_string(), oversized_utf8_token).is_err());
     }
 }

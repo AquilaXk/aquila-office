@@ -253,7 +253,8 @@ jobs:
       - name: Verify bundled license notices inside deb package
         run: |
           set -euo pipefail
-          DEB_PATH="$(ls front/src-tauri/target/release/bundle/deb/*.deb | head -n 1)"
+          DEB_PATH="$(find front/src-tauri/target/release/bundle/deb -maxdepth 1 -name '*.deb' -print -quit)"
+          [[ -n "$DEB_PATH" ]] || { echo "::error::No .deb bundle found"; exit 1; }
           LISTING="$(dpkg-deb -c "$DEB_PATH")"
           for file in LICENSE NOTICE THIRD_PARTY_NOTICES.md; do
             grep -qF "$file" <<<"$LISTING" || { echo "::error::$file missing from $DEB_PATH"; exit 1; }

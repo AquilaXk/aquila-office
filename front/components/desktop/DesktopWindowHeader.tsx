@@ -47,9 +47,14 @@ export default function DesktopWindowHeader({
           }
         };
         await syncMaximized();
-        unlistenResize = await appWindow.onResized(() => {
+        const unlisten = await appWindow.onResized(() => {
           void syncMaximized();
         });
+        if (cancelled) {
+          unlisten();
+          return;
+        }
+        unlistenResize = unlisten;
       } catch {
         // 테스트 또는 브라우저 fallback
       }
