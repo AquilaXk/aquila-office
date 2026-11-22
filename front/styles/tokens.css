@@ -3,28 +3,35 @@
 :root {
   color-scheme: dark;
 
-  /* Dark desktop slate surfaces */
-  --surface-canvas: #121317;
-  --surface-1: #18191d;
-  --surface-panel: #18191d;
-  --surface-2: #212226;
-  --surface-3: #2f3034;
+  /* Dark Obsidian-Slate desktop surfaces */
+  --surface-canvas: #0b0e14;
+  --surface-1: #111620;
+  --surface-panel: #111620;
+  --surface-2: #161d2a;
+  --surface-3: #1f2937;
 
   /* Ink hierarchy (4.5:1+ contrast on dark surfaces) */
-  --text-primary: #f8f9fc;
-  --text-secondary: #b8c1cc;
-  --text-muted: #949ba6;
+  --text-primary: #f8fafc;
+  --text-secondary: #cbd5e1;
+  --text-muted: #94a3b8;
 
   /* Structural hairlines */
-  --border-subtle: rgba(230, 234, 240, 0.08);
-  --border-default: rgba(230, 234, 240, 0.14);
-  --border-strong: rgba(230, 234, 240, 0.24);
+  --border-subtle: rgba(148, 163, 184, 0.14);
+  --border-default: rgba(148, 163, 184, 0.22);
+  --border-strong: rgba(148, 163, 184, 0.34);
 
-  /* Functional accent & status tokens */
-  --accent-primary: #3279f9;
-  --status-success: #34a853;
-  --status-warning: #fbbc04;
-  --status-danger: #ea4335;
+  /* Functional accent & 6-slot categorical telemetry tokens */
+  --accent-primary: #2563eb;
+  --status-success: #34d399;
+  --status-warning: #fbbf24;
+  --status-danger: #f87171;
+  --chart-1: #60a5fa;
+  --chart-2: #2dd4bf;
+  --chart-3: #fbbf24;
+  --chart-4: #a78bfa;
+  --chart-5: #fb7185;
+  --chart-6: #38bdf8;
+  accent-color: var(--accent-primary);
 
   --accent-subtle: rgba(50, 121, 249, 0.14);
   --accent-border: rgba(50, 121, 249, 0.36);
@@ -145,14 +152,14 @@
   --ui-text-muted: var(--text-muted);
   --ui-text-hint: #848d9a;
 
-  --ui-hover: rgba(230, 234, 240, 0.06);
-  --ui-hover-strong: rgba(230, 234, 240, 0.12);
-  --ui-active: rgba(50, 121, 249, 0.18);
-  --ui-selected: rgba(50, 121, 249, 0.16);
-  --ui-menu-open: rgba(230, 234, 240, 0.1);
-  --ui-toolbar-bg-start: #1b1c21;
-  --ui-toolbar-bg-end: #16171b;
-  --ui-shadow: 0 12px 32px rgba(0, 0, 0, 0.42);
+  --ui-hover: rgba(148, 163, 184, 0.08);
+  --ui-hover-strong: rgba(148, 163, 184, 0.14);
+  --ui-active: rgba(37, 99, 235, 0.20);
+  --ui-selected: rgba(37, 99, 235, 0.18);
+  --ui-menu-open: rgba(148, 163, 184, 0.12);
+  --ui-toolbar-bg-start: #141a26;
+  --ui-toolbar-bg-end: #0f141e;
+  --ui-shadow: 0 14px 36px rgba(0, 0, 0, 0.48);
 
   --accent-strong: var(--brand-600);
   --accent-light: var(--brand-400);
@@ -213,27 +220,34 @@
   color-scheme: light;
 
   /* Surface scale (Light desktop slate/paper) */
-  --surface-canvas: #f3f5f8;
+  --surface-canvas: #f3f6fa;
   --surface-1: #ffffff;
   --surface-panel: #ffffff;
-  --surface-2: #ebeef4;
-  --surface-3: #dde2ec;
+  --surface-2: #eef2f7;
+  --surface-3: #e2e8f0;
 
   /* Text hierarchy (4.5:1+ contrast on light surfaces) */
-  --text-primary: #111827;
+  --text-primary: #0f172a;
   --text-secondary: #334155;
-  --text-muted: #525e70;
+  --text-muted: #475569;
 
   /* Hairlines & dividers */
-  --border-subtle: rgba(15, 23, 42, 0.08);
+  --border-subtle: rgba(15, 23, 42, 0.09);
   --border-default: rgba(15, 23, 42, 0.16);
   --border-strong: rgba(15, 23, 42, 0.28);
 
-  /* Semantic accent & status */
-  --accent-primary: #2563eb;
-  --status-success: #15803d;
-  --status-warning: #b45309;
+  /* Semantic accent, status & categorical chart palette */
+  --accent-primary: #1d4ed8;
+  --status-success: #0e9f6e;
+  --status-warning: #c2410c;
   --status-danger: #dc2626;
+  --chart-1: #2563eb;
+  --chart-2: #0d9488;
+  --chart-3: #d97706;
+  --chart-4: #7c3aed;
+  --chart-5: #e11d48;
+  --chart-6: #0284c7;
+  accent-color: var(--accent-primary);
 
   --accent-subtle: rgba(37, 99, 235, 0.10);
   --accent-border: rgba(37, 99, 235, 0.34);
@@ -367,4 +381,18 @@
   --stage-plant-pot: #94a3b8;
   --stage-card-shadow: 0 6px 20px rgba(15, 23, 42, 0.08);
   --stage-furniture-shadow: 0 2px 6px rgba(15, 23, 42, 0.08);
+}
+
+/* Top-layer modal scroll containment & CJK heading tracking normalization */
+dialog:modal {
+  overscroll-behavior: contain;
+}
+
+dialog::backdrop {
+  overflow: hidden;
+  overscroll-behavior: contain;
+}
+
+:root:lang(ko) :is(h1, h2, h3, h4, .ao-page-title, .chrome-menu-title, .role-badge, .task-status-badge) {
+  letter-spacing: 0;
 }

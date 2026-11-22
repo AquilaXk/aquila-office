@@ -152,7 +152,7 @@ export function ConnectionSettingsModal({
   onBindGateway,
 }: ConnectionSettingsModalProps) {
   const dialogRef = useRef<HTMLElement | null>(null);
-  useDialogA11y(Boolean(modal), dialogRef, onClose);
+  const { onBackdropPointerDown, onBackdropClick } = useDialogA11y(Boolean(modal), dialogRef, onClose);
 
   if (!modal) {
     return null;
@@ -171,11 +171,8 @@ export function ConnectionSettingsModal({
     <div
       className="workspace-modal-backdrop"
       role="presentation"
-      onClick={(event) => {
-        if (event.target === event.currentTarget) {
-          onClose();
-        }
-      }}
+      onPointerDown={(event) => onBackdropPointerDown(event.target === event.currentTarget)}
+      onClick={(event) => onBackdropClick(event.target === event.currentTarget)}
     >
       <section
         ref={dialogRef}

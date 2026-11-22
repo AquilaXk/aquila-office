@@ -13,6 +13,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { getCachedSprite } from "@/lib/pixel-office/sprite-cache";
+import { startVisibilityPoll } from "@/lib/visibility-poll";
 import {
   BOOKSHELF_SPRITE,
   ESPRESSO_BAR_SPRITE,
@@ -786,10 +787,9 @@ export function OfficeTilemapCanvas({
 
   useEffect(() => {
     if (!animateStage) return;
-    const timer = window.setInterval(() => {
+    return startVisibilityPoll(() => {
       setAnimTick((prev) => (prev + 1) % 60);
     }, 650);
-    return () => window.clearInterval(timer);
   }, [animateStage]);
 
   const theme = useMemo(

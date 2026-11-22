@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, type RefObject } from "react";
+import { useCallback, useEffect, useRef, type RefObject } from "react";
 
 const FOCUSABLE_SELECTOR = [
   "a[href]",
@@ -19,8 +19,26 @@ export function useDialogA11y(
   dialogRef: RefObject<HTMLElement | null>,
   onClose: () => void,
 ) {
+  const pointerDownOnBackdropRef = useRef(false);
+
+  const onBackdropPointerDown = useCallback((isBackdrop: boolean) => {
+    pointerDownOnBackdropRef.current = isBackdrop;
+  }, []);
+
+  const onBackdropClick = useCallback(
+    (isBackdrop: boolean) => {
+      const startedOutside = pointerDownOnBackdropRef.current;
+      pointerDownOnBackdropRef.current = false;
+      if (startedOutside && isBackdrop) {
+        onClose();
+      }
+    },
+    [onClose],
+  );
+
   useEffect(() => {
     if (!open) {
+      pointerDownOnBackdropRef.current = false;
       return;
     }
 
@@ -89,4 +107,6 @@ export function useDialogA11y(
       }
     };
   }, [dialogRef, onClose, open]);
+
+  return { onBackdropPointerDown, onBackdropClick };
 }

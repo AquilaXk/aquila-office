@@ -10,6 +10,7 @@ export type WorkspaceGitDiffViewerProps = {
 };
 
 import { parseUnifiedDiff } from "@/lib/desktop/diff";
+import { useCopyFeedback } from "@/lib/use-copy-feedback";
 
 export type { DiffLineType, ParsedDiffLine } from "@/lib/desktop/diff";
 export { parseUnifiedDiff };
@@ -19,22 +20,17 @@ export default function WorkspaceGitDiffViewer({
   filePath,
   className = "",
 }: WorkspaceGitDiffViewerProps) {
-  const [copied, setCopied] = useState(false);
+  const { copiedKey, copy } = useCopyFeedback<"diff">();
   const [collapsed, setCollapsed] = useState(false);
+  const copied = copiedKey === "diff";
 
   const { lines, additions, deletions } = useMemo(
     () => parseUnifiedDiff(diff),
     [diff],
   );
 
-  const handleCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(diff);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      // clipboard API를 사용할 수 없는 환경에서는 무시한다.
-    }
+  const handleCopy = () => {
+    void copy(diff, "diff");
   };
 
   return (

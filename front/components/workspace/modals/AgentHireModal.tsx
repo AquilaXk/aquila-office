@@ -50,7 +50,7 @@ export function AgentHireModal({
   onSkillFileRemove,
 }: AgentHireModalProps) {
   const dialogRef = useRef<HTMLElement | null>(null);
-  useDialogA11y(open, dialogRef, onClose);
+  const { onBackdropPointerDown, onBackdropClick } = useDialogA11y(open, dialogRef, onClose);
 
   if (!open) {
     return null;
@@ -60,11 +60,8 @@ export function AgentHireModal({
     <div
       className="workspace-modal-backdrop"
       role="presentation"
-      onClick={(event) => {
-        if (event.target === event.currentTarget) {
-          onClose();
-        }
-      }}
+      onPointerDown={(event) => onBackdropPointerDown(event.target === event.currentTarget)}
+      onClick={(event) => onBackdropClick(event.target === event.currentTarget)}
     >
       <section
         ref={dialogRef}

@@ -358,7 +358,21 @@
   background: var(--ui-selected);
   border-color: var(--accent-border);
   color: var(--ui-text-strong);
-  font-weight: 600;
+  font-weight: 500;
+}
+
+.chrome-shortcut-kbd {
+  display: inline-flex;
+  align-items: center;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--ui-border);
+  background: var(--ui-surface-raised);
+  color: var(--ui-text-muted);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1;
 }
 
 .chrome-view-tab-badge {
@@ -442,7 +456,7 @@
 }
 
 .chrome-sidebar {
-  width: 220px;
+  width: 224px;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
@@ -450,6 +464,12 @@
   border-right: 1px solid var(--ui-border);
   overflow-y: auto;
   overflow-x: hidden;
+}
+
+@media (min-width: 861px) {
+  .chrome-sidebar-collapsed-desktop {
+    display: none;
+  }
 }
 
 .chrome-sidebar-section {
@@ -587,13 +607,36 @@
 }
 
 .chrome-inspector {
-  width: 300px;
+  --inspector-width: 320px;
+  position: relative;
+  width: min(var(--inspector-width), 45vw);
+  min-width: 280px;
+  max-width: 520px;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
   background: var(--ui-surface);
   border-left: 1px solid var(--ui-border);
   overflow: hidden;
+}
+
+.chrome-inspector-resizer {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -3px;
+  width: 6px;
+  z-index: 12;
+  cursor: col-resize;
+  touch-action: none;
+  background: transparent;
+}
+
+.chrome-inspector-resizer:hover,
+.chrome-inspector-resizer:focus-visible,
+.chrome-inspector[data-resizing="true"] .chrome-inspector-resizer {
+  border-left: 2px solid var(--accent-primary);
+  outline: none;
 }
 
 .chrome-inspector-header {
@@ -630,7 +673,7 @@
   background: var(--ui-surface);
   border-color: var(--ui-border);
   color: var(--ui-text-strong);
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .chrome-inspector-body {
@@ -894,6 +937,14 @@
 @media (max-width: 860px) {
   .chrome-mobile-only {
     display: inline-flex;
+  }
+
+  .chrome-desktop-only {
+    display: none;
+  }
+
+  .chrome-inspector-resizer {
+    display: none;
   }
 
   .chrome-sidebar {

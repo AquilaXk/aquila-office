@@ -1,6 +1,14 @@
 "use client";
 
-import { use, useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  use,
+  type FormEvent,
+} from "react";
 import { WorkspaceChromeHeader } from "@/components/workspace/chrome/WorkspaceChromeHeader";
 import {
   WorkspaceLeftSidebar,
@@ -156,6 +164,7 @@ import {
   writeStoredSlackIntegration,
   type SlackIntegration,
 } from "@/lib/slack";
+import { isDesktop } from "@/lib/desktop/env";
 import {
   cancelWorkspaceTask,
   createAndRunWorkspaceTask,
@@ -175,6 +184,7 @@ import {
   type WorkspaceTask,
 } from "@/lib/tasks";
 import { readStoredTheme, toggleTheme, type ThemeMode } from "@/lib/theme";
+import { useWorkspaceLayout } from "@/lib/use-workspace-layout";
 import {
   createWorkspaceStageActors,
   getEngineeringRows,
@@ -186,6 +196,10 @@ import {
   type WorkspaceSceneNode,
 } from "@/lib/workspace-2d";
 import {
+  isEditableEventTarget,
+  matchViewSwitchShortcut,
+} from "@/lib/workspace-shortcuts";
+import {
   fetchWorkspaceDashboardSummary,
   fetchWorkspaceDetail,
   fetchWorkspaceMembers,
@@ -195,6 +209,13 @@ import {
 const EMPTY_WORKSPACE_MEMBERS: WorkspaceMember[] = [];
 const EMPTY_GITHUB_CREDENTIALS: GithubCredential[] = [];
 const EMPTY_SLACK_INTEGRATIONS: SlackIntegration[] = [];
+const VIEW_ORDER: WorkspaceViewId[] = [
+  "office",
+  "tasks",
+  "approvals",
+  "orchestrations",
+  "artifacts",
+];
 
 export default function WorkspaceDetailPage({
   params,
@@ -203,6 +224,15 @@ export default function WorkspaceDetailPage({
 }) {
   const { workspaceId } = use(params);
   const numericWorkspaceId = useMemo(() => Number(workspaceId), [workspaceId]);
+
+  const {
+    shortcutStyle,
+    sidebarCollapsed,
+    toggleSidebar,
+    inspectorWidth,
+    setInspectorWidth,
+    resetInspectorWidth,
+  } = useWorkspaceLayout({ desktopShell: isDesktop() });
 
   const [state, setState] = useState<WorkspaceDetailState>({
     status: "loading",
@@ -1862,6 +1892,15 @@ export default function WorkspaceDetailPage({
         onSelect: () => openConnectionModal("selector"),
       },
       {
+        id: "toggle-sidebar",
+        label: sidebarCollapsed ? "탐색 사이드바 펼치기" : "탐색 사이드바 접기",
+        description: "데스크톱 좌측 탐색 영역 전환",
+        keywords: "sidebar collapse expand toggle",
+        category: "navigation",
+        categoryLabel: "화면",
+        onSelect: toggleSidebar,
+      },
+      {
         id: "toggle-theme",
         label: `테마 전환 (현재: ${themeMode === "light" ? "라이트" : "다크"})`,
         description: "라이트/다크 시맨틱 테마 전환",
@@ -1913,8 +1952,10 @@ export default function WorkspaceDetailPage({
     members,
     onlinePresenceMembers,
     openConnectionModal,
+    sidebarCollapsed,
     tasks,
     themeMode,
+    toggleSidebar,
     workspaceAgents,
   ]);
 
@@ -1947,6 +1988,14 @@ export default function WorkspaceDetailPage({
           setInspectorTarget(null);
           setMobileInspectorOpen(false);
         }
+        return;
+      }
+      if (!hasOpenOverlay && !isEditableEventTarget(event.target)) {
+        const viewIndex = matchViewSwitchShortcut(shortcutStyle, event, VIEW_ORDER.length);
+        if (viewIndex !== null) {
+          event.preventDefault();
+          handleSelectView(VIEW_ORDER[viewIndex]);
+        }
       }
     };
 
@@ -1956,11 +2005,13 @@ export default function WorkspaceDetailPage({
     agentHireOpen,
     commandPaletteOpen,
     connectionModal,
+    handleSelectView,
     inspectorTarget,
     modalArtifactPath,
     orchestrationPlan,
     selectedChatTask,
     selectedReportsTask,
+    shortcutStyle,
     taskCreateOpen,
   ]);
 
@@ -2004,6 +2055,8 @@ export default function WorkspaceDetailPage({
         isRecoveringStale={recoveringStale}
         hasInspector={Boolean(inspectorTarget)}
         mobileSidebarOpen={mobileSidebarOpen}
+        sidebarCollapsed={sidebarCollapsed}
+        shortcutStyle={shortcutStyle}
         onSelectView={handleSelectView}
         onOpenTaskCreate={() => {
           setTaskCreateDefaultAgentId(null);
@@ -2021,15 +2074,18 @@ export default function WorkspaceDetailPage({
         onToggleTheme={handleToggleTheme}
         onToggleMobileSidebar={() => setMobileSidebarOpen((open) => !open)}
         onToggleMobileInspector={() => setMobileInspectorOpen((open) => !open)}
+        onToggleSidebar={toggleSidebar}
       />
 
       <div className="chrome-body">
         <WorkspaceLeftSidebar
           agents={workspaceAgents}
           members={members}
+          tasks={tasks}
           selectedAgentId={selectedInspectorAgent?.agentId ?? null}
           activeZone={activeZone}
           mobileOpen={mobileSidebarOpen}
+          desktopCollapsed={sidebarCollapsed}
           canManage={canManage}
           presenceLiveState={presenceLiveState}
           presenceEvents={presenceEvents}
@@ -2100,6 +2156,7 @@ export default function WorkspaceDetailPage({
               onRunTask={(task) => void handleRunTask(task)}
               onRequestApproval={(task) => void handleRequestTaskApproval(task)}
               onCancelTask={(task) => void handleCancelTask(task)}
+              onUpdateTaskStatus={(taskId, status) => void handleUpdateTaskStatus(taskId, status)}
             />
           ) : null}
 
@@ -2152,6 +2209,7 @@ export default function WorkspaceDetailPage({
           tasks={tasks}
           canManage={canManage}
           mobileOpen={mobileInspectorOpen}
+          widthPx={inspectorWidth}
           actorChatMessages={actorChatMessages}
           actorChatInput={actorChatInput}
           actorChatMutation={actorChatMutation}
@@ -2175,6 +2233,8 @@ export default function WorkspaceDetailPage({
             setInspectorTarget(null);
             setMobileInspectorOpen(false);
           }}
+          onWidthChange={setInspectorWidth}
+          onWidthReset={resetInspectorWidth}
           onActorChatInputChange={setActorChatInput}
           onSendActorChat={(event) => void handleSendActorChatMessage(event)}
           onOpenPlanArtifact={(planId) => void openOrchestrationPlan(planId)}

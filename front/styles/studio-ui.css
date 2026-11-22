@@ -255,9 +255,8 @@
   left: 8px;
   right: 8px;
   bottom: 0;
-  height: 2px;
-  border-radius: 2px 2px 0 0;
-  background: var(--accent-primary);
+  height: 0;
+  border-block-end: 2px solid var(--accent-primary);
 }
 
 /* ==========================================================================
@@ -476,7 +475,7 @@
   font-weight: 600;
 }
 
-/* Floating Hero HUD & Dialogue Card */
+/* Floating Hero HUD & Unified Stage Dock */
 .workspace-2d-hero-hud {
   background: var(--studio-surface-glass);
   backdrop-filter: blur(10px);
@@ -484,6 +483,10 @@
   border-radius: 10px;
   box-shadow: var(--studio-shadow-float);
   padding: 8px 12px;
+}
+
+.chrome-viewport .workspace-2d-frame-fullscreen .workspace-2d-hero-hud {
+  display: none;
 }
 
 .workspace-2d-dialogue {
@@ -494,12 +497,37 @@
   box-shadow: var(--studio-shadow-float);
 }
 
+.chrome-viewport .workspace-2d-frame-fullscreen .workspace-2d-stage-shell .workspace-2d-dialogue {
+  left: 50%;
+  right: auto;
+  bottom: 14px;
+  width: min(540px, calc(100% - 28px));
+  transform: translateX(-50%);
+}
+
 .workspace-2d-map-hud {
   background: var(--studio-surface-glass);
   backdrop-filter: blur(10px);
   border: 1px solid var(--studio-border-soft);
   border-radius: 10px;
   box-shadow: var(--studio-shadow-float);
+}
+
+.workspace-2d-map-hud-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-bottom: 6px;
+  margin-bottom: 6px;
+  border-bottom: 1px solid var(--ui-border-subtle);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ui-text-secondary);
+}
+
+.workspace-2d-map-hud-collapsed {
+  padding: 6px 10px !important;
 }
 
 .workspace-2d-map-controls button {
@@ -512,14 +540,15 @@
 }
 
 /* ==========================================================================
-   Stage Display Toolbar (WAI-ARIA toolbar + focusgroup + reduced-motion)
+   Stage Display Floating Island & Popover Theme Switcher
    ========================================================================== */
-.ao-stage-toolbar {
+.ao-stage-toolbar,
+.ao-stage-island {
   display: inline-flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 6px;
-  padding: 4px 8px;
+  gap: 4px;
+  padding: 4px 6px;
   border-radius: 9px;
   background: var(--studio-surface-glass);
   backdrop-filter: blur(10px);
@@ -556,26 +585,34 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 5px;
   min-height: 24px;
-  max-width: 144px;
-  padding: 0 7px;
+  max-width: 168px;
+  padding: 0 8px;
   border-radius: 6px;
   border: 1px solid transparent;
   background: transparent;
   color: var(--ui-text-secondary);
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 500;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   min-inline-size: 0;
   cursor: pointer;
-  transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease;
 }
 
-.ao-toolbar-btn:hover {
-  background: var(--ui-hover);
-  color: var(--ui-text-strong);
+@media (prefers-reduced-motion: no-preference) {
+  .ao-toolbar-btn {
+    transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease;
+  }
+}
+
+@media (hover: hover) {
+  .ao-toolbar-btn:hover {
+    background: var(--ui-hover);
+    color: var(--ui-text-strong);
+  }
 }
 
 .ao-toolbar-btn:focus-visible {
@@ -583,9 +620,74 @@
   outline-offset: 1px;
 }
 
-.ao-toolbar-btn[aria-pressed="true"] {
+.ao-toolbar-btn[aria-pressed="true"],
+.ao-toolbar-btn[aria-expanded="true"] {
   background: var(--studio-accent-tint);
   border-color: var(--accent-primary);
+  color: var(--ui-text-strong);
+}
+
+[popover].ao-stage-theme-popover {
+  padding: 4px;
+  min-width: 172px;
+  border-radius: 9px;
+  border: 1px solid var(--studio-border-strong);
+  background: var(--ui-surface);
+  color: var(--ui-text);
+  box-shadow: var(--studio-shadow-float);
+}
+
+[popover].ao-stage-theme-popover:is(:popover-open, .\:popover-open) {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+@supports (position-area: block-end) {
+  [popover].ao-stage-theme-popover {
+    inset: auto;
+    margin: 4px 0 0;
+    position-area: block-end span-inline-end;
+    position-try-fallbacks: flip-block, flip-inline, flip-block flip-inline;
+  }
+}
+
+@supports not (position-area: block-end) {
+  [popover].ao-stage-theme-popover {
+    position: fixed;
+    top: 158px;
+    left: 248px;
+    margin: 0;
+  }
+}
+
+.ao-stage-theme-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  min-height: 28px;
+  padding: 0 8px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--ui-text);
+  font-size: 12px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+}
+
+@media (hover: hover) {
+  .ao-stage-theme-option:hover {
+    background: var(--ui-hover);
+  }
+}
+
+.ao-stage-theme-option[aria-checked="true"] {
+  background: var(--studio-accent-tint);
+  border-color: var(--accent-border);
   color: var(--ui-text-strong);
 }
 
@@ -621,8 +723,48 @@
   background: var(--studio-info);
 }
 
+.ao-task-segment--stopped,
 .ao-task-segment--halted {
   background: var(--studio-danger);
+}
+
+.ao-telemetry-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.ao-telemetry-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--studio-border-soft);
+  background: var(--studio-surface-1);
+  box-shadow: var(--studio-shadow-card);
+}
+
+.ao-telemetry-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  color: var(--ui-text-secondary);
+}
+
+.ao-telemetry-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.ao-telemetry-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  flex-shrink: 0;
 }
 
 .chrome-kanban-col {
@@ -634,6 +776,12 @@
   flex-direction: column;
   gap: 8px;
   min-width: 0;
+}
+
+.chrome-kanban-col[data-drop-active="true"] {
+  border-color: var(--accent-primary);
+  border-style: dashed;
+  background: color-mix(in oklab, var(--accent-primary) 8%, var(--ui-surface));
 }
 
 .chrome-kanban-col-header {
@@ -662,9 +810,132 @@
   background: color-mix(in oklab, var(--studio-ok) 10%, var(--studio-surface-1));
 }
 
+.chrome-kanban-col-stopped .chrome-kanban-col-header,
 .chrome-kanban-col-halted .chrome-kanban-col-header {
   border-left-color: var(--studio-danger);
   background: color-mix(in oklab, var(--studio-danger) 9%, var(--studio-surface-1));
+}
+
+.ao-cv-card {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 128px;
+}
+
+.ao-task-list-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 9px;
+  border: 1px solid var(--studio-border-soft);
+  background: var(--studio-surface-1);
+  cursor: pointer;
+}
+
+@media (hover: hover) {
+  .ao-task-list-row:hover {
+    border-color: var(--studio-accent-ring);
+  }
+}
+
+.ao-quick-prompts {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ao-quick-prompt-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--studio-border-soft);
+  background: var(--ui-surface-raised);
+  color: var(--ui-text);
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+@media (hover: hover) {
+  .ao-quick-prompt-btn:hover {
+    background: var(--ui-hover);
+    border-color: var(--accent-border);
+  }
+}
+
+.ao-composer-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  border-radius: 9px;
+  border: 1px solid var(--ui-border);
+  background: var(--ui-bg);
+}
+
+.ao-composer-card:focus-within {
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 2px var(--ui-focus-soft);
+}
+
+.ao-composer-textarea {
+  width: 100%;
+  min-height: 54px;
+  max-height: 150px;
+  border: 0;
+  outline: none;
+  resize: vertical;
+  background: transparent;
+  color: var(--ui-text);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.ao-composer-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-top: 6px;
+  border-top: 1px solid var(--ui-border-subtle);
+}
+
+.ao-preset-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.ao-dep-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.ao-dep-chip {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 7px;
+  border-radius: 999px;
+  border: 1px solid var(--ui-border);
+  background: var(--ui-surface);
+  color: var(--ui-text-secondary);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.ao-dep-chip[aria-pressed="true"] {
+  background: var(--ui-selected);
+  border-color: var(--accent-primary);
+  color: var(--ui-text-strong);
 }
 
 .chrome-kanban-card {
@@ -976,6 +1247,10 @@
     grid-template-columns: minmax(0, 1fr);
   }
 
+  .ao-telemetry-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   /* Keep KPIs & first workspace "열기" button inside 390x727 mobile fold */
   .ao-studio-rail {
     display: none;
@@ -983,6 +1258,14 @@
 
   .chrome-viewport .workspace-2d-frame-fullscreen .ao-stage-toolbar {
     display: none;
+  }
+
+  .chrome-viewport .workspace-2d-frame-fullscreen .workspace-2d-stage-shell .workspace-2d-dialogue {
+    left: 10px;
+    right: 10px;
+    bottom: 10px;
+    width: auto;
+    transform: none;
   }
 
   .ao-launcher-hero {

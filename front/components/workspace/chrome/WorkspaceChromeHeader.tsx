@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import type { WorkspaceViewId } from "@/components/workspace/workspace-ui-helpers";
 import type { ThemeMode } from "@/lib/theme";
+import { formatCommandShortcut, type ShortcutStyle } from "@/lib/workspace-shortcuts";
 import type { WorkspaceRole } from "@/lib/workspaces";
 
 export type WorkspaceChromeHeaderProps = {
@@ -38,6 +39,8 @@ export type WorkspaceChromeHeaderProps = {
   isRecoveringStale: boolean;
   hasInspector: boolean;
   mobileSidebarOpen: boolean;
+  sidebarCollapsed?: boolean;
+  shortcutStyle?: ShortcutStyle;
   onSelectView: (view: WorkspaceViewId) => void;
   onOpenTaskCreate: () => void;
   onOpenHireAgent: () => void;
@@ -48,6 +51,7 @@ export type WorkspaceChromeHeaderProps = {
   onToggleTheme: () => void;
   onToggleMobileSidebar: () => void;
   onToggleMobileInspector: () => void;
+  onToggleSidebar?: () => void;
 };
 
 type ViewTabSpec = {
@@ -92,6 +96,8 @@ export function WorkspaceChromeHeader({
   isRecoveringStale,
   hasInspector,
   mobileSidebarOpen,
+  sidebarCollapsed = false,
+  shortcutStyle = "browser-mac",
   onSelectView,
   onOpenTaskCreate,
   onOpenHireAgent,
@@ -102,6 +108,7 @@ export function WorkspaceChromeHeader({
   onToggleTheme,
   onToggleMobileSidebar,
   onToggleMobileInspector,
+  onToggleSidebar,
 }: WorkspaceChromeHeaderProps) {
   return (
     <header className="chrome-header">
@@ -118,6 +125,19 @@ export function WorkspaceChromeHeader({
             <PanelLeft size={14} aria-hidden="true" />
             <span>목록</span>
           </button>
+
+          {onToggleSidebar ? (
+            <button
+              className="chrome-menu-item chrome-desktop-only"
+              type="button"
+              onClick={onToggleSidebar}
+              aria-expanded={!sidebarCollapsed}
+              aria-label={sidebarCollapsed ? "사이드바 펼치기" : "사이드바 접기"}
+              title={sidebarCollapsed ? "사이드바 펼치기" : "사이드바 접기"}
+            >
+              <PanelLeft size={14} aria-hidden="true" />
+            </button>
+          ) : null}
 
           <Link className="chrome-menu-item" href="/workspaces" title="워크스페이스 목록으로 이동">
             <ArrowLeft size={13} aria-hidden="true" />
@@ -155,10 +175,11 @@ export function WorkspaceChromeHeader({
             type="button"
             onClick={onOpenCommandPalette}
             aria-label="명령 팔레트 열기"
-            title="명령 팔레트 열기 (Cmd+K)"
+            title={`명령 팔레트 열기 (${formatCommandShortcut(shortcutStyle, "K")})`}
           >
             <Command size={13} aria-hidden="true" />
             <span>명령</span>
+            <kbd className="chrome-shortcut-kbd">{formatCommandShortcut(shortcutStyle, "K")}</kbd>
           </button>
 
           <button

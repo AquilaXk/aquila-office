@@ -1,9 +1,20 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type FormEvent,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
 import {
   AlertCircle,
   Bot,
+  Check,
+  Copy,
   FileText,
   Loader2,
   MessageSquare,
@@ -21,6 +32,7 @@ import { AgentEditPanel } from "@/components/workspace/inspector/AgentEditPanel"
 import {
   actorChatSenderLabel,
   artifactPath,
+  buildAgentQuickPrompts,
   compareActorPanelTasks,
   formatAgentCategory,
   formatAgentStatus,
@@ -28,6 +40,7 @@ import {
   formatDateTime,
   formatTaskPriority,
   formatTaskStatus,
+  formatTaskType,
   isTaskAssignedToAgent,
   pickAvatarKind,
   type ActorChatMessage,
@@ -46,7 +59,9 @@ import type {
   TaskStatus,
   WorkspaceTask,
 } from "@/lib/tasks";
+import { useCopyFeedback } from "@/lib/use-copy-feedback";
 import type { WorkspaceSceneNode } from "@/lib/workspace-2d";
+import { clampInspectorWidth } from "@/lib/workspace-shortcuts";
 
 export type InspectorTarget =
   | { type: "actor"; nodeId: string }
@@ -75,6 +90,7 @@ export type WorkspaceContextInspectorProps = {
   tasks: WorkspaceTask[];
   canManage: boolean;
   mobileOpen: boolean;
+  widthPx?: number;
   // Actor chat
   actorChatMessages: ActorChatMessage[];
   actorChatInput: string;
@@ -95,6 +111,8 @@ export type WorkspaceContextInspectorProps = {
   mutatingTaskId: number | null;
   // Callbacks
   onClose: () => void;
+  onWidthChange?: (width: number) => void;
+  onWidthReset?: () => void;
   onActorChatInputChange: (value: string) => void;
   onSendActorChat: (event: FormEvent<HTMLFormElement>) => void;
   onOpenPlanArtifact: (planId: number) => void;
@@ -126,6 +144,7 @@ export function WorkspaceContextInspector({
   tasks,
   canManage,
   mobileOpen,
+  widthPx,
   actorChatMessages,
   actorChatInput,
   actorChatMutation,
@@ -142,6 +161,8 @@ export function WorkspaceContextInspector({
   taskChatMutation,
   mutatingTaskId,
   onClose,
+  onWidthChange,
+  onWidthReset,
   onActorChatInputChange,
   onSendActorChat,
   onOpenPlanArtifact,
@@ -165,7 +186,64 @@ export function WorkspaceContextInspector({
 }: WorkspaceContextInspectorProps) {
   const [actorTab, setActorTab] = useState<ActorInspectorTab>("chat");
   const [taskTab, setTaskTab] = useState<TaskInspectorTab>("logs");
+  const [resizing, setResizing] = useState(false);
+  const dragStartRef = useRef<{ startX: number; startWidth: number } | null>(null);
   const actorMessagesEndRef = useRef<HTMLDivElement | null>(null);
+  const { copiedKey, copy } = useCopyFeedback<"logs">();
+
+  const handleResizerPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (!onWidthChange) return;
+    event.preventDefault();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    dragStartRef.current = {
+      startX: event.clientX,
+      startWidth: widthPx ?? 320,
+    };
+    setResizing(true);
+  };
+
+  const handleResizerPointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (!dragStartRef.current || !onWidthChange) return;
+    const delta = dragStartRef.current.startX - event.clientX;
+    onWidthChange(clampInspectorWidth(dragStartRef.current.startWidth + delta, window.innerWidth));
+  };
+
+  const handleResizerPointerEnd = () => {
+    if (!dragStartRef.current) return;
+    dragStartRef.current = null;
+    setResizing(false);
+  };
+
+  const handleResizerKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (!onWidthChange) return;
+    const current = widthPx ?? 320;
+    if (event.key === "ArrowLeft") {
+      event.preventDefault();
+      onWidthChange(clampInspectorWidth(current + 16, window.innerWidth));
+    } else if (event.key === "ArrowRight") {
+      event.preventDefault();
+      onWidthChange(clampInspectorWidth(current - 16, window.innerWidth));
+    } else if (event.key === "Home" && onWidthReset) {
+      event.preventDefault();
+      onWidthReset();
+    }
+  };
+
+  const handleCopyLogs = () => {
+    if (taskLogs.length === 0) {
+      return;
+    }
+    const text = taskLogs
+      .map(
+        (log) =>
+          `[실행 #${log.taskExecutionId} · 로그 #${log.logId} · ${log.level}${
+            log.createdAt ? ` · ${formatDateTime(log.createdAt)}` : ""
+          }]\n${log.message}`,
+      )
+      .join("\n\n");
+    if (!text) return;
+    void copy(text, "logs");
+  };
 
   useEffect(() => {
     if (actorTab === "chat" && actorChatMessages.length > 0) {
@@ -211,7 +289,32 @@ export function WorkspaceContextInspector({
     <aside
       className={`chrome-inspector${mobileOpen ? "" : " max-[860px]:hidden"}`}
       aria-label="컨텍스트 인스펙터"
+      data-resizing={resizing ? "true" : undefined}
+      style={
+        widthPx
+          ? ({ "--inspector-width": `${widthPx}px` } as CSSProperties)
+          : undefined
+      }
     >
+      {onWidthChange ? (
+        <div
+          role="separator"
+          tabIndex={0}
+          aria-orientation="vertical"
+          aria-label="인스펙터 너비 조절"
+          aria-valuemin={280}
+          aria-valuemax={520}
+          aria-valuenow={widthPx ?? 320}
+          title="드래그하여 너비 조절 (더블클릭으로 초기화)"
+          className="chrome-inspector-resizer chrome-desktop-only"
+          onPointerDown={handleResizerPointerDown}
+          onPointerMove={handleResizerPointerMove}
+          onPointerUp={handleResizerPointerEnd}
+          onPointerCancel={handleResizerPointerEnd}
+          onDoubleClick={() => onWidthReset?.()}
+          onKeyDown={handleResizerKeyDown}
+        />
+      ) : null}
       {target.type === "actor" ? (
         <>
           <header className="chrome-inspector-header">
@@ -293,9 +396,30 @@ export function WorkspaceContextInspector({
                   <>
                     <div className="flex flex-col gap-2 flex-1 min-h-[200px]">
                       {actorChatMessages.length === 0 ? (
-                        <p className="m-0 text-[12px] text-[var(--ui-text-muted)] py-4 text-center">
-                          이 에이전트에게 첫 작업 지시나 질문을 보내보세요.
-                        </p>
+                        <div className="flex flex-col gap-3 py-2">
+                          <p className="m-0 text-[12px] text-[var(--ui-text-muted)] text-center">
+                            이 에이전트에게 첫 작업 지시나 질문을 보내보세요.
+                          </p>
+                          <div className="ao-quick-prompts" aria-label="빠른 시작 프롬프트">
+                            {buildAgentQuickPrompts(selectedAgent.category, selectedAgent.name).map(
+                              (item) => (
+                                <button
+                                  key={item.label}
+                                  type="button"
+                                  className="ao-quick-prompt-btn"
+                                  onClick={() => onActorChatInputChange(item.prompt)}
+                                >
+                                  <strong className="text-[var(--ui-text-strong)]">
+                                    {item.label}
+                                  </strong>
+                                  <span className="text-[var(--ui-text-secondary)]">
+                                    {item.prompt}
+                                  </span>
+                                </button>
+                              ),
+                            )}
+                          </div>
+                        </div>
                       ) : (
                         actorChatMessages.map((msg) => (
                           <article
@@ -347,29 +471,45 @@ export function WorkspaceContextInspector({
                       </div>
                     ) : null}
 
-                    <form className="flex flex-col gap-2 pt-2 border-t border-[var(--ui-border-subtle)]" onSubmit={onSendActorChat}>
+                    <form className="ao-composer-card" onSubmit={onSendActorChat}>
                       <textarea
                         rows={3}
                         maxLength={1000}
                         aria-label="에이전트 대화 메시지"
-                        placeholder="에이전트에게 보낼 지시나 질문을 입력하세요."
+                        placeholder="에이전트에게 보낼 지시나 질문을 입력하세요. (Enter 전송, Shift+Enter 줄바꿈)"
                         disabled={actorChatMutation.status === "submitting"}
                         value={actorChatInput}
                         onChange={(event) => onActorChatInputChange(event.target.value)}
-                        className="w-full p-2 rounded-[var(--radius-md)] border border-[var(--ui-border)] bg-[var(--ui-bg)] text-[13px] text-[var(--ui-text)]"
+                        onKeyDown={(event) => {
+                          if (
+                            event.key === "Enter" &&
+                            !event.shiftKey &&
+                            !event.nativeEvent.isComposing
+                          ) {
+                            if (!canSendActorChat) return;
+                            event.preventDefault();
+                            event.currentTarget.form?.requestSubmit();
+                          }
+                        }}
+                        className="ao-composer-textarea"
                       />
-                      <button
-                        type="submit"
-                        className="primary-action primary-action-active"
-                        disabled={!canSendActorChat}
-                      >
-                        {actorChatMutation.status === "submitting" ? (
-                          <Loader2 size={14} className="spin" aria-hidden="true" />
-                        ) : (
-                          <Send size={14} aria-hidden="true" />
-                        )}
-                        <span>{actorChatMutation.status === "submitting" ? "전송 중" : "메시지 전송"}</span>
-                      </button>
+                      <div className="ao-composer-footer">
+                        <span className="text-[12px] text-[var(--ui-text-muted)] font-mono">
+                          {actorChatInput.length}/1000
+                        </span>
+                        <button
+                          type="submit"
+                          className="primary-action primary-action-active"
+                          disabled={!canSendActorChat}
+                        >
+                          {actorChatMutation.status === "submitting" ? (
+                            <Loader2 size={14} className="spin" aria-hidden="true" />
+                          ) : (
+                            <Send size={14} aria-hidden="true" />
+                          )}
+                          <span>{actorChatMutation.status === "submitting" ? "전송 중" : "메시지 전송"}</span>
+                        </button>
+                      </div>
                     </form>
                   </>
                 ) : null}
@@ -472,10 +612,16 @@ export function WorkspaceContextInspector({
         <>
           <header className="chrome-inspector-header">
             <div className="min-w-0">
-              <div className="flex items-center gap-1.5 text-[12px] text-[var(--ui-text-muted)]">
+              <div className="flex flex-wrap items-center gap-1.5 text-[12px] text-[var(--ui-text-muted)]">
                 <span className="font-mono">작업 #{selectedTask.taskId}</span>
                 <span>·</span>
                 <span>{formatTaskPriority(selectedTask.priority)}</span>
+                {selectedTask.type ? (
+                  <>
+                    <span>·</span>
+                    <span>{formatTaskType(selectedTask.type)}</span>
+                  </>
+                ) : null}
               </div>
               <h2 className="m-0 mt-0.5 text-[14px] font-semibold text-[var(--ui-text-strong)]">
                 {selectedTask.title}
@@ -589,21 +735,38 @@ export function WorkspaceContextInspector({
           <div className="chrome-inspector-body">
             {taskTab === "logs" ? (
               <div className="flex flex-col gap-2">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-2">
                   <strong className="text-[12px] text-[var(--ui-text-strong)]">실행 이력</strong>
-                  <button
-                    type="button"
-                    className="tb-btn"
-                    onClick={() => onReloadTaskLogs(selectedTask.taskId)}
-                    disabled={taskLogsState.status === "loading"}
-                  >
-                    <RefreshCw
-                      size={12}
-                      className={taskLogsState.status === "loading" ? "spin" : undefined}
-                      aria-hidden="true"
-                    />
-                    <span>새로고침</span>
-                  </button>
+                  <div className="flex items-center gap-1">
+                    {taskLogs.length > 0 ? (
+                      <button
+                        type="button"
+                        className="tb-btn"
+                        aria-label="실행 로그 복사"
+                        onClick={() => void handleCopyLogs()}
+                      >
+                        {copiedKey === "logs" ? (
+                          <Check size={12} aria-hidden="true" />
+                        ) : (
+                          <Copy size={12} aria-hidden="true" />
+                        )}
+                        <span>{copiedKey === "logs" ? "복사됨" : "로그 복사"}</span>
+                      </button>
+                    ) : null}
+                    <button
+                      type="button"
+                      className="tb-btn"
+                      onClick={() => onReloadTaskLogs(selectedTask.taskId)}
+                      disabled={taskLogsState.status === "loading"}
+                    >
+                      <RefreshCw
+                        size={12}
+                        className={taskLogsState.status === "loading" ? "spin" : undefined}
+                        aria-hidden="true"
+                      />
+                      <span>새로고침</span>
+                    </button>
+                  </div>
                 </div>
 
                 {taskLogsState.status === "error" ? (
@@ -760,31 +923,53 @@ export function WorkspaceContextInspector({
                 ) : null}
 
                 <form
-                  className="flex flex-col gap-2 pt-2 border-t border-[var(--ui-border-subtle)]"
+                  className="ao-composer-card"
                   onSubmit={(event) => onSendTaskChat(event, selectedTask)}
                 >
                   <textarea
                     rows={3}
                     maxLength={1000}
                     aria-label="작업 대화 입력"
-                    placeholder="이 작업과 관련된 후속 지시를 입력하세요."
+                    placeholder="이 작업과 관련된 후속 지시를 입력하세요. (Enter 전송, Shift+Enter 줄바꿈)"
                     disabled={taskChatMutation.status === "submitting"}
                     value={taskChatInput}
                     onChange={(event) => onTaskChatInputChange(event.target.value)}
-                    className="w-full p-2 rounded-[var(--radius-md)] border border-[var(--ui-border)] bg-[var(--ui-bg)] text-[13px] text-[var(--ui-text)]"
+                    onKeyDown={(event) => {
+                      if (
+                        event.key === "Enter" &&
+                        !event.shiftKey &&
+                        !event.nativeEvent.isComposing
+                      ) {
+                        if (
+                          taskChatMutation.status === "submitting" ||
+                          !taskChatInput.trim() ||
+                          agents.length === 0
+                        ) {
+                          return;
+                        }
+                        event.preventDefault();
+                        event.currentTarget.form?.requestSubmit();
+                      }
+                    }}
+                    className="ao-composer-textarea"
                   />
-                  <button
-                    type="submit"
-                    className="primary-action primary-action-active"
-                    disabled={
-                      taskChatMutation.status === "submitting" ||
-                      !taskChatInput.trim() ||
-                      agents.length === 0
-                    }
-                  >
-                    <Send size={14} aria-hidden="true" />
-                    <span>전송</span>
-                  </button>
+                  <div className="ao-composer-footer">
+                    <span className="text-[12px] text-[var(--ui-text-muted)] font-mono">
+                      {taskChatInput.length}/1000
+                    </span>
+                    <button
+                      type="submit"
+                      className="primary-action primary-action-active"
+                      disabled={
+                        taskChatMutation.status === "submitting" ||
+                        !taskChatInput.trim() ||
+                        agents.length === 0
+                      }
+                    >
+                      <Send size={14} aria-hidden="true" />
+                      <span>전송</span>
+                    </button>
+                  </div>
                 </form>
               </div>
             ) : null}

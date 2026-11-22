@@ -50,7 +50,7 @@ export function TaskCreateModal({
   onCreate,
 }: TaskCreateModalProps) {
   const dialogRef = useRef<HTMLElement | null>(null);
-  useDialogA11y(open, dialogRef, onClose);
+  const { onBackdropPointerDown, onBackdropClick } = useDialogA11y(open, dialogRef, onClose);
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -106,11 +106,8 @@ export function TaskCreateModal({
     <div
       className="workspace-modal-backdrop"
       role="presentation"
-      onClick={(event) => {
-        if (event.target === event.currentTarget) {
-          onClose();
-        }
-      }}
+      onPointerDown={(event) => onBackdropPointerDown(event.target === event.currentTarget)}
+      onClick={(event) => onBackdropClick(event.target === event.currentTarget)}
     >
       <section
         ref={dialogRef}

@@ -1,6 +1,15 @@
 "use client";
 
-import { Crosshair, FolderTree, GitBranch, Maximize2, MousePointer2, Users } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronUp,
+  Crosshair,
+  FolderTree,
+  GitBranch,
+  Maximize2,
+  MousePointer2,
+  Users,
+} from "lucide-react";
 import {
   useCallback,
   useEffect,
@@ -8,7 +17,6 @@ import {
   useRef,
   useState,
   useSyncExternalStore,
-  type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
@@ -21,6 +29,7 @@ import {
   type PixelAvatarPaletteOverride,
 } from "@/components/arcade";
 import { OfficeTilemapCanvas } from "@/components/workspace/OfficeTilemapCanvas";
+import { StageDisplayToolbar } from "@/components/workspace/stage/StageFloatingControls";
 import type { OfficeThemeId } from "@/lib/pixel-office/pixtuoid-sprites";
 import type { WorkspaceAgent } from "@/lib/agents";
 import type { WorkspacePresenceMember, WorkspacePresencePosition } from "@/lib/presence";
@@ -149,8 +158,6 @@ const OFFICE_THEME_OPTIONS: ReadonlyArray<{ id: OfficeThemeId; label: string }> 
 ];
 const VALID_OFFICE_THEMES = new Set<string>(OFFICE_THEME_OPTIONS.map((opt) => opt.id));
 
-const noopSubscribe = () => () => {};
-
 function subscribeOfficeTheme(callback: () => void): () => void {
   if (typeof window === "undefined") return () => {};
   const onStorage = (event: StorageEvent) => {
@@ -181,14 +188,6 @@ function getOfficeThemeSnapshot(): OfficeThemeId {
 
 function getServerOfficeThemeSnapshot(): OfficeThemeId {
   return "auto";
-}
-
-function getFocusgroupSupportSnapshot(): boolean {
-  return typeof HTMLElement !== "undefined" && "focusGroup" in HTMLElement.prototype;
-}
-
-function getServerFocusgroupSupportSnapshot(): boolean {
-  return false;
 }
 
 const ROOM_DISPLAY_LABELS: Record<StageRoomSpec["variant"], { label: string; sub: string }> = {
@@ -251,15 +250,8 @@ export default function Workspace2DCanvas({
     getOfficeThemeSnapshot,
     getServerOfficeThemeSnapshot,
   );
-  const supportsFocusgroup = useSyncExternalStore(
-    noopSubscribe,
-    getFocusgroupSupportSnapshot,
-    getServerFocusgroupSupportSnapshot,
-  );
   const [showCollabLinks, setShowCollabLinks] = useState(true);
   const [motionPaused, setMotionPaused] = useState(false);
-  const [toolbarFocusIndex, setToolbarFocusIndex] = useState(0);
-  const toolbarRef = useRef<HTMLDivElement | null>(null);
 
   const handleSelectOfficeTheme = useCallback((nextTheme: OfficeThemeId) => {
     try {
@@ -269,36 +261,6 @@ export default function Workspace2DCanvas({
       // Ignore storage write errors
     }
   }, []);
-
-  const handleToolbarKeyDown = useCallback(
-    (event: ReactKeyboardEvent<HTMLDivElement>) => {
-      if (supportsFocusgroup) return;
-      const root = toolbarRef.current;
-      if (!root) return;
-      const buttons = Array.from(
-        root.querySelectorAll<HTMLButtonElement>("button:not([disabled])"),
-      );
-      if (buttons.length === 0) return;
-
-      const currentIdx = buttons.findIndex((btn) => btn === document.activeElement);
-      let nextIdx = -1;
-      if (event.key === "ArrowRight") {
-        nextIdx = (currentIdx + 1) % buttons.length;
-      } else if (event.key === "ArrowLeft") {
-        nextIdx = (currentIdx - 1 + buttons.length) % buttons.length;
-      } else if (event.key === "Home") {
-        nextIdx = 0;
-      } else if (event.key === "End") {
-        nextIdx = buttons.length - 1;
-      }
-      if (nextIdx >= 0) {
-        event.preventDefault();
-        setToolbarFocusIndex(nextIdx);
-        buttons[nextIdx]?.focus();
-      }
-    },
-    [supportsFocusgroup],
-  );
   const [stagePanOverride, setStagePanOverride] = useState<{
     focusNonce: number | undefined;
     pan: StagePan;
@@ -701,58 +663,20 @@ export default function Workspace2DCanvas({
         </div>
       </div>
 
-      <div
-        ref={toolbarRef}
-        role="toolbar"
-        aria-label="오피스 스테이지 표시 도구"
-        className="ao-stage-toolbar"
-        {...({ focusgroup: "toolbar wrap" } as Record<string, string>)}
-        onKeyDown={handleToolbarKeyDown}
-      >
-        <div role="group" aria-label="오피스 테마" className="ao-toolbar-group">
-          {OFFICE_THEME_OPTIONS.map((option, index) => (
-            <button
-              key={option.id}
-              type="button"
-              className="ao-toolbar-btn"
-              aria-pressed={officeTheme === option.id}
-              tabIndex={supportsFocusgroup ? 0 : toolbarFocusIndex === index ? 0 : -1}
-              onClick={() => {
-                setToolbarFocusIndex(index);
-                handleSelectOfficeTheme(option.id);
-              }}
-            >
-              {option.label}
-            </button>
-          ))}
-        </div>
-        <span role="separator" aria-orientation="vertical" className="ao-toolbar-sep" />
-        <div role="group" aria-label="시각 효과" className="ao-toolbar-group">
-          <button
-            type="button"
-            className="ao-toolbar-btn"
-            aria-pressed={showCollabLinks}
-            tabIndex={supportsFocusgroup ? 0 : toolbarFocusIndex === 6 ? 0 : -1}
-            onClick={() => {
-              setToolbarFocusIndex(6);
-              setShowCollabLinks((prev) => !prev);
-            }}
-          >
-            협업 연결선
-          </button>
-          <button
-            type="button"
-            className="ao-toolbar-btn"
-            tabIndex={supportsFocusgroup ? 0 : toolbarFocusIndex === 7 ? 0 : -1}
-            onClick={() => {
-              setToolbarFocusIndex(7);
-              setMotionPaused((prev) => !prev);
-            }}
-          >
-            {motionPaused ? "모션 재생" : "모션 일시정지"}
-          </button>
-        </div>
-      </div>
+      <StageDisplayToolbar
+        officeTheme={officeTheme}
+        themeOptions={OFFICE_THEME_OPTIONS}
+        showCollabLinks={showCollabLinks}
+        motionPaused={motionPaused}
+        hasPlayerPosition={Boolean(effectivePlayerPosition)}
+        onSelectTheme={handleSelectOfficeTheme}
+        onToggleCollabLinks={() => setShowCollabLinks((prev) => !prev)}
+        onToggleMotionPaused={() => setMotionPaused((prev) => !prev)}
+        onFocusMyPosition={() => {
+          if (!effectivePlayerPosition) return;
+          setStagePan(getStagePanForPosition(effectivePlayerPosition, stageWorldSize, stageZoom));
+        }}
+      />
 
       <div className="workspace-2d-layout">
         <div className="workspace-2d-stage-shell" ref={stageShellRef} onWheel={handleStageShellWheel}>
@@ -1883,6 +1807,7 @@ function MapHud({
   viewportSize: StageSize;
   onRoomClick: (room: StageMiniMapRoom) => void;
 }) {
+  const [mapExpanded, setMapExpanded] = useState(true);
   const viewportWidth = clampNumber(
     (viewportSize.width / (Math.max(1, stageSize.width) * zoom)) * 100,
     12,
@@ -1906,7 +1831,7 @@ function MapHud({
 
   return (
     <section
-      className="workspace-2d-map-hud"
+      className={`workspace-2d-map-hud${mapExpanded ? "" : " workspace-2d-map-hud-collapsed"}`}
       aria-label="미니맵 · 1층"
       style={{
         background: "var(--ui-surface)",
@@ -1916,69 +1841,85 @@ function MapHud({
       }}
     >
       <div
-        style={{
-          fontSize: 12,
-          fontWeight: 600,
-          color: "var(--ui-text-secondary)",
-          paddingBottom: 6,
-          marginBottom: 6,
-          borderBottom: "1px solid var(--ui-border-subtle)",
-        }}
+        className="workspace-2d-map-hud-header"
+        style={
+          mapExpanded
+            ? undefined
+            : { marginBottom: 0, paddingBottom: 0, borderBottom: "none" }
+        }
       >
-        미니맵 · 1층
+        <span>미니맵 · 1층</span>
+        <button
+          type="button"
+          className="ao-icon-action"
+          aria-expanded={mapExpanded}
+          aria-label={mapExpanded ? "미니맵 접기" : "미니맵 펼치기"}
+          title={mapExpanded ? "미니맵 접기" : "미니맵 펼치기"}
+          onClick={() => setMapExpanded((prev) => !prev)}
+        >
+          {mapExpanded ? (
+            <ChevronDown size={13} aria-hidden="true" />
+          ) : (
+            <ChevronUp size={13} aria-hidden="true" />
+          )}
+        </button>
       </div>
-      <div className="workspace-2d-minimap" aria-label="오피스 구역 미니맵">
-        {rooms.map((room) => (
-          <button
-            aria-label={`${ROOM_DISPLAY_LABELS[room.variant]?.label ?? room.label} 구역으로 이동`}
-            title={ROOM_DISPLAY_LABELS[room.variant]?.label ?? room.label}
-            className={`workspace-2d-minimap-zone workspace-2d-minimap-room-button workspace-2d-minimap-${room.variant}`}
-            key={room.id}
-            onClick={() => onRoomClick(room)}
-            type="button"
-            style={{
-              left: room.x,
-              top: room.y,
-              width: room.w,
-              height: room.h,
-            }}
-          />
-        ))}
-        {actors.map((actor) =>
-          actor.id === playerActorId ? null : (
+      {mapExpanded ? (
+        <>
+          <div className="workspace-2d-minimap" aria-label="오피스 구역 미니맵">
+            {rooms.map((room) => (
+              <button
+                aria-label={`${ROOM_DISPLAY_LABELS[room.variant]?.label ?? room.label} 구역으로 이동`}
+                title={ROOM_DISPLAY_LABELS[room.variant]?.label ?? room.label}
+                className={`workspace-2d-minimap-zone workspace-2d-minimap-room-button workspace-2d-minimap-${room.variant}`}
+                key={room.id}
+                onClick={() => onRoomClick(room)}
+                type="button"
+                style={{
+                  left: room.x,
+                  top: room.y,
+                  width: room.w,
+                  height: room.h,
+                }}
+              />
+            ))}
+            {actors.map((actor) =>
+              actor.id === playerActorId ? null : (
+                <span
+                  key={actor.id}
+                  aria-hidden="true"
+                  className={`workspace-2d-minimap-actor ${
+                    actor.kind === "member"
+                      ? "workspace-2d-minimap-actor-member"
+                      : "workspace-2d-minimap-actor-agent"
+                  } workspace-2d-minimap-status-${actor.status}`}
+                  style={{ left: actor.position.left, top: actor.position.top }}
+                />
+              ),
+            )}
+            {myPosition ? (
+              <span
+                aria-label="내 위치"
+                className="workspace-2d-minimap-actor workspace-2d-minimap-actor-player"
+                style={{ left: myPosition.left, top: myPosition.top }}
+              />
+            ) : null}
             <span
-              key={actor.id}
-              aria-hidden="true"
-              className={`workspace-2d-minimap-actor ${
-                actor.kind === "member"
-                  ? "workspace-2d-minimap-actor-member"
-                  : "workspace-2d-minimap-actor-agent"
-              } workspace-2d-minimap-status-${actor.status}`}
-              style={{ left: actor.position.left, top: actor.position.top }}
+              className="workspace-2d-minimap-view"
+              style={{
+                left: `${viewportLeft}%`,
+                top: `${viewportTop}%`,
+                width: `${viewportWidth}%`,
+                height: `${viewportHeight}%`,
+              }}
             />
-          ),
-        )}
-        {myPosition ? (
-          <span
-            aria-label="내 위치"
-            className="workspace-2d-minimap-actor workspace-2d-minimap-actor-player"
-            style={{ left: myPosition.left, top: myPosition.top }}
-          />
-        ) : null}
-        <span
-          className="workspace-2d-minimap-view"
-          style={{
-            left: `${viewportLeft}%`,
-            top: `${viewportTop}%`,
-            width: `${viewportWidth}%`,
-            height: `${viewportHeight}%`,
-          }}
-        />
-      </div>
-      <div className="workspace-2d-map-caption">
-        <span>참여자 {totalActors}명</span>
-        <span>내 위치</span>
-      </div>
+          </div>
+          <div className="workspace-2d-map-caption">
+            <span>참여자 {totalActors}명</span>
+            <span>내 위치</span>
+          </div>
+        </>
+      ) : null}
     </section>
   );
 }

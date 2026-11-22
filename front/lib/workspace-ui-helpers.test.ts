@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  buildAgentQuickPrompts,
   formatDurationMs,
   formatOrchestrationStatus,
   formatOrchestrationStepStatus,
   formatTaskStatus,
+  formatTaskType,
   formatTokenUsageSummary,
 } from "./workspace-formatters.ts";
 import {
@@ -56,4 +58,26 @@ test("validateTaskApprovalText enforces fail-closed length bounds", () => {
   const oversized = "가".repeat(MAX_TASK_APPROVAL_TEXT_CHARS + 1);
   const rejected = validateTaskApprovalText(oversized, "검토 의견");
   assert.equal(rejected.ok, false);
+});
+
+test("formatTaskType maps standard enums to Korean labels and bounds unknown types", () => {
+  assert.equal(formatTaskType("TEST_CREATION"), "테스트 작성");
+  assert.equal(formatTaskType("PR_REVIEW"), "PR 검토");
+  assert.equal(formatTaskType("CODE_REVIEW"), "코드 리뷰");
+  assert.equal(formatTaskType("CODE_CHANGE"), "코드 변경");
+  assert.equal(formatTaskType("FEATURE_IMPLEMENTATION"), "기능 구현");
+  assert.equal(formatTaskType("PLANNING"), "설계·기획");
+  assert.equal(formatTaskType("DOCS"), "문서 정리");
+  assert.equal(formatTaskType(undefined), "일반 작업");
+  assert.equal(formatTaskType("CUSTOM_FLOW_NAME_THAT_IS_VERY_LONG_OVER_32"), "CUSTOM FLOW NAME THAT IS VERY LO");
+});
+
+test("buildAgentQuickPrompts returns 3 role-tailored prompts per category", () => {
+  for (const cat of ["ORCHESTRATOR", "BACKEND", "FRONTEND", "QA", "CUSTOM"] as const) {
+    const prompts = buildAgentQuickPrompts(cat, "Tester");
+    assert.equal(prompts.length, 3);
+    for (const p of prompts) {
+      assert.ok(p.label.length > 0 && p.prompt.length > 0);
+    }
+  }
 });

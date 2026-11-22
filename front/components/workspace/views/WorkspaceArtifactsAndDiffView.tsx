@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   AlertCircle,
+  Check,
+  Copy,
   Eye,
   FileCode2,
   FileText,
@@ -43,6 +45,7 @@ import {
   type GitStatusResult,
   type WorkspaceFileChangeEvent,
 } from "@/lib/desktop/ipc";
+import { useCopyFeedback } from "@/lib/use-copy-feedback";
 
 export type WorkspaceArtifactsAndDiffViewProps = {
   tree: ArtifactTree | null;
@@ -89,6 +92,12 @@ export function WorkspaceArtifactsAndDiffView({
   const [watchingPath, setWatchingPath] = useState<string | null>(null);
   const [watchEvents, setWatchEvents] = useState<string[]>([]);
   const [manualDiffInput, setManualDiffInput] = useState("");
+  const { copiedKey, copy } = useCopyFeedback<"path" | "content">();
+
+  const handleCopyArtifact = (kind: "path" | "content", text: string) => {
+    if (!text) return;
+    void copy(text, kind);
+  };
 
   const desktopRuntime = isDesktop();
 
@@ -378,7 +387,7 @@ export function WorkspaceArtifactsAndDiffView({
 
           <section className="ao-surface-panel flex flex-col gap-3 min-w-0" aria-label="산출물 미리보기">
             <div className="ao-surface-panel-header">
-              <div>
+              <div className="min-w-0">
                 <h3>{selectedFile?.name ?? selectedPath ?? "파일 미리보기"}</h3>
                 {selectedFile ? (
                   <p className="m-0 text-[12px] text-[var(--ui-text-muted)]">
@@ -387,6 +396,37 @@ export function WorkspaceArtifactsAndDiffView({
                   </p>
                 ) : null}
               </div>
+
+              {selectedFile || selectedPath ? (
+                <div className="flex flex-wrap items-center gap-1.5 shrink-0">
+                  <button
+                    type="button"
+                    className="tb-btn"
+                    onClick={() => void handleCopyArtifact("path", selectedFile?.path ?? selectedPath ?? "")}
+                  >
+                    {copiedKey === "path" ? (
+                      <Check size={12} aria-hidden="true" />
+                    ) : (
+                      <Copy size={12} aria-hidden="true" />
+                    )}
+                    <span>{copiedKey === "path" ? "경로 복사됨" : "경로 복사"}</span>
+                  </button>
+                  {selectedFile ? (
+                    <button
+                      type="button"
+                      className="tb-btn"
+                      onClick={() => void handleCopyArtifact("content", selectedFile.content)}
+                    >
+                      {copiedKey === "content" ? (
+                        <Check size={12} aria-hidden="true" />
+                      ) : (
+                        <Copy size={12} aria-hidden="true" />
+                      )}
+                      <span>{copiedKey === "content" ? "내용 복사됨" : "내용 복사"}</span>
+                    </button>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
 
             {!selectedPath ? (

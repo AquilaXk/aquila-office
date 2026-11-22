@@ -29,7 +29,7 @@ export function ArtifactFileModal({
 }: ArtifactFileModalProps) {
   const dialogRef = useRef<HTMLElement | null>(null);
   const open = Boolean(path || state.status !== "idle");
-  useDialogA11y(open, dialogRef, onClose);
+  const { onBackdropPointerDown, onBackdropClick } = useDialogA11y(open, dialogRef, onClose);
 
   if (!open) {
     return null;
@@ -41,11 +41,8 @@ export function ArtifactFileModal({
     <div
       className="workspace-modal-backdrop"
       role="presentation"
-      onClick={(event) => {
-        if (event.target === event.currentTarget) {
-          onClose();
-        }
-      }}
+      onPointerDown={(event) => onBackdropPointerDown(event.target === event.currentTarget)}
+      onClick={(event) => onBackdropClick(event.target === event.currentTarget)}
     >
       <section
         ref={dialogRef}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState, type DragEvent as ReactDragEvent } from "react";
 import {
   AlertCircle,
   Bot,
@@ -21,6 +21,7 @@ import {
   formatDurationMs,
   formatTaskPriority,
   formatTaskStatus,
+  formatTaskType,
   formatTokenUsageSummary,
   TASK_GROUPS,
 } from "@/components/workspace/workspace-ui-helpers";
@@ -50,7 +51,28 @@ export type WorkspaceTaskBoardViewProps = {
   onRunTask: (task: WorkspaceTask) => void;
   onRequestApproval: (task: WorkspaceTask) => void;
   onCancelTask: (task: WorkspaceTask) => void;
+  onUpdateTaskStatus?: (taskId: number, status: TaskStatus) => void;
 };
+
+const COLUMN_DROP_STATUS: Record<string, TaskStatus> = {
+  waiting: "ASSIGNED",
+  progress: "IN_PROGRESS",
+  done: "COMPLETED",
+  stopped: "CANCELED",
+};
+
+const GROUP_DOT_COLORS: Record<string, string> = {
+  done: "var(--studio-ok)",
+  progress: "var(--studio-warn)",
+  waiting: "var(--studio-info)",
+  stopped: "var(--studio-danger)",
+};
+
+function parseAssignedAgentId(value: WorkspaceTask["assignedAgentId"]): number | null {
+  const parsed =
+    typeof value === "string" ? Number.parseInt(value, 10) : value;
+  return typeof parsed === "number" && Number.isFinite(parsed) ? parsed : null;
+}
 
 const ALL_STATUS_OPTIONS: Array<{ value: TaskStatus | "ALL"; label: string }> = [
   { value: "ALL", label: "전체 상태" },
@@ -84,7 +106,12 @@ export function WorkspaceTaskBoardView({
   onRunTask,
   onRequestApproval,
   onCancelTask,
+  onUpdateTaskStatus,
 }: WorkspaceTaskBoardViewProps) {
+  const [agentFilter, setAgentFilter] = useState<string>("ALL");
+  const [draggedTaskId, setDraggedTaskId] = useState<number | null>(null);
+  const [dropColumnId, setDropColumnId] = useState<string | null>(null);
+
   const agentById = useMemo(() => {
     const map = new Map<number, WorkspaceAgent>();
     for (let i = 0; i < agents.length; i += 1) {
@@ -95,18 +122,71 @@ export function WorkspaceTaskBoardView({
 
   const filteredTasks = useMemo(() => {
     const trimmed = searchQuery.trim();
-    const statusMatched =
-      statusFilter === "ALL" ? tasks : tasks.filter((task) => task.status === statusFilter);
+    const matched: WorkspaceTask[] = [];
+    for (let i = 0; i < tasks.length; i += 1) {
+      const task = tasks[i];
+      if (statusFilter !== "ALL" && task.status !== statusFilter) {
+        continue;
+      }
+      if (agentFilter !== "ALL") {
+        const assignedId = parseAssignedAgentId(task.assignedAgentId);
+        if (agentFilter === "UNASSIGNED") {
+          if (assignedId !== null) continue;
+        } else if (String(assignedId ?? "") !== agentFilter) {
+          continue;
+        }
+      }
+      matched.push(task);
+    }
     if (!trimmed) {
-      return statusMatched;
+      return matched;
     }
     return searchBitapItems(
-      statusMatched,
+      matched,
       trimmed,
       (task) => `${task.title} ${task.description ?? ""} ${task.type ?? ""}`,
       { maxDistance: 1 },
     ).map((hit) => hit.item);
-  }, [searchQuery, statusFilter, tasks]);
+  }, [agentFilter, searchQuery, statusFilter, tasks]);
+
+  const hasActiveFilters =
+    searchQuery.trim().length > 0 || statusFilter !== "ALL" || agentFilter !== "ALL";
+
+  const handleTaskDragStart = (
+    event: ReactDragEvent<HTMLElement>,
+    taskId: number,
+  ) => {
+    setDraggedTaskId(taskId);
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", String(taskId));
+  };
+
+  const handleTaskDragEnd = () => {
+    setDraggedTaskId(null);
+    setDropColumnId(null);
+  };
+
+  const handleColumnDrop = (
+    event: ReactDragEvent<HTMLDivElement>,
+    groupKey: string,
+    groupStatuses: readonly TaskStatus[],
+  ) => {
+    event.preventDefault();
+    setDropColumnId(null);
+    if (!canManage || !onUpdateTaskStatus) {
+      setDraggedTaskId(null);
+      return;
+    }
+    const rawId = draggedTaskId ?? Number.parseInt(event.dataTransfer.getData("text/plain"), 10);
+    setDraggedTaskId(null);
+    if (!Number.isFinite(rawId)) return;
+    const task = tasks.find((item) => item.taskId === rawId);
+    const targetStatus = COLUMN_DROP_STATUS[groupKey];
+    if (!task || !targetStatus || groupStatuses.includes(task.status)) {
+      return;
+    }
+    onUpdateTaskStatus(task.taskId, targetStatus);
+  };
 
   const groupedTasks = useMemo(() => {
     const buckets = new Map<string, WorkspaceTask[]>();
@@ -134,22 +214,15 @@ export function WorkspaceTaskBoardView({
         ? " chrome-budget-fill-warning"
         : "";
 
-  const renderTaskCard = (task: WorkspaceTask) => {
-    const selected = selectedTaskId === task.taskId;
-    const busy = mutatingTaskId === task.taskId;
-    const assignedId =
-      typeof task.assignedAgentId === "string"
-        ? Number.parseInt(task.assignedAgentId, 10)
-        : task.assignedAgentId;
-    const assignedAgent =
-      typeof assignedId === "number" && Number.isFinite(assignedId)
-        ? agentById.get(assignedId)
-        : undefined;
+  const resolveTaskAssignee = (task: WorkspaceTask) => {
+    const assignedId = parseAssignedAgentId(task.assignedAgentId);
+    const assignedAgent = assignedId !== null ? agentById.get(assignedId) : undefined;
     const assignedName =
-      typeof assignedId === "number" && Number.isFinite(assignedId)
-        ? assignedAgent?.name ?? `에이전트 #${assignedId}`
-        : "미배정";
+      assignedId !== null ? assignedAgent?.name ?? `에이전트 #${assignedId}` : "미배정";
+    return { assignedId, assignedAgent, assignedName };
+  };
 
+  const renderTaskActions = (task: WorkspaceTask, assignedId: number | null, busy: boolean) => {
     const canRun =
       task.status === "REQUESTED" ||
       task.status === "ASSIGNED" ||
@@ -163,9 +236,61 @@ export function WorkspaceTaskBoardView({
       task.status === "WAITING_USER";
 
     return (
+      <>
+        {canRun ? (
+          <button
+            type="button"
+            className="tb-btn tb-btn-primary"
+            disabled={busy || (assignedId == null && agents.length === 0)}
+            onClick={() => onRunTask(task)}
+          >
+            {busy ? (
+              <Loader2 size={12} className="spin" aria-hidden="true" />
+            ) : (
+              <Play size={12} aria-hidden="true" />
+            )}
+            <span>실행</span>
+          </button>
+        ) : null}
+        {canRequestApproval ? (
+          <button
+            type="button"
+            className="tb-btn"
+            disabled={busy}
+            onClick={() => onRequestApproval(task)}
+          >
+            <ShieldAlert size={12} aria-hidden="true" />
+            <span>승인 요청</span>
+          </button>
+        ) : null}
+        {canCancel ? (
+          <button
+            type="button"
+            className="tb-btn"
+            disabled={busy}
+            onClick={() => onCancelTask(task)}
+          >
+            <XCircle size={12} aria-hidden="true" />
+            <span>취소</span>
+          </button>
+        ) : null}
+      </>
+    );
+  };
+
+  const renderTaskCard = (task: WorkspaceTask) => {
+    const selected = selectedTaskId === task.taskId;
+    const busy = mutatingTaskId === task.taskId;
+    const { assignedId, assignedAgent, assignedName } = resolveTaskAssignee(task);
+    const draggable = Boolean(canManage && onUpdateTaskStatus && !busy);
+
+    return (
       <article
         key={task.taskId}
-        className={`ao-surface-panel chrome-kanban-card cursor-pointer transition-colors${
+        draggable={draggable}
+        onDragStart={(event) => handleTaskDragStart(event, task.taskId)}
+        onDragEnd={handleTaskDragEnd}
+        className={`ao-surface-panel ao-cv-card chrome-kanban-card cursor-pointer transition-colors${
           selected ? " border-[var(--accent-primary)] bg-[var(--ui-selected)]" : ""
         }`}
         onClick={() => onSelectTask(task.taskId)}
@@ -194,7 +319,7 @@ export function WorkspaceTaskBoardView({
 
         <div className="flex flex-wrap items-center gap-2 text-[12px] text-[var(--ui-text-muted)] mb-2">
           <span className="inline-flex items-center gap-1.5 min-w-0">
-            {typeof assignedId === "number" && Number.isFinite(assignedId) ? (
+            {assignedId !== null ? (
               <PixelAvatar
                 kind="agent"
                 variant="mugshot"
@@ -208,50 +333,57 @@ export function WorkspaceTaskBoardView({
             <span className="truncate">{assignedName}</span>
           </span>
           <span className="role-badge">{formatTaskPriority(task.priority)}</span>
-          {task.type ? <span className="role-badge">{task.type}</span> : null}
+          {task.type ? <span className="role-badge">{formatTaskType(task.type)}</span> : null}
         </div>
 
         <div
           className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-[var(--ui-border-subtle)]"
           onClick={(event) => event.stopPropagation()}
         >
-          {canRun ? (
-            <button
-              type="button"
-              className="tb-btn tb-btn-primary"
-              disabled={busy || (assignedId == null && agents.length === 0)}
-              onClick={() => onRunTask(task)}
+          {renderTaskActions(task, assignedId, busy)}
+        </div>
+      </article>
+    );
+  };
+
+  const renderTaskListRow = (task: WorkspaceTask) => {
+    const selected = selectedTaskId === task.taskId;
+    const busy = mutatingTaskId === task.taskId;
+    const { assignedId, assignedName } = resolveTaskAssignee(task);
+
+    return (
+      <article
+        key={task.taskId}
+        className={`ao-task-list-row ao-cv-card${
+          selected ? " border-[var(--accent-primary)] bg-[var(--ui-selected)]" : ""
+        }`}
+        onClick={() => onSelectTask(task.taskId)}
+      >
+        <div className="min-w-0 flex flex-col gap-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-[12px] font-mono text-[var(--ui-text-muted)]">
+              #{task.taskId}
+            </span>
+            <h4 className="m-0 text-[13px] font-semibold text-[var(--ui-text-strong)] truncate">
+              {task.title}
+            </h4>
+            <span
+              className={`task-status-badge task-status-${task.status.toLowerCase().replaceAll("_", "-")}`}
             >
-              {busy ? (
-                <Loader2 size={12} className="spin" aria-hidden="true" />
-              ) : (
-                <Play size={12} aria-hidden="true" />
-              )}
-              <span>실행</span>
-            </button>
-          ) : null}
-          {canRequestApproval ? (
-            <button
-              type="button"
-              className="tb-btn"
-              disabled={busy}
-              onClick={() => onRequestApproval(task)}
-            >
-              <ShieldAlert size={12} aria-hidden="true" />
-              <span>승인 요청</span>
-            </button>
-          ) : null}
-          {canCancel ? (
-            <button
-              type="button"
-              className="tb-btn"
-              disabled={busy}
-              onClick={() => onCancelTask(task)}
-            >
-              <XCircle size={12} aria-hidden="true" />
-              <span>취소</span>
-            </button>
-          ) : null}
+              {formatTaskStatus(task.status)}
+            </span>
+          </div>
+          <div className="flex flex-wrap items-center gap-2 text-[12px] text-[var(--ui-text-muted)]">
+            <span>{assignedName}</span>
+            <span className="role-badge">{formatTaskPriority(task.priority)}</span>
+            {task.type ? <span className="role-badge">{formatTaskType(task.type)}</span> : null}
+          </div>
+        </div>
+        <div
+          className="flex flex-wrap items-center gap-1.5 shrink-0"
+          onClick={(event) => event.stopPropagation()}
+        >
+          {renderTaskActions(task, assignedId, busy)}
         </div>
       </article>
     );
@@ -320,40 +452,65 @@ export function WorkspaceTaskBoardView({
         </article>
       </section>
 
-      <section className="ao-surface-panel" aria-label="일일 토큰 사용량">
-        <div className="flex items-center justify-between gap-2 mb-2 text-[13px]">
-          <span className="inline-flex items-center gap-2 font-semibold text-[var(--ui-text-strong)]">
-            <Coins size={15} aria-hidden="true" />
-            <span>일일 토큰 예산</span>
-          </span>
-          <span className="font-mono text-[12px] text-[var(--ui-text-secondary)]">
-            {tokenSummary.label}
-          </span>
-        </div>
-        <div className="chrome-budget-track">
-          <div
-            className={`chrome-budget-fill${budgetBarTone}`}
-            style={{ width: `${tokenSummary.percent ?? 12}%` }}
-          />
-        </div>
-        {tasks.length > 0 ? (
+      <div className="ao-telemetry-grid">
+        <section className="ao-telemetry-card" aria-label="일일 토큰 사용량">
+          <div className="flex items-center justify-between gap-2 text-[13px]">
+            <span className="inline-flex items-center gap-2 font-semibold text-[var(--ui-text-strong)]">
+              <Coins size={15} aria-hidden="true" />
+              <span>일일 토큰 예산</span>
+            </span>
+            <span className="font-mono text-[12px] text-[var(--ui-text-secondary)]">
+              {tokenSummary.label}
+            </span>
+          </div>
+          <div className="chrome-budget-track">
+            <div
+              className={`chrome-budget-fill${budgetBarTone}`}
+              style={{ width: `${tokenSummary.percent ?? 12}%` }}
+            />
+          </div>
+        </section>
+
+        <section className="ao-telemetry-card" aria-label="작업 상태 분포">
+          <div className="flex items-center justify-between gap-2 text-[13px]">
+            <span className="font-semibold text-[var(--ui-text-strong)]">작업 상태 분포</span>
+            <span className="font-mono text-[12px] text-[var(--ui-text-secondary)]">
+              {filteredTasks.length}건
+            </span>
+          </div>
           <div className="ao-task-segment-bar" aria-label="작업 상태 비율">
             {TASK_GROUPS.map((group) => {
               const count = groupedTasks.get(group.key)?.length ?? 0;
               if (count === 0 || filteredTasks.length === 0) return null;
-              const pct = Math.max(4, Math.round((count / filteredTasks.length) * 100));
+              const widthPct = Math.max(4, Math.round((count / filteredTasks.length) * 100));
               return (
                 <span
                   key={group.key}
                   className={`ao-task-segment ao-task-segment--${group.key}`}
-                  style={{ width: `${pct}%` }}
+                  style={{ width: `${widthPct}%` }}
                   title={`${group.label}: ${count}건`}
                 />
               );
             })}
           </div>
-        ) : null}
-      </section>
+          <div className="ao-telemetry-legend">
+            {TASK_GROUPS.map((group) => {
+              const count = groupedTasks.get(group.key)?.length ?? 0;
+              return (
+                <span key={group.key} className="ao-telemetry-legend-item">
+                  <span
+                    className="ao-telemetry-dot"
+                    style={{ background: GROUP_DOT_COLORS[group.key] ?? "var(--ui-border)" }}
+                  />
+                  <span>
+                    {group.label} {count}
+                  </span>
+                </span>
+              );
+            })}
+          </div>
+        </section>
+      </div>
 
       {staleRecoveryNotice ? (
         <div
@@ -403,6 +560,35 @@ export function WorkspaceTaskBoardView({
               </option>
             ))}
           </select>
+
+          <select
+            aria-label="담당 에이전트 필터"
+            value={agentFilter}
+            onChange={(event) => setAgentFilter(event.target.value)}
+            className="h-8 px-2.5 rounded-[var(--radius-md)] border border-[var(--ui-border)] bg-[var(--ui-surface)] text-[13px] text-[var(--ui-text)]"
+          >
+            <option value="ALL">전체 담당자</option>
+            <option value="UNASSIGNED">미배정</option>
+            {agents.map((agent) => (
+              <option key={agent.agentId} value={String(agent.agentId)}>
+                {agent.name}
+              </option>
+            ))}
+          </select>
+
+          {hasActiveFilters ? (
+            <button
+              type="button"
+              className="tb-btn"
+              onClick={() => {
+                onSearchQueryChange("");
+                onStatusFilterChange("ALL");
+                setAgentFilter("ALL");
+              }}
+            >
+              <span>필터 초기화</span>
+            </button>
+          ) : null}
         </div>
 
         <div className="flex items-center gap-1" role="group" aria-label="보드 보기 형식">
@@ -436,7 +622,24 @@ export function WorkspaceTaskBoardView({
           {TASK_GROUPS.map((group) => {
             const items = groupedTasks.get(group.key) ?? [];
             return (
-              <div className={`chrome-kanban-col chrome-kanban-col-${group.key}`} key={group.key}>
+              <div
+                className={`chrome-kanban-col chrome-kanban-col-${group.key}`}
+                key={group.key}
+                data-drop-active={dropColumnId === group.key ? "true" : undefined}
+                onDragOver={(event) => {
+                  if (!canManage || !onUpdateTaskStatus || draggedTaskId == null) return;
+                  event.preventDefault();
+                  if (dropColumnId !== group.key) {
+                    setDropColumnId(group.key);
+                  }
+                }}
+                onDragLeave={() => {
+                  if (dropColumnId === group.key) {
+                    setDropColumnId(null);
+                  }
+                }}
+                onDrop={(event) => handleColumnDrop(event, group.key, group.statuses)}
+              >
                 <div className="chrome-kanban-col-header">
                   <span>{group.label}</span>
                   <span className="role-badge">{items.length}</span>
@@ -454,7 +657,7 @@ export function WorkspaceTaskBoardView({
         </section>
       ) : (
         <section className="flex flex-col gap-2" aria-label="작업 목록">
-          {filteredTasks.map(renderTaskCard)}
+          {filteredTasks.map(renderTaskListRow)}
         </section>
       )}
     </div>

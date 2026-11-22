@@ -49,7 +49,7 @@ export function TaskReportsModal({
   onOpenArtifact: (path: string, name?: string) => void;
 }) {
   const dialogRef = useRef<HTMLElement | null>(null);
-  useDialogA11y(Boolean(task), dialogRef, onClose);
+  const { onBackdropPointerDown, onBackdropClick } = useDialogA11y(Boolean(task), dialogRef, onClose);
 
   if (!task) {
     return null;
@@ -59,11 +59,8 @@ export function TaskReportsModal({
     <div
       className="workspace-modal-backdrop"
       role="presentation"
-      onClick={(event) => {
-        if (event.target === event.currentTarget) {
-          onClose();
-        }
-      }}
+      onPointerDown={(event) => onBackdropPointerDown(event.target === event.currentTarget)}
+      onClick={(event) => onBackdropClick(event.target === event.currentTarget)}
     >
       <section
         ref={dialogRef}
@@ -188,7 +185,7 @@ export function TaskChatModal({
   onClose: () => void;
 }) {
   const dialogRef = useRef<HTMLElement | null>(null);
-  useDialogA11y(Boolean(task), dialogRef, onClose);
+  const { onBackdropPointerDown, onBackdropClick } = useDialogA11y(Boolean(task), dialogRef, onClose);
 
   if (!task) {
     return null;
@@ -198,11 +195,8 @@ export function TaskChatModal({
     <div
       className="workspace-modal-backdrop"
       role="presentation"
-      onClick={(event) => {
-        if (event.target === event.currentTarget) {
-          onClose();
-        }
-      }}
+      onPointerDown={(event) => onBackdropPointerDown(event.target === event.currentTarget)}
+      onClick={(event) => onBackdropClick(event.target === event.currentTarget)}
     >
       <section
         ref={dialogRef}
@@ -378,7 +372,7 @@ export function OrchestrationPlanModal({
 }) {
   const dialogRef = useRef<HTMLElement | null>(null);
   const open = Boolean(plan || state.status !== "idle");
-  useDialogA11y(open, dialogRef, onClose);
+  const { onBackdropPointerDown, onBackdropClick } = useDialogA11y(open, dialogRef, onClose);
 
   if (!open) {
     return null;
@@ -388,11 +382,8 @@ export function OrchestrationPlanModal({
     <div
       className="workspace-modal-backdrop"
       role="presentation"
-      onClick={(event) => {
-        if (event.target === event.currentTarget) {
-          onClose();
-        }
-      }}
+      onPointerDown={(event) => onBackdropPointerDown(event.target === event.currentTarget)}
+      onClick={(event) => onBackdropClick(event.target === event.currentTarget)}
     >
       <section
         ref={dialogRef}

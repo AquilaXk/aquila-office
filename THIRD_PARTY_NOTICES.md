@@ -175,3 +175,21 @@ THE SOFTWARE.
 - License: MIT License (`https://github.com/xyflow/xyflow`)
 - Scope in Aquila Office:
   - Horizontal cubic-Bezier control offset calculation (`calculateControlOffset`, `getHorizontalBezierPath`) adapted from `packages/system/src/utils/edges/bezier-edge.ts` in `front/lib/pixel-office/dag-bezier-edges.ts` and `front/components/workspace/views/WorkspaceOrchestrationView.tsx`.
+
+## Floating Canvas Island Toolbar & Stage Controls
+- Source: `excalidraw/excalidraw` (Copyright (c) 2020 Excalidraw)
+- License: MIT License (`https://github.com/excalidraw/excalidraw`)
+- Scope in Aquila Office:
+  - Floating canvas island toolbar grouping and collapsible minimap surface patterns in `front/components/workspace/stage/StageFloatingControls.tsx`, `front/components/workspace/Workspace2DCanvas.tsx`, and `front/styles/studio-ui.css`.
+
+## Assistant Composer & Quick-Start Prompt Chips
+- Source: `assistant-ui/assistant-ui` (Copyright (c) 2024 assistant-ui)
+- License: MIT License (`https://github.com/assistant-ui/assistant-ui`)
+- Scope in Aquila Office:
+  - Empty-thread starter prompt chips (`buildAgentQuickPrompts`) and IME-safe `Enter` / `Shift+Enter` composer ergonomics in `front/lib/workspace-formatters.ts` and `front/components/workspace/inspector/WorkspaceContextInspector.tsx`.
+
+## Agent Task Board & Execution Telemetry Layout
+- Source: `quentintou/agent-board` (Copyright (c) 2025 Quentin Tou)
+- License: MIT License (`https://github.com/quentintou/agent-board`)
+- Scope in Aquila Office:
+  - Two-column telemetry summary (`ao-telemetry-grid`), task status distribution bar + swatch legend, agent assignee filter, and drag-and-drop column transitions in `front/components/workspace/views/WorkspaceTaskBoardView.tsx` and `front/styles/studio-ui.css`.

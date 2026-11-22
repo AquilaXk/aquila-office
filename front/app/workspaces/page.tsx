@@ -19,6 +19,7 @@ import { formatTokenUsageSummary } from "@/components/workspace/workspace-ui-hel
 import { getStoredUser, type ApiError, type AuthUser } from "@/lib/api-client";
 import { listWorkspaces, type WorkspaceSummary } from "@/lib/api/workspaces";
 import { hydrateDesktopAccessToken } from "@/lib/auth";
+import { searchBitapItems } from "@/lib/bitap-fuzzy-search";
 
 export default function WorkspacesPage() {
   const router = useRouter();
@@ -27,6 +28,8 @@ export default function WorkspacesPage() {
   const [workspaces, setWorkspaces] = useState<WorkspaceSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [roleFilter, setRoleFilter] = useState<"ALL" | "ADMIN" | "MEMBER">("ALL");
 
   useEffect(() => {
     let cancelled = false;
@@ -85,6 +88,33 @@ export default function WorkspacesPage() {
     return { activeCount: active, agentCount: agents, completedCount: completed };
   }, [workspaces]);
 
+  const indexedWorkspaces = useMemo(
+    () =>
+      workspaces.map((ws, index) => ({
+        ws,
+        index,
+        code: `W${String(index + 1).padStart(3, "0")}`,
+      })),
+    [workspaces],
+  );
+
+  const filteredWorkspaces = useMemo(() => {
+    const byRole =
+      roleFilter === "ALL"
+        ? indexedWorkspaces
+        : indexedWorkspaces.filter((entry) => entry.ws.myRole === roleFilter);
+    const trimmed = searchQuery.trim();
+    if (!trimmed) {
+      return byRole;
+    }
+    return searchBitapItems(
+      byRole,
+      trimmed,
+      (entry) => `${entry.code} ${entry.ws.name} ${entry.ws.description ?? ""}`,
+      { maxDistance: 1 },
+    ).map((hit) => hit.item);
+  }, [indexedWorkspaces, roleFilter, searchQuery]);
+
   if (!hydrated) {
     return null;
   }
@@ -134,14 +164,14 @@ export default function WorkspacesPage() {
                   {user?.name ?? "구성원"}
                 </strong>
                 <span className="ao-live-pill ao-tone-ok mt-1" data-live="true">
-                  스튜디오 온라인
+                  세션 연결됨
                 </span>
               </div>
             </div>
 
             <div>
               <span className="block text-[12px] font-semibold text-[var(--ui-text-muted)] mb-2">
-                오피스 AI 크루
+                표준 에이전트 구성
               </span>
               <div className="ao-crew-avatar-grid">
                 {(
@@ -243,8 +273,32 @@ export default function WorkspacesPage() {
             ) : null}
 
             <section className="ao-surface-panel" aria-label="내 워크스페이스">
-              <div className="ao-surface-panel-header">
+              <div className="ao-surface-panel-header flex-wrap gap-2">
                 <h2>내 워크스페이스 ({workspaces.length})</h2>
+                {workspaces.length >= 2 ? (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <input
+                      type="search"
+                      aria-label="워크스페이스 검색"
+                      placeholder="코드·이름 검색"
+                      value={searchQuery}
+                      onChange={(event) => setSearchQuery(event.target.value)}
+                      className="h-8 px-2.5 rounded-[var(--radius-md)] border border-[var(--ui-border)] bg-[var(--ui-surface)] text-[13px] text-[var(--ui-text)] max-w-[200px]"
+                    />
+                    <select
+                      aria-label="워크스페이스 역할 필터"
+                      value={roleFilter}
+                      onChange={(event) =>
+                        setRoleFilter(event.target.value as "ALL" | "ADMIN" | "MEMBER")
+                      }
+                      className="h-8 px-2 rounded-[var(--radius-md)] border border-[var(--ui-border)] bg-[var(--ui-surface)] text-[13px] text-[var(--ui-text)]"
+                    >
+                      <option value="ALL">전체 역할</option>
+                      <option value="ADMIN">ADMIN</option>
+                      <option value="MEMBER">MEMBER</option>
+                    </select>
+                  </div>
+                ) : null}
               </div>
 
               {loading ? (
@@ -262,9 +316,25 @@ export default function WorkspacesPage() {
                     <span>첫 워크스페이스 만들기</span>
                   </Link>
                 </div>
+              ) : filteredWorkspaces.length === 0 ? (
+                <div className="text-center py-6 flex flex-col items-center gap-2">
+                  <p className="m-0 text-[13px] text-[var(--ui-text-secondary)]">
+                    조건에 맞는 워크스페이스가 없습니다.
+                  </p>
+                  <button
+                    type="button"
+                    className="tb-btn"
+                    onClick={() => {
+                      setSearchQuery("");
+                      setRoleFilter("ALL");
+                    }}
+                  >
+                    필터 초기화
+                  </button>
+                </div>
               ) : (
                 <div className="flex flex-col gap-2.5">
-                  {workspaces.map((ws, index) => {
+                  {filteredWorkspaces.map(({ ws, index }) => {
                     const tokenSummary = formatTokenUsageSummary(
                       ws.todayUsedTokens,
                       ws.dailyTokenLimit,

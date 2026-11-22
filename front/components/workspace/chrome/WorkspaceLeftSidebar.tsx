@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import {
   Briefcase,
   Building2,
@@ -20,8 +21,10 @@ import {
   type PresenceMutationState,
 } from "@/components/workspace/workspace-ui-helpers";
 import type { WorkspaceAgent } from "@/lib/agents";
+import { searchBitapItems } from "@/lib/bitap-fuzzy-search";
 import type { WorkspacePresenceMessage } from "@/lib/presence";
 import type { PresenceLiveState } from "@/lib/presence-summary";
+import type { WorkspaceTask } from "@/lib/tasks";
 import type { WorkspaceMember } from "@/lib/workspaces";
 
 export type OfficeZoneId = "overview" | "work" | "meeting" | "library";
@@ -29,9 +32,11 @@ export type OfficeZoneId = "overview" | "work" | "meeting" | "library";
 export type WorkspaceLeftSidebarProps = {
   agents: WorkspaceAgent[];
   members: WorkspaceMember[];
+  tasks?: WorkspaceTask[];
   selectedAgentId: number | null;
   activeZone: OfficeZoneId;
   mobileOpen: boolean;
+  desktopCollapsed?: boolean;
   canManage: boolean;
   presenceLiveState: PresenceLiveState;
   presenceEvents: WorkspacePresenceMessage[];
@@ -66,9 +71,11 @@ function renderZoneIcon(id: OfficeZoneId) {
 export function WorkspaceLeftSidebar({
   agents,
   members,
+  tasks = [],
   selectedAgentId,
   activeZone,
   mobileOpen,
+  desktopCollapsed = false,
   canManage,
   presenceLiveState,
   presenceEvents,
@@ -79,6 +86,7 @@ export function WorkspaceLeftSidebar({
   onOpenHireAgent,
   onUpdatePresencePosition,
 }: WorkspaceLeftSidebarProps) {
+  const [agentQuery, setAgentQuery] = useState("");
   const recentEvents = presenceEvents.slice(0, 3);
   const memberNameById = new Map<number, string>();
   for (let i = 0; i < members.length; i += 1) {
@@ -86,9 +94,45 @@ export function WorkspaceLeftSidebar({
     memberNameById.set(member.memberId, member.name || `구성원 #${member.memberId}`);
   }
 
+  const activeTaskCountByAgent = useMemo(() => {
+    const counts = new Map<number, number>();
+    for (let i = 0; i < tasks.length; i += 1) {
+      const task = tasks[i];
+      if (
+        task.status !== "REQUESTED" &&
+        task.status !== "ASSIGNED" &&
+        task.status !== "IN_PROGRESS" &&
+        task.status !== "WAITING_USER"
+      ) {
+        continue;
+      }
+      const rawId = task.assignedAgentId;
+      const assignedId = typeof rawId === "string" ? Number.parseInt(rawId, 10) : rawId;
+      if (typeof assignedId === "number" && Number.isFinite(assignedId)) {
+        counts.set(assignedId, (counts.get(assignedId) ?? 0) + 1);
+      }
+    }
+    return counts;
+  }, [tasks]);
+
+  const filteredAgents = useMemo(() => {
+    const trimmed = agentQuery.trim();
+    if (!trimmed || agents.length < 5) {
+      return agents;
+    }
+    return searchBitapItems(
+      agents,
+      trimmed,
+      (agent) => `${agent.name} ${agent.category}`,
+      { maxDistance: 1 },
+    ).map((hit) => hit.item);
+  }, [agentQuery, agents]);
+
   return (
     <aside
-      className={`chrome-sidebar${mobileOpen ? "" : " chrome-sidebar-collapsed-mobile"}`}
+      className={`chrome-sidebar${mobileOpen ? "" : " chrome-sidebar-collapsed-mobile"}${
+        desktopCollapsed ? " chrome-sidebar-collapsed-desktop" : ""
+      }`}
       aria-label="워크스페이스 탐색"
     >
       <section className="chrome-sidebar-section" aria-label="오피스 구역">
@@ -128,13 +172,29 @@ export function WorkspaceLeftSidebar({
           ) : null}
         </div>
 
+        {agents.length >= 5 ? (
+          <input
+            type="search"
+            aria-label="사이드바 에이전트 검색"
+            placeholder="에이전트 검색"
+            value={agentQuery}
+            onChange={(event) => setAgentQuery(event.target.value)}
+            className="w-full h-7 px-2 mb-1 rounded-[var(--radius-sm)] border border-[var(--ui-border)] bg-[var(--ui-bg)] text-[12px] text-[var(--ui-text)]"
+          />
+        ) : null}
+
         {agents.length === 0 ? (
           <p className="text-[12px] text-[var(--ui-text-muted)] px-1 py-1">
             등록된 에이전트가 없습니다.
           </p>
+        ) : filteredAgents.length === 0 ? (
+          <p className="text-[12px] text-[var(--ui-text-muted)] px-1 py-1">
+            일치하는 에이전트가 없습니다.
+          </p>
         ) : (
-          agents.map((agent) => {
+          filteredAgents.map((agent) => {
             const active = selectedAgentId === agent.agentId;
+            const activeTaskCount = activeTaskCountByAgent.get(agent.agentId) ?? 0;
             const statusTone =
               agent.status === "READY"
                 ? "ao-tone-ok"
@@ -162,7 +222,14 @@ export function WorkspaceLeftSidebar({
                   />
                   <span className="truncate">{agent.name}</span>
                 </span>
-                <span className={`role-badge ${statusTone}`}>{formatAgentStatus(agent.status)}</span>
+                <span className="inline-flex items-center gap-1 shrink-0">
+                  {activeTaskCount > 0 ? (
+                    <span className="role-badge" title={`진행 중인 작업 ${activeTaskCount}건`}>
+                      {activeTaskCount}
+                    </span>
+                  ) : null}
+                  <span className={`role-badge ${statusTone}`}>{formatAgentStatus(agent.status)}</span>
+                </span>
               </button>
             );
           })
@@ -189,7 +256,7 @@ export function WorkspaceLeftSidebar({
 
         <div className="chrome-sidebar-presence-box">
           <p className="text-[12px] text-[var(--ui-text-secondary)] m-0">
-            {presenceLiveState.summary}
+            {`${presenceLiveState.onlineCount}/${presenceLiveState.workspaceMemberCount}명 온라인`}
           </p>
 
           {presenceLiveState.members.length > 0 ? (

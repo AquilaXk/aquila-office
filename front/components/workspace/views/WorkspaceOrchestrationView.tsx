@@ -124,6 +124,99 @@ export function WorkspaceOrchestrationView({
     setSteps((current) => (current.length > 1 ? current.filter((step) => step.id !== id) : current));
   }
 
+  function resolvePresetAgentId(preferredCategory: WorkspaceAgent["category"]): string {
+    const matched = agents.find((agent) => agent.category === preferredCategory) ?? agents[0];
+    return matched ? String(matched.agentId) : "";
+  }
+
+  function applyStepPreset(preset: "standard" | "parallel" | "reset") {
+    const defaultId = agents[0] ? String(agents[0].agentId) : "";
+    if (preset === "reset") {
+      setSteps([
+        {
+          id: createLocalId(),
+          stepKey: "plan",
+          agentId: defaultId,
+          dependsOnText: "",
+          instruction: "",
+        },
+      ]);
+      return;
+    }
+    if (preset === "standard") {
+      setSteps([
+        {
+          id: createLocalId(),
+          stepKey: "plan",
+          agentId: resolvePresetAgentId("ORCHESTRATOR"),
+          dependsOnText: "",
+          instruction: "요구사항과 변경 범위를 분석해 실행 계획을 수립합니다.",
+        },
+        {
+          id: createLocalId(),
+          stepKey: "implement",
+          agentId: resolvePresetAgentId("BACKEND"),
+          dependsOnText: "plan",
+          instruction: "수립된 계획에 따라 기능 구현 및 단위 테스트를 진행합니다.",
+        },
+        {
+          id: createLocalId(),
+          stepKey: "verify",
+          agentId: resolvePresetAgentId("QA"),
+          dependsOnText: "implement",
+          instruction: "통합 테스트와 정적 검증을 실행하고 결과를 요약합니다.",
+        },
+      ]);
+      return;
+    }
+    setSteps([
+      {
+        id: createLocalId(),
+        stepKey: "plan",
+        agentId: resolvePresetAgentId("ORCHESTRATOR"),
+        dependsOnText: "",
+        instruction: "백엔드와 프론트엔드 작업 범위 및 연동 계약을 정의합니다.",
+      },
+      {
+        id: createLocalId(),
+        stepKey: "backend",
+        agentId: resolvePresetAgentId("BACKEND"),
+        dependsOnText: "plan",
+        instruction: "API 엔드포인트, 서비스 로직 및 단위 테스트를 구현합니다.",
+      },
+      {
+        id: createLocalId(),
+        stepKey: "frontend",
+        agentId: resolvePresetAgentId("FRONTEND"),
+        dependsOnText: "plan",
+        instruction: "UI 컴포넌트, 상태 연동 및 접근성을 구현합니다.",
+      },
+      {
+        id: createLocalId(),
+        stepKey: "review",
+        agentId: resolvePresetAgentId("QA"),
+        dependsOnText: "backend, frontend",
+        instruction: "전체 회귀 테스트를 실행하고 최종 품질을 검토합니다.",
+      },
+    ]);
+  }
+
+  function toggleDependencyKey(stepId: string, dependencyKey: string) {
+    setSteps((current) =>
+      current.map((step) => {
+        if (step.id !== stepId) return step;
+        const existing = step.dependsOnText
+          .split(",")
+          .map((item) => item.trim())
+          .filter(Boolean);
+        const next = existing.includes(dependencyKey)
+          ? existing.filter((item) => item !== dependencyKey)
+          : [...existing, dependencyKey];
+        return { ...step, dependsOnText: next.join(", ") };
+      }),
+    );
+  }
+
   async function handleCreateSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const parsedSourceTaskId = Number.parseInt(effectiveSourceTaskId, 10);
@@ -256,7 +349,7 @@ export function WorkspaceOrchestrationView({
             </select>
           </label>
 
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <strong className="text-[13px] text-[var(--ui-text-strong)]">실행 단계 (DAG)</strong>
             <button
               type="button"
@@ -269,8 +362,46 @@ export function WorkspaceOrchestrationView({
             </button>
           </div>
 
+          <div className="ao-preset-bar" aria-label="단계 프리셋">
+            <button
+              type="button"
+              className="tb-btn"
+              disabled={!canManage || submittingCreate}
+              onClick={() => applyStepPreset("standard")}
+            >
+              3단계 표준 검증
+            </button>
+            <button
+              type="button"
+              className="tb-btn"
+              disabled={!canManage || submittingCreate}
+              onClick={() => applyStepPreset("parallel")}
+            >
+              4단계 병렬 구현
+            </button>
+            <button
+              type="button"
+              className="tb-btn"
+              disabled={!canManage || submittingCreate}
+              onClick={() => applyStepPreset("reset")}
+            >
+              초기화
+            </button>
+          </div>
+
           <div className="flex flex-col gap-2">
-            {steps.map((step, index) => (
+            {steps.map((step, index) => {
+              const priorKeys = steps
+                .slice(0, index)
+                .map((candidate) => candidate.stepKey.trim())
+                .filter(Boolean);
+              const selectedDeps = new Set(
+                step.dependsOnText
+                  .split(",")
+                  .map((item) => item.trim())
+                  .filter(Boolean),
+              );
+              return (
               <div className="chrome-step-card" key={step.id}>
                 <div className="flex items-center justify-between gap-2">
                   <strong className="text-[12px] text-[var(--ui-text-strong)]">
@@ -333,6 +464,25 @@ export function WorkspaceOrchestrationView({
                     value={step.dependsOnText}
                     onChange={(event) => updateStep(step.id, "dependsOnText", event.target.value)}
                   />
+                  {priorKeys.length > 0 ? (
+                    <div className="ao-dep-chip-row" aria-label="이전 단계 선택">
+                      {priorKeys.map((candidateKey) => {
+                        const active = selectedDeps.has(candidateKey);
+                        return (
+                          <button
+                            key={candidateKey}
+                            type="button"
+                            className="ao-dep-chip"
+                            aria-pressed={active}
+                            disabled={!canManage || submittingCreate}
+                            onClick={() => toggleDependencyKey(step.id, candidateKey)}
+                          >
+                            {candidateKey}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : null}
                 </label>
 
                 <label className="form-field">
@@ -352,7 +502,8 @@ export function WorkspaceOrchestrationView({
                   />
                 </label>
               </div>
-            ))}
+              );
+            })}
           </div>
 
           <button

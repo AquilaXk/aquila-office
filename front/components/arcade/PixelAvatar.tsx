@@ -17,6 +17,7 @@ import {
   type PixelAvatarPaletteOverride,
   resolveCharacterProfile,
 } from "@/lib/pixel-office/character-renderer";
+import { startVisibilityPoll } from "@/lib/visibility-poll";
 
 export type PixelAvatarKind = ImportedPixelAvatarKind;
 export type { PixelAvatarPaletteOverride };
@@ -127,10 +128,9 @@ export default function PixelAvatar({
       return;
     }
     const intervalMs = resolvedActivity === "walk" ? 160 : 280;
-    const timer = window.setInterval(() => {
+    return startVisibilityPoll(() => {
       setStep((prev) => (prev + 1) % 4);
     }, intervalMs);
-    return () => window.clearInterval(timer);
   }, [resolvedActivity]);
 
   const profile = useMemo(

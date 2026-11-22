@@ -33,6 +33,7 @@ import type {
 } from "@/lib/workspaces";
 
 export {
+  buildAgentQuickPrompts,
   formatAgentCategory,
   formatAgentStatus,
   formatChatRole,
@@ -46,9 +47,11 @@ export {
   formatPresencePosition,
   formatTaskPriority,
   formatTaskStatus,
+  formatTaskType,
   formatTokenUsageSummary,
   formatWorkspaceDetailActionState,
   formatWorkspaceDetailReadiness,
+  type AgentQuickPrompt,
 } from "@/lib/workspace-formatters";
 
 export type WorkspaceViewId =
