@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 
-const appRoot = process.cwd();
+const appRoot = path.resolve(import.meta.dirname, "..");
 
 test("workspace chat client exposes message API contracts", () => {
   const source = readFileSync(path.join(appRoot, "lib/chat.ts"), "utf8");

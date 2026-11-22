@@ -3,7 +3,7 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import test from "node:test";
 
-const appRoot = process.cwd();
+const appRoot = path.resolve(import.meta.dirname, "..");
 const scanRoots = ["app", "components"];
 const sourceExtensions = new Set([".css", ".ts", ".tsx"]);
 const minimumReadableFontSizePx = 12;

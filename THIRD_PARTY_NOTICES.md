@@ -128,6 +128,14 @@ THE SOFTWARE.
 
 ---
 
+### 1.5 dunce (`kornelski/dunce`)
+
+- **Purpose**: Windows verbatim UNC (`\\?\`) path simplification while preserving standard `260`-char safety bounds
+- **Repository**: <https://github.com/kornelski/dunce>
+- **License**: `Apache-2.0 OR MIT-0` (reused under Apache-2.0)
+
+---
+
 ## 2. Runtime Dependency License Compatibility Summary
 
 | Component | Layer | Version | License | Apache-2.0 Compatibility |

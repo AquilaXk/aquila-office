@@ -5,6 +5,8 @@ const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? `http://127.0.0.1:${port}`;
 const useSystemChrome = process.env.PLAYWRIGHT_USE_SYSTEM_CHROME === "1";
 const chromeChannel = useSystemChrome ? "chrome" : undefined;
 
+const includeWebKit = process.env.PLAYWRIGHT_INCLUDE_WEBKIT === "1";
+
 export default defineConfig({
   testDir: "./e2e",
   fullyParallel: false,
@@ -37,14 +39,26 @@ export default defineConfig({
         channel: chromeChannel,
       },
     },
+    ...(includeWebKit
+      ? [
+          {
+            name: "desktop-webkit",
+            use: {
+              ...devices["Desktop Safari"],
+              viewport: { width: 1440, height: 900 },
+            },
+          },
+        ]
+      : []),
   ],
   webServer: {
-    command: [
-      "NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8080",
-      "NEXT_PUBLIC_GOOGLE_CLIENT_ID=e2e-google-client",
-      "NEXT_PUBLIC_DEV_ACCESS_TOKEN=e2e-access-token",
-      `npm run dev -- --hostname 127.0.0.1 --port ${port}`,
-    ].join(" "),
+    command: `npm run dev -- --hostname 127.0.0.1 --port ${port}`,
+    env: {
+      ...process.env,
+      NEXT_PUBLIC_API_BASE_URL: "http://127.0.0.1:8080",
+      NEXT_PUBLIC_GOOGLE_CLIENT_ID: "e2e-google-client",
+      NEXT_PUBLIC_DEV_ACCESS_TOKEN: "e2e-access-token",
+    },
     url: baseURL,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,

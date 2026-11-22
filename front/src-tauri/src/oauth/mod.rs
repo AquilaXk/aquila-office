@@ -64,7 +64,10 @@ pub async fn start_loopback_oauth(
                 guard.take();
             }
             if url.len() > MAX_CALLBACK_URL_LEN {
-                eprintln!("oauth callback URL rejected: exceeds {} bytes", MAX_CALLBACK_URL_LEN);
+                eprintln!(
+                    "oauth callback URL rejected: exceeds {} bytes",
+                    MAX_CALLBACK_URL_LEN
+                );
                 return;
             }
             let code = parse_query_param(&url, "code");
@@ -156,10 +159,7 @@ mod tests {
             parse_query_param(url, "code"),
             Some("4/0AY0e-g...".to_string())
         );
-        assert_eq!(
-            parse_query_param(url, "state"),
-            Some("xyz123".to_string())
-        );
+        assert_eq!(parse_query_param(url, "state"), Some("xyz123".to_string()));
         assert_eq!(parse_query_param(url, "missing"), None);
     }
 

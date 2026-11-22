@@ -29,8 +29,8 @@
       "csp": "default-src 'self' ipc: http://ipc.localhost https://ipc.localhost; script-src 'self' 'unsafe-inline' https://accounts.google.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' ipc: http://ipc.localhost https://ipc.localhost https: wss: http://localhost:* http://127.0.0.1:* ws://localhost:* ws://127.0.0.1:*; frame-src 'self' https://accounts.google.com"
     },
     "trayIcon": {
-      "iconPath": "icons/icon.png",
-      "iconAsTemplate": true
+      "id": "main-tray",
+      "iconPath": "icons/icon.png"
     }
   },
   "bundle": {

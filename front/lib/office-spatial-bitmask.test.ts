@@ -161,7 +161,7 @@ test("24-bit RGB integer packing and integer Rec.709 fastPerceivedLuma operate w
 test("workspace 2D stage and arcade wrappers integrate bitmask spatial engine and editorial dark surfaces", async () => {
   const { readFileSync } = await import("node:fs");
   const path = await import("node:path");
-  const appRoot = process.cwd();
+  const appRoot = path.resolve(import.meta.dirname, "..");
 
   const canvasSource = readFileSync(
     path.join(appRoot, "components/workspace/Workspace2DCanvas.tsx"),

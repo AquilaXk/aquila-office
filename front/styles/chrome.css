@@ -241,9 +241,9 @@
 
 /* ── 5-Region Workspace Desktop Chrome ──────────────────────── */
 .chrome-workspace-shell {
-  height: 100dvh;
-  min-height: 100dvh;
-  max-height: 100dvh;
+  height: calc(100dvh - var(--desktop-header-height, 0px));
+  min-height: calc(100dvh - var(--desktop-header-height, 0px));
+  max-height: calc(100dvh - var(--desktop-header-height, 0px));
   display: flex;
   flex-direction: column;
   overflow: hidden;

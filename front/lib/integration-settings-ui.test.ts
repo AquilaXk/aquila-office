@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import test from "node:test";
 
-const appRoot = process.cwd();
+const appRoot = path.resolve(import.meta.dirname, "..");
 
 test("workspace settings page renders desktop chrome, daily token limit, and four sections", () => {
   const source = readSource("app/workspaces/[workspaceId]/settings/page.tsx");

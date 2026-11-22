@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import test from "node:test";
 
-const repoRoot = path.join(process.cwd(), "..");
+const repoRoot = path.resolve(import.meta.dirname, "../..");
 
 test("backend docker image uses the prebuilt jar without qemu gradle rebuild", () => {
   const dockerfile = readRepoSource("docker/Dockerfile");

@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 
-const appRoot = process.cwd();
+const appRoot = path.resolve(import.meta.dirname, "..");
 
 const detailSource = readSource("app/workspaces/[workspaceId]/page.tsx");
 const headerSource = readSource("components/workspace/chrome/WorkspaceChromeHeader.tsx");

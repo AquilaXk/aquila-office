@@ -221,8 +221,22 @@ docker_run_args+=("$IMAGE_REF")
 
 run "${docker_run_args[@]}"
 wait_for_health "$port"
+upstream_backup=""
+if [[ "$DRY_RUN" != "true" && -f "$UPSTREAM_FILE" ]]; then
+    upstream_backup="$(mktemp)"
+    cp "$UPSTREAM_FILE" "$upstream_backup"
+fi
 write_upstream "$port"
-run sh -c "$RELOAD_COMMAND"
+if ! run sh -c "$RELOAD_COMMAND"; then
+    if [[ -n "$upstream_backup" && -f "$upstream_backup" ]]; then
+        cp "$upstream_backup" "$UPSTREAM_FILE"
+        rm -f "$upstream_backup"
+    fi
+    exit 1
+fi
+if [[ -n "$upstream_backup" ]]; then
+    rm -f "$upstream_backup"
+fi
 write_active_slot "$slot"
 
 log "deployment prepared for slot=$slot"

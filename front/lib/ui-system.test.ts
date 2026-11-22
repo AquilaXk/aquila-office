@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import test from "node:test";
 
-const appRoot = process.cwd();
+const appRoot = path.resolve(import.meta.dirname, "..");
 
 test("theme tokens expose gothic operation color and radius contracts", () => {
   const source = readSource("lib/theme.ts");

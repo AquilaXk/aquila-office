@@ -15,7 +15,7 @@ import {
   type ArtifactTree,
 } from "./artifacts-utils.ts";
 
-const appRoot = process.cwd();
+const appRoot = path.resolve(import.meta.dirname, "..");
 
 const tree: ArtifactTree = {
   workspaceId: 101,

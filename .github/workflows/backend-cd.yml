@@ -29,8 +29,6 @@ on:
 
 permissions:
   contents: read
-  deployments: write
-  packages: write
 
 concurrency:
   group: staging-cd
@@ -46,6 +44,7 @@ jobs:
   prepare:
     name: Resolve Deployment Context
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     outputs:
       backend_image_ref: ${{ steps.context.outputs.backend_image_ref }}
       deploy_sha: ${{ steps.context.outputs.deploy_sha }}
@@ -69,6 +68,7 @@ jobs:
           DISPATCH_DRY_RUN: ${{ inputs.dry_run }}
           DISPATCH_REF: ${{ inputs.ref }}
           DISPATCH_TARGET_SLOT: ${{ inputs.target_slot }}
+          GH_TOKEN: ${{ github.token }}
           WORKFLOW_RUN_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
           WORKFLOW_RUN_HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
           WORKFLOW_RUN_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
@@ -113,7 +113,22 @@ jobs:
 
           if [[ "$event_name" == "workflow_run" && "$should_deploy" == "true" ]]; then
             changed_files="$(mktemp)"
-            if git rev-parse "${deploy_sha}^" >/dev/null 2>&1; then
+            prev_deploy_sha="$(
+              curl -fsSL \
+                -H "Authorization: Bearer ${GH_TOKEN}" \
+                -H "Accept: application/vnd.github+json" \
+                "${GITHUB_API_URL:-https://api.github.com}/repos/${GITHUB_REPOSITORY}/deployments?environment=${DEPLOY_ENVIRONMENT}&per_page=10" 2>/dev/null \
+                | jq -r '.[].sha // empty' \
+                | while read -r cand; do
+                    if [[ -n "$cand" && "$cand" != "$deploy_sha" ]] && git cat-file -e "${cand}^{commit}" 2>/dev/null; then
+                      echo "$cand"
+                      break
+                    fi
+                  done || true
+            )"
+            if [[ -n "$prev_deploy_sha" ]]; then
+              git diff --name-only "$prev_deploy_sha" "$deploy_sha" > "$changed_files"
+            elif git rev-parse "${deploy_sha}^" >/dev/null 2>&1; then
               git diff --name-only "${deploy_sha}^" "$deploy_sha" > "$changed_files"
             else
               git diff-tree --no-commit-id --name-only -r "$deploy_sha" > "$changed_files"
@@ -166,6 +181,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: prepare
     if: needs.prepare.outputs.should_deploy != 'true'
+    timeout-minutes: 5
 
     steps:
       - name: Write skip summary
@@ -179,9 +195,13 @@ jobs:
 
   build-backend-image:
     name: Build Backend ARM64 Image
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
     needs: prepare
     if: needs.prepare.outputs.should_deploy == 'true'
+    timeout-minutes: 25
+    permissions:
+      contents: read
+      packages: write
     env:
       BACKEND_IMAGE_REF: ${{ needs.prepare.outputs.backend_image_ref }}
 
@@ -211,17 +231,16 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ github.token }}
 
-      - name: Prepare ARM64 buildx
-        run: |
-          docker run --privileged --rm tonistiigi/binfmt --install arm64
-          docker buildx create --name aquila-staging-builder --driver docker-container --use
-          docker buildx inspect --bootstrap
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
       - name: Build and push backend Docker image
         run: |
           docker buildx build \
             --platform linux/arm64 \
             -f docker/Dockerfile \
+            --cache-from type=gha,scope=aquila-back-arm64 \
+            --cache-to type=gha,mode=max,scope=aquila-back-arm64 \
             -t "$BACKEND_IMAGE_REF" \
             --push \
             .
@@ -250,9 +269,13 @@ jobs:
 
   build-frontend-image:
     name: Build Frontend ARM64 Image
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
     needs: prepare
     if: needs.prepare.outputs.should_deploy == 'true'
+    timeout-minutes: 25
+    permissions:
+      contents: read
+      packages: write
     env:
       FRONTEND_ENV_B64: ${{ secrets.OCI_A1_FRONTEND_ENV_B64 || secrets.FRONTEND_ENV_B64 }}
       FRONTEND_IMAGE_REF: ${{ needs.prepare.outputs.frontend_image_ref }}
@@ -277,11 +300,8 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ github.token }}
 
-      - name: Prepare ARM64 buildx
-        run: |
-          docker run --privileged --rm tonistiigi/binfmt --install arm64
-          docker buildx create --name aquila-staging-builder --driver docker-container --use
-          docker buildx inspect --bootstrap
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
       - name: Build and push frontend Docker image
         shell: bash
@@ -297,14 +317,20 @@ jobs:
             --build-arg NEXT_PUBLIC_API_BASE_URL="$NEXT_PUBLIC_API_BASE_URL" \
             --build-arg NEXT_PUBLIC_GOOGLE_CLIENT_ID="$NEXT_PUBLIC_GOOGLE_CLIENT_ID" \
             --build-arg NEXT_PUBLIC_SITE_URL="$NEXT_PUBLIC_SITE_URL" \
+            --cache-from type=gha,scope=aquila-front-arm64 \
+            --cache-to type=gha,mode=max,scope=aquila-front-arm64 \
             -t "$FRONTEND_IMAGE_REF" \
             --push \
             .
 
+      - name: Remove transient frontend env file
+        if: always()
+        shell: bash
+        run: rm -f deploy-debug/frontend.env
+
       - name: Collect frontend image diagnostics
         shell: bash
         run: |
-          rm -f deploy-debug/frontend.env
           docker buildx imagetools inspect "$FRONTEND_IMAGE_REF" | tee deploy-debug/frontend-image-inspect.txt
           {
             echo "### Frontend image"
@@ -317,10 +343,12 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload frontend build diagnostics
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: deploy-debug-frontend-build-${{ needs.prepare.outputs.short_sha }}
           path: deploy-debug/
+          if-no-files-found: ignore
           retention-days: 14
 
   deploy:
@@ -331,6 +359,11 @@ jobs:
       - build-backend-image
       - build-frontend-image
     if: needs.prepare.outputs.should_deploy == 'true'
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      deployments: write
+      packages: write
     env:
       BACKEND_ENV_B64: ${{ secrets.OCI_A1_BACKEND_ENV_B64 || secrets.BACKEND_ENV_B64 }}
       BACKEND_IMAGE_REF: ${{ needs.prepare.outputs.backend_image_ref }}
@@ -423,7 +456,22 @@ jobs:
           scripts/deploy/oci-staging-doctor.sh --phase before --image "$BACKEND_IMAGE_REF" \
             | tee deploy-debug/doctor-before.log
 
+      - name: Capture previous backend state
+        id: prev_state
+        shell: bash
+        run: |
+          slot="$(cat /opt/aquila-office/backend/active-slot 2>/dev/null | tr -d '[:space:]' || true)"
+          image=""
+          if [[ -n "$slot" ]]; then
+            image="$(docker inspect --format='{{.Config.Image}}' "aquila-office-back-${slot}" 2>/dev/null || true)"
+          fi
+          {
+            echo "backend_slot=$slot"
+            echo "backend_image=$image"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Deploy backend
+        id: deploy_backend
         shell: bash
         run: |
           set -euo pipefail
@@ -446,6 +494,7 @@ jobs:
             | tee deploy-debug/backend-deploy.log
 
       - name: Deploy frontend
+        id: deploy_frontend
         shell: bash
         run: |
           set -euo pipefail
@@ -465,6 +514,20 @@ jobs:
             --doctor-script scripts/deploy/oci-staging-doctor.sh \
             "${slot_arg[@]}" \
             | tee deploy-debug/frontend-deploy.log
+
+      - name: Rollback backend slot on frontend failure
+        if: failure() && steps.deploy_backend.outcome == 'success' && steps.deploy_frontend.outcome == 'failure' && env.DRY_RUN != 'true' && steps.prev_state.outputs.backend_slot != '' && steps.prev_state.outputs.backend_image != ''
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          scripts/deploy/oci-backend-hook.sh \
+            --slot "${{ steps.prev_state.outputs.backend_slot }}" \
+            --image "${{ steps.prev_state.outputs.backend_image }}" \
+            --env-file deploy-debug/backend.env \
+            --vertex-key-file deploy-debug/vertex-key.json \
+            --doctor-script scripts/deploy/oci-staging-doctor.sh \
+            | tee deploy-debug/backend-rollback.log
 
       - name: Run postflight doctor
         shell: bash

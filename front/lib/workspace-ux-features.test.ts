@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { test } from "node:test";
 
-const appRoot = process.cwd();
+const appRoot = path.resolve(import.meta.dirname, "..");
 
 function readSource(relativePath: string): string {
   return readFileSync(path.join(appRoot, relativePath), "utf8");

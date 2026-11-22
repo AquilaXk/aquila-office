@@ -7,7 +7,7 @@ import {
   SERVICE_NAME,
 } from "./branding.ts";
 
-const appRoot = process.cwd();
+const appRoot = path.resolve(import.meta.dirname, "..");
 
 const pageSource = readFileSync(path.join(appRoot, "app/page.tsx"), "utf8");
 const authSource = readFileSync(path.join(appRoot, "app/auth/page.tsx"), "utf8");

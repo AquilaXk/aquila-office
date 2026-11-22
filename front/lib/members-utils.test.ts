@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import test from "node:test";
 
-const appRoot = process.cwd();
+const appRoot = path.resolve(import.meta.dirname, "..");
 
 test("member profile client exposes profile API contracts", () => {
   const source = readFileSync(path.join(appRoot, "lib/members.ts"), "utf8");

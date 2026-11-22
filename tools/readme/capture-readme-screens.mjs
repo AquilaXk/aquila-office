@@ -226,11 +226,13 @@ try {
   const capturePort = await resolveCapturePort();
   if (capturePort) {
     baseUrl = `http://127.0.0.1:${capturePort}`;
+    const frontDir = resolve(root, "front");
+    const nextBin = resolve(frontDir, "node_modules/next/dist/bin/next");
     serverProcess = spawn(
-      "npm",
-      ["--prefix", "front", "run", "start", "--", "--hostname", "127.0.0.1", "--port", String(capturePort)],
+      process.execPath,
+      [nextBin, "start", "--hostname", "127.0.0.1", "--port", String(capturePort)],
       {
-        cwd: root,
+        cwd: frontDir,
         env: {
           ...process.env,
           NEXT_TELEMETRY_DISABLED: "1",

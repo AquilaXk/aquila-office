@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import test from "node:test";
 
-const appRoot = process.cwd();
+const appRoot = path.resolve(import.meta.dirname, "..");
 
 test("root layout wraps app with google oauth provider", () => {
   assert.match(readSource("app/layout.tsx"), /Providers/);

@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import test from "node:test";
 
-const appRoot = process.cwd();
+const appRoot = path.resolve(import.meta.dirname, "..");
 
 test("slack client exposes install and integration API contracts", () => {
   const source = readFileSync(path.join(appRoot, "lib/slack.ts"), "utf8");

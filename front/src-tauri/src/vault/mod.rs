@@ -6,7 +6,8 @@ use std::sync::Mutex;
 
 const SERVICE_NAME: &str = "com.aquila.office";
 pub const MAX_VAULT_KEY_BYTES: usize = 256;
-pub const MAX_VAULT_TOKEN_BYTES: usize = 16_384;
+// Windows Credential Manager limits credential blobs to 2,560 bytes.
+pub const MAX_VAULT_TOKEN_BYTES: usize = 2_048;
 
 #[cfg(test)]
 static TEST_VAULT: Mutex<Option<HashMap<String, String>>> = Mutex::new(None);
@@ -142,7 +143,7 @@ mod tests {
     #[test]
     fn test_vault_fail_closed_size_limits() {
         assert_eq!(MAX_VAULT_KEY_BYTES, 256);
-        assert_eq!(MAX_VAULT_TOKEN_BYTES, 16_384);
+        assert_eq!(MAX_VAULT_TOKEN_BYTES, 2_048);
 
         assert!(save_secure_token_sync(String::new(), "abc".to_string()).is_err());
         assert!(get_secure_token_sync(String::new()).is_err());

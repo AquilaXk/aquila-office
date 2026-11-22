@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import test from "node:test";
 
-const appRoot = process.cwd();
+const appRoot = path.resolve(import.meta.dirname, "..");
 const settingsSource = readSource("app/workspaces/[workspaceId]/settings/page.tsx");
 const cssSource = readSource("app/globals.css");
 const inviteApiSource = readSource("lib/api/invites.ts");

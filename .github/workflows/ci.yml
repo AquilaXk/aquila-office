@@ -56,12 +56,18 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   changes:
     name: Resolve Changed Files
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     outputs:
       backend: ${{ steps.gates.outputs.backend }}
+      desktop: ${{ steps.gates.outputs.desktop }}
       docs: ${{ steps.gates.outputs.docs }}
       frontend: ${{ steps.gates.outputs.frontend }}
       infra: ${{ steps.gates.outputs.infra }}
@@ -136,11 +142,30 @@ jobs:
             sed 's/=/ | /; s/^/| /; s/$/ |/' ci-gates.env
           } >> "$GITHUB_STEP_SUMMARY"
 
+  hygiene:
+    name: Repository & Code Health Gate
+    runs-on: ubuntu-latest
+    needs: changes
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Run repository hygiene and code health guard
+        run: node tools/ci/check-repo-hygiene.mjs
+
   docs:
     name: README Documentation Gate
     runs-on: ubuntu-latest
     needs: changes
     if: needs.changes.outputs.docs == 'true'
+    timeout-minutes: 5
 
     steps:
       - name: Checkout
@@ -162,6 +187,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: changes
     if: needs.changes.outputs.backend == 'true'
+    timeout-minutes: 20
 
     steps:
       - name: Checkout
@@ -199,6 +225,7 @@ jobs:
     runs-on: ubuntu-24.04
     needs: changes
     if: needs.changes.outputs.frontend == 'true'
+    timeout-minutes: 25
 
     steps:
       - name: Checkout
@@ -223,27 +250,122 @@ jobs:
         working-directory: front
         run: npm run test:node
 
+      - name: Run desktop static export build
+        working-directory: front
+        run: npm run build:desktop
+
       - name: Run frontend build
         working-directory: front
         run: npm run build
 
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('front/package-lock.json') }}
+
       - name: Install frontend browser dependencies
         working-directory: front
-        run: npx playwright install --with-deps chromium
+        run: |
+          if [ "${{ steps.playwright-cache.outputs.cache-hit }}" != "true" ]; then
+            npx playwright install --with-deps chromium webkit
+          else
+            npx playwright install-deps chromium webkit
+          fi
 
       - name: Run frontend browser regression
         working-directory: front
+        env:
+          PLAYWRIGHT_INCLUDE_WEBKIT: "1"
         run: npm run test:browser
+
+      - name: Upload Playwright failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-playwright-diagnostics
+          path: |
+            front/test-results/
+            front/playwright-report/
+          if-no-files-found: ignore
+          retention-days: 7
 
       - name: Run frontend audit
         working-directory: front
-        run: npm audit --audit-level=moderate
+        run: npm audit --audit-level=high
+
+  desktop-cross-os:
+    name: Desktop & Cross-OS Gate (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    needs: changes
+    if: needs.changes.outputs.desktop == 'true'
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, windows-latest, macos-15]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Linux desktop dependencies
+        if: matrix.os == 'ubuntu-22.04'
+        uses: ./.github/actions/install-linux-deps
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: front/package-lock.json
+
+      - name: Install frontend dependencies
+        shell: bash
+        run: npm --prefix front ci
+
+      - name: Set up Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - name: Cache Rust build artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: front/src-tauri
+          key: ci-desktop-${{ matrix.os }}
+
+      - name: Check Rust formatting
+        shell: bash
+        run: cargo fmt --manifest-path front/src-tauri/Cargo.toml -- --check
+
+      - name: Run Rust Clippy
+        shell: bash
+        run: cargo clippy --manifest-path front/src-tauri/Cargo.toml --all-targets -- -D warnings
+
+      - name: Run Rust unit tests
+        shell: bash
+        run: cargo test --manifest-path front/src-tauri/Cargo.toml
+
+      - name: Run frontend node tests on OS
+        shell: bash
+        run: npm --prefix front run test:node
+
+      - name: Run CI gate and release asset tests on OS
+        shell: bash
+        run: node --test tools/ci/resolve-ci-gates.test.mjs tools/release/release-assets.test.mjs
+
+      - name: Build desktop static export on OS
+        shell: bash
+        run: npm --prefix front run build:desktop
 
   smoke:
     name: Smoke Definition Gate
     runs-on: ubuntu-latest
     needs: changes
     if: needs.changes.outputs.smoke == 'true'
+    timeout-minutes: 5
 
     steps:
       - name: Checkout
@@ -262,6 +384,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: changes
     if: needs.changes.outputs.workflow == 'true'
+    timeout-minutes: 10
 
     steps:
       - name: Checkout
@@ -289,6 +412,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: changes
     if: needs.changes.outputs.infra == 'true'
+    timeout-minutes: 10
     defaults:
       run:
         working-directory: infra/terraform/oci/always-free-a1-flex

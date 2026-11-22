@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import test from "node:test";
 
-const appRoot = process.cwd();
+const appRoot = path.resolve(import.meta.dirname, "..");
 
 test("workspace detail page exposes 5-region chrome, 5 views, and right inspector", () => {
   const source = readSource("app/workspaces/[workspaceId]/page.tsx");

@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import test from "node:test";
 
-const appRoot = process.cwd();
+const appRoot = path.resolve(import.meta.dirname, "..");
 
 test("workspace 2d canvas component wires DOM stage, pan zoom, and context menu", () => {
   const source = readSource("components/workspace/Workspace2DCanvas.tsx");

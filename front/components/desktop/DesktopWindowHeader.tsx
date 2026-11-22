@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { Minus, Pin, Square, X } from "lucide-react";
 import { isDesktop } from "@/lib/desktop/env";
 
 const emptySubscribe = () => () => {};
+const DESKTOP_HEADER_HEIGHT_CSS = "36px";
 
 export default function DesktopWindowHeader({
   title = "Aquila Office",
@@ -19,7 +20,51 @@ export default function DesktopWindowHeader({
   const [isMaximized, setIsMaximized] = useState(false);
   const [isPinned, setIsPinned] = useState(false);
 
-  if (!isClient || !isDesktop()) {
+  const desktopActive = isClient && isDesktop();
+
+  useEffect(() => {
+    if (!desktopActive) {
+      document.documentElement.style.removeProperty("--desktop-header-height");
+      return;
+    }
+
+    document.documentElement.style.setProperty(
+      "--desktop-header-height",
+      DESKTOP_HEADER_HEIGHT_CSS,
+    );
+
+    let cancelled = false;
+    let unlistenResize: (() => void) | null = null;
+
+    void (async () => {
+      try {
+        const { getCurrentWindow } = await import("@tauri-apps/api/window");
+        const appWindow = getCurrentWindow();
+        const syncMaximized = async () => {
+          const maximized = await appWindow.isMaximized();
+          if (!cancelled) {
+            setIsMaximized(maximized);
+          }
+        };
+        await syncMaximized();
+        unlistenResize = await appWindow.onResized(() => {
+          void syncMaximized();
+        });
+      } catch {
+        // 테스트 또는 브라우저 fallback
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      document.documentElement.style.removeProperty("--desktop-header-height");
+      if (unlistenResize) {
+        unlistenResize();
+      }
+    };
+  }, [desktopActive]);
+
+  if (!desktopActive) {
     return null;
   }
 

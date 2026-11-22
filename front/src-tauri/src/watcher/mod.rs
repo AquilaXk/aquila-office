@@ -49,13 +49,24 @@ pub fn should_ignore_watched_path(path: &Path) -> bool {
     })
 }
 
+pub fn normalize_watch_event_path(path: &Path) -> String {
+    path.to_string_lossy().replace('\\', "/")
+}
+
 pub fn filter_relevant_paths(paths: &[PathBuf], max_paths: usize) -> Vec<String> {
     paths
         .iter()
         .filter(|path| !should_ignore_watched_path(path))
         .take(max_paths)
-        .map(|path| path.to_string_lossy().to_string())
+        .map(|path| normalize_watch_event_path(path))
         .collect()
+}
+
+pub(crate) fn resolve_watch_key(raw_path: &str) -> String {
+    match validate_and_canonicalize_dir(raw_path) {
+        Ok(canonical) => canonical.to_string_lossy().to_string(),
+        Err(_) => crate::simplify_verbatim_path_str(raw_path.trim()),
+    }
 }
 
 pub fn validate_watcher_capacity(
@@ -85,7 +96,11 @@ pub async fn start_watching_workspace(
 
         {
             let lock = watchers.lock().map_err(|e| e.to_string())?;
-            validate_watcher_capacity(lock.len(), lock.contains_key(&canonical_key), MAX_ACTIVE_WATCHERS)?;
+            validate_watcher_capacity(
+                lock.len(),
+                lock.contains_key(&canonical_key),
+                MAX_ACTIVE_WATCHERS,
+            )?;
         }
 
         let app_handle = app.clone();
@@ -96,7 +111,8 @@ pub async fn start_watching_workspace(
                     let raw_paths: Vec<PathBuf> = events.into_iter().map(|e| e.path).collect();
                     let paths = filter_relevant_paths(&raw_paths, MAX_BATCH_PATHS);
                     if !paths.is_empty() {
-                        let _ = app_handle.emit("workspace:file-changed", WorkspaceFileChangeEvent { paths });
+                        let _ = app_handle
+                            .emit("workspace:file-changed", WorkspaceFileChangeEvent { paths });
                     }
                 }
                 Err(e) => {
@@ -112,7 +128,11 @@ pub async fn start_watching_workspace(
             .map_err(|e| e.to_string())?;
 
         let mut lock = watchers.lock().map_err(|e| e.to_string())?;
-        validate_watcher_capacity(lock.len(), lock.contains_key(&canonical_key), MAX_ACTIVE_WATCHERS)?;
+        validate_watcher_capacity(
+            lock.len(),
+            lock.contains_key(&canonical_key),
+            MAX_ACTIVE_WATCHERS,
+        )?;
         lock.insert(canonical_key, debouncer);
 
         Ok(())
@@ -130,12 +150,8 @@ pub async fn stop_watching_workspace(
     tauri::async_runtime::spawn_blocking(move || {
         let mut lock = watchers.lock().map_err(|e| e.to_string())?;
         if let Some(p) = path {
-            let trimmed = p.trim();
-            if let Ok(canonical) = std::fs::canonicalize(trimmed) {
-                lock.remove(&canonical.to_string_lossy().to_string());
-            } else {
-                lock.remove(trimmed);
-            }
+            let key = resolve_watch_key(&p);
+            lock.remove(&key);
         } else {
             lock.clear();
         }
@@ -176,6 +192,11 @@ mod tests {
         assert!(filtered.iter().all(|p| p.contains("/src/")));
         assert!(should_ignore_watched_path(Path::new("/repo/.git/HEAD")));
         assert!(!should_ignore_watched_path(Path::new("/repo/src/lib.rs")));
+        assert_eq!(
+            normalize_watch_event_path(Path::new("C:\\repo\\src\\main.rs")),
+            "C:/repo/src/main.rs"
+        );
+        assert_eq!(resolve_watch_key("\\\\?\\C:\\repo\\sub"), "C:\\repo\\sub");
     }
 
     #[test]

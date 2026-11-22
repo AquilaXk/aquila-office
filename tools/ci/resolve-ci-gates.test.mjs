@@ -15,6 +15,7 @@ test("README와 라이선스·고지 문서 전용 변경은 문서 게이트만
   ]), {
     backend: false,
     deploy: false,
+    desktop: false,
     docs: true,
     frontend: false,
     infra: false,
@@ -28,20 +29,27 @@ test("프론트엔드 앱 변경은 frontend 게이트와 배포 영향을 켠�
 
   assert.equal(gates.frontend, true);
   assert.equal(gates.deploy, true);
+  assert.equal(gates.desktop, false);
   assert.equal(gates.backend, false);
   assert.equal(gates.docs, false);
 });
 
-test("데스크톱 src-tauri 변경은 frontend 게이트만 켠다", () => {
-  const gates = classifyChangedFiles(["front/src-tauri/src/lib.rs"]);
+test("데스크톱 src-tauri 및 desktop 모듈 변경은 desktop과 frontend 게이트를 켠다", () => {
+  const rustGates = classifyChangedFiles(["front/src-tauri/src/lib.rs"]);
 
-  assert.equal(gates.frontend, true);
-  assert.equal(gates.deploy, false);
-  assert.equal(gates.backend, false);
-  assert.equal(gates.docs, false);
-  assert.equal(gates.infra, false);
-  assert.equal(gates.smoke, false);
-  assert.equal(gates.workflow, false);
+  assert.equal(rustGates.desktop, true);
+  assert.equal(rustGates.frontend, true);
+  assert.equal(rustGates.deploy, false);
+  assert.equal(rustGates.backend, false);
+  assert.equal(rustGates.docs, false);
+  assert.equal(rustGates.infra, false);
+  assert.equal(rustGates.smoke, false);
+  assert.equal(rustGates.workflow, false);
+
+  const desktopTsGates = classifyChangedFiles(["front/lib/desktop/diff.ts"]);
+  assert.equal(desktopTsGates.desktop, true);
+  assert.equal(desktopTsGates.frontend, true);
+  assert.equal(desktopTsGates.deploy, true);
 });
 
 test("백엔드 변경은 backend 게이트와 배포 영향을 켠다", () => {
@@ -56,6 +64,7 @@ test("workflow 변경은 모든 CI 게이트를 켠다", () => {
   assert.deepEqual(classifyChangedFiles([".github/workflows/ci.yml"]), {
     backend: true,
     deploy: false,
+    desktop: true,
     docs: true,
     frontend: true,
     infra: true,
@@ -74,13 +83,14 @@ test("배포 workflow와 배포 스크립트 변경은 CD 배포 영향으로 �
   assert.equal(gates.deploy, true);
 });
 
-test("데스크톱 릴리스 workflow 및 릴리스 에셋 스크립트 변경은 workflow 게이트를 켠다", () => {
+test("데스크톱 릴리스 workflow 및 릴리스 에셋 스크립트 변경은 workflow와 desktop 게이트를 켠다", () => {
   const gates = classifyChangedFiles([
     ".github/workflows/desktop-release.yml",
     "tools/release/release-assets.mjs",
   ]);
 
   assert.equal(gates.workflow, true);
+  assert.equal(gates.desktop, true);
   assert.equal(gates.deploy, false);
   assert.equal(gates.frontend, false);
 });
@@ -115,6 +125,7 @@ test("강제 전체 실행 모드는 모든 CI 게이트와 배포 영향을 켠
   assert.deepEqual(classifyChangedFiles(["README.md"], { runAll: true }), {
     backend: true,
     deploy: true,
+    desktop: true,
     docs: true,
     frontend: true,
     infra: true,

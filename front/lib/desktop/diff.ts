@@ -19,7 +19,7 @@ export type ParsedUnifiedDiff = {
 export function parseUnifiedDiff(diff: string): ParsedUnifiedDiff {
   let adds = 0;
   let dels = 0;
-  const rawLines = diff.split("\n");
+  const rawLines = diff.replace(/\r\n/g, "\n").split("\n");
   const parsed: ParsedDiffLine[] = [];
 
   let oldLine = 0;

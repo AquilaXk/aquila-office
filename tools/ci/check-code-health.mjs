@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { pathToFileURL } from "node:url";
 
 export const DEFAULT_MAX_SOURCE_LINES = 1200;
 
@@ -156,7 +156,7 @@ export function runCodeHealthCheck(repoRoot) {
   }
 }
 
-if (process.argv[1] === fileURLToPath(import.meta.url)) {
+if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
   const repoRoot = path.resolve(import.meta.dirname, "../..");
   runCodeHealthCheck(repoRoot);
   console.log("[code-health] file size ceiling & secret hygiene checks passed");

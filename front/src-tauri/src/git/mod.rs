@@ -30,7 +30,8 @@ fn validate_optional_relative_file_path(file_path: Option<&str>) -> Result<Optio
     if trimmed.contains('\0') {
         return Err("File path must not contain NUL bytes".to_string());
     }
-    let path = Path::new(trimmed);
+    let normalized = trimmed.replace('\\', "/");
+    let path = Path::new(&normalized);
     if path.is_absolute()
         || path.components().any(|component| {
             matches!(
@@ -41,7 +42,7 @@ fn validate_optional_relative_file_path(file_path: Option<&str>) -> Result<Optio
     {
         return Err("File path must stay relative to workspace".to_string());
     }
-    Ok(Some(trimmed.to_string()))
+    Ok(Some(normalized))
 }
 
 fn get_workspace_git_status_with_limit(
@@ -207,12 +208,18 @@ mod tests {
         index.add_path(Path::new("hello.txt")).unwrap();
         index.write().unwrap();
 
-        let sig = repo.signature().unwrap_or_else(|_| git2::Signature::now("Aquila Test", "test@aquila.io").unwrap());
+        let sig = repo
+            .signature()
+            .unwrap_or_else(|_| git2::Signature::now("Aquila Test", "test@aquila.io").unwrap());
         let tree_id = index.write_tree().unwrap();
         let tree = repo.find_tree(tree_id).unwrap();
-        repo.commit(Some("HEAD"), &sig, &sig, "Initial commit", &tree, &[]).unwrap();
+        repo.commit(Some("HEAD"), &sig, &sig, "Initial commit", &tree, &[])
+            .unwrap();
 
-        let mut f = fs::OpenOptions::new().append(true).open(&test_file).unwrap();
+        let mut f = fs::OpenOptions::new()
+            .append(true)
+            .open(&test_file)
+            .unwrap();
         writeln!(f, "second line").unwrap();
 
         let status = get_workspace_git_status_with_limit(
@@ -245,8 +252,14 @@ mod tests {
             MAX_STATUS_ENTRIES,
         )
         .unwrap();
-        let untracked_entry = status2.files.iter().find(|f| f.path == "subdir/untracked.txt");
-        assert!(untracked_entry.is_some(), "nested untracked file should be detected");
+        let untracked_entry = status2
+            .files
+            .iter()
+            .find(|f| f.path == "subdir/untracked.txt");
+        assert!(
+            untracked_entry.is_some(),
+            "nested untracked file should be detected"
+        );
         assert_eq!(untracked_entry.unwrap().status, "untracked");
 
         let diff_untracked = get_workspace_git_diff_with_limit(
@@ -256,6 +269,14 @@ mod tests {
         )
         .unwrap();
         assert!(diff_untracked.contains("+brand new untracked content"));
+
+        let diff_untracked_backslash = get_workspace_git_diff_with_limit(
+            temp_dir.to_string_lossy().to_string(),
+            Some("subdir\\untracked.txt".to_string()),
+            MAX_DIFF_BYTES,
+        )
+        .unwrap();
+        assert!(diff_untracked_backslash.contains("+brand new untracked content"));
 
         let err_traversal = get_workspace_git_diff_with_limit(
             temp_dir.to_string_lossy().to_string(),
@@ -273,7 +294,8 @@ mod tests {
         assert_eq!(MAX_STATUS_ENTRIES, 5000);
         assert_eq!(MAX_DIFF_BYTES, 1_048_576);
 
-        let temp_dir = std::env::temp_dir().join(format!("aquila_test_git_limits_{}", std::process::id()));
+        let temp_dir =
+            std::env::temp_dir().join(format!("aquila_test_git_limits_{}", std::process::id()));
         let _ = fs::remove_dir_all(&temp_dir);
         fs::create_dir_all(&temp_dir).unwrap();
 
@@ -283,19 +305,14 @@ mod tests {
             writeln!(file, "payload line {}", "x".repeat(64)).unwrap();
         }
 
-        let status_err = get_workspace_git_status_with_limit(
-            temp_dir.to_string_lossy().to_string(),
-            2,
-        )
-        .unwrap_err();
+        let status_err =
+            get_workspace_git_status_with_limit(temp_dir.to_string_lossy().to_string(), 2)
+                .unwrap_err();
         assert!(status_err.contains("exceeds maximum allowed"));
 
-        let diff_err = get_workspace_git_diff_with_limit(
-            temp_dir.to_string_lossy().to_string(),
-            None,
-            40,
-        )
-        .unwrap_err();
+        let diff_err =
+            get_workspace_git_diff_with_limit(temp_dir.to_string_lossy().to_string(), None, 40)
+                .unwrap_err();
         assert!(diff_err.contains("exceeds maximum allowed"));
         drop(repo);
         let _ = fs::remove_dir_all(&temp_dir);

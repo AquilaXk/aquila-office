@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { pathToFileURL } from "node:url";
 import { findCodeHealthViolations } from "./check-code-health.mjs";
 
 const REQUIRED_TRACKED_FILES = [
@@ -199,7 +199,7 @@ export function runRepoHygieneCheck(repoRoot) {
   }
 }
 
-if (process.argv[1] === fileURLToPath(import.meta.url)) {
+if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
   const repoRoot = path.resolve(import.meta.dirname, "../..");
   runRepoHygieneCheck(repoRoot);
   console.log("[repo-hygiene] repository hygiene checks passed");

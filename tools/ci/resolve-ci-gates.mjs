@@ -1,7 +1,8 @@
 import { readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
+import path from "node:path";
+import { pathToFileURL } from "node:url";
 
-const GATE_KEYS = ["backend", "deploy", "docs", "frontend", "infra", "smoke", "workflow"];
+const GATE_KEYS = ["backend", "deploy", "desktop", "docs", "frontend", "infra", "smoke", "workflow"];
 const DOCS_ONLY_FRONTEND_ASSETS = new Set([
   "front/public/aquila-office-readme-preview.png",
 ]);
@@ -42,6 +43,7 @@ function normalizeFiles(files) {
 function applyFile(gates, file) {
   if (file === ".github/workflows/ci.yml") {
     gates.backend = true;
+    gates.desktop = true;
     gates.docs = true;
     gates.frontend = true;
     gates.infra = true;
@@ -58,6 +60,9 @@ function applyFile(gates, file) {
 
   if (file.startsWith(".github/workflows/")) {
     gates.workflow = true;
+    if (file === ".github/workflows/desktop-release.yml") {
+      gates.desktop = true;
+    }
     return;
   }
 
@@ -90,6 +95,7 @@ function applyFile(gates, file) {
 
   if (file.startsWith("tools/ci/") || file.startsWith("tools/release/")) {
     gates.workflow = true;
+    gates.desktop = true;
     return;
   }
 
@@ -100,7 +106,20 @@ function applyFile(gates, file) {
   }
 
   if (file.startsWith("front/src-tauri/")) {
+    gates.desktop = true;
     gates.frontend = true;
+    return;
+  }
+
+  if (
+    file.startsWith("front/lib/desktop/") ||
+    file.startsWith("front/components/desktop/") ||
+    file === "front/scripts/build-desktop.mjs" ||
+    file === "front/playwright.config.ts"
+  ) {
+    gates.desktop = true;
+    gates.frontend = true;
+    gates.deploy = true;
     return;
   }
 
@@ -154,7 +173,7 @@ function readChangedFilesFromCli(argv) {
   return readFileSync(fileListPath, "utf8").split(/\r?\n/);
 }
 
-if (process.argv[1] === fileURLToPath(import.meta.url)) {
+if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
   const runAll = process.argv.includes("--all");
   printOutputs(classifyChangedFiles(readChangedFilesFromCli(process.argv.slice(2)), { runAll }));
 }

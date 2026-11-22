@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import test from "node:test";
 
-const appRoot = process.cwd();
+const appRoot = path.resolve(import.meta.dirname, "..");
 
 test("desktop env helper exports isDesktop function", () => {
   const source = readSource("lib/desktop/env.ts");
@@ -116,6 +116,29 @@ test("parseUnifiedDiff counts empty context lines inside hunk without drifting l
   const addLine = parsed.lines.find((l) => l.type === "add");
   assert.equal(delLine?.oldNum, 12);
   assert.equal(addLine?.newNum, 12);
+});
+
+test("parseUnifiedDiff normalizes Windows CRLF line endings including blank context lines", async () => {
+  const { parseUnifiedDiff } = await import("./desktop/diff.ts");
+
+  const crlfDiff = [
+    "diff --git a/win.ts b/win.ts",
+    "@@ -5,3 +5,3 @@",
+    " const x = 1;",
+    "",
+    "-const y = 2;",
+    "+const y = 3;",
+    "",
+  ].join("\r\n");
+
+  const parsed = parseUnifiedDiff(crlfDiff);
+  assert.equal(parsed.additions, 1);
+  assert.equal(parsed.deletions, 1);
+  const ctxLines = parsed.lines.filter((l) => l.type === "ctx");
+  assert.equal(ctxLines.length, 2);
+  assert.equal(ctxLines[1]?.text, "");
+  assert.equal(ctxLines[1]?.oldNum, 6);
+  assert.equal(ctxLines[1]?.newNum, 6);
 });
 
 function readSource(filePath: string): string {

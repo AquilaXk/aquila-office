@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import test from "node:test";
 
-const appRoot = process.cwd();
+const appRoot = path.resolve(import.meta.dirname, "..");
 
 test("frontend docker runtime uses standalone output without target npm install", () => {
   const dockerfile = readSource("Dockerfile");

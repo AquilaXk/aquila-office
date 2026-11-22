@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 
-const appRoot = process.cwd();
+const appRoot = path.resolve(import.meta.dirname, "..");
 const source = readFileSync(path.join(appRoot, "app/auth/character/page.tsx"), "utf8");
 const cssSource = readFileSync(path.join(appRoot, "app/globals.css"), "utf8");
 const workspaceSource = readFileSync(path.join(appRoot, "app/workspaces/[workspaceId]/page.tsx"), "utf8");

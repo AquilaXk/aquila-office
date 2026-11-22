@@ -8,7 +8,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import ts from "typescript";
 
 async function loadMarkdownContent() {
-  const filePath = path.join(process.cwd(), "components/ui/MarkdownContent.tsx");
+  const filePath = path.join(path.resolve(import.meta.dirname, ".."), "components/ui/MarkdownContent.tsx");
   const source = readFileSync(filePath, "utf8");
   // Transpile with React classic runtime + dynamic ESM wrappers avoided via Node module load
   const transpiled = ts.transpileModule(source, {
