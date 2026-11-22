@@ -1,7 +1,8 @@
 "use client";
 
 import { useRef } from "react";
-import { AlertCircle, Loader2, X } from "lucide-react";
+import { AlertCircle, Download, Loader2, X } from "lucide-react";
+import CodeBlockViewer from "@/components/ui/CodeBlockViewer";
 import MarkdownContent from "@/components/ui/MarkdownContent";
 import { useDialogA11y } from "@/components/ui/useDialogA11y";
 import { ModalState } from "@/components/workspace/modals/TaskDetailModals";
@@ -11,6 +12,7 @@ import {
   type ModalLoadState,
 } from "@/components/workspace/workspace-ui-helpers";
 import type { ArtifactFileContent } from "@/lib/artifacts";
+import { downloadTextArtifact } from "@/lib/code-highlight";
 
 export type ArtifactFileModalProps = {
   path: string | null;
@@ -58,14 +60,26 @@ export function ArtifactFileModal({
             <h2>{file?.name ?? nameHint ?? path ?? "파일"}</h2>
             {path ? <p className="m-0 text-[12px] text-[var(--ui-text-muted)]">{path}</p> : null}
           </div>
-          <button
-            className="icon-button workspace-modal-close"
-            type="button"
-            onClick={onClose}
-            aria-label="닫기"
-          >
-            <X aria-hidden="true" />
-          </button>
+          <div className="flex items-center gap-1.5">
+            {file ? (
+              <button
+                type="button"
+                className="tb-btn"
+                onClick={() => downloadTextArtifact(file.name || file.path, file.content)}
+              >
+                <Download size={12} aria-hidden="true" />
+                <span>다운로드</span>
+              </button>
+            ) : null}
+            <button
+              className="icon-button workspace-modal-close"
+              type="button"
+              onClick={onClose}
+              aria-label="닫기"
+            >
+              <X aria-hidden="true" />
+            </button>
+          </div>
         </header>
 
         <div className="workspace-modal-body">
@@ -90,7 +104,12 @@ export function ArtifactFileModal({
                   <MarkdownContent content={file.content} />
                 </div>
               ) : (
-                <pre className="workspace-artifact-file-content">{file.content}</pre>
+                <CodeBlockViewer
+                  className="workspace-artifact-file-content"
+                  code={file.content}
+                  fileName={file.name || file.path}
+                  contentType={file.contentType}
+                />
               )}
             </>
           ) : null}

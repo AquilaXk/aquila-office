@@ -154,6 +154,7 @@ class TaskControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data[0].taskId").value(301))
+                .andExpect(jsonPath("$.data[0].description").value("핵심 서비스 테스트를 추가해주세요."))
                 .andExpect(jsonPath("$.data[0].status").value("ASSIGNED"));
 
         ArgumentCaptor<ListTasksQuery> queryCaptor = ArgumentCaptor.forClass(ListTasksQuery.class);
@@ -510,6 +511,7 @@ class TaskControllerTest {
                 101L,
                 "google-1",
                 "테스트 작성",
+                "핵심 서비스 테스트를 추가해주세요.",
                 TaskType.TEST_CREATION,
                 TaskPriority.HIGH,
                 501L,

@@ -46,7 +46,7 @@ public record TaskResponse(
                 result.workspaceId(),
                 result.createdByGoogleSub(),
                 result.title(),
-                null,
+                result.description(),
                 result.type(),
                 result.priority(),
                 result.assignedAgentId(),

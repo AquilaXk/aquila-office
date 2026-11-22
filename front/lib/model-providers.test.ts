@@ -3,6 +3,8 @@ import test from "node:test";
 import {
   BUILTIN_MODEL_CATALOG_PRESETS,
   filterCatalogPresets,
+  findCatalogModel,
+  formatTokenCountShort,
   normalizeModelCatalogResponse,
 } from "./model-catalog.ts";
 import {
@@ -10,15 +12,19 @@ import {
   MAX_MODEL_PROVIDER_DISPLAY_NAME_CHARS,
   MAX_MODEL_PROVIDER_PRIORITY,
   MAX_MODEL_PROVIDER_URL_CHARS,
+  computeReorderedProviderPriorities,
   createWorkspaceModelProvider,
   deleteWorkspaceModelProvider,
   fetchWorkspaceModelProviders,
+  fetchWorkspaceModelTelemetry,
   normalizeWorkspaceModelProviders,
+  normalizeWorkspaceModelTelemetry,
   sortModelProvidersByPriority,
   testWorkspaceModelProviderConnection,
   updateWorkspaceModelProvider,
   validateModelProviderInput,
   validateModelProviderTestInput,
+  workspaceModelProviderTelemetryPath,
   type WorkspaceModelProvider,
 } from "./model-providers.ts";
 import {
@@ -450,4 +456,84 @@ test("normalizeWorkspaceModelProviders prefers priorityOrder and enabledModels w
   assert.equal(canonical[1]?.providerId, 22);
   assert.equal(canonical[1]?.priority, 15);
   assert.deepEqual(canonical[1]?.discoveredModels, ["gpt-4.1"]);
+});
+
+test("normalizeWorkspaceModelTelemetry bounds entries and rejects malformed items", () => {
+  assert.equal(workspaceModelProviderTelemetryPath(101), "/api/v1/workspaces/101/model-providers/telemetry");
+  const normalized = normalizeWorkspaceModelTelemetry([
+    {
+      modelName: "gpt-5.2",
+      executionCount: 12,
+      successCount: 11,
+      failedCount: 1,
+      totalPromptTokens: 4000,
+      totalCompletionTokens: 1200,
+      totalTokens: 5200,
+      avgDurationMs: 640,
+    },
+    {
+      modelName: "claude-sonnet-4-5",
+      executionCount: 1,
+      successCount: 1,
+      failedCount: 0,
+      totalPromptTokens: 100,
+      totalCompletionTokens: 50,
+      totalTokens: 150,
+      avgDurationMs: null,
+    },
+    {
+      modelName: "   ",
+      executionCount: 5,
+    },
+    null,
+  ]);
+
+  assert.equal(normalized.length, 2);
+  assert.equal(normalized[0]?.modelName, "gpt-5.2");
+  assert.equal(normalized[0]?.totalTokens, 5200);
+  assert.equal(normalized[0]?.avgDurationMs, 640);
+  assert.equal(normalized[1]?.avgDurationMs, null);
+  assert.equal(typeof fetchWorkspaceModelTelemetry, "function");
+});
+
+test("findCatalogModel, formatTokenCountShort, and computeReorderedProviderPriorities", () => {
+  const model = findCatalogModel("gemini-2.5-pro");
+  assert.ok(model);
+  assert.equal(model.supportsVision, true);
+  assert.equal(formatTokenCountShort(model.contextWindow), "1M");
+  assert.equal(formatTokenCountShort(128_000), "128K");
+
+  const base: Omit<WorkspaceModelProvider, "providerId" | "priority" | "displayName"> = {
+    workspaceId: 101,
+    providerKind: "OPENAI",
+    wireProtocol: "OPENAI_CHAT",
+    baseUrl: "https://api.openai.com/v1",
+    defaultModel: "gpt-4o",
+    enabled: true,
+    maskedApiKey: "sk-****",
+    hasApiKey: true,
+    lastStatus: "CONNECTED",
+    lastLatencyMs: 120,
+    lastError: null,
+    lastCheckedAt: null,
+    discoveredModels: [],
+    createdAt: null,
+    updatedAt: null,
+  };
+  const providers: WorkspaceModelProvider[] = [
+    { ...base, providerId: 1, priority: 10, displayName: "A" },
+    { ...base, providerId: 2, priority: 20, displayName: "B" },
+  ];
+  assert.deepEqual(computeReorderedProviderPriorities(providers, 2, "up"), [
+    { providerId: 2, priority: 10 },
+    { providerId: 1, priority: 20 },
+  ]);
+
+  const tied: WorkspaceModelProvider[] = [
+    { ...base, providerId: 1, priority: 100, displayName: "A" },
+    { ...base, providerId: 2, priority: 100, displayName: "B" },
+  ];
+  assert.deepEqual(computeReorderedProviderPriorities(tied, 2, "up"), [
+    { providerId: 2, priority: 90 },
+  ]);
 });

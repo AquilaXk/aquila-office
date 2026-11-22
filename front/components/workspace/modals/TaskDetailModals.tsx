@@ -2,6 +2,7 @@
 
 import { useRef, type FormEvent, type ReactNode } from "react";
 import { AlertCircle, FileText, Loader2, RefreshCw, Send, X } from "lucide-react";
+import MarkdownContent from "@/components/ui/MarkdownContent";
 import { useDialogA11y } from "@/components/ui/useDialogA11y";
 import {
   artifactPath,
@@ -116,7 +117,7 @@ export function TaskReportsModal({
                       {formatTaskStatus(report.status)}
                     </span>
                   </div>
-                  {report.summary ? <p>{report.summary}</p> : null}
+                  {report.summary ? <MarkdownContent content={report.summary} compact /> : null}
                   {report.recommendedAction ? (
                     <p className="workspace-report-action">{report.recommendedAction}</p>
                   ) : null}
@@ -263,7 +264,7 @@ export function TaskChatModal({
                     <strong>{formatChatRole(message.role)}</strong>
                     <span>{formatDateTime(message.createdAt)}</span>
                   </div>
-                  <p>{message.content}</p>
+                  <MarkdownContent content={message.content} compact />
                   <div className="workspace-report-artifacts">
                     <span className="role-badge">세션 #{message.chatSessionId}</span>
                     {message.taskExecutionId ? <span>실행 #{message.taskExecutionId}</span> : null}

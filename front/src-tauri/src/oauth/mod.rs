@@ -2,13 +2,14 @@ use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Emitter, State};
 
-pub const MAX_CALLBACK_URL_LEN: usize = 4096;
+pub const MAX_CALLBACK_URL_LEN: usize = 4000;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct OAuthCallbackPayload {
     pub url: String,
     pub code: Option<String>,
     pub state: Option<String>,
+    pub error: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -68,10 +69,20 @@ pub async fn start_loopback_oauth(
                     "oauth callback URL rejected: exceeds {} bytes",
                     MAX_CALLBACK_URL_LEN
                 );
+                let _ = app_clone.emit(
+                    "oauth:callback",
+                    OAuthCallbackPayload {
+                        url: String::new(),
+                        code: None,
+                        state: None,
+                        error: Some("callback_url_too_long".to_string()),
+                    },
+                );
                 return;
             }
             let code = parse_query_param(&url, "code");
             let oauth_state = parse_query_param(&url, "state");
+            let oauth_error = parse_query_param(&url, "error");
 
             let _ = app_clone.emit(
                 "oauth:callback",
@@ -79,6 +90,7 @@ pub async fn start_loopback_oauth(
                     url,
                     code,
                     state: oauth_state,
+                    error: oauth_error,
                 },
             );
         })
@@ -185,10 +197,10 @@ mod tests {
 
     #[test]
     fn test_parse_query_param_strips_fragment_and_enforces_url_limit() {
-        assert_eq!(MAX_CALLBACK_URL_LEN, 4096);
+        assert_eq!(MAX_CALLBACK_URL_LEN, 4000);
 
         let url_with_fragment =
-            "http://127.0.0.1:8085/callback?code=auth_code_1&state=csrf_1#access_token=bad&code=spoofed";
+            "http://127.0.0.1:8085/callback?code=auth_code_1&state=csrf_1&error=access_denied#access_token=bad&code=spoofed";
         assert_eq!(
             parse_query_param(url_with_fragment, "code"),
             Some("auth_code_1".to_string())
@@ -196,6 +208,10 @@ mod tests {
         assert_eq!(
             parse_query_param(url_with_fragment, "state"),
             Some("csrf_1".to_string())
+        );
+        assert_eq!(
+            parse_query_param(url_with_fragment, "error"),
+            Some("access_denied".to_string())
         );
         assert_eq!(parse_query_param(url_with_fragment, "access_token"), None);
 

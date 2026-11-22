@@ -2,6 +2,7 @@
 @import "../styles/theme-web.css";
 @import "../styles/chrome.css";
 @import "../styles/utilities.css";
+@import "../styles/interactive-ux.css";
 
 :root {
   color-scheme: dark;

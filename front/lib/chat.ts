@@ -159,9 +159,11 @@ export async function fetchTaskChatMessages(
   accessToken: string,
   workspaceId: number,
   taskId: number,
+  signal?: AbortSignal,
 ): Promise<ChatMessage[]> {
   return apiFetch<ChatMessage[]>(workspaceTaskChatMessagesPath(workspaceId, taskId), {
     accessToken,
+    signal,
   });
 }
 
@@ -170,11 +172,13 @@ export async function fetchChatSessionMessages(
   workspaceId: number,
   chatSessionId: number,
   input: FetchChatSessionMessagesInput = {},
+  signal?: AbortSignal,
 ): Promise<ChatSessionMessages> {
   return apiFetch<ChatSessionMessages>(
     workspaceChatSessionMessagesPath(workspaceId, chatSessionId, input),
     {
       accessToken,
+      signal,
     },
   );
 }

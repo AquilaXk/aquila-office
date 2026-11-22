@@ -15,6 +15,7 @@ import com.aquilaoffice.application.port.out.LoadWorkspaceModelProviderPort;
 import com.aquilaoffice.application.port.out.LoadWorkspacePort;
 import com.aquilaoffice.application.port.out.SaveWorkspaceModelProviderPort;
 import com.aquilaoffice.application.port.out.TestWorkspaceModelProviderPort;
+import com.aquilaoffice.application.port.out.WorkspaceModelTelemetryEntry;
 import com.aquilaoffice.domain.member.Member;
 import com.aquilaoffice.domain.member.MemberRole;
 import com.aquilaoffice.domain.model.ModelCatalogModel;
@@ -126,6 +127,53 @@ class WorkspaceModelProviderServiceTest {
 
         service.delete(10L, created.providerId(), "admin-1");
         assertThat(service.list(10L, "admin-1")).isEmpty();
+    }
+
+    @Test
+    void listTelemetryRequiresMembershipAndReturnsAggregatedRows() {
+        InMemoryProviderStore store = new InMemoryProviderStore();
+        Clock fixedClock = Clock.fixed(Instant.parse("2026-11-22T01:00:00Z"), ZoneOffset.UTC);
+        LoadMemberPort loadMemberPort = googleSub -> Optional.of(
+                Member.restore(2L, googleSub, "m@example.com", "Member", MemberRole.USER));
+        LoadWorkspacePort loadWorkspacePort = new LoadWorkspacePort() {
+            @Override
+            public List<com.aquilaoffice.application.port.in.ListWorkspacesResult> findJoinedWorkspacesByMemberGoogleSub(
+                    String googleSub) {
+                return List.of();
+            }
+
+            @Override
+            public Optional<GetWorkspaceDetailResult> findJoinedWorkspaceByIdAndMemberGoogleSub(
+                    Long workspaceId,
+                    String googleSub) {
+                if ("outsider".equals(googleSub)) {
+                    return Optional.empty();
+                }
+                return Optional.of(new GetWorkspaceDetailResult(
+                        workspaceId, "WS", null, googleSub, WorkspaceMemberRole.MEMBER, LocalDateTime.now(ZoneOffset.UTC)));
+            }
+        };
+
+        WorkspaceModelProviderService service = new WorkspaceModelProviderService(
+                loadMemberPort,
+                loadWorkspacePort,
+                store,
+                store,
+                req -> null,
+                List::of,
+                SecretRedactor::redactText,
+                (workspaceId, limit) -> List.of(new WorkspaceModelTelemetryEntry("gpt-4.1", 3L, 2L, 1L, 120L, 80L, 410.0)),
+                fixedClock);
+
+        assertThatThrownBy(() -> service.listTelemetry(10L, "outsider"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("membership");
+
+        List<WorkspaceModelTelemetryEntry> entries = service.listTelemetry(10L, "member-1");
+        assertThat(entries).singleElement().satisfies(entry -> {
+            assertThat(entry.modelName()).isEqualTo("gpt-4.1");
+            assertThat(entry.totalTokens()).isEqualTo(200L);
+        });
     }
 
     private static final class InMemoryProviderStore

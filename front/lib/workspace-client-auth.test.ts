@@ -196,6 +196,7 @@ test("frontend exposes slack integration result routes", () => {
 
 test("workspace detail wires dashboard summary, tasks lifecycle, orchestrations, and agents", () => {
   const detailSource = readSource("app/workspaces/[workspaceId]/page.tsx");
+  const liveSyncSource = readSource("lib/use-workspace-live-sync.ts");
   const taskBoardSource = readSource("components/workspace/views/WorkspaceTaskBoardView.tsx");
   const approvalSource = readSource("components/workspace/views/WorkspaceApprovalInboxView.tsx");
   const orchSource = readSource("components/workspace/views/WorkspaceOrchestrationView.tsx");
@@ -213,7 +214,8 @@ test("workspace detail wires dashboard summary, tasks lifecycle, orchestrations,
   assert.match(detailSource, /requestTaskApproval/);
   assert.match(detailSource, /reviewTaskApproval/);
   assert.match(detailSource, /recoverStaleWorkspaceTasks/);
-  assert.match(detailSource, /fetchTaskExecutionLogs/);
+  assert.match(detailSource, /fetchTaskInspectorSnapshot/);
+  assert.match(liveSyncSource, /fetchTaskExecutionLogs/);
   assert.match(detailSource, /fetchOrchestrationSessions/);
   assert.match(detailSource, /createOrchestrationSession/);
   assert.match(detailSource, /dispatchOrchestrationSession/);

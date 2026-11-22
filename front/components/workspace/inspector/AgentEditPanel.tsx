@@ -2,6 +2,7 @@
 
 import { useId, useMemo, useState, type FormEvent } from "react";
 import { AlertCircle, CheckCircle2, Loader2, Plus, Save, Trash2 } from "lucide-react";
+import { ModelCapabilityBadges } from "@/components/workspace/ModelCapabilityBadges";
 import {
   AGENT_CATEGORY_OPTIONS,
   createLocalId,
@@ -232,6 +233,7 @@ export function AgentEditPanel({
               value={modelId}
               onChange={(event) => setModelId(event.target.value)}
             />
+            <ModelCapabilityBadges modelId={modelId} />
           </label>
 
           <label className="form-field">

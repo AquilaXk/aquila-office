@@ -96,6 +96,7 @@ import com.aquilaoffice.application.port.out.LoadOrchestrationSessionPort;
 import com.aquilaoffice.application.port.out.LoadSlackChannelMappingPort;
 import com.aquilaoffice.application.port.out.LoadTaskExecutionReportsPort;
 import com.aquilaoffice.application.port.out.LoadTaskExecutionLogsPort;
+import com.aquilaoffice.application.port.out.LoadTaskExecutionModelTelemetryPort;
 import com.aquilaoffice.application.port.out.LoadTaskExecutionTokenUsagePort;
 import com.aquilaoffice.application.port.out.LoadTaskPort;
 import com.aquilaoffice.application.port.out.LoadTasksPort;
@@ -596,6 +597,7 @@ public class ApplicationServiceConfig {
             TestWorkspaceModelProviderPort testWorkspaceModelProviderPort,
             LoadModelCatalogPort loadModelCatalogPort,
             RedactSensitiveTextPort redactSensitiveTextPort,
+            LoadTaskExecutionModelTelemetryPort loadTaskExecutionModelTelemetryPort,
             Clock applicationClock) {
         return new WorkspaceModelProviderService(
                 loadMemberPort,
@@ -605,6 +607,7 @@ public class ApplicationServiceConfig {
                 testWorkspaceModelProviderPort,
                 loadModelCatalogPort,
                 redactSensitiveTextPort,
+                loadTaskExecutionModelTelemetryPort,
                 applicationClock);
     }
 

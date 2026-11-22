@@ -204,9 +204,11 @@ export function normalizeOrchestrationSessions(payload: unknown): OrchestrationS
 export async function fetchOrchestrationSessions(
   accessToken: string,
   workspaceId: number,
+  signal?: AbortSignal,
 ): Promise<OrchestrationSession[]> {
   const payload = await apiFetch<unknown>(workspaceOrchestrationsPath(workspaceId), {
     accessToken,
+    signal,
   });
   return normalizeOrchestrationSessions(payload);
 }

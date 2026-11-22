@@ -33,6 +33,7 @@ final class TaskResultMapper {
                 task.workspaceId(),
                 task.createdByGoogleSub(),
                 task.title(),
+                task.description(),
                 task.type(),
                 task.priority(),
                 task.assignedAgentId(),

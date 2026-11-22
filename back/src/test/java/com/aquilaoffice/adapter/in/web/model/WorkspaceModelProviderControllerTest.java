@@ -14,10 +14,12 @@ import com.aquilaoffice.application.port.in.CreateWorkspaceModelProviderUseCase;
 import com.aquilaoffice.application.port.in.DeleteWorkspaceModelProviderUseCase;
 import com.aquilaoffice.application.port.in.GetModelCatalogUseCase;
 import com.aquilaoffice.application.port.in.ListWorkspaceModelProvidersUseCase;
+import com.aquilaoffice.application.port.in.ListWorkspaceModelTelemetryUseCase;
 import com.aquilaoffice.application.port.in.TestWorkspaceModelProviderUseCase;
 import com.aquilaoffice.application.port.in.UpdateWorkspaceModelProviderUseCase;
 import com.aquilaoffice.application.port.in.WorkspaceModelConnectionTestResult;
 import com.aquilaoffice.application.port.in.WorkspaceModelProviderResult;
+import com.aquilaoffice.application.port.out.WorkspaceModelTelemetryEntry;
 import com.aquilaoffice.domain.member.MemberRole;
 import com.aquilaoffice.domain.model.ModelCatalogModel;
 import com.aquilaoffice.domain.model.ModelCatalogPreset;
@@ -52,6 +54,9 @@ class WorkspaceModelProviderControllerTest {
 
     @MockitoBean
     private ListWorkspaceModelProvidersUseCase listWorkspaceModelProvidersUseCase;
+
+    @MockitoBean
+    private ListWorkspaceModelTelemetryUseCase listWorkspaceModelTelemetryUseCase;
 
     @MockitoBean
     private CreateWorkspaceModelProviderUseCase createWorkspaceModelProviderUseCase;
@@ -156,6 +161,15 @@ class WorkspaceModelProviderControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true));
         verify(deleteWorkspaceModelProviderUseCase).delete(101L, 9L, "google-1");
+
+        given(listWorkspaceModelTelemetryUseCase.listTelemetry(101L, "google-1")).willReturn(List.of(
+                new WorkspaceModelTelemetryEntry("gpt-4.1", 4L, 3L, 1L, 300L, 200L, 480.0)));
+        mockMvc.perform(get("/api/v1/workspaces/101/model-providers/telemetry")
+                        .principal(principal("google-1")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].modelName").value("gpt-4.1"))
+                .andExpect(jsonPath("$.data[0].executionCount").value(4))
+                .andExpect(jsonPath("$.data[0].totalTokens").value(500));
     }
 
     private static UsernamePasswordAuthenticationToken principal(String googleSub) {

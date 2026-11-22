@@ -15,6 +15,7 @@ export type OAuthCallbackPayload = {
   url: string;
   code: string | null;
   state: string | null;
+  error?: string | null;
 };
 
 export type WorkspaceFileChangeEvent = {
@@ -96,6 +97,22 @@ export async function startLoopbackOAuth(): Promise<number> {
 
 export async function stopLoopbackOAuth(): Promise<void> {
   return invokeDesktop<void>("stop_loopback_oauth");
+}
+
+export async function openExternalAuthUrl(url: string): Promise<void> {
+  if (!url || url.length > 2048) {
+    throw new Error("외부 인증 URL 형식이 유효하지 않습니다.");
+  }
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    throw new Error("외부 인증 URL 형식이 유효하지 않습니다.");
+  }
+  if (parsed.protocol !== "https:" || parsed.hostname !== "accounts.google.com") {
+    throw new Error("허용된 Google HTTPS 외부 인증 URL만 열 수 있습니다.");
+  }
+  await invokeDesktop<void>("plugin:opener|open_url", { url: parsed.toString() });
 }
 
 export type GoogleTokenExchangePayload = {

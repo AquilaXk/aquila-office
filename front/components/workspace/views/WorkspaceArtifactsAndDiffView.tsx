@@ -5,6 +5,7 @@ import {
   AlertCircle,
   Check,
   Copy,
+  Download,
   Eye,
   FileCode2,
   FileText,
@@ -15,8 +16,10 @@ import {
   RefreshCw,
   Search,
 } from "lucide-react";
+import CodeBlockViewer from "@/components/ui/CodeBlockViewer";
 import MarkdownContent from "@/components/ui/MarkdownContent";
 import WorkspaceGitDiffViewer from "@/components/workspace/WorkspaceGitDiffViewer";
+import { downloadTextArtifact } from "@/lib/code-highlight";
 import {
   defaultExpandedArtifactPaths,
   formatFileSize,
@@ -412,18 +415,30 @@ export function WorkspaceArtifactsAndDiffView({
                     <span>{copiedKey === "path" ? "경로 복사됨" : "경로 복사"}</span>
                   </button>
                   {selectedFile ? (
-                    <button
-                      type="button"
-                      className="tb-btn"
-                      onClick={() => void handleCopyArtifact("content", selectedFile.content)}
-                    >
-                      {copiedKey === "content" ? (
-                        <Check size={12} aria-hidden="true" />
-                      ) : (
-                        <Copy size={12} aria-hidden="true" />
-                      )}
-                      <span>{copiedKey === "content" ? "내용 복사됨" : "내용 복사"}</span>
-                    </button>
+                    <>
+                      <button
+                        type="button"
+                        className="tb-btn"
+                        onClick={() => void handleCopyArtifact("content", selectedFile.content)}
+                      >
+                        {copiedKey === "content" ? (
+                          <Check size={12} aria-hidden="true" />
+                        ) : (
+                          <Copy size={12} aria-hidden="true" />
+                        )}
+                        <span>{copiedKey === "content" ? "내용 복사됨" : "내용 복사"}</span>
+                      </button>
+                      <button
+                        type="button"
+                        className="tb-btn"
+                        onClick={() =>
+                          downloadTextArtifact(selectedFile.name || selectedFile.path, selectedFile.content)
+                        }
+                      >
+                        <Download size={12} aria-hidden="true" />
+                        <span>다운로드</span>
+                      </button>
+                    </>
                   ) : null}
                 </div>
               ) : null}
@@ -453,9 +468,12 @@ export function WorkspaceArtifactsAndDiffView({
                     <MarkdownContent content={selectedFile.content} />
                   </div>
                 ) : (
-                  <pre className="workspace-artifact-file-content overflow-auto max-h-[520px]">
-                    {selectedFile.content}
-                  </pre>
+                  <CodeBlockViewer
+                    className="workspace-artifact-file-content"
+                    code={selectedFile.content}
+                    fileName={selectedFile.name || selectedFile.path}
+                    contentType={selectedFile.contentType}
+                  />
                 )}
               </>
             ) : null}

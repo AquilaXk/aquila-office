@@ -475,6 +475,47 @@ export function findCatalogPreset(
   return presets.find((preset) => preset.providerKind === kind);
 }
 
+export function findCatalogModel(
+  modelId: string | null | undefined,
+  presets: readonly ModelCatalogPreset[] = BUILTIN_MODEL_CATALOG_PRESETS,
+  preferredKind?: ModelProviderKind | null,
+): CatalogModelEntry | undefined {
+  const normalized = (modelId ?? "").trim().toLowerCase();
+  if (!normalized) {
+    return undefined;
+  }
+  const searchOrder = preferredKind
+    ? [
+        ...presets.filter((preset) => preset.providerKind === preferredKind),
+        ...presets.filter((preset) => preset.providerKind !== preferredKind),
+        ...BUILTIN_MODEL_CATALOG_PRESETS,
+      ]
+    : [...presets, ...BUILTIN_MODEL_CATALOG_PRESETS];
+
+  for (const preset of searchOrder) {
+    for (const model of preset.models) {
+      if (model.id.toLowerCase() === normalized) {
+        return model;
+      }
+    }
+  }
+  return undefined;
+}
+
+export function formatTokenCountShort(tokens: number | null | undefined): string {
+  if (typeof tokens !== "number" || !Number.isFinite(tokens) || tokens < 0) {
+    return "-";
+  }
+  const whole = Math.round(tokens);
+  if (whole >= 1_000_000) {
+    return `${(whole / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`;
+  }
+  if (whole >= 1_000) {
+    return `${Math.round(whole / 1_000)}K`;
+  }
+  return String(whole);
+}
+
 export function providerKindLabel(kind: ModelProviderKind | string): string {
   switch (kind) {
     case "OPENAI":

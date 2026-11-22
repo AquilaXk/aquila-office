@@ -9,9 +9,11 @@ import {
   type ModelCatalogPreset,
 } from "@/lib/model-catalog";
 import {
+  computeReorderedProviderPriorities,
   createWorkspaceModelProvider,
   deleteWorkspaceModelProvider,
   fetchWorkspaceModelProviders,
+  fetchWorkspaceModelTelemetry,
   sortModelProvidersByPriority,
   testWorkspaceModelProviderConnection,
   updateWorkspaceModelProvider,
@@ -19,6 +21,7 @@ import {
   type ModelProviderConnectionTestInput,
   type ModelProviderConnectionTestResult,
   type WorkspaceModelProvider,
+  type WorkspaceModelTelemetryItem,
 } from "@/lib/model-providers";
 
 export type ModelProvidersLoadStatus = "idle" | "loading" | "ready" | "error";
@@ -33,10 +36,12 @@ export type WorkspaceModelProvidersController = {
   canManage: boolean;
   presets: readonly ModelCatalogPreset[];
   providers: WorkspaceModelProvider[];
+  telemetry: WorkspaceModelTelemetryItem[];
   loadStatus: ModelProvidersLoadStatus;
   loadError: string | null;
   saving: boolean;
   togglingId: number | null;
+  reorderingId: number | null;
   deletingId: number | null;
   testingMode: "models" | "completion" | null;
   testResult: ModelProviderConnectionTestResult | null;
@@ -48,6 +53,7 @@ export type WorkspaceModelProvidersController = {
     input: CreateWorkspaceModelProviderInput,
   ) => Promise<WorkspaceModelProvider | null>;
   toggleProviderEnabled: (provider: WorkspaceModelProvider) => Promise<void>;
+  moveProviderPriority: (providerId: number, direction: "up" | "down") => Promise<void>;
   removeProvider: (provider: WorkspaceModelProvider) => Promise<boolean>;
   runConnectionTest: (
     input: ModelProviderConnectionTestInput,
@@ -66,10 +72,12 @@ export function useWorkspaceModelProviders(options: {
     BUILTIN_MODEL_CATALOG_PRESETS,
   );
   const [providers, setProviders] = useState<WorkspaceModelProvider[]>([]);
+  const [telemetry, setTelemetry] = useState<WorkspaceModelTelemetryItem[]>([]);
   const [loadStatus, setLoadStatus] = useState<ModelProvidersLoadStatus>("idle");
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [togglingId, setTogglingId] = useState<number | null>(null);
+  const [reorderingId, setReorderingId] = useState<number | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [testingMode, setTestingMode] = useState<"models" | "completion" | null>(null);
   const [testResult, setTestResult] = useState<ModelProviderConnectionTestResult | null>(null);
@@ -79,6 +87,7 @@ export function useWorkspaceModelProviders(options: {
   const reload = useCallback(async () => {
     if (!workspaceId || !Number.isInteger(workspaceId) || workspaceId <= 0) {
       setProviders([]);
+      setTelemetry([]);
       setLoadStatus("idle");
       setLoadError(null);
       return;
@@ -87,13 +96,18 @@ export function useWorkspaceModelProviders(options: {
     setLoadStatus("loading");
     setLoadError(null);
     const accessToken = resolveAccessToken();
-    const [catalogRes, providersRes] = await Promise.allSettled([
+    const [catalogRes, providersRes, telemetryRes] = await Promise.allSettled([
       fetchModelCatalog(accessToken),
       fetchWorkspaceModelProviders(accessToken, workspaceId),
+      fetchWorkspaceModelTelemetry(accessToken, workspaceId),
     ]);
 
     if (catalogRes.status === "fulfilled" && catalogRes.value.presets.length > 0) {
       setPresets(catalogRes.value.presets);
+    }
+
+    if (telemetryRes.status === "fulfilled") {
+      setTelemetry(telemetryRes.value);
     }
 
     if (providersRes.status === "fulfilled") {
@@ -221,6 +235,45 @@ export function useWorkspaceModelProviders(options: {
     [canManage, workspaceId],
   );
 
+  const moveProviderPriority = useCallback(
+    async (providerId: number, direction: "up" | "down") => {
+      if (!workspaceId || !canManage) {
+        return;
+      }
+      const updates = computeReorderedProviderPriorities(providers, providerId, direction);
+      if (updates.length === 0) {
+        return;
+      }
+      setReorderingId(providerId);
+      setFeedback(null);
+      try {
+        const accessToken = resolveAccessToken();
+        const updatedList = await Promise.all(
+          updates.map((patch) =>
+            updateWorkspaceModelProvider(accessToken, workspaceId, patch.providerId, {
+              priority: patch.priority,
+            }),
+          ),
+        );
+        const byId = new Map<number, WorkspaceModelProvider>();
+        for (const item of updatedList) {
+          byId.set(item.providerId, item);
+        }
+        setProviders((current) =>
+          sortModelProvidersByPriority(current.map((item) => byId.get(item.providerId) ?? item)),
+        );
+      } catch (error) {
+        setFeedback({
+          tone: "danger",
+          message: messageFromError(error, "우선순위를 조정하지 못했습니다."),
+        });
+      } finally {
+        setReorderingId(null);
+      }
+    },
+    [canManage, providers, workspaceId],
+  );
+
   const removeProvider = useCallback(
     async (provider: WorkspaceModelProvider): Promise<boolean> => {
       if (!workspaceId || !canManage) {
@@ -288,10 +341,12 @@ export function useWorkspaceModelProviders(options: {
     canManage,
     presets,
     providers,
+    telemetry,
     loadStatus,
     loadError,
     saving,
     togglingId,
+    reorderingId,
     deletingId,
     testingMode,
     testResult,
@@ -300,6 +355,7 @@ export function useWorkspaceModelProviders(options: {
     reload,
     saveProvider,
     toggleProviderEnabled,
+    moveProviderPriority,
     removeProvider,
     runConnectionTest,
     clearFeedback,

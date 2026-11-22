@@ -30,12 +30,15 @@ test("WorkspaceCommandPalette enforces closed null render, WAI-ARIA combobox/lis
 
 test("workspace detail integrates Cmd+K command palette, live Bitap filters, precomputed sort, and dialog a11y", () => {
   const pageSource = readSource("app/workspaces/[workspaceId]/page.tsx");
+  const liveSyncSource = readSource("lib/use-workspace-live-sync.ts");
   const taskBoardSource = readSource("components/workspace/views/WorkspaceTaskBoardView.tsx");
   const artifactsViewSource = readSource("components/workspace/views/WorkspaceArtifactsAndDiffView.tsx");
   const inspectorSource = readSource("components/workspace/inspector/WorkspaceContextInspector.tsx");
 
   assert.match(pageSource, /WorkspaceCommandPalette/);
-  assert.match(pageSource, /\(event\.metaKey \|\| event\.ctrlKey\) && event\.key\.toLowerCase\(\) === "k"/);
+  assert.match(pageSource, /useWorkspaceLiveSync/);
+  assert.match(liveSyncSource, /\(event\.metaKey \|\| event\.ctrlKey\) && event\.key\.toLowerCase\(\) === "k"/);
+  assert.match(liveSyncSource, /event\.key === "\?"/);
   assert.match(pageSource, /cameraFocusTarget=\{cameraFocusTarget\}/);
   assert.match(pageSource, /handleToggleTheme/);
   assert.match(taskBoardSource, /aria-label="작업 검색"/);
@@ -52,6 +55,7 @@ test("workspace detail integrates Cmd+K command palette, live Bitap filters, pre
     "components/workspace/modals/ConnectionSettingsModal.tsx",
     "components/workspace/modals/TaskDetailModals.tsx",
     "components/workspace/modals/ArtifactFileModal.tsx",
+    "components/workspace/modals/ShortcutCheatsheetModal.tsx",
   ]) {
     const src = readSource(modalFile);
     assert.match(src, /className="workspace-modal-backdrop"/, modalFile);

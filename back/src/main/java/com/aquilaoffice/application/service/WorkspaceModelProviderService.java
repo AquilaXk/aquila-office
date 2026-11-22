@@ -4,6 +4,7 @@ import com.aquilaoffice.application.port.in.CreateWorkspaceModelProviderCommand;
 import com.aquilaoffice.application.port.in.CreateWorkspaceModelProviderUseCase;
 import com.aquilaoffice.application.port.in.DeleteWorkspaceModelProviderUseCase;
 import com.aquilaoffice.application.port.in.ListWorkspaceModelProvidersUseCase;
+import com.aquilaoffice.application.port.in.ListWorkspaceModelTelemetryUseCase;
 import com.aquilaoffice.application.port.in.TestWorkspaceModelProviderCommand;
 import com.aquilaoffice.application.port.in.TestWorkspaceModelProviderUseCase;
 import com.aquilaoffice.application.port.in.UpdateWorkspaceModelProviderCommand;
@@ -12,12 +13,14 @@ import com.aquilaoffice.application.port.in.WorkspaceModelConnectionTestResult;
 import com.aquilaoffice.application.port.in.WorkspaceModelProviderResult;
 import com.aquilaoffice.application.port.out.LoadModelCatalogPort;
 import com.aquilaoffice.application.port.out.LoadMemberPort;
+import com.aquilaoffice.application.port.out.LoadTaskExecutionModelTelemetryPort;
 import com.aquilaoffice.application.port.out.LoadWorkspaceModelProviderPort;
 import com.aquilaoffice.application.port.out.LoadWorkspacePort;
 import com.aquilaoffice.application.port.out.RedactSensitiveTextPort;
 import com.aquilaoffice.application.port.out.SaveWorkspaceModelProviderPort;
 import com.aquilaoffice.application.port.out.TestWorkspaceModelProviderPort;
 import com.aquilaoffice.application.port.out.WorkspaceModelConnectionTestRequest;
+import com.aquilaoffice.application.port.out.WorkspaceModelTelemetryEntry;
 import com.aquilaoffice.domain.model.ModelCatalogPreset;
 import com.aquilaoffice.domain.model.ModelProviderKind;
 import com.aquilaoffice.domain.model.ModelWireProtocol;
@@ -34,10 +37,13 @@ import java.util.Objects;
  */
 public class WorkspaceModelProviderService
         implements ListWorkspaceModelProvidersUseCase,
+                ListWorkspaceModelTelemetryUseCase,
                 CreateWorkspaceModelProviderUseCase,
                 UpdateWorkspaceModelProviderUseCase,
                 DeleteWorkspaceModelProviderUseCase,
                 TestWorkspaceModelProviderUseCase {
+
+    private static final int DEFAULT_TELEMETRY_LIMIT = 20;
 
     private final LoadMemberPort loadMemberPort;
     private final LoadWorkspacePort loadWorkspacePort;
@@ -46,6 +52,7 @@ public class WorkspaceModelProviderService
     private final TestWorkspaceModelProviderPort testWorkspaceModelProviderPort;
     private final LoadModelCatalogPort loadModelCatalogPort;
     private final RedactSensitiveTextPort redactSensitiveTextPort;
+    private final LoadTaskExecutionModelTelemetryPort loadTaskExecutionModelTelemetryPort;
     private final Clock clock;
 
     public WorkspaceModelProviderService(
@@ -56,6 +63,28 @@ public class WorkspaceModelProviderService
             TestWorkspaceModelProviderPort testWorkspaceModelProviderPort,
             LoadModelCatalogPort loadModelCatalogPort,
             RedactSensitiveTextPort redactSensitiveTextPort,
+            Clock clock) {
+        this(
+                loadMemberPort,
+                loadWorkspacePort,
+                loadWorkspaceModelProviderPort,
+                saveWorkspaceModelProviderPort,
+                testWorkspaceModelProviderPort,
+                loadModelCatalogPort,
+                redactSensitiveTextPort,
+                (workspaceId, limit) -> List.of(),
+                clock);
+    }
+
+    public WorkspaceModelProviderService(
+            LoadMemberPort loadMemberPort,
+            LoadWorkspacePort loadWorkspacePort,
+            LoadWorkspaceModelProviderPort loadWorkspaceModelProviderPort,
+            SaveWorkspaceModelProviderPort saveWorkspaceModelProviderPort,
+            TestWorkspaceModelProviderPort testWorkspaceModelProviderPort,
+            LoadModelCatalogPort loadModelCatalogPort,
+            RedactSensitiveTextPort redactSensitiveTextPort,
+            LoadTaskExecutionModelTelemetryPort loadTaskExecutionModelTelemetryPort,
             Clock clock) {
         this.loadMemberPort = Objects.requireNonNull(loadMemberPort, "loadMemberPort must not be null");
         this.loadWorkspacePort = Objects.requireNonNull(loadWorkspacePort, "loadWorkspacePort must not be null");
@@ -69,6 +98,8 @@ public class WorkspaceModelProviderService
                 loadModelCatalogPort, "loadModelCatalogPort must not be null");
         this.redactSensitiveTextPort = Objects.requireNonNull(
                 redactSensitiveTextPort, "redactSensitiveTextPort must not be null");
+        this.loadTaskExecutionModelTelemetryPort = Objects.requireNonNull(
+                loadTaskExecutionModelTelemetryPort, "loadTaskExecutionModelTelemetryPort must not be null");
         this.clock = Objects.requireNonNull(clock, "clock must not be null");
     }
 
@@ -79,6 +110,13 @@ public class WorkspaceModelProviderService
         return loadWorkspaceModelProviderPort.findActiveByWorkspaceId(workspaceId).stream()
                 .map(WorkspaceModelProviderResult::from)
                 .toList();
+    }
+
+    @Override
+    public List<WorkspaceModelTelemetryEntry> listTelemetry(Long workspaceId, String requesterGoogleSub) {
+        requireExistingMember(requesterGoogleSub);
+        requireJoinedMembership(workspaceId, requesterGoogleSub);
+        return loadTaskExecutionModelTelemetryPort.loadModelTelemetry(workspaceId, DEFAULT_TELEMETRY_LIMIT);
     }
 
     @Override

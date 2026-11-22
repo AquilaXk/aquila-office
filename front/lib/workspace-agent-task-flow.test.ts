@@ -5,6 +5,7 @@ import path from "node:path";
 
 const appRoot = path.resolve(import.meta.dirname, "..");
 const detailSource = readSource("app/workspaces/[workspaceId]/page.tsx");
+const liveSyncSource = readSource("lib/use-workspace-live-sync.ts");
 const inspectorSource = readSource("components/workspace/inspector/WorkspaceContextInspector.tsx");
 const agentEditSource = readSource("components/workspace/inspector/AgentEditPanel.tsx");
 const taskBoardSource = readSource("components/workspace/views/WorkspaceTaskBoardView.tsx");
@@ -55,7 +56,8 @@ test("actor inspector exposes member details and agent task/plan links", () => {
 
 test("actor inspector closes cleanly and keeps chat scrolled to latest message", () => {
   assert.match(detailSource, /setInspectorTarget\(null\)/);
-  assert.match(detailSource, /event\.key === "Escape"/);
+  assert.match(detailSource, /useWorkspaceLiveSync/);
+  assert.match(liveSyncSource, /event\.key === "Escape"/);
   assert.match(inspectorSource, /actorMessagesEndRef/);
   assert.match(inspectorSource, /scrollIntoView/);
 });

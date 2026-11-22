@@ -93,6 +93,7 @@ import com.aquilaoffice.application.port.out.LoadOrchestrationPlanArtifactPort;
 import com.aquilaoffice.application.port.out.LoadOrchestrationSessionPort;
 import com.aquilaoffice.application.port.out.LoadSlackChannelMappingPort;
 import com.aquilaoffice.application.port.out.LoadTaskExecutionLogsPort;
+import com.aquilaoffice.application.port.out.LoadTaskExecutionModelTelemetryPort;
 import com.aquilaoffice.application.port.out.LoadTaskExecutionReportsPort;
 import com.aquilaoffice.application.port.out.LoadTaskExecutionTokenUsagePort;
 import com.aquilaoffice.application.port.out.LoadTaskPort;
@@ -388,6 +389,9 @@ class ApplicationServiceConfigTest {
 
     @MockitoBean
     private LoadTaskExecutionTokenUsagePort loadTaskExecutionTokenUsagePort;
+
+    @MockitoBean
+    private LoadTaskExecutionModelTelemetryPort loadTaskExecutionModelTelemetryPort;
 
     @MockitoBean
     private CancelTaskExecutionsPort cancelTaskExecutionsPort;

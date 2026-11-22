@@ -127,6 +127,7 @@ public class TaskPersistenceAdapter
                 task.getWorkspace().getId(),
                 task.getCreatedByGoogleSub(),
                 task.getTitle(),
+                task.getDescription(),
                 task.getType(),
                 task.getPriority(),
                 task.getAssignedAgentId(),

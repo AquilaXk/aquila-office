@@ -10,6 +10,7 @@ import {
 } from "./model-catalog.ts";
 
 export const MAX_MODEL_PROVIDERS = 100;
+export const MAX_MODEL_TELEMETRY_ENTRIES = 50;
 export const MAX_DISCOVERED_MODELS = 500;
 export const MAX_ENABLED_MODELS = 100;
 export const MAX_MODEL_PROVIDER_DISPLAY_NAME_CHARS = 100;
@@ -100,6 +101,21 @@ export function workspaceModelProviderPath(workspaceId: number, providerId: numb
 export function workspaceModelProviderConnectionTestPath(workspaceId: number): string {
   return `${workspaceModelProvidersPath(workspaceId)}/connection-test`;
 }
+
+export function workspaceModelProviderTelemetryPath(workspaceId: number): string {
+  return `${workspaceModelProvidersPath(workspaceId)}/telemetry`;
+}
+
+export type WorkspaceModelTelemetryItem = {
+  modelName: string;
+  executionCount: number;
+  successCount: number;
+  failedCount: number;
+  totalPromptTokens: number;
+  totalCompletionTokens: number;
+  totalTokens: number;
+  avgDurationMs: number | null;
+};
 
 function hasControlChars(value: string): boolean {
   for (let i = 0; i < value.length; i += 1) {
@@ -517,6 +533,60 @@ export function sortModelProvidersByPriority(
   });
 }
 
+export function computeReorderedProviderPriorities(
+  orderedProviders: readonly WorkspaceModelProvider[],
+  providerId: number,
+  direction: "up" | "down",
+): Array<{ providerId: number; priority: number }> {
+  const index = orderedProviders.findIndex((item) => item.providerId === providerId);
+  if (index === -1) return [];
+  const targetIndex = direction === "up" ? index - 1 : index + 1;
+  if (targetIndex < 0 || targetIndex >= orderedProviders.length) {
+    return [];
+  }
+
+  const current = orderedProviders[index];
+  const neighbor = orderedProviders[targetIndex];
+  if (current.priority !== neighbor.priority) {
+    return [
+      { providerId: current.providerId, priority: neighbor.priority },
+      { providerId: neighbor.providerId, priority: current.priority },
+    ];
+  }
+
+  if (direction === "up") {
+    if (current.priority > MIN_MODEL_PROVIDER_PRIORITY) {
+      return [
+        {
+          providerId: current.providerId,
+          priority: Math.max(MIN_MODEL_PROVIDER_PRIORITY, current.priority - 10),
+        },
+      ];
+    }
+    return [
+      {
+        providerId: neighbor.providerId,
+        priority: Math.min(MAX_MODEL_PROVIDER_PRIORITY, neighbor.priority + 10),
+      },
+    ];
+  }
+
+  if (current.priority < MAX_MODEL_PROVIDER_PRIORITY) {
+    return [
+      {
+        providerId: current.providerId,
+        priority: Math.min(MAX_MODEL_PROVIDER_PRIORITY, current.priority + 10),
+      },
+    ];
+  }
+  return [
+    {
+      providerId: neighbor.providerId,
+      priority: Math.max(MIN_MODEL_PROVIDER_PRIORITY, neighbor.priority - 10),
+    },
+  ];
+}
+
 export async function fetchWorkspaceModelProviders(
   accessToken: string,
   workspaceId: number,
@@ -622,6 +692,67 @@ export async function testWorkspaceModelProviderConnection(
     json: validated,
   });
   return normalizeModelProviderConnectionTestResult(payload);
+}
+
+function nonNegativeInt(value: unknown): number {
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
+    return 0;
+  }
+  return Math.trunc(value);
+}
+
+export function normalizeWorkspaceModelTelemetry(
+  payload: unknown,
+): WorkspaceModelTelemetryItem[] {
+  let rawList: unknown[] | null = null;
+  if (Array.isArray(payload)) {
+    rawList = payload;
+  } else if (payload && typeof payload === "object") {
+    const record = payload as Record<string, unknown>;
+    if (Array.isArray(record.telemetry)) rawList = record.telemetry;
+    else if (Array.isArray(record.items)) rawList = record.items;
+    else if (Array.isArray(record.content)) rawList = record.content;
+  }
+  if (!rawList) return [];
+
+  const list: WorkspaceModelTelemetryItem[] = [];
+  const limit = Math.min(rawList.length, MAX_MODEL_TELEMETRY_ENTRIES);
+  for (let i = 0; i < limit; i += 1) {
+    const entry = rawList[i];
+    if (!entry || typeof entry !== "object") continue;
+    const record = entry as Record<string, unknown>;
+    const rawName = typeof record.modelName === "string" ? record.modelName.trim() : "";
+    if (!rawName) continue;
+    const promptTokens = nonNegativeInt(record.totalPromptTokens);
+    const completionTokens = nonNegativeInt(record.totalCompletionTokens);
+    const rawTotalTokens = nonNegativeInt(record.totalTokens);
+    list.push({
+      modelName: rawName.slice(0, MAX_MODEL_PROVIDER_MODEL_ID_CHARS),
+      executionCount: nonNegativeInt(record.executionCount),
+      successCount: nonNegativeInt(record.successCount),
+      failedCount: nonNegativeInt(record.failedCount),
+      totalPromptTokens: promptTokens,
+      totalCompletionTokens: completionTokens,
+      totalTokens: rawTotalTokens > 0 ? rawTotalTokens : promptTokens + completionTokens,
+      avgDurationMs:
+        typeof record.avgDurationMs === "number" &&
+        Number.isFinite(record.avgDurationMs) &&
+        record.avgDurationMs >= 0
+          ? Math.round(record.avgDurationMs)
+          : null,
+    });
+  }
+  return list;
+}
+
+export async function fetchWorkspaceModelTelemetry(
+  accessToken: string,
+  workspaceId: number,
+): Promise<WorkspaceModelTelemetryItem[]> {
+  const payload = await apiFetch<unknown>(workspaceModelProviderTelemetryPath(workspaceId), {
+    accessToken,
+  });
+  return normalizeWorkspaceModelTelemetry(payload);
 }
 
 export function suggestModelsForProvider(

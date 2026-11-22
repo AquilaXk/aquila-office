@@ -1,15 +1,18 @@
 "use client";
 
-import { useId, useMemo, useState, type FormEvent } from "react";
+import { useId, useMemo, useRef, useState, type FormEvent } from "react";
 import {
   AlertCircle,
   CheckCircle2,
   GitFork,
   Loader2,
+  Maximize2,
   Play,
   Plus,
   RefreshCw,
   Trash2,
+  ZoomIn,
+  ZoomOut,
 } from "lucide-react";
 import PixelAvatar from "@/components/arcade/PixelAvatar";
 import { layoutTopologicalDag } from "@/lib/pixel-office/dag-bezier-edges";
@@ -18,6 +21,7 @@ import {
   formatDateTime,
   formatOrchestrationStatus,
   formatOrchestrationStepStatus,
+  formatTaskStatus,
   messageFromError,
   type ModalLoadState,
 } from "@/components/workspace/workspace-ui-helpers";
@@ -108,6 +112,15 @@ export function WorkspaceOrchestrationView({
     return map;
   }, [agents]);
   const svgMarkerPrefix = useId().replace(/:/g, "");
+  const [dagZoom, setDagZoom] = useState(1);
+  const dagScrollRef = useRef<HTMLDivElement | null>(null);
+  const taskById = useMemo(() => {
+    const map = new Map<number, WorkspaceTask>();
+    for (let i = 0; i < tasks.length; i += 1) {
+      map.set(tasks[i].taskId, tasks[i]);
+    }
+    return map;
+  }, [tasks]);
 
   const effectiveSourceTaskId = sourceTaskId || (tasks[0] ? String(tasks[0].taskId) : "");
 
@@ -638,21 +651,77 @@ export function WorkspaceOrchestrationView({
                 const markerIdle = `${svgMarkerPrefix}-arrow-idle`;
                 const markerOk = `${svgMarkerPrefix}-arrow-ok`;
                 const markerActive = `${svgMarkerPrefix}-arrow-active`;
+                const handleFitDag = () => {
+                  const width = dagScrollRef.current?.clientWidth ?? 0;
+                  if (width <= 0 || dagLayout.width <= 0) {
+                    setDagZoom(1);
+                    return;
+                  }
+                  const fitted = Math.max(
+                    0.6,
+                    Math.min(1.2, Number(((width - 16) / dagLayout.width).toFixed(2))),
+                  );
+                  setDagZoom(fitted);
+                };
                 return (
                   <div className="ao-dag-card mb-3" aria-label="오케스트레이션 실행 그래프">
-                    <div className="flex items-center justify-between gap-2 mb-2">
+                    <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
                       <strong className="text-[12px] text-[var(--ui-text-strong)]">
-                        위상 실행 파이프라인 ({selectedSession.steps.length}단계)
+                        위상 실행 파이프라인 ({selectedSession.steps.length}단계 · {dagLayout.levels.length}개 스테이지)
                       </strong>
-                      <span className="text-[12px] text-[var(--ui-text-muted)]">
-                        {dagLayout.levels.length}개 스테이지
-                      </span>
+                      <div className="ao-dag-zoom-controls">
+                        <button
+                          type="button"
+                          className="tb-btn"
+                          aria-label="그래프 축소"
+                          title="그래프 축소"
+                          disabled={dagZoom <= 0.6}
+                          onClick={() =>
+                            setDagZoom((z) => Math.max(0.6, Number((z - 0.15).toFixed(2))))
+                          }
+                        >
+                          <ZoomOut size={12} aria-hidden="true" />
+                        </button>
+                        <span className="ao-dag-zoom-badge">{Math.round(dagZoom * 100)}%</span>
+                        <button
+                          type="button"
+                          className="tb-btn"
+                          aria-label="그래프 확대"
+                          title="그래프 확대"
+                          disabled={dagZoom >= 1.6}
+                          onClick={() =>
+                            setDagZoom((z) => Math.min(1.6, Number((z + 0.15).toFixed(2))))
+                          }
+                        >
+                          <ZoomIn size={12} aria-hidden="true" />
+                        </button>
+                        <button
+                          type="button"
+                          className="tb-btn"
+                          onClick={handleFitDag}
+                        >
+                          <Maximize2 size={12} aria-hidden="true" />
+                          <span>화면에 맞춤</span>
+                        </button>
+                      </div>
                     </div>
-                    <div className="ao-dag-canvas-scroll">
+                    <div className="ao-dag-canvas-scroll" ref={dagScrollRef}>
                       <div
                         className="ao-dag-stage"
-                        style={{ width: dagLayout.width, height: dagLayout.height }}
+                        style={{
+                          width: Math.round(dagLayout.width * dagZoom),
+                          height: Math.round(dagLayout.height * dagZoom),
+                        }}
                       >
+                        <div
+                          style={{
+                            position: "relative",
+                            width: dagLayout.width,
+                            height: dagLayout.height,
+                            transform: `scale(${dagZoom})`,
+                            transformOrigin: "top left",
+                          }}
+                        >
                         {dagLayout.levels.map((lvl) => (
                           <span
                             key={`lvl-${lvl.level}`}
@@ -786,6 +855,7 @@ export function WorkspaceOrchestrationView({
                             </button>
                           );
                         })}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -838,6 +908,27 @@ export function WorkspaceOrchestrationView({
                         : "없음 (루트)"}
                     </span>
                   </div>
+                  {(() => {
+                    const linkedTask = selectedDagStep.taskId
+                      ? taskById.get(selectedDagStep.taskId) ?? null
+                      : null;
+                    if (!linkedTask) return null;
+                    return (
+                      <div className="ao-dag-linked-task-card">
+                        <div className="ao-dag-linked-task-meta">
+                          <strong className="text-[var(--ui-text-strong)]">
+                            연결 작업 #{linkedTask.taskId}: {linkedTask.title}
+                          </strong>
+                          <span className="role-badge">{formatTaskStatus(linkedTask.status)}</span>
+                        </div>
+                        {linkedTask.description ? (
+                          <p className="m-0 text-[12px] text-[var(--ui-text-secondary)] line-clamp-2">
+                            {linkedTask.description}
+                          </p>
+                        ) : null}
+                      </div>
+                    );
+                  })()}
                   <p className="m-0 text-[13px] text-[var(--ui-text)] whitespace-pre-wrap">
                     {selectedDagStep.instruction}
                   </p>

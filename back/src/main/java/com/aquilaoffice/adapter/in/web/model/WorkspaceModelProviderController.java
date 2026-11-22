@@ -3,6 +3,7 @@ package com.aquilaoffice.adapter.in.web.model;
 import com.aquilaoffice.application.port.in.CreateWorkspaceModelProviderUseCase;
 import com.aquilaoffice.application.port.in.DeleteWorkspaceModelProviderUseCase;
 import com.aquilaoffice.application.port.in.ListWorkspaceModelProvidersUseCase;
+import com.aquilaoffice.application.port.in.ListWorkspaceModelTelemetryUseCase;
 import com.aquilaoffice.application.port.in.TestWorkspaceModelProviderUseCase;
 import com.aquilaoffice.application.port.in.UpdateWorkspaceModelProviderUseCase;
 import com.aquilaoffice.application.port.in.WorkspaceModelProviderResult;
@@ -16,6 +17,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.net.URI;
 import java.util.List;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -37,6 +39,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class WorkspaceModelProviderController {
 
     private final ListWorkspaceModelProvidersUseCase listWorkspaceModelProvidersUseCase;
+    private final ListWorkspaceModelTelemetryUseCase listWorkspaceModelTelemetryUseCase;
     private final CreateWorkspaceModelProviderUseCase createWorkspaceModelProviderUseCase;
     private final UpdateWorkspaceModelProviderUseCase updateWorkspaceModelProviderUseCase;
     private final DeleteWorkspaceModelProviderUseCase deleteWorkspaceModelProviderUseCase;
@@ -48,7 +51,25 @@ public class WorkspaceModelProviderController {
             UpdateWorkspaceModelProviderUseCase updateWorkspaceModelProviderUseCase,
             DeleteWorkspaceModelProviderUseCase deleteWorkspaceModelProviderUseCase,
             TestWorkspaceModelProviderUseCase testWorkspaceModelProviderUseCase) {
+        this(
+                listWorkspaceModelProvidersUseCase,
+                (workspaceId, googleSub) -> List.of(),
+                createWorkspaceModelProviderUseCase,
+                updateWorkspaceModelProviderUseCase,
+                deleteWorkspaceModelProviderUseCase,
+                testWorkspaceModelProviderUseCase);
+    }
+
+    @Autowired
+    public WorkspaceModelProviderController(
+            ListWorkspaceModelProvidersUseCase listWorkspaceModelProvidersUseCase,
+            ListWorkspaceModelTelemetryUseCase listWorkspaceModelTelemetryUseCase,
+            CreateWorkspaceModelProviderUseCase createWorkspaceModelProviderUseCase,
+            UpdateWorkspaceModelProviderUseCase updateWorkspaceModelProviderUseCase,
+            DeleteWorkspaceModelProviderUseCase deleteWorkspaceModelProviderUseCase,
+            TestWorkspaceModelProviderUseCase testWorkspaceModelProviderUseCase) {
         this.listWorkspaceModelProvidersUseCase = listWorkspaceModelProvidersUseCase;
+        this.listWorkspaceModelTelemetryUseCase = listWorkspaceModelTelemetryUseCase;
         this.createWorkspaceModelProviderUseCase = createWorkspaceModelProviderUseCase;
         this.updateWorkspaceModelProviderUseCase = updateWorkspaceModelProviderUseCase;
         this.deleteWorkspaceModelProviderUseCase = deleteWorkspaceModelProviderUseCase;
@@ -68,6 +89,24 @@ public class WorkspaceModelProviderController {
                     .map(WorkspaceModelProviderResponse::from)
                     .toList();
             return ResponseEntity.ok(RsData.ok(providers));
+        } catch (IllegalArgumentException exception) {
+            throw mapArgumentException(exception);
+        }
+    }
+
+    @GetMapping("/telemetry")
+    @Operation(summary = "워크스페이스의 모델별 실행 통계 조회")
+    public ResponseEntity<RsData<List<WorkspaceModelTelemetryResponse>>> telemetry(
+            @PathVariable Long workspaceId,
+            Authentication authentication) {
+        String googleSub = requireAuthenticatedGoogleSub(authentication);
+        try {
+            List<WorkspaceModelTelemetryResponse> entries = listWorkspaceModelTelemetryUseCase
+                    .listTelemetry(workspaceId, googleSub)
+                    .stream()
+                    .map(WorkspaceModelTelemetryResponse::from)
+                    .toList();
+            return ResponseEntity.ok(RsData.ok(entries));
         } catch (IllegalArgumentException exception) {
             throw mapArgumentException(exception);
         }

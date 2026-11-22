@@ -98,4 +98,26 @@ public interface TaskExecutionJpaRepository extends JpaRepository<TaskExecutionJ
     List<TaskExecutionJpaEntity> findRecentByWorkspaceId(
             @Param("workspaceId") Long workspaceId,
             Pageable pageable);
+
+    @Query("""
+            select coalesce(e.modelName, 'default'),
+                   count(e),
+                   coalesce(sum(case when e.status = :succeededStatus then 1L else 0L end), 0L),
+                   coalesce(sum(case when e.status = :failedStatus then 1L else 0L end), 0L),
+                   coalesce(sum(cast(e.promptTokens as long)), 0L),
+                   coalesce(sum(cast(e.completionTokens as long)), 0L),
+                   avg(e.durationMs)
+            from TaskExecutionJpaEntity e
+            join e.workspace w
+            where w.id = :workspaceId
+              and w.deletedAt is null
+            group by coalesce(e.modelName, 'default')
+            order by coalesce(sum(cast(e.promptTokens as long)
+                + cast(e.completionTokens as long)), 0L) desc, count(e) desc
+            """)
+    List<Object[]> aggregateModelTelemetryByWorkspaceId(
+            @Param("workspaceId") Long workspaceId,
+            @Param("succeededStatus") TaskExecutionStatus succeededStatus,
+            @Param("failedStatus") TaskExecutionStatus failedStatus,
+            Pageable pageable);
 }

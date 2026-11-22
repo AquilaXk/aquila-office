@@ -1,0 +1,509 @@
+/* styles/interactive-ux.css - Track 3 UX enhancements using semantic tokens only */
+
+.markdown-compact-content {
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--ui-text);
+  word-break: break-word;
+}
+
+.markdown-compact-content p {
+  margin: 0 0 6px;
+}
+
+.markdown-compact-content p:last-child {
+  margin-bottom: 0;
+}
+
+.markdown-compact-content h1,
+.markdown-compact-content h2,
+.markdown-compact-content h3,
+.markdown-compact-content h4 {
+  margin: 8px 0 4px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ui-text-strong);
+}
+
+.markdown-compact-content h1:first-child,
+.markdown-compact-content h2:first-child,
+.markdown-compact-content h3:first-child,
+.markdown-compact-content h4:first-child {
+  margin-top: 0;
+}
+
+.markdown-compact-content ul,
+.markdown-compact-content ol {
+  margin: 4px 0 6px;
+  padding-left: 18px;
+}
+
+.markdown-compact-content li {
+  margin: 2px 0;
+}
+
+.markdown-compact-content blockquote {
+  margin: 6px 0;
+  padding: 4px 10px;
+  border-left: 2px solid var(--accent-border);
+  background: var(--ui-surface-raised);
+  color: var(--ui-text-secondary);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+
+.markdown-compact-content table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 6px 0;
+  font-size: 11px;
+}
+
+.markdown-compact-content th,
+.markdown-compact-content td {
+  border: 1px solid var(--ui-border-subtle);
+  padding: 4px 6px;
+  text-align: left;
+}
+
+.markdown-compact-content th {
+  background: var(--ui-surface-raised);
+  color: var(--ui-text-strong);
+  font-weight: 600;
+}
+
+.markdown-compact-content a {
+  color: var(--accent-light);
+  text-decoration: underline;
+}
+
+.markdown-compact-content .markdown-artifact-inline-code {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 1px 4px;
+  border-radius: var(--radius-sm);
+  background: var(--ui-surface-raised);
+  border: 1px solid var(--ui-border-subtle);
+  color: var(--ui-text-strong);
+}
+
+.markdown-compact-content .markdown-artifact-code {
+  margin: 6px 0;
+  border: 1px solid var(--ui-border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--ui-bg);
+  overflow: hidden;
+}
+
+.markdown-compact-content .markdown-artifact-code-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--ui-border-subtle);
+  background: var(--ui-surface-raised);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ui-text-muted);
+}
+
+.markdown-compact-content .markdown-artifact-code-header button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--ui-border-subtle);
+  background: var(--ui-surface);
+  color: var(--ui-text-secondary);
+  cursor: pointer;
+}
+
+.markdown-compact-content .markdown-artifact-code-header button:hover {
+  background: var(--ui-hover-strong);
+  color: var(--ui-text-strong);
+}
+
+.markdown-compact-content pre {
+  margin: 0;
+  padding: 8px 10px;
+  overflow-x: auto;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--ui-text);
+}
+
+/* Code block viewer with line gutter & token colors */
+.ao-code-viewer,
+.ao-code-viewer.workspace-artifact-file-content {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--ui-border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--ui-bg);
+  overflow: hidden;
+}
+
+.ao-code-viewer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--ui-border-subtle);
+  background: var(--ui-surface-raised);
+}
+
+.ao-code-viewer-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ui-text-secondary);
+}
+
+.ao-code-viewer-lang {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--ui-border-subtle);
+  background: var(--ui-surface);
+  color: var(--ui-text-strong);
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.ao-code-viewer-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ao-code-viewer-notice {
+  padding: 5px 10px;
+  border-bottom: 1px solid var(--tone-warn-border);
+  background: var(--status-warning-bg);
+  color: var(--ui-warning);
+  font-size: 11px;
+}
+
+.ao-code-viewer-body {
+  overflow: auto;
+  max-height: 520px;
+  padding: 8px 0;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--ui-text);
+}
+
+.ao-code-viewer-lines {
+  display: table;
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.ao-code-viewer-row {
+  display: table-row;
+}
+
+.ao-code-viewer-row:hover {
+  background: var(--ui-hover);
+}
+
+.ao-code-viewer-gutter {
+  display: table-cell;
+  width: 1%;
+  min-width: 38px;
+  padding: 0 10px 0 12px;
+  text-align: right;
+  user-select: none;
+  color: var(--ui-text-muted);
+  border-right: 1px solid var(--ui-border-subtle);
+  vertical-align: top;
+  white-space: nowrap;
+}
+
+.ao-code-viewer-code {
+  display: table-cell;
+  padding: 0 12px;
+  white-space: pre;
+  vertical-align: top;
+}
+
+.ao-tok-kw {
+  color: var(--chart-4);
+  font-weight: 600;
+}
+
+.ao-tok-str {
+  color: var(--chart-2);
+}
+
+.ao-tok-num {
+  color: var(--chart-3);
+}
+
+.ao-tok-com {
+  color: var(--ui-text-muted);
+  font-style: italic;
+}
+
+.ao-tok-fn {
+  color: var(--chart-1);
+}
+
+.ao-tok-type {
+  color: var(--chart-6);
+}
+
+.ao-tok-op {
+  color: var(--ui-text-secondary);
+}
+
+/* Composer chips, history hint, inline retry */
+.ao-composer-tools {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.ao-composer-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.ao-composer-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--ui-border-subtle);
+  background: var(--ui-surface-raised);
+  color: var(--ui-text-secondary);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.ao-composer-chip:hover {
+  background: var(--ui-hover-strong);
+  border-color: var(--accent-border);
+  color: var(--ui-text-strong);
+}
+
+.ao-composer-hint {
+  font-size: 11px;
+  color: var(--ui-text-muted);
+}
+
+.ao-inline-retry-btn {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--tone-danger-border);
+  background: var(--ui-surface);
+  color: var(--ui-text-strong);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.ao-inline-retry-btn:hover {
+  background: var(--ui-hover-strong);
+}
+
+/* Model capability badges, priority reorder, telemetry */
+.ao-capability-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.ao-capability-badge {
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--ui-border-subtle);
+  background: var(--ui-surface-raised);
+  color: var(--ui-text-secondary);
+  font-size: 11px;
+  font-family: var(--font-mono);
+}
+
+.ao-capability-badge-accent {
+  border-color: var(--accent-border);
+  background: var(--accent-subtle);
+  color: var(--ui-text-strong);
+}
+
+.ao-priority-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.ao-key-configured-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 20px;
+  padding: 0 7px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--tone-ok-border);
+  background: var(--status-success-bg);
+  color: var(--ui-success);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.ao-model-telemetry-section {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--ui-border-subtle);
+}
+
+.ao-model-telemetry-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.ao-model-telemetry-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--ui-border-subtle);
+  background: var(--ui-surface-raised);
+}
+
+.ao-model-telemetry-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--ui-text-secondary);
+}
+
+.ao-model-telemetry-bar-track {
+  width: 100%;
+  height: 5px;
+  border-radius: var(--radius-sm);
+  background: var(--ui-surface);
+  overflow: hidden;
+}
+
+.ao-model-telemetry-bar-fill {
+  height: 100%;
+  background: var(--accent-primary);
+  border-radius: var(--radius-sm);
+}
+
+/* Orchestration DAG zoom & linked task inspection */
+.ao-dag-zoom-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.ao-dag-zoom-badge {
+  min-width: 44px;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ui-text-secondary);
+}
+
+.ao-dag-linked-task-card {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--ui-border-subtle);
+  background: var(--ui-surface-raised);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ao-dag-linked-task-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--ui-text-secondary);
+}
+
+/* Shortcut cheatsheet modal */
+.ao-shortcut-dialog {
+  width: min(560px, 94vw);
+}
+
+.ao-shortcut-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+}
+
+.ao-shortcut-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--ui-border-subtle);
+  background: var(--ui-surface-raised);
+}
+
+.ao-shortcut-group-title {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ui-text-strong);
+}
+
+.ao-shortcut-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--ui-text-secondary);
+}
+
+.ao-shortcut-kbd {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--ui-border);
+  background: var(--ui-surface);
+  color: var(--ui-text-strong);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  white-space: nowrap;
+}

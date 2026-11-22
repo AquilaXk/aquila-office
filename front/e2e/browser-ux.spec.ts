@@ -1168,6 +1168,11 @@ async function installMockApi(page: Page, options: MockApiOptions = {}) {
       return;
     }
 
+    if (method === "GET" && path === `/api/v1/workspaces/${workspaceId}/model-providers/telemetry`) {
+      await fulfillJson(route, [{ modelName: "gpt-5.2", executionCount: 4, successCount: 4, failedCount: 0, totalPromptTokens: 1200, totalCompletionTokens: 480, totalTokens: 1680, avgDurationMs: 520 }]);
+      return;
+    }
+
     if (method === "POST" && path === `/api/v1/workspaces/${workspaceId}/model-providers`) {
       const body = (request.postDataJSON() ?? {}) as Record<string, unknown>;
       const priorityOrder =

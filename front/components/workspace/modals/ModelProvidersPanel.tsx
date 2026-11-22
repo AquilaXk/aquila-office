@@ -3,6 +3,8 @@
 import { useMemo, useState, type FormEvent } from "react";
 import {
   AlertCircle,
+  ArrowDown,
+  ArrowUp,
   CheckCircle2,
   Cpu,
   KeyRound,
@@ -12,12 +14,15 @@ import {
   Play,
   RefreshCw,
   Search,
+  ShieldCheck,
   Sparkles,
   Trash2,
 } from "lucide-react";
+import { ModelCapabilityBadges } from "@/components/workspace/ModelCapabilityBadges";
 import {
   filterCatalogPresets,
   findCatalogPreset,
+  formatTokenCountShort,
   providerKindLabel,
   providerTierLabel,
   wireProtocolLabel,
@@ -66,10 +71,12 @@ export function ModelProvidersPanel({ controller, compact = false }: ModelProvid
     canManage,
     presets,
     providers,
+    telemetry,
     loadStatus,
     loadError,
     saving,
     togglingId,
+    reorderingId,
     deletingId,
     testingMode,
     testResult,
@@ -78,6 +85,7 @@ export function ModelProvidersPanel({ controller, compact = false }: ModelProvid
     reload,
     saveProvider,
     toggleProviderEnabled,
+    moveProviderPriority,
     removeProvider,
     runConnectionTest,
     clearFeedback,
@@ -110,6 +118,19 @@ export function ModelProvidersPanel({ controller, compact = false }: ModelProvid
   const activePreset = useMemo(
     () => findCatalogPreset(presets, providerKind),
     [presets, providerKind],
+  );
+
+  const editingProvider = useMemo(
+    () =>
+      editingProviderId !== null
+        ? providers.find((item) => item.providerId === editingProviderId) ?? null
+        : null,
+    [editingProviderId, providers],
+  );
+
+  const maxTelemetryTokens = useMemo(
+    () => telemetry.reduce((max, item) => Math.max(max, item.totalTokens, 1), 1),
+    [telemetry],
   );
 
   const suggestedModels = useMemo(() => {
@@ -327,10 +348,12 @@ export function ModelProvidersPanel({ controller, compact = false }: ModelProvid
           </div>
         ) : (
           <div className="workspace-connection-list">
-            {providers.map((provider) => {
+            {providers.map((provider, providerIndex) => {
               const isEditing = editingProviderId === provider.providerId;
               const isToggling = togglingId === provider.providerId;
+              const isReordering = reorderingId === provider.providerId;
               const isDeleting = deletingId === provider.providerId;
+              const rowBusy = isToggling || isReordering || isDeleting;
               return (
                 <article
                   key={provider.providerId}
@@ -367,14 +390,41 @@ export function ModelProvidersPanel({ controller, compact = false }: ModelProvid
                         {provider.maskedApiKey ?? (provider.hasApiKey ? "****" : "키 없음")}
                       </span>
                     </p>
+                    <ModelCapabilityBadges
+                      modelId={provider.defaultModel}
+                      presets={presets}
+                      preferredKind={provider.providerKind}
+                    />
                   </div>
 
                   <div className="ao-model-provider-actions">
+                    <div className="ao-priority-controls">
+                      <button
+                        type="button"
+                        className="tb-btn"
+                        aria-label={`${provider.displayName} 우선순위 올리기`}
+                        title="우선순위 올리기"
+                        disabled={!canManage || rowBusy || providerIndex === 0}
+                        onClick={() => void moveProviderPriority(provider.providerId, "up")}
+                      >
+                        <ArrowUp size={12} aria-hidden="true" />
+                      </button>
+                      <button
+                        type="button"
+                        className="tb-btn"
+                        aria-label={`${provider.displayName} 우선순위 내리기`}
+                        title="우선순위 내리기"
+                        disabled={!canManage || rowBusy || providerIndex === providers.length - 1}
+                        onClick={() => void moveProviderPriority(provider.providerId, "down")}
+                      >
+                        <ArrowDown size={12} aria-hidden="true" />
+                      </button>
+                    </div>
                     <button
                       type="button"
                       className={`tb-btn${provider.enabled ? " tb-btn-primary" : ""}`}
                       aria-pressed={provider.enabled}
-                      disabled={!canManage || isToggling || isDeleting}
+                      disabled={!canManage || rowBusy}
                       onClick={() => void toggleProviderEnabled(provider)}
                     >
                       {isToggling ? (
@@ -385,7 +435,7 @@ export function ModelProvidersPanel({ controller, compact = false }: ModelProvid
                     <button
                       type="button"
                       className="secondary-action workspace-github-row-button"
-                      disabled={!canManage || isDeleting}
+                      disabled={!canManage || rowBusy}
                       onClick={() => startEditProvider(provider)}
                     >
                       <Pencil size={12} aria-hidden="true" />
@@ -394,7 +444,7 @@ export function ModelProvidersPanel({ controller, compact = false }: ModelProvid
                     <button
                       type="button"
                       className="danger-action workspace-github-row-button"
-                      disabled={!canManage || isDeleting}
+                      disabled={!canManage || rowBusy}
                       onClick={() => void removeProvider(provider)}
                     >
                       {isDeleting ? (
@@ -410,6 +460,42 @@ export function ModelProvidersPanel({ controller, compact = false }: ModelProvid
             })}
           </div>
         )}
+
+        {telemetry.length > 0 ? (
+          <div className="ao-model-telemetry-section" aria-label="모델별 실행 텔레메트리">
+            <strong className="text-[12px] text-[var(--ui-text-strong)]">
+              모델별 실행 통계 ({telemetry.length})
+            </strong>
+            <div className="ao-model-telemetry-grid">
+              {telemetry.map((entry) => {
+                const successRate =
+                  entry.executionCount > 0
+                    ? Math.round((entry.successCount / entry.executionCount) * 100)
+                    : 0;
+                const fillPct = Math.max(4, Math.round((entry.totalTokens / maxTelemetryTokens) * 100));
+                return (
+                  <article key={entry.modelName} className="ao-model-telemetry-card">
+                    <div className="ao-model-telemetry-row">
+                      <code className="font-mono text-[var(--ui-text-strong)]">{entry.modelName}</code>
+                      <span>
+                        {entry.executionCount}회 · 성공 {successRate}%
+                      </span>
+                    </div>
+                    <div className="ao-model-telemetry-bar-track" aria-hidden="true">
+                      <div className="ao-model-telemetry-bar-fill" style={{ width: `${fillPct}%` }} />
+                    </div>
+                    <div className="ao-model-telemetry-row">
+                      <span>총 토큰 {formatTokenCountShort(entry.totalTokens)}</span>
+                      <span>
+                        {entry.avgDurationMs !== null ? `평균 ${entry.avgDurationMs}ms` : "평균 -"}
+                      </span>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          </div>
+        ) : null}
       </section>
 
       {/* 3. Create / Edit Form + Live Discovery & Completion Test */}
@@ -528,12 +614,23 @@ export function ModelProvidersPanel({ controller, compact = false }: ModelProvid
           <label className="form-field">
             <span>
               <strong>API 키</strong>
-              <small>
-                {editingProviderId !== null
-                  ? "변경 시에만 입력"
-                  : activePreset?.authRequired === false
-                    ? "선택"
-                    : "권장"}
+              <small className="inline-flex items-center gap-1.5">
+                {editingProvider?.hasApiKey ? (
+                  <span className="ao-key-configured-badge">
+                    <ShieldCheck size={11} aria-hidden="true" />
+                    <span>
+                      암호화 저장됨
+                      {editingProvider.maskedApiKey ? ` (${editingProvider.maskedApiKey})` : ""}
+                    </span>
+                  </span>
+                ) : null}
+                <span>
+                  {editingProviderId !== null
+                    ? "변경 시에만 입력"
+                    : activePreset?.authRequired === false
+                      ? "선택"
+                      : "권장"}
+                </span>
               </small>
             </span>
             <input
@@ -562,6 +659,11 @@ export function ModelProvidersPanel({ controller, compact = false }: ModelProvid
             placeholder="예: gpt-4.1"
             value={defaultModel}
             onChange={(event) => setDefaultModel(event.target.value)}
+          />
+          <ModelCapabilityBadges
+            modelId={defaultModel}
+            presets={presets}
+            preferredKind={providerKind}
           />
           {suggestedModels.length > 0 ? (
             <div className="ao-dep-chip-row" aria-label="추천 모델 선택">

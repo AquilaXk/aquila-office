@@ -28,7 +28,13 @@ import {
   XCircle,
 } from "lucide-react";
 import { PixelAvatar } from "@/components/arcade";
+import MarkdownContent from "@/components/ui/MarkdownContent";
 import { AgentEditPanel } from "@/components/workspace/inspector/AgentEditPanel";
+import {
+  appendComposerToken,
+  ComposerContextChips,
+  useComposerPromptHistory,
+} from "@/components/workspace/inspector/ChatComposerEnhancements";
 import {
   actorChatSenderLabel,
   artifactPath,
@@ -135,6 +141,8 @@ export type WorkspaceContextInspectorProps = {
   onRequestTaskApproval: (task: WorkspaceTask) => void;
   onCancelTask: (task: WorkspaceTask) => void;
   onOpenArtifactPath: (path: string, name?: string) => void;
+  onRetryActorChat?: () => void;
+  onRetryTaskChat?: (task: WorkspaceTask) => void;
 };
 
 export function WorkspaceContextInspector({
@@ -163,6 +171,8 @@ export function WorkspaceContextInspector({
   taskChatInput,
   taskChatMutation,
   mutatingTaskId,
+  onRetryActorChat,
+  onRetryTaskChat,
   onClose,
   onWidthChange,
   onWidthReset,
@@ -193,6 +203,16 @@ export function WorkspaceContextInspector({
   const dragStartRef = useRef<{ startX: number; startWidth: number } | null>(null);
   const actorMessagesEndRef = useRef<HTMLDivElement | null>(null);
   const { copiedKey, copy } = useCopyFeedback<"logs">();
+  const actorHistory = useComposerPromptHistory(
+    selectedActorNode ? `actor:${selectedActorNode.id}` : "actor:default",
+    actorChatInput,
+    onActorChatInputChange,
+  );
+  const taskHistory = useComposerPromptHistory(
+    selectedTask ? `task:${selectedTask.taskId}` : "task:default",
+    taskChatInput,
+    onTaskChatInputChange,
+  );
 
   const handleResizerPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (!onWidthChange) return;
@@ -449,7 +469,9 @@ export function WorkspaceContextInspector({
                                 <span className="text-[var(--ui-text-muted)]">전송 중</span>
                               ) : null}
                             </div>
-                            <p className="m-0 whitespace-pre-wrap text-[var(--ui-text)]">{msg.text}</p>
+                            <div className="ao-markdown-chat-body">
+                        <MarkdownContent content={msg.text} compact />
+                      </div>
                             {msg.orchestrationPlanId || msg.taskId ? (
                               <div className="flex flex-wrap gap-1.5 mt-2">
                                 {msg.orchestrationPlanId ? (
@@ -483,10 +505,34 @@ export function WorkspaceContextInspector({
                       <div className="ao-inline-notice ao-inline-notice-danger" role="alert">
                         <AlertCircle size={14} aria-hidden="true" />
                         <span>{actorChatMutation.message}</span>
+                        {onRetryActorChat ? (
+                          <button
+                            type="button"
+                            className="ao-inline-retry-btn"
+                            onClick={onRetryActorChat}
+                          >
+                            <RefreshCw size={11} aria-hidden="true" />
+                            <span>다시 시도</span>
+                          </button>
+                        ) : null}
                       </div>
                     ) : null}
 
-                    <form className="ao-composer-card" onSubmit={onSendActorChat}>
+                    <form
+                      className="ao-composer-card"
+                      onSubmit={(event) => {
+                        if (actorChatInput.trim()) {
+                          actorHistory.recordPrompt(actorChatInput);
+                        }
+                        onSendActorChat(event);
+                      }}
+                    >
+                      <ComposerContextChips
+                        tasks={tasks}
+                        onInsert={(token) =>
+                          onActorChatInputChange(appendComposerToken(actorChatInput, token))
+                        }
+                      />
                       <textarea
                         rows={3}
                         maxLength={1000}
@@ -504,7 +550,9 @@ export function WorkspaceContextInspector({
                             if (!canSendActorChat) return;
                             event.preventDefault();
                             event.currentTarget.form?.requestSubmit();
+                            return;
                           }
+                          actorHistory.handleHistoryKeyDown(event);
                         }}
                         className="ao-composer-textarea"
                       />
@@ -863,7 +911,9 @@ export function WorkspaceContextInspector({
                         <span className="role-badge">{formatTaskStatus(report.status)}</span>
                       </div>
                       {report.summary ? (
-                        <p className="m-0 text-[var(--ui-text-secondary)]">{report.summary}</p>
+                        <div className="ao-markdown-report-body">
+                          <MarkdownContent content={report.summary} compact />
+                        </div>
                       ) : null}
                       {report.recommendedAction ? (
                         <p className="m-0 mt-1 text-[var(--ui-text)]">
@@ -927,7 +977,9 @@ export function WorkspaceContextInspector({
                         {formatDateTime(msg.createdAt)}
                       </span>
                     </div>
-                    <p className="m-0 whitespace-pre-wrap">{msg.content}</p>
+                    <div className="ao-markdown-chat-body">
+                      <MarkdownContent content={msg.content} compact />
+                    </div>
                   </article>
                 ))}
 
@@ -935,13 +987,34 @@ export function WorkspaceContextInspector({
                   <div className="ao-inline-notice ao-inline-notice-danger" role="alert">
                     <AlertCircle size={14} aria-hidden="true" />
                     <span>{taskChatMutation.message}</span>
+                    {onRetryTaskChat ? (
+                      <button
+                        type="button"
+                        className="ao-inline-retry-btn"
+                        onClick={() => onRetryTaskChat(selectedTask)}
+                      >
+                        <RefreshCw size={11} aria-hidden="true" />
+                        <span>다시 시도</span>
+                      </button>
+                    ) : null}
                   </div>
                 ) : null}
 
                 <form
                   className="ao-composer-card"
-                  onSubmit={(event) => onSendTaskChat(event, selectedTask)}
+                  onSubmit={(event) => {
+                    if (taskChatInput.trim()) {
+                      taskHistory.recordPrompt(taskChatInput);
+                    }
+                    onSendTaskChat(event, selectedTask);
+                  }}
                 >
+                  <ComposerContextChips
+                    tasks={tasks}
+                    onInsert={(token) =>
+                      onTaskChatInputChange(appendComposerToken(taskChatInput, token))
+                    }
+                  />
                   <textarea
                     rows={3}
                     maxLength={1000}
@@ -965,7 +1038,9 @@ export function WorkspaceContextInspector({
                         }
                         event.preventDefault();
                         event.currentTarget.form?.requestSubmit();
+                        return;
                       }
+                      taskHistory.handleHistoryKeyDown(event);
                     }}
                     className="ao-composer-textarea"
                   />

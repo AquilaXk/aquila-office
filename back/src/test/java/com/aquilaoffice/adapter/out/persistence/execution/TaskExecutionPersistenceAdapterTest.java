@@ -9,6 +9,7 @@ import com.aquilaoffice.adapter.out.persistence.task.TaskPersistenceAdapter;
 import com.aquilaoffice.adapter.out.persistence.workspace.WorkspaceJpaEntity;
 import com.aquilaoffice.adapter.out.persistence.workspace.WorkspaceJpaRepository;
 import com.aquilaoffice.application.port.out.CancelTaskExecutionsPort;
+import com.aquilaoffice.application.port.out.LoadTaskExecutionModelTelemetryPort;
 import com.aquilaoffice.application.port.out.LoadTaskExecutionReportsPort;
 import com.aquilaoffice.application.port.out.LoadTaskExecutionTokenUsagePort;
 import com.aquilaoffice.application.port.out.RecoverStaleExecutionsPort;
@@ -73,6 +74,9 @@ class TaskExecutionPersistenceAdapterTest {
 
     @Autowired
     private LoadTaskExecutionTokenUsagePort loadTaskExecutionTokenUsagePort;
+
+    @Autowired
+    private LoadTaskExecutionModelTelemetryPort loadTaskExecutionModelTelemetryPort;
 
     @Autowired
     private CancelTaskExecutionsPort cancelTaskExecutionsPort;
@@ -276,6 +280,16 @@ class TaskExecutionPersistenceAdapterTest {
                         workspaceEntity.getId(),
                         nowUtc.minusHours(1)))
                 .isEqualTo(200L);
+
+        var telemetry = loadTaskExecutionModelTelemetryPort.loadModelTelemetry(workspaceEntity.getId(), 10);
+        assertThat(telemetry).singleElement().satisfies(entry -> {
+            assertThat(entry.modelName()).isEqualTo("gemini-2.5-flash");
+            assertThat(entry.executionCount()).isEqualTo(1L);
+            assertThat(entry.successCount()).isEqualTo(1L);
+            assertThat(entry.failedCount()).isEqualTo(0L);
+            assertThat(entry.totalTokens()).isEqualTo(200L);
+            assertThat(entry.avgDurationMs()).isEqualTo(320.0);
+        });
 
         var activeExec = saveTaskExecutionPort.save(
                 TaskExecution.create(workspaceEntity.getId(), task.taskId(), 501L));

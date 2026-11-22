@@ -3,6 +3,7 @@
 import { useId, useMemo, useRef, type FormEvent } from "react";
 import { AlertCircle, Loader2, ShieldCheck, UserPlus, X } from "lucide-react";
 import { useDialogA11y } from "@/components/ui/useDialogA11y";
+import { ModelCapabilityBadges } from "@/components/workspace/ModelCapabilityBadges";
 import {
   AGENT_CATEGORY_OPTIONS,
   formatAgentCategory,
@@ -206,6 +207,7 @@ export function AgentHireModal({
                   value={form.modelId ?? ""}
                   onChange={(event) => onModelIdChange?.(event.target.value)}
                 />
+                <ModelCapabilityBadges modelId={form.modelId} />
               </label>
             </div>
 

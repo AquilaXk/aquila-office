@@ -681,6 +681,14 @@ async function installMockApi(context) {
       return;
     }
 
+    if (method === "GET" && path === `/api/v1/workspaces/${workspaceId}/model-providers/telemetry`) {
+      await fulfillJson(route, [
+        { modelName: "gpt-5.2", executionCount: 18, successCount: 17, failedCount: 1, totalPromptTokens: 28400, totalCompletionTokens: 9600, totalTokens: 38000, avgDurationMs: 640 },
+        { modelName: "claude-sonnet-4-5", executionCount: 9, successCount: 9, failedCount: 0, totalPromptTokens: 15200, totalCompletionTokens: 4900, totalTokens: 20100, avgDurationMs: 710 },
+      ]);
+      return;
+    }
+
     if (
       method === "POST" &&
       path === `/api/v1/workspaces/${workspaceId}/model-providers/connection-test`

@@ -7,7 +7,9 @@ import com.aquilaoffice.adapter.out.persistence.workspace.WorkspaceJpaRepository
 import com.aquilaoffice.application.port.out.CancelTaskExecutionsPort;
 import com.aquilaoffice.application.port.out.LoadTaskExecutionReportsPort;
 import com.aquilaoffice.application.port.out.LoadTaskExecutionLogsPort;
+import com.aquilaoffice.application.port.out.LoadTaskExecutionModelTelemetryPort;
 import com.aquilaoffice.application.port.out.LoadTaskExecutionTokenUsagePort;
+import com.aquilaoffice.application.port.out.WorkspaceModelTelemetryEntry;
 import com.aquilaoffice.application.port.out.RecoverStaleExecutionsPort;
 import com.aquilaoffice.application.port.out.SaveTaskExecutionLogPort;
 import com.aquilaoffice.application.port.out.SaveTaskExecutionPort;
@@ -36,6 +38,7 @@ public class TaskExecutionPersistenceAdapter
                 LoadTaskExecutionReportsPort,
                 LoadTaskExecutionLogsPort,
                 LoadTaskExecutionTokenUsagePort,
+                LoadTaskExecutionModelTelemetryPort,
                 CancelTaskExecutionsPort,
                 RecoverStaleExecutionsPort {
 
@@ -195,6 +198,40 @@ public class TaskExecutionPersistenceAdapter
                 .stream()
                 .map(this::toSavedTaskExecutionLog)
                 .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<WorkspaceModelTelemetryEntry> loadModelTelemetry(Long workspaceId, int limit) {
+        Objects.requireNonNull(workspaceId, "workspaceId must not be null");
+        int boundedLimit = Math.clamp(limit, 1, 50);
+        return taskExecutionJpaRepository
+                .aggregateModelTelemetryByWorkspaceId(
+                        workspaceId,
+                        TaskExecutionStatus.SUCCEEDED,
+                        TaskExecutionStatus.FAILED,
+                        PageRequest.of(0, boundedLimit))
+                .stream()
+                .map(TaskExecutionPersistenceAdapter::toModelTelemetryEntry)
+                .toList();
+    }
+
+    private static WorkspaceModelTelemetryEntry toModelTelemetryEntry(Object[] row) {
+        String modelName = row[0] == null ? "default" : String.valueOf(row[0]);
+        long executionCount = row[1] instanceof Number num ? num.longValue() : 0L;
+        long successCount = row[2] instanceof Number num ? num.longValue() : 0L;
+        long failedCount = row[3] instanceof Number num ? num.longValue() : 0L;
+        long promptTokens = row[4] instanceof Number num ? num.longValue() : 0L;
+        long completionTokens = row[5] instanceof Number num ? num.longValue() : 0L;
+        Double avgDurationMs = row[6] instanceof Number num ? num.doubleValue() : null;
+        return new WorkspaceModelTelemetryEntry(
+                modelName,
+                executionCount,
+                successCount,
+                failedCount,
+                promptTokens,
+                completionTokens,
+                avgDurationMs);
     }
 
     private SavedTaskExecution toSavedTaskExecution(TaskExecutionJpaEntity execution) {

@@ -103,6 +103,7 @@ class TaskManagementServiceTest {
         assertThat(results).singleElement().satisfies(result -> {
             assertThat(result.taskId()).isEqualTo(301L);
             assertThat(result.title()).isEqualTo("테스트 작성");
+            assertThat(result.description()).isEqualTo("핵심 서비스 테스트를 추가해주세요.");
             assertThat(result.status()).isEqualTo(TaskStatus.ASSIGNED);
         });
     }
@@ -191,6 +192,7 @@ class TaskManagementServiceTest {
                 101L,
                 "google-1",
                 "테스트 작성",
+                "핵심 서비스 테스트를 추가해주세요.",
                 TaskType.TEST_CREATION,
                 TaskPriority.HIGH,
                 501L,

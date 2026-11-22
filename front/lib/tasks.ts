@@ -239,9 +239,11 @@ export async function fetchTaskReports(
   accessToken: string,
   workspaceId: number,
   taskId: number,
+  signal?: AbortSignal,
 ): Promise<AgentReport[]> {
   const payload = await apiFetch<unknown>(workspaceTaskReportsPath(workspaceId, taskId), {
     accessToken,
+    signal,
   });
 
   return normalizeTaskReports(payload);
@@ -251,9 +253,11 @@ export async function fetchTaskExecutionLogs(
   accessToken: string,
   workspaceId: number,
   taskId: number,
+  signal?: AbortSignal,
 ): Promise<TaskExecutionLog[]> {
   const payload = await apiFetch<unknown>(workspaceTaskLogsPath(workspaceId, taskId), {
     accessToken,
+    signal,
   });
 
   return normalizeTaskExecutionLogs(payload);

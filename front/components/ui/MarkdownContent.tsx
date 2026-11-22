@@ -1,13 +1,14 @@
 "use client";
 
 import { Check, Copy } from "lucide-react";
-import { isValidElement, useCallback, useState, type ReactNode } from "react";
+import { isValidElement, useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import ReactMarkdown from "react-markdown";
 import type { Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 
 type MarkdownContentProps = {
   content: string;
+  compact?: boolean;
 };
 
 type MarkdownCodeBlockProps = {
@@ -16,12 +17,15 @@ type MarkdownCodeBlockProps = {
 };
 
 export async function copyMarkdownCodeBlock(text: string): Promise<void> {
+  if (typeof navigator === "undefined" || !navigator.clipboard?.writeText) {
+    return;
+  }
   await navigator.clipboard.writeText(text);
 }
 
-export default function MarkdownContent({ content }: MarkdownContentProps) {
+export default function MarkdownContent({ content, compact = false }: MarkdownContentProps) {
   return (
-    <div className="markdown-artifact-content">
+    <div className={compact ? "markdown-artifact-content markdown-compact-content" : "markdown-artifact-content"}>
       <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
         {content}
       </ReactMarkdown>
@@ -31,13 +35,30 @@ export default function MarkdownContent({ content }: MarkdownContentProps) {
 
 function MarkdownCodeBlock({ lang, children }: MarkdownCodeBlockProps) {
   const [copied, setCopied] = useState(false);
+  const resetTimerRef = useRef<number | null>(null);
   const code = extractText(children);
 
+  useEffect(() => {
+    return () => {
+      if (resetTimerRef.current !== null) {
+        window.clearTimeout(resetTimerRef.current);
+      }
+    };
+  }, []);
+
   const handleCopy = useCallback(() => {
-    void copyMarkdownCodeBlock(code).then(() => {
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1500);
-    });
+    void copyMarkdownCodeBlock(code)
+      .then(() => {
+        setCopied(true);
+        if (resetTimerRef.current !== null) {
+          window.clearTimeout(resetTimerRef.current);
+        }
+        resetTimerRef.current = window.setTimeout(() => {
+          setCopied(false);
+          resetTimerRef.current = null;
+        }, 1500);
+      })
+      .catch(() => {});
   }, [code]);
 
   return (
@@ -72,6 +93,25 @@ function extractText(node: ReactNode): string {
   return "";
 }
 
+function sanitizeMarkdownHref(href?: string): string | undefined {
+  if (!href) {
+    return undefined;
+  }
+  const trimmed = href.trim();
+  if (trimmed.startsWith("#") || (trimmed.startsWith("/") && !trimmed.startsWith("//"))) {
+    return trimmed;
+  }
+  try {
+    const parsed = new URL(trimmed);
+    if (parsed.protocol === "http:" || parsed.protocol === "https:" || parsed.protocol === "mailto:") {
+      return parsed.toString();
+    }
+  } catch {
+    return undefined;
+  }
+  return undefined;
+}
+
 const markdownComponents: Components = {
   h1: ({ children }) => <h1>{children}</h1>,
   h2: ({ children }) => <h2>{children}</h2>,
@@ -81,11 +121,17 @@ const markdownComponents: Components = {
   ol: ({ children }) => <ol>{children}</ol>,
   li: ({ children }) => <li>{children}</li>,
   blockquote: ({ children }) => <blockquote>{children}</blockquote>,
-  a: ({ href, children }) => (
-    <a href={href} target="_blank" rel="noreferrer">
-      {children}
-    </a>
-  ),
+  a: ({ href, children }) => {
+    const safeHref = sanitizeMarkdownHref(href);
+    if (!safeHref) {
+      return <span>{children}</span>;
+    }
+    return (
+      <a href={safeHref} target="_blank" rel="noreferrer noopener">
+        {children}
+      </a>
+    );
+  },
   code: ({ className, children }) => (
     <code
       className={

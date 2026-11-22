@@ -23,6 +23,7 @@ import {
 import { AgentHireModal } from "@/components/workspace/modals/AgentHireModal";
 import { ArtifactFileModal } from "@/components/workspace/modals/ArtifactFileModal";
 import { ConnectionSettingsModal } from "@/components/workspace/modals/ConnectionSettingsModal";
+import { ShortcutCheatsheetModal } from "@/components/workspace/modals/ShortcutCheatsheetModal";
 import { TaskCreateModal } from "@/components/workspace/modals/TaskCreateModal";
 import {
   OrchestrationPlanModal,
@@ -34,9 +35,7 @@ import { WorkspaceApprovalInboxView } from "@/components/workspace/views/Workspa
 import { WorkspaceOrchestrationView } from "@/components/workspace/views/WorkspaceOrchestrationView";
 import { WorkspaceTaskBoardView } from "@/components/workspace/views/WorkspaceTaskBoardView";
 import Workspace2DCanvas from "@/components/workspace/Workspace2DCanvas";
-import WorkspaceCommandPalette, {
-  type WorkspaceCommandItem,
-} from "@/components/workspace/WorkspaceCommandPalette";
+import WorkspaceCommandPalette from "@/components/workspace/WorkspaceCommandPalette";
 import {
   WorkspaceErrorState,
   WorkspaceLoadingState,
@@ -140,11 +139,7 @@ import {
   type CreateOrchestrationSessionInput,
   type OrchestrationSession,
 } from "@/lib/orchestrations";
-import {
-  computeBackoffDelayMs,
-  sharedPollBucket,
-  withFetchDeadline,
-} from "@/lib/poll-bucket";
+import { computeBackoffDelayMs } from "@/lib/poll-bucket";
 import {
   createPresencePositionScheduler,
   createWorkspacePresenceStream,
@@ -176,7 +171,6 @@ import {
   cancelWorkspaceTask,
   createAndRunWorkspaceTask,
   createWorkspaceTask,
-  fetchTaskExecutionLogs,
   fetchTaskReports,
   fetchWorkspaceTasks,
   recoverStaleWorkspaceTasks,
@@ -192,10 +186,13 @@ import {
 } from "@/lib/tasks";
 import { readStoredTheme, toggleTheme, type ThemeMode } from "@/lib/theme";
 import { useWorkspaceLayout } from "@/lib/use-workspace-layout";
+import {
+  fetchTaskInspectorSnapshot,
+  useWorkspaceLiveSync,
+} from "@/lib/use-workspace-live-sync";
 import { useWorkspaceModelProviders } from "@/lib/use-workspace-model-providers";
 import { hostDocumentHidden, onHostVisibilityChange } from "@/lib/visibility-poll";
 import {
-  createWorkspaceStageActors,
   getEngineeringRows,
   getStageRooms,
   getStageWorldSize,
@@ -204,14 +201,12 @@ import {
   type StageActorPosition,
   type WorkspaceSceneNode,
 } from "@/lib/workspace-2d";
-import {
-  isEditableEventTarget,
-  matchViewSwitchShortcut,
-} from "@/lib/workspace-shortcuts";
+import { useWorkspaceCommandItems } from "@/lib/workspace-command-items";
 import {
   fetchWorkspaceDashboardSummary,
   fetchWorkspaceDetail,
   fetchWorkspaceMembers,
+  type WorkspaceDashboardSummary,
   type WorkspaceMember,
 } from "@/lib/workspaces";
 
@@ -270,6 +265,7 @@ export default function WorkspaceDetailPage({
   const [themeMode, setThemeMode] = useState<ThemeMode>(() => readStoredTheme());
   const [statusNotice, setStatusNotice] = useState<string | null>(null);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [cameraFocusTarget, setCameraFocusTarget] = useState<{
     position: StageActorPosition;
     nonce: number;
@@ -348,6 +344,16 @@ export default function WorkspaceDetailPage({
     status: "idle",
     message: null,
   });
+  const activeInspectorRef = useRef<{ target: InspectorTarget; actorSessionId: number | null }>({
+    target: null,
+    actorSessionId: null,
+  });
+  const lastFailedActorMsgRef = useRef<{
+    nodeId: string;
+    bubbleId: string;
+    message: string;
+  } | null>(null);
+  const lastFailedTaskMsgRef = useRef<{ taskId: number; message: string } | null>(null);
 
   // Task reports/chat/orchestration plan modals
   const [selectedReportsTask, setSelectedReportsTask] = useState<WorkspaceTask | null>(null);
@@ -610,6 +616,31 @@ export default function WorkspaceDetailPage({
       });
     }
   }, [numericWorkspaceId]);
+
+  const refreshOrchestrationsSilent = useCallback(
+    async (signal?: AbortSignal) => {
+      if (!isValidWorkspaceId(numericWorkspaceId)) {
+        return;
+      }
+      const token = resolveAccessToken();
+      if (!token || signal?.aborted) {
+        return;
+      }
+      try {
+        const sessions = await fetchOrchestrationSessions(token, numericWorkspaceId, signal);
+        if (signal?.aborted) {
+          return;
+        }
+        setOrchestrationSessions(sessions);
+        setSelectedOrchestrationSession((current) =>
+          current ? sessions.find((s) => s.sessionId === current.sessionId) ?? sessions[0] ?? null : sessions[0] ?? null,
+        );
+      } catch {
+        // Keep prior orchestration sessions visible when background sync fails
+      }
+    },
+    [numericWorkspaceId],
+  );
 
   const loadArtifactTreeData = useCallback(async () => {
     if (!isValidWorkspaceId(numericWorkspaceId)) {
@@ -943,47 +974,17 @@ export default function WorkspaceDetailPage({
   }, [numericWorkspaceId, state.status]);
 
   useEffect(() => {
-    if (state.status !== "ready" || !isValidWorkspaceId(numericWorkspaceId)) {
-      return;
-    }
-    let active = true;
-    const unsubscribe = sharedPollBucket.subscribe(
-      `workspace:${numericWorkspaceId}:tasks-summary`,
-      15_000,
-      async (bucketSignal) => {
-        const token = resolveAccessToken();
-        if (!token || !active) {
-          return;
-        }
-        await withFetchDeadline(
-          async (deadlineSignal) => {
-            const [tasksResult, summaryResult] = await Promise.allSettled([
-              fetchWorkspaceTasks(token, numericWorkspaceId, deadlineSignal),
-              fetchWorkspaceDashboardSummary(token, numericWorkspaceId, deadlineSignal),
-            ]);
-            if (!active || deadlineSignal.aborted) {
-              return;
-            }
-            if (tasksResult.status === "fulfilled") {
-              setTasks(tasksResult.value);
-            }
-            if (summaryResult.status === "fulfilled") {
-              setDashboardSummary({ status: "ready", summary: summaryResult.value, error: null });
-            }
-          },
-          { timeoutMs: 10_000, signal: bucketSignal },
-        );
-      },
-      { immediate: false },
-    );
-
-    return () => {
-      active = false;
-      unsubscribe();
+    activeInspectorRef.current = {
+      target: inspectorTarget,
+      actorSessionId: actorChatSessionId,
     };
-  }, [numericWorkspaceId, state.status]);
+  }, [actorChatSessionId, inspectorTarget]);
 
   // ── Inspector Loaders ────────────────────────────────────────
+  const isCurrentTaskInspector = (taskId: number): boolean =>
+    activeInspectorRef.current.target?.type === "task" &&
+    activeInspectorRef.current.target.taskId === taskId;
+
   const loadInspectorTaskDetails = useCallback(
     async (taskId: number) => {
       setInspectorTaskLogs([]);
@@ -994,56 +995,63 @@ export default function WorkspaceDetailPage({
       setInspectorTaskChatState({ status: "loading", error: null });
       setInspectorTaskChatMutation({ status: "idle", message: null });
 
-      const token = resolveAccessToken();
-      const [logsRes, reportsRes, chatRes] = await Promise.allSettled([
-        fetchTaskExecutionLogs(token, numericWorkspaceId, taskId),
-        fetchTaskReports(token, numericWorkspaceId, taskId),
-        fetchTaskChatMessages(token, numericWorkspaceId, taskId),
-      ]);
+      const snapshot = await fetchTaskInspectorSnapshot(resolveAccessToken(), numericWorkspaceId, taskId);
+      if (!isCurrentTaskInspector(taskId)) {
+        return;
+      }
 
-      if (logsRes.status === "fulfilled") {
-        setInspectorTaskLogs(logsRes.value);
+      if (snapshot.logsRes.status === "fulfilled") {
+        setInspectorTaskLogs(snapshot.logsRes.value);
         setInspectorTaskLogsState({ status: "ready", error: null });
       } else {
         setInspectorTaskLogsState({
           status: "error",
-          error: messageFromError(logsRes.reason, "실행 로그를 불러오지 못했습니다."),
+          error: messageFromError(snapshot.logsRes.reason, "실행 로그를 불러오지 못했습니다."),
         });
       }
 
-      if (reportsRes.status === "fulfilled") {
-        setInspectorTaskReports(reportsRes.value);
+      if (snapshot.reportsRes.status === "fulfilled") {
+        setInspectorTaskReports(snapshot.reportsRes.value);
         setInspectorTaskReportsState({ status: "ready", error: null });
       } else {
         setInspectorTaskReportsState({
           status: "error",
-          error: messageFromError(reportsRes.reason, "리포트를 불러오지 못했습니다."),
+          error: messageFromError(snapshot.reportsRes.reason, "리포트를 불러오지 못했습니다."),
         });
       }
 
-      if (chatRes.status === "fulfilled") {
-        const sessionId = chatRes.value[0]?.chatSessionId ?? null;
-        if (sessionId) {
-          try {
-            const page = await fetchChatSessionMessages(
-              token,
-              numericWorkspaceId,
-              sessionId,
-              chatSessionMessagePageInput(),
-            );
-            setInspectorTaskChatMessages(page.messages);
-          } catch {
-            setInspectorTaskChatMessages(chatRes.value);
-          }
-        } else {
-          setInspectorTaskChatMessages(chatRes.value);
-        }
+      if (snapshot.resolvedChatMessages !== null) {
+        setInspectorTaskChatMessages(snapshot.resolvedChatMessages);
         setInspectorTaskChatState({ status: "ready", error: null });
-      } else {
+      } else if (snapshot.chatRes.status === "rejected") {
         setInspectorTaskChatState({
           status: "error",
-          error: messageFromError(chatRes.reason, "작업 대화를 불러오지 못했습니다."),
+          error: messageFromError(snapshot.chatRes.reason, "작업 대화를 불러오지 못했습니다."),
         });
+      }
+    },
+    [numericWorkspaceId],
+  );
+
+  const refreshInspectorTaskDetailsSilent = useCallback(
+    async (taskId: number, signal?: AbortSignal) => {
+      const token = resolveAccessToken();
+      if (!token || signal?.aborted || !isCurrentTaskInspector(taskId)) {
+        return;
+      }
+      const snapshot = await fetchTaskInspectorSnapshot(token, numericWorkspaceId, taskId, signal);
+      if (signal?.aborted || !isCurrentTaskInspector(taskId)) {
+        return;
+      }
+      if (snapshot.logsRes.status === "fulfilled") {
+        setInspectorTaskLogs(snapshot.logsRes.value);
+      }
+      if (snapshot.reportsRes.status === "fulfilled") {
+        setInspectorTaskReports(snapshot.reportsRes.value);
+      }
+      if (snapshot.resolvedChatMessages !== null) {
+        const nextMessages = snapshot.resolvedChatMessages;
+        setInspectorTaskChatMessages((current) => mergeChatMessages(current, nextMessages));
       }
     },
     [numericWorkspaceId],
@@ -1051,12 +1059,25 @@ export default function WorkspaceDetailPage({
 
   const openTaskInspector = useCallback(
     (taskId: number) => {
-      setInspectorTarget({ type: "task", taskId });
+      const nextTarget: InspectorTarget = { type: "task", taskId };
+      activeInspectorRef.current = {
+        target: nextTarget,
+        actorSessionId: activeInspectorRef.current.actorSessionId,
+      };
+      setInspectorTarget(nextTarget);
       setMobileInspectorOpen(true);
       void loadInspectorTaskDetails(taskId);
     },
     [loadInspectorTaskDetails],
   );
+
+  const isCurrentActorSession = (sessionId: number, nodeId?: string): boolean => {
+    const cur = activeInspectorRef.current;
+    if (cur.target?.type !== "actor" || cur.actorSessionId !== sessionId) {
+      return false;
+    }
+    return nodeId === undefined || cur.target.nodeId === nodeId;
+  };
 
   const pollActorChatMessages = useCallback(
     async (sessionId: number) => {
@@ -1067,13 +1088,44 @@ export default function WorkspaceDetailPage({
           sessionId,
           chatSessionMessagePageInput(),
         );
+        if (!isCurrentActorSession(sessionId)) {
+          return;
+        }
         setActorChatMessages(page.messages.map(actorMessageFromChatMessage));
         setActorChatMutation({ status: "idle", message: null });
       } catch (error) {
+        if (!isCurrentActorSession(sessionId)) {
+          return;
+        }
         setActorChatMutation({
           status: "error",
           message: messageFromError(error, "에이전트 대화 메시지를 갱신하지 못했습니다."),
         });
+      }
+    },
+    [numericWorkspaceId],
+  );
+
+  const pollActorChatSilent = useCallback(
+    async (sessionId: number, nodeId: string, signal: AbortSignal) => {
+      const token = resolveAccessToken();
+      if (!token || signal.aborted || !isCurrentActorSession(sessionId, nodeId)) {
+        return;
+      }
+      try {
+        const page = await fetchChatSessionMessages(
+          token,
+          numericWorkspaceId,
+          sessionId,
+          chatSessionMessagePageInput(),
+          signal,
+        );
+        if (signal.aborted || !isCurrentActorSession(sessionId, nodeId)) {
+          return;
+        }
+        setActorChatMessages(page.messages.map(actorMessageFromChatMessage));
+      } catch {
+        // Keep active chat state intact when background sync transiently fails
       }
     },
     [numericWorkspaceId],
@@ -1086,10 +1138,13 @@ export default function WorkspaceDetailPage({
       if (selectedActorNode?.id !== node.id) {
         setActorChatInput("");
         setActorChatMessages([]);
+        lastFailedActorMsgRef.current = null;
       }
+      const nextTarget: InspectorTarget = { type: "actor", nodeId: node.id };
+      activeInspectorRef.current = { target: nextTarget, actorSessionId: sessionId };
       setActorChatSessionId(sessionId);
       setSelectedActorNode(node);
-      setInspectorTarget({ type: "actor", nodeId: node.id });
+      setInspectorTarget(nextTarget);
       setMobileInspectorOpen(true);
       setAgentDeleteConfirmId(null);
       setActorChatMutation({ status: "idle", message: null });
@@ -1432,12 +1487,11 @@ export default function WorkspaceDetailPage({
     [numericWorkspaceId],
   );
 
-  const handleSendActorChatMessage = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  const submitActorChatMessage = async (rawMessage: string, retryBubbleId?: string) => {
     if (!selectedActorNode) {
       return;
     }
-    const message = actorChatInput.trim();
+    const message = rawMessage.trim();
     if (!message) {
       return;
     }
@@ -1455,14 +1509,21 @@ export default function WorkspaceDetailPage({
       return;
     }
 
+    lastFailedActorMsgRef.current = null;
+    const bubbleId = `optimistic-${Date.now()}`;
     const optimisticMessage: ActorChatMessage = {
-      id: `optimistic-${Date.now()}`,
+      id: bubbleId,
       sender: "user",
       text: message,
       optimistic: true,
     };
-    setActorChatMessages((current) => [...current, optimisticMessage]);
-    setActorChatInput("");
+    setActorChatMessages((current) => [
+      ...(retryBubbleId ? current.filter((item) => item.id !== retryBubbleId) : current),
+      optimisticMessage,
+    ]);
+    if (!retryBubbleId) {
+      setActorChatInput("");
+    }
     setActorChatMutation({ status: "submitting", message: "메시지 전송 중" });
 
     try {
@@ -1475,6 +1536,12 @@ export default function WorkspaceDetailPage({
         chatSessionId: actorChatSessionId,
       });
       const sessionKey = actorChatSessionKey(selectedActorNode.id);
+      if (activeInspectorRef.current.target?.type === "actor" && activeInspectorRef.current.target.nodeId === selectedActorNode.id) {
+        activeInspectorRef.current = {
+          target: activeInspectorRef.current.target,
+          actorSessionId: result.chatSessionId,
+        };
+      }
       setActorChatSessionId(result.chatSessionId);
       setActorChatSessionIds((current) => {
         const next = { ...current, [sessionKey]: result.chatSessionId };
@@ -1484,16 +1551,17 @@ export default function WorkspaceDetailPage({
         return next;
       });
       setActorChatMessages((current) => [
-        ...current.filter((item) => item.id !== optimisticMessage.id),
+        ...current.filter((item) => item.id !== bubbleId),
         ...result.messages.map(actorMessageFromChatMessage),
       ]);
       setActorChatMutation({ status: "success", message: `세션 #${result.chatSessionId} 저장됨` });
       await pollActorChatMessages(result.chatSessionId);
       await refreshTaskData();
     } catch (error) {
+      lastFailedActorMsgRef.current = { nodeId: selectedActorNode.id, bubbleId, message };
       setActorChatMessages((current) =>
         current.map((item) =>
-          item.id === optimisticMessage.id
+          item.id === bubbleId
             ? { ...item, optimistic: false, text: `${item.text} (전송 실패)` }
             : item,
         ),
@@ -1505,12 +1573,25 @@ export default function WorkspaceDetailPage({
     }
   };
 
-  const handleSendInspectorTaskChat = async (
-    event: FormEvent<HTMLFormElement>,
-    task: WorkspaceTask,
-  ) => {
+  const handleSendActorChatMessage = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const message = inspectorTaskChatInput.trim();
+    await submitActorChatMessage(actorChatInput);
+  };
+
+  const handleRetryActorChat = () => {
+    const failed = lastFailedActorMsgRef.current;
+    if (
+      !failed ||
+      selectedActorNode?.id !== failed.nodeId ||
+      actorChatMutation.status === "submitting"
+    ) {
+      return;
+    }
+    void submitActorChatMessage(failed.message, failed.bubbleId);
+  };
+
+  const submitInspectorTaskChat = async (task: WorkspaceTask, rawMessage: string, isRetry = false) => {
+    const message = rawMessage.trim();
     const agentId = parseOptionalPositiveInteger(defaultAgentIdForTask(task, workspaceAgents));
     if (!message || agentId === null) {
       setInspectorTaskChatMutation({
@@ -1520,6 +1601,7 @@ export default function WorkspaceDetailPage({
       return;
     }
 
+    lastFailedTaskMsgRef.current = null;
     setInspectorTaskChatMutation({ status: "submitting", message: null });
     try {
       const currentSessionId =
@@ -1534,15 +1616,34 @@ export default function WorkspaceDetailPage({
         chatSessionId: currentSessionId,
       });
       setInspectorTaskChatMessages((current) => mergeChatMessages(current, result.messages));
-      setInspectorTaskChatInput("");
+      if (!isRetry) {
+        setInspectorTaskChatInput("");
+      }
       setInspectorTaskChatMutation({ status: "success", message: "전송됨" });
       await refreshTaskData();
     } catch (error) {
+      lastFailedTaskMsgRef.current = { taskId: task.taskId, message };
       setInspectorTaskChatMutation({
         status: "error",
         message: messageFromError(error, "작업 대화를 전송하지 못했습니다."),
       });
     }
+  };
+
+  const handleSendInspectorTaskChat = async (
+    event: FormEvent<HTMLFormElement>,
+    task: WorkspaceTask,
+  ) => {
+    event.preventDefault();
+    await submitInspectorTaskChat(task, inspectorTaskChatInput);
+  };
+
+  const handleRetryTaskChat = (task: WorkspaceTask) => {
+    const failed = lastFailedTaskMsgRef.current;
+    if (!failed || failed.taskId !== task.taskId || inspectorTaskChatMutation.status === "submitting") {
+      return;
+    }
+    void submitInspectorTaskChat(task, failed.message, true);
   };
 
   // ── Task Reports & Task Chat Modals ──────────────────────────
@@ -1967,207 +2068,82 @@ export default function WorkspaceDetailPage({
     setThemeMode((current) => toggleTheme(current));
   }, []);
 
-  const workspaceCommandItems = useMemo<WorkspaceCommandItem[]>(() => {
-    const items: WorkspaceCommandItem[] = [
-      {
-        id: "view-office",
-        label: "오피스 스테이지 보기",
-        description: "2D 가상 오피스 및 참여자 위치",
-        keywords: "office stage 2d",
-        category: "navigation",
-        categoryLabel: "뷰",
-        onSelect: () => handleSelectView("office"),
-      },
-      {
-        id: "view-tasks",
-        label: "작업 보드 열기",
-        description: "칸반 보드 및 일일 토큰 예산 현황",
-        keywords: "tasks board kanban",
-        category: "navigation",
-        categoryLabel: "뷰",
-        onSelect: () => handleSelectView("tasks"),
-      },
-      {
-        id: "view-approvals",
-        label: "승인 대기함 열기",
-        description: "에이전트 승인 요청 검토",
-        keywords: "approvals inbox waiting",
-        category: "navigation",
-        categoryLabel: "뷰",
-        onSelect: () => handleSelectView("approvals"),
-      },
-      {
-        id: "view-orchestrations",
-        label: "오케스트레이션 열기",
-        description: "다중 에이전트 파이프라인 구성 및 실행",
-        keywords: "orchestration dag pipeline",
-        category: "navigation",
-        categoryLabel: "뷰",
-        onSelect: () => handleSelectView("orchestrations"),
-      },
-      {
-        id: "view-artifacts",
-        label: "산출물 및 Git 변경사항 열기",
-        description: "파일 트리 미리보기 및 로컬 Diff 조회",
-        keywords: "artifacts files git diff",
-        category: "navigation",
-        categoryLabel: "뷰",
-        onSelect: () => handleSelectView("artifacts"),
-      },
-      {
-        id: "action-create-task",
-        label: "새 작업 생성",
-        description: "에이전트 작업 등록 및 즉시 실행",
-        keywords: "new task create run",
-        category: "action",
-        categoryLabel: "동작",
-        onSelect: () => {
-          setTaskCreateDefaultAgentId(null);
-          setTaskCreateMutation({ status: "idle", message: null, agentId: null });
-          setTaskCreateOpen(true);
-        },
-      },
-      {
-        id: "action-hire-agent",
-        label: "에이전트 추가",
-        description: "새 AI 에이전트 등록 및 스킬 파일 설정",
-        keywords: "agent hire create skill",
-        category: "action",
-        categoryLabel: "동작",
-        onSelect: () => setAgentHireOpen(true),
-      },
-      {
-        id: "action-connections",
-        label: "연결 설정 열기",
-        description: "Slack · GitHub · OpenClaw 게이트웨이 설정",
-        keywords: "connections slack github gateway",
-        category: "action",
-        categoryLabel: "동작",
-        onSelect: () => openConnectionModal("selector"),
-      },
-      {
-        id: "toggle-sidebar",
-        label: sidebarCollapsed ? "탐색 사이드바 펼치기" : "탐색 사이드바 접기",
-        description: "데스크톱 좌측 탐색 영역 전환",
-        keywords: "sidebar collapse expand toggle",
-        category: "navigation",
-        categoryLabel: "화면",
-        onSelect: toggleSidebar,
-      },
-      {
-        id: "toggle-theme",
-        label: `테마 전환 (현재: ${themeMode === "light" ? "라이트" : "다크"})`,
-        description: "라이트/다크 시맨틱 테마 전환",
-        keywords: "theme light dark",
-        category: "theme",
-        categoryLabel: "테마",
-        onSelect: handleToggleTheme,
-      },
-    ];
-
-    const stageActors = createWorkspaceStageActors({
-      agents: workspaceAgents,
-      members,
-      presenceMembers: onlinePresenceMembers,
-      tasks,
-    });
-    for (const actor of stageActors) {
-      items.push({
-        id: `actor-${actor.id}`,
-        label: actor.label,
-        description: actor.taskSummary ?? actor.detail,
-        keywords: `${actor.kind} ${actor.status}`,
-        category: actor.kind === "agent" ? "agent" : "member",
-        categoryLabel: actor.kind === "agent" ? "에이전트" : "구성원",
-        onSelect: () => {
-          setActiveView("office");
-          setCameraFocusTarget((prev) => ({
-            position: actor.position,
-            nonce: (prev?.nonce ?? 0) + 1,
-          }));
-          handleSelectActor({
-            id: actor.id,
-            kind: actor.kind,
-            label: actor.label,
-            detail: actor.detail,
-            status: actor.sourceStatus,
-            x: parseStagePct(actor.position.left),
-            y: parseStagePct(actor.position.top),
-          });
-        },
-      });
-    }
-
-    return items;
-  }, [
-    handleSelectActor,
-    handleSelectView,
-    handleToggleTheme,
+  const workspaceCommandItems = useWorkspaceCommandItems({
+    agents: workspaceAgents,
     members,
-    onlinePresenceMembers,
-    openConnectionModal,
-    sidebarCollapsed,
+    presenceMembers: onlinePresenceMembers,
     tasks,
+    sidebarCollapsed,
     themeMode,
-    toggleSidebar,
-    workspaceAgents,
-  ]);
+    onSelectView: handleSelectView,
+    onOpenCreateTask: () => {
+      setTaskCreateDefaultAgentId(null);
+      setTaskCreateMutation({ status: "idle", message: null, agentId: null });
+      setTaskCreateOpen(true);
+    },
+    onOpenHireAgent: () => setAgentHireOpen(true),
+    onOpenConnections: () => openConnectionModal("selector"),
+    onToggleSidebar: toggleSidebar,
+    onToggleTheme: handleToggleTheme,
+    onOpenShortcuts: () => setShortcutsOpen(true),
+    onSelectOfficeView: () => setActiveView("office"),
+    onFocusCamera: (position) =>
+      setCameraFocusTarget((prev) => ({
+        position,
+        nonce: (prev?.nonce ?? 0) + 1,
+      })),
+    onSelectActor: handleSelectActor,
+  });
 
-  useEffect(() => {
-    const hasOpenOverlay = Boolean(
-      commandPaletteOpen ||
-        modalArtifactPath ||
-        selectedChatTask ||
-        selectedReportsTask ||
-        orchestrationPlan ||
-        taskCreateOpen ||
-        agentHireOpen ||
-        connectionModal,
-    );
+  const hasActiveExecution = useMemo(
+    () =>
+      tasks.some((task) => task.status === "IN_PROGRESS") ||
+      orchestrationSessions.some((session) => session.status === "RUNNING"),
+    [orchestrationSessions, tasks],
+  );
 
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
-        event.preventDefault();
-        setCommandPaletteOpen((open) => !open);
-        return;
-      }
-      if (event.key === "Escape") {
-        if (commandPaletteOpen) {
-          event.preventDefault();
-          setCommandPaletteOpen(false);
-          return;
-        }
-        if (!hasOpenOverlay && inspectorTarget) {
-          event.preventDefault();
-          setInspectorTarget(null);
-          setMobileInspectorOpen(false);
-        }
-        return;
-      }
-      if (!hasOpenOverlay && !isEditableEventTarget(event.target)) {
-        const viewIndex = matchViewSwitchShortcut(shortcutStyle, event, VIEW_ORDER.length);
-        if (viewIndex !== null) {
-          event.preventDefault();
-          handleSelectView(VIEW_ORDER[viewIndex]);
-        }
-      }
-    };
+  const hasOtherOverlay = Boolean(
+    modalArtifactPath ||
+      selectedChatTask ||
+      selectedReportsTask ||
+      orchestrationPlan ||
+      taskCreateOpen ||
+      agentHireOpen ||
+      connectionModal,
+  );
 
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [
-    agentHireOpen,
-    commandPaletteOpen,
-    connectionModal,
-    handleSelectView,
+  const handleSummarySynced = useCallback((summary: WorkspaceDashboardSummary) => {
+    setDashboardSummary({ status: "ready", summary, error: null });
+  }, []);
+
+  const handleCloseInspector = useCallback(() => {
+    activeInspectorRef.current = { target: null, actorSessionId: null };
+    setInspectorTarget(null);
+    setMobileInspectorOpen(false);
+  }, []);
+
+  useWorkspaceLiveSync({
+    enabled: state.status === "ready" && isValidWorkspaceId(numericWorkspaceId),
+    workspaceId: numericWorkspaceId,
+    hasActiveExecution,
     inspectorTarget,
-    modalArtifactPath,
-    orchestrationPlan,
-    selectedChatTask,
-    selectedReportsTask,
+    actorNodeId: selectedActorNode?.id ?? null,
+    actorChatSessionId,
     shortcutStyle,
-    taskCreateOpen,
-  ]);
+    viewOrder: VIEW_ORDER,
+    commandPaletteOpen,
+    shortcutsOpen,
+    hasOtherOverlay,
+    onSelectView: handleSelectView,
+    onSetCommandPaletteOpen: setCommandPaletteOpen,
+    onSetShortcutsOpen: setShortcutsOpen,
+    onCloseInspector: handleCloseInspector,
+    onTasksUpdated: setTasks,
+    onSummaryUpdated: handleSummarySynced,
+    onPollActorChatSilent: pollActorChatSilent,
+    onRefreshInspectorTaskSilent: refreshInspectorTaskDetailsSilent,
+    onRefreshOrchestrationsSilent: refreshOrchestrationsSilent,
+  });
 
   // ── Loading / Error Fallback Routes ──────────────────────────
   if (state.status === "loading") {
@@ -2223,6 +2199,7 @@ export default function WorkspaceDetailPage({
         }}
         onOpenConnections={() => openConnectionModal("selector")}
         onOpenCommandPalette={() => setCommandPaletteOpen(true)}
+        onOpenShortcuts={() => setShortcutsOpen(true)}
         onRefreshWorkspace={() => void reloadWorkspace()}
         onRecoverStaleTasks={() => void handleRecoverStaleTasks()}
         onToggleTheme={handleToggleTheme}
@@ -2420,6 +2397,8 @@ export default function WorkspaceDetailPage({
           onRequestTaskApproval={(task) => void handleRequestTaskApproval(task)}
           onCancelTask={(task) => void handleCancelTask(task)}
           onOpenArtifactPath={(path, name) => void openModalArtifactFile(path, name)}
+          onRetryActorChat={handleRetryActorChat}
+          onRetryTaskChat={handleRetryTaskChat}
         />
       </div>
 
@@ -2836,6 +2815,12 @@ export default function WorkspaceDetailPage({
         open={commandPaletteOpen}
         items={workspaceCommandItems}
         onClose={() => setCommandPaletteOpen(false)}
+      />
+
+      <ShortcutCheatsheetModal
+        open={shortcutsOpen}
+        shortcutStyle={shortcutStyle}
+        onClose={() => setShortcutsOpen(false)}
       />
 
       {statusNotice ? <Toast tone="info">{statusNotice}</Toast> : null}

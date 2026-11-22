@@ -7,6 +7,7 @@ import {
   Command,
   FolderTree,
   GitFork,
+  HelpCircle,
   LayoutGrid,
   ListChecks,
   Loader2,
@@ -46,6 +47,7 @@ export type WorkspaceChromeHeaderProps = {
   onOpenHireAgent: () => void;
   onOpenConnections: () => void;
   onOpenCommandPalette: () => void;
+  onOpenShortcuts?: () => void;
   onRefreshWorkspace: () => void;
   onRecoverStaleTasks: () => void;
   onToggleTheme: () => void;
@@ -103,6 +105,7 @@ export function WorkspaceChromeHeader({
   onOpenHireAgent,
   onOpenConnections,
   onOpenCommandPalette,
+  onOpenShortcuts,
   onRefreshWorkspace,
   onRecoverStaleTasks,
   onToggleTheme,
@@ -181,6 +184,19 @@ export function WorkspaceChromeHeader({
             <span>명령</span>
             <kbd className="chrome-shortcut-kbd">{formatCommandShortcut(shortcutStyle, "K")}</kbd>
           </button>
+
+          {onOpenShortcuts ? (
+            <button
+              className="chrome-menu-item"
+              type="button"
+              onClick={onOpenShortcuts}
+              aria-label="키보드 단축키 안내"
+              title="키보드 단축키 안내 (?)"
+            >
+              <HelpCircle size={13} aria-hidden="true" />
+              <kbd className="chrome-shortcut-kbd">?</kbd>
+            </button>
+          ) : null}
 
           <button
             className="chrome-menu-item"
