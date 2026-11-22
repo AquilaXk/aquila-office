@@ -76,6 +76,9 @@ export type AgentCreateFormState = {
   workspacePath: string;
   emoji: string;
   skillFiles: AgentSkillFileDraft[];
+  modelProviderId?: number | null;
+  modelId?: string;
+  fallbackModelId?: string;
 };
 
 export type AgentMutationState = {
@@ -100,7 +103,14 @@ export type PresenceMutationState = {
 };
 
 export type PresenceStreamStatus = "idle" | "connecting" | "open" | "error";
-export type ConnectionModalKind = null | "selector" | "slack" | "discord" | "github" | "gateway";
+export type ConnectionModalKind =
+  | null
+  | "selector"
+  | "slack"
+  | "discord"
+  | "github"
+  | "gateway"
+  | "models";
 
 export type ConnectionMutationState = {
   status: "idle" | "submitting" | "success" | "error";
@@ -201,6 +211,8 @@ export function connectionModalTitle(modal: Exclude<ConnectionModalKind, null>):
       return "GitHub";
     case "gateway":
       return "AI / OpenClaw";
+    case "models":
+      return "AI 모델 프로바이더";
   }
 }
 

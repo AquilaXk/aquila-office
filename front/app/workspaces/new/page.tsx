@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
-import { AlertCircle, ArrowLeft, FolderPlus } from "lucide-react";
+import { AlertCircle, ArrowLeft, FolderPlus, Loader2 } from "lucide-react";
 import { AppTopChrome } from "@/components/desktop/AppTopChrome";
 import { Button, Input, Textarea } from "@/components/ui";
 import { getStoredUser, type ApiError } from "@/lib/api-client";
@@ -59,7 +59,24 @@ export default function NewWorkspacePage() {
   }
 
   if (!hydrated) {
-    return null;
+    return (
+      <AppTopChrome
+        title="새 워크스페이스"
+        backHref="/workspaces"
+        backLabel="워크스페이스 목록"
+      >
+        <div className="ao-page-container" style={{ maxWidth: 680 }}>
+          <section
+            className="ao-surface-panel flex items-center gap-2 text-[13px] text-[var(--ui-text-secondary)]"
+            aria-live="polite"
+            aria-busy="true"
+          >
+            <Loader2 size={15} className="spin" aria-hidden="true" />
+            <span>워크스페이스 개설 화면을 준비하는 중입니다.</span>
+          </section>
+        </div>
+      </AppTopChrome>
+    );
   }
 
   return (

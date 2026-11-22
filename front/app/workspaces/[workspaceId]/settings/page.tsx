@@ -43,6 +43,7 @@ import {
   type WorkspaceRole,
 } from "@/lib/api/workspaces";
 import { hydrateDesktopAccessToken } from "@/lib/auth";
+import { useCopyFeedback } from "@/lib/use-copy-feedback";
 
 type LoadState =
   | { kind: "loading" }
@@ -96,14 +97,15 @@ export default function WorkspaceSettingsPage({
   const [inviteBusy, setInviteBusy] = useState(false);
   const [inviteError, setInviteError] = useState("");
   const [createdInviteUrl, setCreatedInviteUrl] = useState("");
-  const [createdInviteCopied, setCreatedInviteCopied] = useState(false);
+  const { copiedKey, copy: copyToClipboard } = useCopyFeedback<string | number>();
+  const createdInviteCopied = copiedKey === "created-invite";
 
   const [inviteStatus, setInviteStatus] = useState<InviteStatus | "ALL">("PENDING");
   const [invites, setInvites] = useState<InviteManagement[]>([]);
   const [invitesLoading, setInvitesLoading] = useState(false);
   const [invitesError, setInvitesError] = useState("");
   const [inviteActionId, setInviteActionId] = useState<number | null>(null);
-  const [copiedInviteId, setCopiedInviteId] = useState<number | null>(null);
+  const copiedInviteId = typeof copiedKey === "number" ? copiedKey : null;
 
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteBusy, setDeleteBusy] = useState(false);
@@ -181,7 +183,6 @@ export default function WorkspaceSettingsPage({
   async function refreshInvites(status = inviteStatus) {
     setInvitesLoading(true);
     setInvitesError("");
-    setCopiedInviteId(null);
     try {
       const nextInvites = await listSentInvites(
         workspaceIdNumber,
@@ -294,7 +295,6 @@ export default function WorkspaceSettingsPage({
     setInviteBusy(true);
     setInviteError("");
     setCreatedInviteUrl("");
-    setCreatedInviteCopied(false);
     try {
       const targetEmail = inviteEmail.trim();
       if (inviteCreateMode === "email" && !targetEmail) {
@@ -308,7 +308,7 @@ export default function WorkspaceSettingsPage({
       });
       const url = `${window.location.origin}/invites/${invite.token}`;
       setCreatedInviteUrl(url);
-      setCreatedInviteCopied(await copyToClipboard(url));
+      await copyToClipboard(url, "created-invite");
       await refreshInvites();
     } catch (err) {
       const apiErr = err as ApiError;
@@ -348,7 +348,7 @@ export default function WorkspaceSettingsPage({
 
   async function handleCopyInvite(invite: InviteManagement) {
     const url = invite.inviteUrl || `${window.location.origin}/invites/${invite.token}`;
-    setCopiedInviteId((await copyToClipboard(url)) ? invite.inviteId : null);
+    await copyToClipboard(url, invite.inviteId);
   }
 
   async function handleDeleteWorkspace() {
@@ -419,7 +419,7 @@ export default function WorkspaceSettingsPage({
             </section>
           </aside>
 
-          <main className="flex flex-col gap-4 min-w-0">
+          <div className="flex flex-col gap-4 min-w-0">
             {activeSection === "workspace" ? (
               <>
                 <section className="ao-surface-panel" aria-label="워크스페이스 정보 수정">
@@ -811,7 +811,7 @@ export default function WorkspaceSettingsPage({
                 )}
               </section>
             ) : null}
-          </main>
+          </div>
         </div>
 
         <Modal
@@ -888,14 +888,5 @@ function formatDate(iso: string) {
     });
   } catch {
     return iso;
-  }
-}
-
-async function copyToClipboard(text: string) {
-  try {
-    await window.navigator.clipboard?.writeText(text);
-    return true;
-  } catch {
-    return false;
   }
 }

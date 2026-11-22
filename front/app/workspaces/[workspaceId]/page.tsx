@@ -9,6 +9,7 @@ import {
   use,
   type FormEvent,
 } from "react";
+import Toast from "@/components/ui/Toast";
 import { WorkspaceChromeHeader } from "@/components/workspace/chrome/WorkspaceChromeHeader";
 import {
   WorkspaceLeftSidebar,
@@ -140,9 +141,15 @@ import {
   type OrchestrationSession,
 } from "@/lib/orchestrations";
 import {
+  computeBackoffDelayMs,
+  sharedPollBucket,
+  withFetchDeadline,
+} from "@/lib/poll-bucket";
+import {
   createPresencePositionScheduler,
   createWorkspacePresenceStream,
   parseWorkspacePresenceMessage,
+  resolvePresenceStreamTarget,
   sanitizeWorkspacePresencePosition,
   updateWorkspacePresencePosition,
   type WorkspacePresenceMessage,
@@ -185,6 +192,8 @@ import {
 } from "@/lib/tasks";
 import { readStoredTheme, toggleTheme, type ThemeMode } from "@/lib/theme";
 import { useWorkspaceLayout } from "@/lib/use-workspace-layout";
+import { useWorkspaceModelProviders } from "@/lib/use-workspace-model-providers";
+import { hostDocumentHidden, onHostVisibilityChange } from "@/lib/visibility-poll";
 import {
   createWorkspaceStageActors,
   getEngineeringRows,
@@ -310,6 +319,9 @@ export default function WorkspaceDetailPage({
     category: "CUSTOM",
     workspacePath: "",
     emoji: "",
+    modelProviderId: null,
+    modelId: "",
+    fallbackModelId: "",
     skillFiles: [],
   });
   const [agentMutation, setAgentMutation] = useState<AgentMutationState>({
@@ -782,8 +794,51 @@ export default function WorkspaceDetailPage({
   }, [numericWorkspaceId]);
 
   useEffect(() => {
+    if (!statusNotice) {
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      setStatusNotice(null);
+    }, 4500);
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [statusNotice]);
+
+  useEffect(() => {
     let ignore = false;
     let stream: EventSource | null = null;
+    let ticketAbort: AbortController | null = null;
+    let reconnectTimer: number | null = null;
+    let reconnectFailures = 0;
+
+    function clearReconnectTimer() {
+      if (reconnectTimer !== null) {
+        window.clearTimeout(reconnectTimer);
+        reconnectTimer = null;
+      }
+    }
+
+    function teardownStream() {
+      clearReconnectTimer();
+      ticketAbort?.abort();
+      ticketAbort = null;
+      stream?.close();
+      stream = null;
+    }
+
+    function scheduleReconnect() {
+      if (ignore || hostDocumentHidden()) {
+        return;
+      }
+      clearReconnectTimer();
+      const attempt = Math.max(0, reconnectFailures - 1);
+      const delayMs = computeBackoffDelayMs(attempt, { baseMs: 1000, maxMs: 30_000 });
+      reconnectTimer = window.setTimeout(() => {
+        reconnectTimer = null;
+        void connectPresenceStream();
+      }, delayMs);
+    }
 
     async function connectPresenceStream() {
       await Promise.resolve();
@@ -798,15 +853,44 @@ export default function WorkspaceDetailPage({
         return;
       }
 
+      if (hostDocumentHidden()) {
+        return;
+      }
+
       const accessToken = resolveAccessToken();
       if (!accessToken) {
         setPresenceStreamStatus("error");
         return;
       }
 
-      setPresenceStreamStatus("connecting");
-      let reconnectFailures = 0;
-      stream = createWorkspacePresenceStream(numericWorkspaceId, accessToken);
+      teardownStream();
+      setPresenceStreamStatus(reconnectFailures >= 2 ? "error" : "connecting");
+
+      const controller = new AbortController();
+      ticketAbort = controller;
+      let target: Awaited<ReturnType<typeof resolvePresenceStreamTarget>>;
+      try {
+        target = await resolvePresenceStreamTarget(
+          numericWorkspaceId,
+          accessToken,
+          controller.signal,
+        );
+      } catch {
+        if (ignore || controller.signal.aborted) {
+          return;
+        }
+        reconnectFailures += 1;
+        setPresenceStreamStatus(reconnectFailures >= 2 ? "error" : "connecting");
+        scheduleReconnect();
+        return;
+      }
+
+      if (ignore || controller.signal.aborted) {
+        return;
+      }
+      ticketAbort = null;
+
+      stream = createWorkspacePresenceStream(numericWorkspaceId, target);
 
       stream.onopen = () => {
         reconnectFailures = 0;
@@ -826,19 +910,73 @@ export default function WorkspaceDetailPage({
         reconnectFailures = 0;
       };
       stream.onerror = () => {
-        if (!stream || stream.readyState === EventSource.CLOSED) {
-          setPresenceStreamStatus("error");
+        stream?.close();
+        stream = null;
+        if (ignore) {
           return;
         }
         reconnectFailures += 1;
         setPresenceStreamStatus(reconnectFailures >= 2 ? "error" : "connecting");
+        scheduleReconnect();
       };
     }
+
+    const unsubscribeVisibility = onHostVisibilityChange(() => {
+      if (hostDocumentHidden()) {
+        teardownStream();
+        return;
+      }
+      if (!ignore && !stream && state.status === "ready" && isValidWorkspaceId(numericWorkspaceId)) {
+        void connectPresenceStream();
+      }
+    });
 
     void connectPresenceStream();
     return () => {
       ignore = true;
-      stream?.close();
+      unsubscribeVisibility();
+      teardownStream();
+    };
+  }, [numericWorkspaceId, state.status]);
+
+  useEffect(() => {
+    if (state.status !== "ready" || !isValidWorkspaceId(numericWorkspaceId)) {
+      return;
+    }
+    let active = true;
+    const unsubscribe = sharedPollBucket.subscribe(
+      `workspace:${numericWorkspaceId}:tasks-summary`,
+      15_000,
+      async (bucketSignal) => {
+        const token = resolveAccessToken();
+        if (!token || !active) {
+          return;
+        }
+        await withFetchDeadline(
+          async (deadlineSignal) => {
+            const [tasksResult, summaryResult] = await Promise.allSettled([
+              fetchWorkspaceTasks(token, numericWorkspaceId, deadlineSignal),
+              fetchWorkspaceDashboardSummary(token, numericWorkspaceId, deadlineSignal),
+            ]);
+            if (!active || deadlineSignal.aborted) {
+              return;
+            }
+            if (tasksResult.status === "fulfilled") {
+              setTasks(tasksResult.value);
+            }
+            if (summaryResult.status === "fulfilled") {
+              setDashboardSummary({ status: "ready", summary: summaryResult.value, error: null });
+            }
+          },
+          { timeoutMs: 10_000, signal: bucketSignal },
+        );
+      },
+      { immediate: false },
+    );
+
+    return () => {
+      active = false;
+      unsubscribe();
     };
   }, [numericWorkspaceId, state.status]);
 
@@ -1002,6 +1140,9 @@ export default function WorkspaceDetailPage({
         category: agentCreateForm.category,
         workspacePath: agentCreateForm.workspacePath.trim() || undefined,
         emoji: agentCreateForm.emoji.trim() || undefined,
+        modelProviderId: agentCreateForm.modelProviderId ?? undefined,
+        modelId: agentCreateForm.modelId?.trim() || undefined,
+        fallbackModelId: agentCreateForm.fallbackModelId?.trim() || undefined,
         skillFiles: skillFiles.length > 0 ? skillFiles : undefined,
       });
       setAgentCreateForm({
@@ -1009,6 +1150,9 @@ export default function WorkspaceDetailPage({
         category: "CUSTOM",
         workspacePath: "",
         emoji: "",
+        modelProviderId: null,
+        modelId: "",
+        fallbackModelId: "",
         skillFiles: [],
       });
       await refreshAgentData();
@@ -1591,17 +1735,24 @@ export default function WorkspaceDetailPage({
     }
   }, [numericWorkspaceId]);
 
+  const canManage = state.workspace?.myRole === "ADMIN";
+  const modelProvidersController = useWorkspaceModelProviders({
+    workspaceId: isValidWorkspaceId(numericWorkspaceId) ? numericWorkspaceId : null,
+    canManage,
+    enabled: state.status === "ready",
+  });
+  const reloadModelProviders = modelProvidersController.reload;
+
   const openConnectionModal = useCallback(
     (kind: Exclude<ConnectionModalKind, null>) => {
       setConnectionModal(kind);
       if (kind === "slack") void loadSlackConnections();
       if (kind === "github") void loadGithubCredentials();
       if (kind === "gateway") void loadGatewayConnection();
+      if (kind === "models") void reloadModelProviders();
     },
-    [loadGatewayConnection, loadGithubCredentials, loadSlackConnections],
+    [loadGatewayConnection, loadGithubCredentials, loadSlackConnections, reloadModelProviders],
   );
-
-  const canManage = state.workspace?.myRole === "ADMIN";
   const githubConnectionCredentials =
     githubConnectionState.status === "ready" || githubConnectionState.status === "error"
       ? githubConnectionState.credentials
@@ -2183,6 +2334,7 @@ export default function WorkspaceDetailPage({
               onSelectSession={(id) => void handleSelectOrchestrationSession(id)}
               onCreateSession={handleCreateOrchestrationSession}
               onDispatchSession={handleDispatchOrchestrationSession}
+              onInspectTask={openTaskInspector}
             />
           ) : null}
 
@@ -2206,6 +2358,7 @@ export default function WorkspaceDetailPage({
           selectedAgent={selectedInspectorAgent}
           selectedTask={selectedInspectorTask}
           agents={workspaceAgents}
+          modelProviders={modelProvidersController.providers}
           tasks={tasks}
           canManage={canManage}
           mobileOpen={mobileInspectorOpen}
@@ -2274,6 +2427,7 @@ export default function WorkspaceDetailPage({
       <AgentHireModal
         open={agentHireOpen}
         form={agentCreateForm}
+        modelProviders={modelProvidersController.providers}
         mutation={agentMutation}
         submitting={agentMutation.status === "submitting"}
         canSubmit={agentCreateForm.name.trim().length > 0 && agentMutation.status !== "submitting"}
@@ -2287,6 +2441,13 @@ export default function WorkspaceDetailPage({
           setAgentCreateForm((c) => ({ ...c, workspacePath }))
         }
         onEmojiChange={(emoji) => setAgentCreateForm((c) => ({ ...c, emoji }))}
+        onModelProviderChange={(modelProviderId) =>
+          setAgentCreateForm((c) => ({ ...c, modelProviderId }))
+        }
+        onModelIdChange={(modelId) => setAgentCreateForm((c) => ({ ...c, modelId }))}
+        onFallbackModelIdChange={(fallbackModelId) =>
+          setAgentCreateForm((c) => ({ ...c, fallbackModelId }))
+        }
         onSkillFileAdd={() =>
           setAgentCreateForm((c) => ({
             ...c,
@@ -2361,6 +2522,7 @@ export default function WorkspaceDetailPage({
           gatewayConnectionTestState.status !== "submitting" &&
           gatewayBindingMutation.status !== "submitting"
         }
+        modelProvidersController={modelProvidersController}
         onOpen={(kind) => openConnectionModal(kind)}
         onClose={() => setConnectionModal(null)}
         onBack={() => setConnectionModal("selector")}
@@ -2667,6 +2829,8 @@ export default function WorkspaceDetailPage({
         items={workspaceCommandItems}
         onClose={() => setCommandPaletteOpen(false)}
       />
+
+      {statusNotice ? <Toast tone="info">{statusNotice}</Toast> : null}
     </div>
   );
 }

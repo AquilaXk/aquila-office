@@ -17,6 +17,7 @@ import {
   XCircle,
 } from "lucide-react";
 import PixelAvatar from "@/components/arcade/PixelAvatar";
+import { TaskTelemetryCharts } from "@/components/workspace/views/TaskTelemetryCharts";
 import {
   formatDurationMs,
   formatTaskPriority,
@@ -511,6 +512,8 @@ export function WorkspaceTaskBoardView({
           </div>
         </section>
       </div>
+
+      <TaskTelemetryCharts tasks={tasks} summary={summary} />
 
       {staleRecoveryNotice ? (
         <div

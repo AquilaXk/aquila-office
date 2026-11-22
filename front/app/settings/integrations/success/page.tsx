@@ -75,7 +75,7 @@ export default function SlackIntegrationSuccessPage() {
 
   return (
     <AppTopChrome title="Slack 연동 완료" backHref={returnTo} backLabel="돌아가기">
-      <main className="workspace-create-shell flex-1">
+      <div className="workspace-create-shell flex-1">
         <section className="workspace-create-panel" aria-label="Slack 연동 성공">
           <div className="workspace-create-header">
             <div className="workspace-create-icon">
@@ -101,7 +101,7 @@ export default function SlackIntegrationSuccessPage() {
             <span>연동 목록으로 이동</span>
           </button>
         </section>
-      </main>
+      </div>
     </AppTopChrome>
   );
 }

@@ -131,11 +131,13 @@ export async function listWorkspaceMembers(workspaceId: number): Promise<Workspa
 export async function fetchWorkspaceDashboardSummary(
   accessToken: string,
   workspaceId: number,
+  signal?: AbortSignal,
 ): Promise<WorkspaceDashboardSummary> {
   return apiFetch<WorkspaceDashboardSummary>(
     `/api/v1/workspaces/${workspaceId}/dashboard/summary`,
     {
       accessToken,
+      signal,
     },
   );
 }

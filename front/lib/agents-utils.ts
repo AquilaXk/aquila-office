@@ -39,6 +39,9 @@ export type WorkspaceAgent = {
   createdAt: string | null;
   updatedAt: string | null;
   skillFiles: WorkspaceAgentSkillFile[];
+  modelProviderId?: number | null;
+  modelId?: string | null;
+  fallbackModelId?: string | null;
 };
 
 export type WorkspaceAgentSkillFileInput = {
@@ -52,6 +55,9 @@ export type CreateWorkspaceAgentInput = {
   category?: WorkspaceAgentCategory;
   workspacePath?: string;
   skillFiles?: WorkspaceAgentSkillFileInput[];
+  modelProviderId?: number | null;
+  modelId?: string | null;
+  fallbackModelId?: string | null;
 };
 
 export type UpdateWorkspaceAgentInput = {
@@ -59,6 +65,9 @@ export type UpdateWorkspaceAgentInput = {
   category?: WorkspaceAgentCategory;
   workspacePath?: string;
   skillFiles?: WorkspaceAgentSkillFileInput[];
+  modelProviderId?: number | null;
+  modelId?: string | null;
+  fallbackModelId?: string | null;
 };
 
 export function validateAgentSkillFiles(

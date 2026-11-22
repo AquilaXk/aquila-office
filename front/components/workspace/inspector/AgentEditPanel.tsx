@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useId, useMemo, useState, type FormEvent } from "react";
 import { AlertCircle, CheckCircle2, Loader2, Plus, Save, Trash2 } from "lucide-react";
 import {
   AGENT_CATEGORY_OPTIONS,
@@ -21,11 +21,18 @@ import {
   MAX_AGENT_SKILL_FILES,
   validateAgentSkillFiles,
 } from "@/lib/agents-utils";
+import { providerKindLabel } from "@/lib/model-catalog";
+import {
+  MAX_MODEL_PROVIDER_MODEL_ID_CHARS,
+  suggestModelsForProvider,
+  type WorkspaceModelProvider,
+} from "@/lib/model-providers";
 
 export const ACTOR_CATEGORY_OPTIONS_FALLBACK = AGENT_CATEGORY_OPTIONS;
 
 export type AgentEditPanelProps = {
   agent: WorkspaceAgent;
+  modelProviders?: readonly WorkspaceModelProvider[];
   canManage: boolean;
   agentDeleteConfirmId: number | null;
   agentMutation: AgentMutationState;
@@ -36,6 +43,7 @@ export type AgentEditPanelProps = {
 
 export function AgentEditPanel({
   agent,
+  modelProviders = [],
   canManage,
   agentDeleteConfirmId,
   agentMutation,
@@ -43,15 +51,25 @@ export function AgentEditPanel({
   onRequestDeleteAgent,
   onConfirmDeleteAgent,
 }: AgentEditPanelProps) {
+  const modelListId = useId();
   const [name, setName] = useState(agent.name);
   const [category, setCategory] = useState<WorkspaceAgentCategory>(agent.category);
   const [workspacePath, setWorkspacePath] = useState(agent.workspacePath ?? "");
+  const [modelProviderId, setModelProviderId] = useState<number | null>(
+    agent.modelProviderId ?? null,
+  );
+  const [modelId, setModelId] = useState(agent.modelId ?? "");
+  const [fallbackModelId, setFallbackModelId] = useState(agent.fallbackModelId ?? "");
   const [skillFiles, setSkillFiles] = useState<AgentSkillFileDraft[]>(() =>
     (agent.skillFiles ?? []).map((file) => ({
       id: createLocalId(),
       fileName: file.fileName,
       content: file.content ?? "",
     })),
+  );
+  const suggestedModels = useMemo(
+    () => suggestModelsForProvider(modelProviders, modelProviderId),
+    [modelProviderId, modelProviders],
   );
   const [saving, setSaving] = useState(false);
   const [saveNotice, setSaveNotice] = useState<{
@@ -113,6 +131,9 @@ export function AgentEditPanel({
         name: trimmedName,
         category,
         workspacePath: workspacePath.trim() || undefined,
+        modelProviderId: modelProviderId ?? null,
+        modelId: modelId.trim() || null,
+        fallbackModelId: fallbackModelId.trim() || null,
         skillFiles: validatedSkillFiles,
       });
       setSaveNotice({ tone: "success", message: "에이전트 설정을 저장했습니다." });
@@ -173,6 +194,66 @@ export function AgentEditPanel({
             onChange={(event) => setWorkspacePath(event.target.value)}
           />
         </label>
+
+        <label className="form-field">
+          <span>
+            <strong>AI 모델 프로바이더</strong>
+          </span>
+          <select
+            aria-label="에이전트 모델 프로바이더 수정"
+            disabled={!canManage || saving}
+            value={modelProviderId ? String(modelProviderId) : ""}
+            onChange={(event) => {
+              const parsed = event.target.value ? Number.parseInt(event.target.value, 10) : null;
+              setModelProviderId(parsed && parsed > 0 ? parsed : null);
+            }}
+          >
+            <option value="">워크스페이스 기본 체인 (자동)</option>
+            {modelProviders.map((provider) => (
+              <option key={provider.providerId} value={provider.providerId}>
+                {provider.displayName} ({providerKindLabel(provider.providerKind)})
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <div className="workspace-gateway-form-grid">
+          <label className="form-field">
+            <span>
+              <strong>기본 모델</strong>
+            </span>
+            <input
+              aria-label="에이전트 기본 모델 수정"
+              list={modelListId}
+              maxLength={MAX_MODEL_PROVIDER_MODEL_ID_CHARS}
+              disabled={!canManage || saving}
+              placeholder="예: gpt-4.1"
+              value={modelId}
+              onChange={(event) => setModelId(event.target.value)}
+            />
+          </label>
+
+          <label className="form-field">
+            <span>
+              <strong>폴백 모델</strong>
+            </span>
+            <input
+              aria-label="에이전트 폴백 모델 수정"
+              list={modelListId}
+              maxLength={MAX_MODEL_PROVIDER_MODEL_ID_CHARS}
+              disabled={!canManage || saving}
+              placeholder="예: gemini-2.5-flash"
+              value={fallbackModelId}
+              onChange={(event) => setFallbackModelId(event.target.value)}
+            />
+          </label>
+        </div>
+
+        <datalist id={modelListId}>
+          {suggestedModels.map((candidateModel) => (
+            <option key={candidateModel} value={candidateModel} />
+          ))}
+        </datalist>
 
         <div className="flex items-center justify-between pt-1">
           <strong className="text-[12px] text-[var(--ui-text-strong)]">

@@ -434,10 +434,25 @@ test.describe("브라우저 UI UX 회귀", () => {
     await expect(connectionDialog.getByText("연결 가능").first()).toBeVisible();
     await connectionDialog.getByRole("button", { name: "OpenClaw 연결 등록" }).click();
     await expect(connectionDialog.getByText("OpenClaw 게이트웨이 연결을 저장했습니다.")).toBeVisible();
+    await connectionDialog.getByRole("button", { name: "뒤로" }).click();
+    await connectionDialog.getByRole("button", { name: "AI 모델 프로바이더", exact: true }).click();
+    await expect(
+      connectionDialog.getByRole("tab", { name: "전체" }),
+    ).toBeVisible();
+    await connectionDialog.getByRole("button", { name: /OpenAI/ }).first().click();
+    await connectionDialog.getByLabel("API 키").fill("sk-e2e-test-secret");
+    await connectionDialog.getByRole("button", { name: "모델 목록 조회" }).click();
+    await expect(connectionDialog.getByText("조회된 모델 (2개)")).toBeVisible();
+    await connectionDialog.getByRole("button", { name: "실호출 테스트" }).click();
+    await expect(connectionDialog.getByText("E2E 연결 확인 응답")).toBeVisible();
+    await connectionDialog.getByRole("button", { name: "프로바이더 등록" }).click();
+    await expect(
+      connectionDialog.locator(".ao-model-provider-row").filter({ hasText: "OpenAI" }),
+    ).toBeVisible();
     await closeTopDialog(page);
 
     // 2D Stage keyboard, zoom, pan, and actor context menu -> Inspector
-    const canvasFrame = page.getByRole("img", { name: "오피스 2D 스테이지" });
+    const canvasFrame = page.getByRole("region", { name: "오피스 2D 스테이지" });
     await expect(canvasFrame).toBeVisible();
     await expect(page.locator(".stage-actor__proximity-ring")).toBeVisible();
     const playerHudValue = page
@@ -532,6 +547,14 @@ test.describe("브라우저 UI UX 회귀", () => {
     await orchestrationView.getByRole("button", { name: "세션 실행" }).click();
     await dispatchReq;
     await expect(orchestrationView.getByText(/세션 #701 실행을 전달했습니다/)).toBeVisible();
+    const dagNodeBtn = orchestrationView.locator(".ao-dag-node-btn").first();
+    await expect(dagNodeBtn).toBeVisible();
+    await dagNodeBtn.click();
+    await expect(dagNodeBtn).toHaveAttribute("aria-pressed", "true");
+    await expect(orchestrationView.locator(".ao-dag-detail-card")).toBeVisible();
+    await expect(
+      orchestrationView.getByRole("button", { name: "작업 인스펙터 열기" }),
+    ).toBeVisible();
 
     // 5. Artifacts & Local Git Diff View
     await page.getByRole("tab", { name: "산출물 및 변경" }).click();
@@ -633,6 +656,8 @@ test.describe("브라우저 UI UX 회귀", () => {
     await expect(page.getByText("연결 가능").first()).toBeVisible();
     await page.getByRole("button", { name: "OpenClaw 연결 저장" }).click();
     await expect(page.getByText("OpenClaw 게이트웨이 연결을 저장했습니다.")).toBeVisible();
+    await expect(page.getByLabel("모델 프로바이더 카탈로그")).toBeVisible();
+    await expect(page.getByLabel("등록된 모델 프로바이더 체인")).toBeVisible();
 
     // Workspace settings + dailyTokenLimit + roster + invite
     await page.goto(`/workspaces/${workspaceId}/settings`);
@@ -748,6 +773,8 @@ async function installMockApi(page: Page, options: MockApiOptions = {}) {
     },
   ];
   let gatewayState = gatewayStatus();
+  let modelProvidersState: Array<Record<string, unknown>> = [];
+  let nextModelProviderId = 901;
 
   await page.route("**/api/health", (route) =>
     fulfillJson(route, {
@@ -1033,13 +1060,25 @@ async function installMockApi(page: Page, options: MockApiOptions = {}) {
     }
 
     if (method === "POST" && path === `/api/v1/workspaces/${workspaceId}/orchestrations/701/dispatch`) {
+      const dispatchedSteps = (orchestrationsState[0]?.steps ?? []).map((step) => ({
+        ...step,
+        taskId: step.taskId ?? taskId,
+        status: "RUNNING",
+      }));
+      if (orchestrationsState[0]) {
+        orchestrationsState[0] = {
+          ...orchestrationsState[0],
+          status: "RUNNING",
+          steps: dispatchedSteps,
+        };
+      }
       await fulfillJson(route, {
         sessionId: 701,
         workspaceId,
         sourceTaskId: taskId,
         status: "RUNNING",
-        dispatchedCount: 1,
-        steps: orchestrationsState[0]?.steps ?? [],
+        dispatchedCount: dispatchedSteps.length,
+        steps: dispatchedSteps,
       });
       return;
     }
@@ -1049,12 +1088,146 @@ async function installMockApi(page: Page, options: MockApiOptions = {}) {
       return;
     }
 
+    if (method === "POST" && path === `/api/v1/workspaces/${workspaceId}/presence/stream-ticket`) {
+      await fulfillJson(route, {
+        ticket: "e2e-sse-ticket-1",
+        expiresInSeconds: 60,
+      });
+      return;
+    }
+
     if (method === "GET" && path === `/api/v1/workspaces/${workspaceId}/presence/stream`) {
       await route.fulfill({
         status: 200,
         contentType: "text/event-stream",
         body: `data: ${JSON.stringify(presenceSnapshot())}\n\n`,
       });
+      return;
+    }
+
+    if (method === "GET" && path === "/api/v1/model-catalog") {
+      await fulfillJson(route, {
+        presets: [
+          {
+            providerKind: "OPENAI",
+            displayName: "OpenAI",
+            defaultBaseUrl: "https://api.openai.com/v1",
+            wireProtocol: "OPENAI_RESPONSES",
+            tier: "PAID",
+            authRequired: true,
+            models: [
+              {
+                id: "gpt-5.2",
+                displayName: "GPT-5.2",
+                contextWindow: 400000,
+                maxOutputTokens: 128000,
+                supportsReasoning: true,
+                supportsTools: true,
+                supportsVision: true,
+              },
+              {
+                id: "gpt-5-mini",
+                displayName: "GPT-5 Mini",
+                contextWindow: 400000,
+                maxOutputTokens: 128000,
+                supportsReasoning: true,
+                supportsTools: true,
+                supportsVision: true,
+              },
+            ],
+          },
+          {
+            providerKind: "OLLAMA",
+            displayName: "Ollama (Local)",
+            defaultBaseUrl: "http://127.0.0.1:11434",
+            wireProtocol: "OLLAMA_NATIVE",
+            tier: "LOCAL",
+            authRequired: false,
+            models: [
+              {
+                id: "qwen3:14b",
+                displayName: "Qwen 3 14B",
+                contextWindow: 32768,
+                maxOutputTokens: 8192,
+                supportsReasoning: true,
+                supportsTools: true,
+                supportsVision: false,
+              },
+            ],
+          },
+        ],
+      });
+      return;
+    }
+
+    if (method === "GET" && path === `/api/v1/workspaces/${workspaceId}/model-providers`) {
+      await fulfillJson(route, modelProvidersState);
+      return;
+    }
+
+    if (method === "POST" && path === `/api/v1/workspaces/${workspaceId}/model-providers`) {
+      const body = (request.postDataJSON() ?? {}) as Record<string, unknown>;
+      const created = {
+        providerId: nextModelProviderId++,
+        workspaceId,
+        providerKind: String(body.providerKind ?? "OPENAI"),
+        wireProtocol: String(body.wireProtocol ?? "OPENAI_CHAT"),
+        displayName: String(body.displayName ?? "OpenAI"),
+        baseUrl: String(body.baseUrl ?? "https://api.openai.com/v1"),
+        defaultModel: typeof body.defaultModel === "string" ? body.defaultModel : "gpt-5.2",
+        priority: typeof body.priority === "number" ? body.priority : 10,
+        enabled: typeof body.enabled === "boolean" ? body.enabled : true,
+        hasApiKey: typeof body.apiKey === "string" && body.apiKey.trim().length > 0,
+        maskedApiKey: typeof body.apiKey === "string" && body.apiKey.trim() ? "sk-e****" : null,
+        lastStatus: "CONNECTED",
+        lastLatencyMs: 42,
+        lastCheckedAt: "2026-05-18T09:15:00Z",
+        lastError: null,
+      };
+      modelProvidersState = [...modelProvidersState, created];
+      await fulfillJson(route, created);
+      return;
+    }
+
+    if (
+      method === "POST" &&
+      path === `/api/v1/workspaces/${workspaceId}/model-providers/connection-test`
+    ) {
+      await fulfillJson(route, {
+        ok: true,
+        status: 200,
+        latencyMs: 42,
+        discoveredModels: ["gpt-5.2", "gpt-5-mini"],
+        resolvedModel: "gpt-5.2",
+        replyPreview: "E2E 연결 확인 응답",
+        promptTokens: 12,
+        completionTokens: 8,
+        message: "연결 확인 완료",
+      });
+      return;
+    }
+
+    if (
+      (method === "PATCH" || method === "DELETE") &&
+      path.startsWith(`/api/v1/workspaces/${workspaceId}/model-providers/`)
+    ) {
+      const targetId = Number(path.split("/").pop());
+      if (method === "DELETE") {
+        modelProvidersState = modelProvidersState.filter((item) => item.providerId !== targetId);
+        await route.fulfill({ status: 204, body: "" });
+        return;
+      }
+      const body = (request.postDataJSON() ?? {}) as Record<string, unknown>;
+      let updated: Record<string, unknown> | null = null;
+      modelProvidersState = modelProvidersState.map((item) => {
+        if (item.providerId !== targetId) return item;
+        updated = {
+          ...item,
+          ...body,
+        };
+        return updated;
+      });
+      await fulfillJson(route, updated ?? {});
       return;
     }
 

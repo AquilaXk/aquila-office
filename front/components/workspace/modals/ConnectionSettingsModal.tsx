@@ -4,6 +4,7 @@ import { useRef, type FormEvent, type ReactNode } from "react";
 import {
   AlertCircle,
   ArrowLeft,
+  Cpu,
   GitBranch,
   Hash,
   KeyRound,
@@ -14,6 +15,7 @@ import {
   X,
 } from "lucide-react";
 import { useDialogA11y } from "@/components/ui/useDialogA11y";
+import { ModelProvidersPanel } from "@/components/workspace/modals/ModelProvidersPanel";
 import { ModalState } from "@/components/workspace/modals/TaskDetailModals";
 import {
   connectionModalTitle,
@@ -29,6 +31,7 @@ import {
 import { gatewayConnectionStatusLabel, gatewayStatusLabel } from "@/lib/gateway-utils";
 import type { GithubCredential } from "@/lib/github";
 import type { SlackIntegration } from "@/lib/slack";
+import type { WorkspaceModelProvidersController } from "@/lib/use-workspace-model-providers";
 
 export type ConnectionSettingsModalProps = {
   modal: ConnectionModalKind;
@@ -57,6 +60,7 @@ export type ConnectionSettingsModalProps = {
   gatewayTestState: GatewayConnectionTestState;
   gatewayBindingMutation: ConnectionMutationState;
   canSubmitGateway: boolean;
+  modelProvidersController?: WorkspaceModelProvidersController;
   onOpen: (kind: Exclude<ConnectionModalKind, null>) => void;
   onClose: () => void;
   onBack: () => void;
@@ -128,6 +132,7 @@ export function ConnectionSettingsModal({
   gatewayTestState,
   gatewayBindingMutation,
   canSubmitGateway,
+  modelProvidersController,
   onOpen,
   onClose,
   onBack,
@@ -253,6 +258,16 @@ export function ConnectionSettingsModal({
                 <ShieldCheck aria-hidden="true" />
                 <span>AI / OpenClaw</span>
                 <strong>OpenClaw 게이트웨이 연동</strong>
+              </button>
+              <button
+                className="workspace-connection-card"
+                type="button"
+                aria-label="AI 모델 프로바이더"
+                onClick={() => onOpen("models")}
+              >
+                <Cpu aria-hidden="true" />
+                <span>AI 모델 프로바이더</span>
+                <strong>OpenAI · Anthropic · Gemini · Ollama · 호환 API</strong>
               </button>
             </div>
           ) : null}
@@ -718,6 +733,10 @@ export function ConnectionSettingsModal({
                 </div>
               </div>
             </>
+          ) : null}
+
+          {modal === "models" && modelProvidersController ? (
+            <ModelProvidersPanel controller={modelProvidersController} compact />
           ) : null}
         </div>
       </section>

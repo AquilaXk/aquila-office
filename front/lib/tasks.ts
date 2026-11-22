@@ -90,9 +90,11 @@ export type CreateAndRunWorkspaceTaskInput = CreateWorkspaceTaskInput & RunWorks
 export async function fetchWorkspaceTasks(
   accessToken: string,
   workspaceId: number,
+  signal?: AbortSignal,
 ): Promise<WorkspaceTask[]> {
   const payload = await apiFetch<unknown>(workspaceTasksPath(workspaceId), {
     accessToken,
+    signal,
   });
 
   return normalizeWorkspaceTasks(payload);
