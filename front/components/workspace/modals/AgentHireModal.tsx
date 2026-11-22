@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, type FormEvent } from "react";
+import { useId, useMemo, useRef, type FormEvent } from "react";
 import { AlertCircle, Loader2, ShieldCheck, UserPlus, X } from "lucide-react";
 import { useDialogA11y } from "@/components/ui/useDialogA11y";
 import {
@@ -15,10 +15,17 @@ import {
   MAX_AGENT_SKILL_FILE_NAME_CHARS,
   MAX_AGENT_SKILL_FILES,
 } from "@/lib/agents-utils";
+import { providerKindLabel } from "@/lib/model-catalog";
+import {
+  MAX_MODEL_PROVIDER_MODEL_ID_CHARS,
+  suggestModelsForProvider,
+  type WorkspaceModelProvider,
+} from "@/lib/model-providers";
 
 export type AgentHireModalProps = {
   open: boolean;
   form: AgentCreateFormState;
+  modelProviders?: readonly WorkspaceModelProvider[];
   mutation: AgentMutationState;
   submitting: boolean;
   canSubmit: boolean;
@@ -28,6 +35,9 @@ export type AgentHireModalProps = {
   onCategoryChange: (value: WorkspaceAgentCategory) => void;
   onWorkspacePathChange: (value: string) => void;
   onEmojiChange: (value: string) => void;
+  onModelProviderChange?: (value: number | null) => void;
+  onModelIdChange?: (value: string) => void;
+  onFallbackModelIdChange?: (value: string) => void;
   onSkillFileAdd: () => void;
   onSkillFileChange: (id: string, field: "fileName" | "content", value: string) => void;
   onSkillFileRemove: (id: string) => void;
@@ -36,6 +46,7 @@ export type AgentHireModalProps = {
 export function AgentHireModal({
   open,
   form,
+  modelProviders = [],
   mutation,
   submitting,
   canSubmit,
@@ -45,12 +56,20 @@ export function AgentHireModal({
   onCategoryChange,
   onWorkspacePathChange,
   onEmojiChange,
+  onModelProviderChange,
+  onModelIdChange,
+  onFallbackModelIdChange,
   onSkillFileAdd,
   onSkillFileChange,
   onSkillFileRemove,
 }: AgentHireModalProps) {
   const dialogRef = useRef<HTMLElement | null>(null);
+  const modelListId = useId();
   const { onBackdropPointerDown, onBackdropClick } = useDialogA11y(open, dialogRef, onClose);
+  const suggestedModels = useMemo(
+    () => suggestModelsForProvider(modelProviders, form.modelProviderId ?? null),
+    [form.modelProviderId, modelProviders],
+  );
 
   if (!open) {
     return null;
@@ -147,6 +166,68 @@ export function AgentHireModal({
                 placeholder="예: BE"
                 value={form.emoji}
               />
+            </label>
+
+            <div className="workspace-gateway-form-grid">
+              <label className="form-field">
+                <span>
+                  <strong>AI 모델 프로바이더</strong>
+                  <small>선택</small>
+                </span>
+                <select
+                  aria-label="에이전트 모델 프로바이더"
+                  disabled={submitting}
+                  value={form.modelProviderId ? String(form.modelProviderId) : ""}
+                  onChange={(event) => {
+                    const parsed = event.target.value ? Number.parseInt(event.target.value, 10) : null;
+                    onModelProviderChange?.(parsed && parsed > 0 ? parsed : null);
+                  }}
+                >
+                  <option value="">워크스페이스 기본 체인 (자동)</option>
+                  {modelProviders.map((provider) => (
+                    <option key={provider.providerId} value={provider.providerId}>
+                      {provider.displayName} ({providerKindLabel(provider.providerKind)})
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="form-field">
+                <span>
+                  <strong>기본 모델</strong>
+                  <small>선택</small>
+                </span>
+                <input
+                  aria-label="에이전트 기본 모델"
+                  list={modelListId}
+                  maxLength={MAX_MODEL_PROVIDER_MODEL_ID_CHARS}
+                  disabled={submitting}
+                  placeholder="예: gpt-4.1"
+                  value={form.modelId ?? ""}
+                  onChange={(event) => onModelIdChange?.(event.target.value)}
+                />
+              </label>
+            </div>
+
+            <label className="form-field">
+              <span>
+                <strong>폴백 모델</strong>
+                <small>선택</small>
+              </span>
+              <input
+                aria-label="에이전트 폴백 모델"
+                list={modelListId}
+                maxLength={MAX_MODEL_PROVIDER_MODEL_ID_CHARS}
+                disabled={submitting}
+                placeholder="예: gemini-2.5-flash"
+                value={form.fallbackModelId ?? ""}
+                onChange={(event) => onFallbackModelIdChange?.(event.target.value)}
+              />
+              <datalist id={modelListId}>
+                {suggestedModels.map((modelId) => (
+                  <option key={modelId} value={modelId} />
+                ))}
+              </datalist>
             </label>
 
             <section className="workspace-agent-skill-files" aria-label="스킬 파일">

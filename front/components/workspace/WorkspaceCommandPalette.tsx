@@ -4,8 +4,9 @@
  */
 "use client";
 
-import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { useId, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { Search, X } from "lucide-react";
+import { useDialogA11y } from "@/components/ui/useDialogA11y";
 import {
   MAX_CANDIDATE_LENGTH,
   MAX_QUERY_LENGTH,
@@ -51,13 +52,11 @@ function WorkspaceCommandPaletteDialog({
 }) {
   const [query, setQuery] = useState("");
   const [activeIndex, setActiveIndex] = useState(0);
+  const dialogRef = useRef<HTMLElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const listboxId = useId();
   const titleId = useId();
-
-  useEffect(() => {
-    inputRef.current?.focus();
-  }, []);
+  const { onBackdropPointerDown, onBackdropClick } = useDialogA11y(true, dialogRef, onClose);
 
   const filteredItems = useMemo(() => {
     const trimmed = query.trim().slice(0, MAX_QUERY_LENGTH);
@@ -122,17 +121,16 @@ function WorkspaceCommandPaletteDialog({
     <div
       className="workspace-modal-backdrop workspace-command-backdrop"
       role="presentation"
-      onClick={(event) => {
-        if (event.target === event.currentTarget) {
-          onClose();
-        }
-      }}
+      onPointerDown={(event) => onBackdropPointerDown(event.target === event.currentTarget)}
+      onClick={(event) => onBackdropClick(event.target === event.currentTarget)}
     >
       <section
+        ref={dialogRef}
         className="workspace-modal workspace-command-dialog"
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
+        tabIndex={-1}
         onKeyDown={handleKeyDown}
       >
         <h2 id={titleId} className="sr-only">

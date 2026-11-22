@@ -13,6 +13,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { AppTopChrome } from "@/components/desktop/AppTopChrome";
+import { ModelProvidersPanel } from "@/components/workspace/modals/ModelProvidersPanel";
 import { getStoredUser, type ApiError } from "@/lib/api-client";
 import { listWorkspaces, type WorkspaceSummary } from "@/lib/api/workspaces";
 import { hydrateDesktopAccessToken, resolveAccessToken } from "@/lib/auth";
@@ -30,6 +31,7 @@ import {
   gatewayStatusLabel,
   normalizeGatewayForm,
 } from "@/lib/gateway-utils";
+import { useWorkspaceModelProviders } from "@/lib/use-workspace-model-providers";
 
 export default function GatewayPage() {
   const router = useRouter();
@@ -125,6 +127,11 @@ export default function GatewayPage() {
     [selectedWorkspaceId, workspaces],
   );
   const canManage = selectedWorkspace?.myRole === "ADMIN";
+  const modelProvidersController = useWorkspaceModelProviders({
+    workspaceId: selectedWorkspaceId,
+    canManage,
+    enabled: hydrated && Boolean(selectedWorkspaceId),
+  });
   const normalizedForm = useMemo(
     () =>
       normalizeGatewayForm({
@@ -212,7 +219,22 @@ export default function GatewayPage() {
   }
 
   if (!hydrated) {
-    return null;
+    return (
+      <AppTopChrome
+        title="OpenClaw 게이트웨이 연동"
+        backHref="/workspaces"
+        backLabel="워크스페이스 목록"
+      >
+        <div className="ao-page-container" aria-live="polite" aria-busy="true">
+          <section className="ao-surface-panel">
+            <div className="inline-flex items-center gap-2 text-[13px] text-[var(--ui-text-secondary)]">
+              <Loader2 size={15} className="spin" aria-hidden="true" />
+              <span>인증 및 게이트웨이 연동 상태를 확인하는 중입니다.</span>
+            </div>
+          </section>
+        </div>
+      </AppTopChrome>
+    );
   }
 
   return (
@@ -444,6 +466,19 @@ export default function GatewayPage() {
                   </button>
                 </div>
               </form>
+
+              <section className="ao-surface-panel flex flex-col gap-4" aria-label="AI 모델 프로바이더 관리">
+                <div className="ao-surface-panel-header">
+                  <div>
+                    <h2>AI 모델 프로바이더 및 폴백 체인</h2>
+                    <p className="m-0 mt-1 text-[12px] text-[var(--ui-text-muted)]">
+                      OpenAI · Anthropic · Google Gemini · Ollama 및 OpenAI 호환 API 프로바이더를
+                      등록하고 연결을 검증합니다.
+                    </p>
+                  </div>
+                </div>
+                <ModelProvidersPanel controller={modelProvidersController} />
+              </section>
             </section>
           </div>
         )}

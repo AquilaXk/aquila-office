@@ -88,11 +88,14 @@ export function WorkspaceLeftSidebar({
 }: WorkspaceLeftSidebarProps) {
   const [agentQuery, setAgentQuery] = useState("");
   const recentEvents = presenceEvents.slice(0, 3);
-  const memberNameById = new Map<number, string>();
-  for (let i = 0; i < members.length; i += 1) {
-    const member = members[i];
-    memberNameById.set(member.memberId, member.name || `구성원 #${member.memberId}`);
-  }
+  const memberNameById = useMemo(() => {
+    const map = new Map<number, string>();
+    for (let i = 0; i < members.length; i += 1) {
+      const member = members[i];
+      map.set(member.memberId, member.name || `구성원 #${member.memberId}`);
+    }
+    return map;
+  }, [members]);
 
   const activeTaskCountByAgent = useMemo(() => {
     const counts = new Map<number, number>();
@@ -223,6 +226,14 @@ export function WorkspaceLeftSidebar({
                   <span className="truncate">{agent.name}</span>
                 </span>
                 <span className="inline-flex items-center gap-1 shrink-0">
+                  {agent.modelId ? (
+                    <span
+                      className="role-badge font-mono max-w-[96px] truncate"
+                      title={`모델: ${agent.modelId}`}
+                    >
+                      {agent.modelId}
+                    </span>
+                  ) : null}
                   {activeTaskCount > 0 ? (
                     <span className="role-badge" title={`진행 중인 작업 ${activeTaskCount}건`}>
                       {activeTaskCount}

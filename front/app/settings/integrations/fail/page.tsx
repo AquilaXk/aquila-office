@@ -16,7 +16,7 @@ export default function SlackIntegrationFailPage() {
 
   return (
     <AppTopChrome title="Slack 연동 실패" backHref="/workspaces" backLabel="워크스페이스 목록">
-      <main className="workspace-create-shell flex-1">
+      <div className="workspace-create-shell flex-1">
         <section className="workspace-create-panel" aria-label="Slack 연동 실패">
           <div className="workspace-create-header">
             <div className="workspace-create-icon">
@@ -41,7 +41,7 @@ export default function SlackIntegrationFailPage() {
             <span>재시도</span>
           </button>
         </section>
-      </main>
+      </div>
     </AppTopChrome>
   );
 }

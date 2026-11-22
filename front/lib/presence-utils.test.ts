@@ -4,8 +4,12 @@ import {
   MAX_PRESENCE_MEMBERS,
   MAX_SSE_EVENT_CHARS,
   createPresencePositionScheduler,
+  issueWorkspacePresenceStreamTicket,
+  openTicketedWorkspacePresenceStream,
   parseWorkspacePresenceMessage,
   sanitizeWorkspacePresencePosition,
+  workspacePresenceStreamPath,
+  workspacePresenceStreamTicketPath,
 } from "./presence.ts";
 
 test("presence parser enforces MAX_SSE_EVENT_CHARS, MAX_PRESENCE_MEMBERS, and 0..100 coordinates", () => {
@@ -117,4 +121,87 @@ test("createPresencePositionScheduler coalesces bursts and flushes trailing rest
 
   assert.equal(sent.length, 2);
   assert.deepEqual(sent[1], { left: "35.5%", top: "48%" });
+});
+
+test("presence stream ticket issues short-lived ticket and falls back to accessToken only on 404/405", async () => {
+  assert.equal(
+    workspacePresenceStreamTicketPath(101),
+    "/api/v1/workspaces/101/presence/stream-ticket",
+  );
+  assert.equal(
+    workspacePresenceStreamPath(101, { ticket: "sse-ticket-1" }),
+    "/api/v1/workspaces/101/presence/stream?ticket=sse-ticket-1",
+  );
+  assert.equal(
+    workspacePresenceStreamPath(101, "tok-legacy"),
+    "/api/v1/workspaces/101/presence/stream?accessToken=tok-legacy",
+  );
+
+  const originalFetch = globalThis.fetch;
+  const originalEventSource = (globalThis as { EventSource?: unknown }).EventSource;
+  const openedUrls: string[] = [];
+
+  class FakeEventSource {
+    url: string;
+    constructor(url: string) {
+      this.url = url;
+      openedUrls.push(url);
+    }
+  }
+  (globalThis as { EventSource?: unknown }).EventSource = FakeEventSource;
+
+  try {
+    // 1. Ticket success -> opens /stream?ticket=...
+    globalThis.fetch = async () =>
+      new Response(
+        JSON.stringify({
+          success: true,
+          code: "OK",
+          message: "ok",
+          data: { ticket: "ticket-abc", expiresInSeconds: 60 },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+
+    await openTicketedWorkspacePresenceStream(101, "secret-jwt");
+    assert.ok(openedUrls[0]?.endsWith("/api/v1/workspaces/101/presence/stream?ticket=ticket-abc"));
+
+    // 2. Empty ticket fails closed
+    globalThis.fetch = async () =>
+      new Response(
+        JSON.stringify({
+          success: true,
+          code: "OK",
+          message: "ok",
+          data: { ticket: "   ", expiresInSeconds: 60 },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    await assert.rejects(() => issueWorkspacePresenceStreamTicket("secret-jwt", 101), RangeError);
+
+    // 3. 404 legacy mock -> fallback to ?accessToken=
+    globalThis.fetch = async () =>
+      new Response(JSON.stringify({ message: "Not found" }), {
+        status: 404,
+        headers: { "Content-Type": "application/json" },
+      });
+    await openTicketedWorkspacePresenceStream(101, "secret-jwt");
+    assert.ok(openedUrls[1]?.endsWith("/api/v1/workspaces/101/presence/stream?accessToken=secret-jwt"));
+
+    // 4. 401/500 must fail closed (no accessToken URL fallback)
+    globalThis.fetch = async () =>
+      new Response(JSON.stringify({ message: "Unauthorized" }), {
+        status: 401,
+        headers: { "Content-Type": "application/json" },
+      });
+    await assert.rejects(() => openTicketedWorkspacePresenceStream(101, "secret-jwt"));
+    assert.equal(openedUrls.length, 2);
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (originalEventSource === undefined) {
+      delete (globalThis as { EventSource?: unknown }).EventSource;
+    } else {
+      (globalThis as { EventSource?: unknown }).EventSource = originalEventSource;
+    }
+  }
 });

@@ -1,7 +1,8 @@
-import { API_BASE_URL, apiFetch } from "./api/index.ts";
+import { API_BASE_URL, ApiError, apiFetch } from "./api/index.ts";
 
 export const MAX_SSE_EVENT_CHARS = 65536;
 export const MAX_PRESENCE_MEMBERS = 500;
+export const MAX_SSE_TICKET_CHARS = 512;
 const NUMERIC_PCT_PATTERN = /^[-+]?(?:\d+(?:\.\d+)?|\.\d+)%?$/;
 
 const VALID_PRESENCE_MESSAGE_TYPES = new Set<WorkspacePresenceMessageType>([
@@ -45,11 +46,40 @@ export type UpdateWorkspacePresencePositionInput = {
   status?: string;
 };
 
-export function workspacePresenceStreamPath(workspaceId: number, accessToken?: string): string {
+export type WorkspacePresenceStreamTicket = {
+  ticket: string;
+  expiresInSeconds: number;
+};
+
+export type WorkspacePresenceStreamTarget =
+  | string
+  | {
+      accessToken?: string;
+      ticket?: string;
+    };
+
+export function workspacePresenceStreamTicketPath(workspaceId: number): string {
+  return `/api/v1/workspaces/${workspaceId}/presence/stream-ticket`;
+}
+
+export function workspacePresenceStreamPath(
+  workspaceId: number,
+  target?: WorkspacePresenceStreamTarget,
+): string {
   const params = new URLSearchParams();
-  const normalizedAccessToken = accessToken?.trim();
-  if (normalizedAccessToken) {
-    params.set("accessToken", normalizedAccessToken);
+  if (typeof target === "string") {
+    const normalizedAccessToken = target.trim();
+    if (normalizedAccessToken) {
+      params.set("accessToken", normalizedAccessToken);
+    }
+  } else if (target) {
+    const normalizedTicket = target.ticket?.trim();
+    const normalizedAccessToken = target.accessToken?.trim();
+    if (normalizedTicket) {
+      params.set("ticket", normalizedTicket);
+    } else if (normalizedAccessToken) {
+      params.set("accessToken", normalizedAccessToken);
+    }
   }
 
   const query = params.toString();
@@ -61,11 +91,63 @@ export function workspacePresencePositionPath(workspaceId: number): string {
   return `/api/v1/workspaces/${workspaceId}/presence/me/position`;
 }
 
+export async function issueWorkspacePresenceStreamTicket(
+  accessToken: string,
+  workspaceId: number,
+  signal?: AbortSignal,
+): Promise<WorkspacePresenceStreamTicket> {
+  const payload = await apiFetch<unknown>(workspacePresenceStreamTicketPath(workspaceId), {
+    method: "POST",
+    accessToken,
+    signal,
+  });
+  if (!payload || typeof payload !== "object") {
+    throw new RangeError("Presence stream ticket 응답 형식이 올바르지 않습니다.");
+  }
+  const record = payload as { ticket?: unknown; expiresInSeconds?: unknown };
+  const ticket = typeof record.ticket === "string" ? record.ticket.trim() : "";
+  if (!ticket || ticket.length > MAX_SSE_TICKET_CHARS) {
+    throw new RangeError("Presence stream ticket 값이 유효하지 않습니다.");
+  }
+  const expiresInSeconds =
+    typeof record.expiresInSeconds === "number" &&
+    Number.isFinite(record.expiresInSeconds) &&
+    record.expiresInSeconds > 0
+      ? Math.trunc(record.expiresInSeconds)
+      : 60;
+  return { ticket, expiresInSeconds };
+}
+
 export function createWorkspacePresenceStream(
   workspaceId: number,
-  accessToken: string,
+  target: WorkspacePresenceStreamTarget,
 ): EventSource {
-  return new EventSource(`${API_BASE_URL}${workspacePresenceStreamPath(workspaceId, accessToken)}`);
+  return new EventSource(`${API_BASE_URL}${workspacePresenceStreamPath(workspaceId, target)}`);
+}
+
+export async function resolvePresenceStreamTarget(
+  workspaceId: number,
+  accessToken: string,
+  signal?: AbortSignal,
+): Promise<WorkspacePresenceStreamTarget> {
+  try {
+    const issued = await issueWorkspacePresenceStreamTicket(accessToken, workspaceId, signal);
+    return { ticket: issued.ticket };
+  } catch (error) {
+    if (error instanceof ApiError && (error.status === 404 || error.status === 405)) {
+      return accessToken;
+    }
+    throw error;
+  }
+}
+
+export async function openTicketedWorkspacePresenceStream(
+  workspaceId: number,
+  accessToken: string,
+  signal?: AbortSignal,
+): Promise<EventSource> {
+  const target = await resolvePresenceStreamTarget(workspaceId, accessToken, signal);
+  return createWorkspacePresenceStream(workspaceId, target);
 }
 
 function normalizeCoordinateToken(value: unknown): string | null {

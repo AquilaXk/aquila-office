@@ -14,6 +14,7 @@ import {
   readAuthUser,
   type AuthUser,
 } from "@/lib/auth";
+import { isEditableEventTarget } from "@/lib/workspace-shortcuts";
 
 const MENU = [
   { label: "로그인", href: "/auth", action: "login" as const },
@@ -41,6 +42,18 @@ export default function Home() {
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey) {
+        return;
+      }
+      if (isEditableEventTarget(event.target)) {
+        return;
+      }
+      if (event.target instanceof Element) {
+        const interactive = event.target.closest("header, nav, a, button");
+        if (interactive && !interactive.classList.contains("title-menu-item")) {
+          return;
+        }
+      }
       if (event.key === "ArrowDown" || event.key === "ArrowRight") {
         event.preventDefault();
         setSelected((current) => (current + 1) % MENU.length);
@@ -84,7 +97,7 @@ export default function Home() {
 
   return (
     <AppTopChrome title="시작" showWorkspaceLinks={Boolean(user)}>
-      <main className="title-screen flex-1" aria-label="시작 화면">
+      <div className="title-screen flex-1">
         <section className="title-screen-panel">
           <div className="title-crest">
             <Image
@@ -177,7 +190,7 @@ export default function Home() {
             </p>
           )}
         </section>
-      </main>
+      </div>
     </AppTopChrome>
   );
 }

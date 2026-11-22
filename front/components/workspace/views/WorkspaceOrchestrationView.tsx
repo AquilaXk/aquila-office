@@ -52,6 +52,7 @@ export type WorkspaceOrchestrationViewProps = {
   onSelectSession: (sessionId: number) => void;
   onCreateSession: (input: CreateOrchestrationSessionInput) => Promise<void>;
   onDispatchSession: (sessionId: number, createPr: boolean) => Promise<void>;
+  onInspectTask?: (taskId: number) => void;
 };
 
 export function WorkspaceOrchestrationView({
@@ -65,6 +66,7 @@ export function WorkspaceOrchestrationView({
   onSelectSession,
   onCreateSession,
   onDispatchSession,
+  onInspectTask,
 }: WorkspaceOrchestrationViewProps) {
   const [sourceTaskId, setSourceTaskId] = useState<string>(
     tasks[0] ? String(tasks[0].taskId) : "",
@@ -81,9 +83,22 @@ export function WorkspaceOrchestrationView({
   const [createPrOnDispatch, setCreatePrOnDispatch] = useState(false);
   const [submittingCreate, setSubmittingCreate] = useState(false);
   const [dispatchingSessionId, setDispatchingSessionId] = useState<number | null>(null);
+  const [selectedStepSelection, setSelectedStepSelection] = useState<{
+    sessionId: number;
+    stepKey: string;
+  } | null>(null);
   const [notice, setNotice] = useState<{ tone: "success" | "danger"; message: string } | null>(
     null,
   );
+
+  const selectedStepKey =
+    selectedSession && selectedStepSelection?.sessionId === selectedSession.sessionId
+      ? selectedStepSelection.stepKey
+      : null;
+  const selectedDagStep =
+    selectedSession && selectedStepKey
+      ? selectedSession.steps.find((s) => s.stepKey === selectedStepKey) ?? null
+      : null;
 
   const agentById = useMemo(() => {
     const map = new Map<number, WorkspaceAgent>();
@@ -720,10 +735,15 @@ export function WorkspaceOrchestrationView({
                           if (!step) return null;
                           const agent = agentById.get(step.agentId);
                           const agentName = agent?.name ?? `에이전트 #${step.agentId}`;
+                          const isSelected = selectedStepKey === step.stepKey;
                           return (
-                            <div
+                            <button
+                              type="button"
                               key={step.stepKey}
-                              className="ao-dag-node ao-dag-node-positioned"
+                              aria-pressed={isSelected}
+                              className={`ao-dag-node ao-dag-node-positioned ao-dag-node-btn${
+                                isSelected ? " ao-dag-node-selected" : ""
+                              }`}
                               data-status={step.status}
                               style={{
                                 left: box.x,
@@ -731,6 +751,14 @@ export function WorkspaceOrchestrationView({
                                 width: box.width,
                                 height: box.height,
                               }}
+                              onClick={() =>
+                                setSelectedStepSelection((current) =>
+                                  current?.sessionId === selectedSession.sessionId &&
+                                  current.stepKey === step.stepKey
+                                    ? null
+                                    : { sessionId: selectedSession.sessionId, stepKey: step.stepKey },
+                                )
+                              }
                             >
                               <div className="flex items-center justify-between gap-2 min-w-0">
                                 <span className="font-mono text-[12px] font-semibold text-[var(--ui-text-strong)] truncate">
@@ -755,7 +783,7 @@ export function WorkspaceOrchestrationView({
                                   ? `선행: ${step.dependsOn.join(" → ")}`
                                   : "루트 엔트리 단계"}
                               </span>
-                            </div>
+                            </button>
                           );
                         })}
                       </div>
@@ -763,6 +791,58 @@ export function WorkspaceOrchestrationView({
                   </div>
                 );
               })()}
+
+              {selectedDagStep ? (
+                <section
+                  className="ao-dag-detail-card mb-3"
+                  aria-label="선택 단계 상세"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h4 className="m-0 text-[13px] font-semibold text-[var(--ui-text-strong)]">
+                        선택 단계 상세
+                      </h4>
+                      <code className="role-badge font-mono">{selectedDagStep.stepKey}</code>
+                      <span className="role-badge">
+                        {formatOrchestrationStepStatus(selectedDagStep.status)}
+                      </span>
+                    </div>
+                    {selectedDagStep.taskId ? (
+                      <button
+                        type="button"
+                        className="tb-btn tb-btn-primary"
+                        onClick={() => onInspectTask?.(selectedDagStep.taskId!)}
+                      >
+                        <span>작업 인스펙터 열기</span>
+                      </button>
+                    ) : null}
+                  </div>
+                  <div className="flex flex-wrap items-center gap-3 text-[12px] text-[var(--ui-text-secondary)]">
+                    <span>
+                      담당:{" "}
+                      <strong className="text-[var(--ui-text-strong)]">
+                        {agentById.get(selectedDagStep.agentId)?.name ??
+                          `에이전트 #${selectedDagStep.agentId}`}
+                      </strong>
+                    </span>
+                    <span>
+                      모델:{" "}
+                      <code className="font-mono text-[var(--ui-text-strong)]">
+                        {agentById.get(selectedDagStep.agentId)?.modelId ?? "워크스페이스 기본 체인"}
+                      </code>
+                    </span>
+                    <span>
+                      선행 단계:{" "}
+                      {selectedDagStep.dependsOn.length > 0
+                        ? selectedDagStep.dependsOn.join(" → ")
+                        : "없음 (루트)"}
+                    </span>
+                  </div>
+                  <p className="m-0 text-[13px] text-[var(--ui-text)] whitespace-pre-wrap">
+                    {selectedDagStep.instruction}
+                  </p>
+                </section>
+              ) : null}
 
               <div className="flex flex-col gap-2">
                 {selectedSession.steps.map((step, index) => (

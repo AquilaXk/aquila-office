@@ -208,3 +208,34 @@ test("저장소 위생 가드는 로컬 전용 에이전트 문서·시크릿·�
     2,
   );
 });
+
+test("코드 건강 게이트는 소스 줄 수 상한 초과, 시크릿 리터럴, 로컬 홈 경로 노출을 차단한다", async () => {
+  const { findCodeHealthContentViolations, DEFAULT_MAX_SOURCE_LINES } = await import(
+    "./check-code-health.mjs"
+  );
+
+  assert.deepEqual(
+    findCodeHealthContentViolations("front/lib/clean-module.ts", "export const ok = true;\n"),
+    [],
+  );
+
+  const oversizedSource = "export const x = 1;\n".repeat(DEFAULT_MAX_SOURCE_LINES + 5);
+  assert.equal(
+    findCodeHealthContentViolations("front/components/TooLarge.tsx", oversizedSource).length,
+    1,
+  );
+
+  const syntheticAwsKey = "const key = '" + "AKIA" + "IOSFODNN7EXAMPLE';\n";
+  const syntheticGhToken = "const pat = '" + "ghp_" + "A".repeat(24) + "';\n";
+  const syntheticHomePath = "const p = '" + "/Users" + "/developer/project';\n";
+  const syntheticLocalStubPem =
+    'const k = "-----BEGIN ' + 'PRIVATE KEY-----\\nLOCAL\\n-----END PRIVATE KEY-----";\n';
+  const syntheticRealPem =
+    'const k = "-----BEGIN ' + 'PRIVATE KEY-----\\n' + "MIIE" + "A".repeat(32) + '";\n';
+
+  assert.equal(findCodeHealthContentViolations("front/lib/a.ts", syntheticAwsKey).length, 1);
+  assert.equal(findCodeHealthContentViolations("front/lib/b.ts", syntheticGhToken).length, 1);
+  assert.equal(findCodeHealthContentViolations("front/lib/c.ts", syntheticHomePath).length, 1);
+  assert.equal(findCodeHealthContentViolations("front/lib/d.ts", syntheticRealPem).length, 1);
+  assert.deepEqual(findCodeHealthContentViolations("scripts/deploy/stub.sh", syntheticLocalStubPem), []);
+});

@@ -20,7 +20,6 @@ import {
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
-  type WheelEvent as ReactWheelEvent,
 } from "react";
 import {
   PixelAvatar,
@@ -530,13 +529,26 @@ export default function Workspace2DCanvas({
     [effectivePlayerPosition, setStagePan, stageWorldSize],
   );
 
-  const handleStageShellWheel = useCallback(
-    (event: ReactWheelEvent<HTMLDivElement>) => {
+  const stageWheelRef = useRef({ stageZoom, updateStageZoom });
+  useEffect(() => {
+    stageWheelRef.current = { stageZoom, updateStageZoom };
+  }, [stageZoom, updateStageZoom]);
+
+  useEffect(() => {
+    const shell = stageShellRef.current;
+    if (!shell) {
+      return;
+    }
+    const handleShellWheel = (event: WheelEvent) => {
       event.preventDefault();
-      updateStageZoom(stageZoom + (event.deltaY < 0 ? STAGE_ZOOM_STEP : -STAGE_ZOOM_STEP));
-    },
-    [stageZoom, updateStageZoom],
-  );
+      const { stageZoom: currentZoom, updateStageZoom: applyZoom } = stageWheelRef.current;
+      applyZoom(currentZoom + (event.deltaY < 0 ? STAGE_ZOOM_STEP : -STAGE_ZOOM_STEP));
+    };
+    shell.addEventListener("wheel", handleShellWheel, { passive: false });
+    return () => {
+      shell.removeEventListener("wheel", handleShellWheel);
+    };
+  }, []);
 
   const focusMiniMapRoom = useCallback(
     (room: StageMiniMapRoom) => {
@@ -679,7 +691,7 @@ export default function Workspace2DCanvas({
       />
 
       <div className="workspace-2d-layout">
-        <div className="workspace-2d-stage-shell" ref={stageShellRef} onWheel={handleStageShellWheel}>
+        <div className="workspace-2d-stage-shell" ref={stageShellRef}>
           <ArcadeOfficeStage
             actors={logicalStageActors}
             rooms={stageRooms}
@@ -843,6 +855,7 @@ function ArcadeOfficeStage({
   const fixedStageSizeRef = useRef<StageSize | null>(worldSize);
   const zoomRef = useRef(zoom);
   const panRef = useRef(pan);
+  const onZoomChangeRef = useRef(onZoomChange);
   const onPanChangeRef = useRef(onPanChange);
   const onLocalPlayerPositionChangeRef = useRef(onLocalPlayerPositionChange);
   const onPlayerPositionChangeRef = useRef(onPlayerPositionChange);
@@ -871,11 +884,37 @@ function ArcadeOfficeStage({
 
   useEffect(() => {
     onPanChangeRef.current = onPanChange;
+    onZoomChangeRef.current = onZoomChange;
     onLocalPlayerPositionChangeRef.current = onLocalPlayerPositionChange;
     onPlayerPositionChangeRef.current = onPlayerPositionChange;
     onActorSelectRef.current = onActorSelect;
     onOpenTasksRef.current = onOpenTasks;
-  }, [onActorSelect, onLocalPlayerPositionChange, onOpenTasks, onPanChange, onPlayerPositionChange]);
+  }, [
+    onActorSelect,
+    onLocalPlayerPositionChange,
+    onOpenTasks,
+    onPanChange,
+    onPlayerPositionChange,
+    onZoomChange,
+  ]);
+
+  useEffect(() => {
+    const stage = stageRef.current;
+    if (!stage) {
+      return;
+    }
+    const handleStageWheel = (event: WheelEvent) => {
+      event.preventDefault();
+      event.stopPropagation();
+      onZoomChangeRef.current(
+        zoomRef.current + (event.deltaY < 0 ? STAGE_ZOOM_STEP : -STAGE_ZOOM_STEP),
+      );
+    };
+    stage.addEventListener("wheel", handleStageWheel, { passive: false });
+    return () => {
+      stage.removeEventListener("wheel", handleStageWheel);
+    };
+  }, []);
 
   useEffect(() => {
     playerPositionRef.current = playerPosition;
@@ -1102,26 +1141,19 @@ function ArcadeOfficeStage({
       }
     }
 
+    const PARENT_POSITION_THROTTLE_MS = 450;
+
     function notifyParentPlayerPositionThrottled(nextPosition: StageActorPosition) {
-      const now = performance.now();
-      const elapsed = now - lastParentNotifyAtRef.current;
-      if (elapsed >= 100) {
-        if (parentNotifyTimerRef.current != null) {
-          window.clearTimeout(parentNotifyTimerRef.current);
-          parentNotifyTimerRef.current = null;
-        }
-        pendingParentPositionRef.current = null;
-        lastParentNotifyAtRef.current = now;
-        void onPlayerPositionChangeRef.current?.(nextPosition);
+      pendingParentPositionRef.current = nextPosition;
+      if (parentNotifyTimerRef.current != null) {
         return;
       }
-      pendingParentPositionRef.current = nextPosition;
-      if (parentNotifyTimerRef.current == null) {
-        parentNotifyTimerRef.current = window.setTimeout(
-          flushPendingParentPosition,
-          Math.max(16, 100 - elapsed),
-        );
-      }
+      const elapsed = performance.now() - lastParentNotifyAtRef.current;
+      const delayMs =
+        elapsed >= PARENT_POSITION_THROTTLE_MS
+          ? 200
+          : Math.max(16, PARENT_POSITION_THROTTLE_MS - elapsed);
+      parentNotifyTimerRef.current = window.setTimeout(flushPendingParentPosition, delayMs);
     }
 
     function setWalkingIfChanged(nextWalking: boolean) {
@@ -1292,6 +1324,7 @@ function ArcadeOfficeStage({
         rafId = window.requestAnimationFrame(tick);
       } else {
         setWalkingIfChanged(false);
+        flushPendingParentPosition();
         lastFrame = 0;
         rafId = 0;
       }
@@ -1384,21 +1417,14 @@ function ArcadeOfficeStage({
     }
   }
 
-  function handleWheel(event: ReactWheelEvent<HTMLDivElement>) {
-    event.preventDefault();
-    event.stopPropagation();
-    onZoomChange(zoom + (event.deltaY < 0 ? STAGE_ZOOM_STEP : -STAGE_ZOOM_STEP));
-  }
-
   return (
     <div
       className="workspace-2d-stage is-tilemap-backed"
       ref={stageRef}
-      role="img"
+      role="region"
       aria-label="오피스 2D 스테이지"
       tabIndex={0}
       style={{ cursor: drag ? "grabbing" : "grab" }}
-      onWheel={handleWheel}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerEnd}

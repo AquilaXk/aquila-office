@@ -116,7 +116,20 @@ export default function WorkspacesPage() {
   }, [indexedWorkspaces, roleFilter, searchQuery]);
 
   if (!hydrated) {
-    return null;
+    return (
+      <AppTopChrome title="워크스페이스 목록">
+        <div className="ao-page-container">
+          <section
+            className="ao-surface-panel flex items-center gap-2 text-[13px] text-[var(--ui-text-secondary)]"
+            aria-live="polite"
+            aria-busy="true"
+          >
+            <Loader2 size={15} className="spin" aria-hidden="true" />
+            <span>워크스페이스 목록을 준비하는 중입니다.</span>
+          </section>
+        </div>
+      </AppTopChrome>
+    );
   }
 
   return (

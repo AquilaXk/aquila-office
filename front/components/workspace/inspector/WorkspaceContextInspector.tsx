@@ -53,6 +53,7 @@ import type {
   WorkspaceAgent,
 } from "@/lib/agents";
 import type { ChatMessage } from "@/lib/chat";
+import type { WorkspaceModelProvider } from "@/lib/model-providers";
 import type {
   AgentReport,
   TaskExecutionLog,
@@ -87,6 +88,7 @@ export type WorkspaceContextInspectorProps = {
   selectedAgent: WorkspaceAgent | null;
   selectedTask: WorkspaceTask | null;
   agents: WorkspaceAgent[];
+  modelProviders?: readonly WorkspaceModelProvider[];
   tasks: WorkspaceTask[];
   canManage: boolean;
   mobileOpen: boolean;
@@ -141,6 +143,7 @@ export function WorkspaceContextInspector({
   selectedAgent,
   selectedTask,
   agents,
+  modelProviders = [],
   tasks,
   canManage,
   mobileOpen,
@@ -345,6 +348,18 @@ export function WorkspaceContextInspector({
                     ? `${formatAgentCategory(selectedAgent.category)} · ${formatAgentStatus(selectedAgent.status)}`
                     : selectedActorNode?.detail ?? "워크스페이스 구성원"}
                 </p>
+                {selectedAgent?.modelId ? (
+                  <span
+                    className="role-badge font-mono mt-1 max-w-full truncate"
+                    title={
+                      selectedAgent.fallbackModelId
+                        ? `기본: ${selectedAgent.modelId} · 폴백: ${selectedAgent.fallbackModelId}`
+                        : `모델: ${selectedAgent.modelId}`
+                    }
+                  >
+                    {selectedAgent.modelId}
+                  </span>
+                ) : null}
               </div>
             </div>
 
@@ -582,6 +597,7 @@ export function WorkspaceContextInspector({
                   <AgentEditPanel
                     key={selectedAgent.agentId}
                     agent={selectedAgent}
+                    modelProviders={modelProviders}
                     canManage={canManage}
                     agentDeleteConfirmId={agentDeleteConfirmId}
                     agentMutation={agentMutation}

@@ -1,6 +1,7 @@
 import { execFileSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { findCodeHealthViolations } from "./check-code-health.mjs";
 
 const REQUIRED_TRACKED_FILES = [
   "README.md",
@@ -185,11 +186,13 @@ export function runRepoHygieneCheck(repoRoot) {
   const fileViolations = findForbiddenTrackedFiles(trackedFiles);
   const commitViolations = findForbiddenCommitMessages(readRecentCommits(repoRoot));
   const branchViolations = findForbiddenBranchName(readCurrentBranch(repoRoot));
+  const codeHealthViolations = findCodeHealthViolations(repoRoot, trackedFiles);
   const violations = [
     ...missingViolations,
     ...fileViolations,
     ...commitViolations,
     ...branchViolations,
+    ...codeHealthViolations,
   ];
   if (violations.length > 0) {
     throw new Error(`[repo-hygiene] check failed:\n- ${violations.join("\n- ")}`);
