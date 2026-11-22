@@ -201,8 +201,11 @@ mod tests {
 
         let repo = Repository::init(&temp_dir).unwrap();
         let test_file = temp_dir.join("hello.txt");
-        let mut f = File::create(&test_file).unwrap();
-        writeln!(f, "initial line").unwrap();
+        {
+            let mut f = File::create(&test_file).unwrap();
+            writeln!(f, "initial line").unwrap();
+            f.sync_all().unwrap();
+        }
 
         let mut index = repo.index().unwrap();
         index.add_path(Path::new("hello.txt")).unwrap();
@@ -216,11 +219,14 @@ mod tests {
         repo.commit(Some("HEAD"), &sig, &sig, "Initial commit", &tree, &[])
             .unwrap();
 
-        let mut f = fs::OpenOptions::new()
-            .append(true)
-            .open(&test_file)
-            .unwrap();
-        writeln!(f, "second line").unwrap();
+        {
+            let mut f = fs::OpenOptions::new()
+                .append(true)
+                .open(&test_file)
+                .unwrap();
+            writeln!(f, "second line with updated byte size").unwrap();
+            f.sync_all().unwrap();
+        }
 
         let status = get_workspace_git_status_with_limit(
             temp_dir.to_string_lossy().to_string(),
@@ -238,14 +244,17 @@ mod tests {
             MAX_DIFF_BYTES,
         )
         .unwrap();
-        assert!(diff.contains("+second line"));
+        assert!(diff.contains("+second line with updated byte size"));
 
         // Test untracked file diff
         let untracked_dir = temp_dir.join("subdir");
         fs::create_dir_all(&untracked_dir).unwrap();
         let untracked_file = untracked_dir.join("untracked.txt");
-        let mut f2 = File::create(&untracked_file).unwrap();
-        writeln!(f2, "brand new untracked content").unwrap();
+        {
+            let mut f2 = File::create(&untracked_file).unwrap();
+            writeln!(f2, "brand new untracked content").unwrap();
+            f2.sync_all().unwrap();
+        }
 
         let status2 = get_workspace_git_status_with_limit(
             temp_dir.to_string_lossy().to_string(),
@@ -286,6 +295,9 @@ mod tests {
         .unwrap_err();
         assert!(err_traversal.contains("relative"));
 
+        drop(tree);
+        drop(index);
+        drop(repo);
         let _ = fs::remove_dir_all(&temp_dir);
     }
 

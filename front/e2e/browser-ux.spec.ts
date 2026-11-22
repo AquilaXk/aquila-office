@@ -263,8 +263,11 @@ test.describe("브라우저 UI UX 회귀", () => {
     await seedAuthTokens(page);
 
     await page.goto("/");
-    await expect(page.getByRole("menuitem", { name: /워크스페이스로 이동/ })).toBeVisible();
+    await expect(page.getByText(/Aquila User/)).toBeVisible();
     await page.keyboard.press("ArrowDown");
+    await expect(page.getByRole("menuitem", { name: /워크스페이스로 이동/ })).toHaveClass(
+      /title-menu-item-active/,
+    );
     await page.keyboard.press("Enter");
     await page.waitForURL((url) => url.pathname === "/workspaces");
     await expect(page.getByText("W001")).toBeVisible();
