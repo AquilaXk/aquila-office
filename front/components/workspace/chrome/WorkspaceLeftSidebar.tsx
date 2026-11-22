@@ -1,6 +1,13 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import {
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
 import {
   Briefcase,
   Building2,
@@ -11,7 +18,10 @@ import {
   RefreshCw,
   Users,
 } from "lucide-react";
-import PixelAvatar from "@/components/arcade/PixelAvatar";
+import PixelAvatar, {
+  type PixelAvatarKind,
+  type PixelAvatarPaletteOverride,
+} from "@/components/arcade/PixelAvatar";
 import {
   formatAgentStatus,
   formatPresenceConnectionState,
@@ -25,6 +35,12 @@ import { searchBitapItems } from "@/lib/bitap-fuzzy-search";
 import type { WorkspacePresenceMessage } from "@/lib/presence";
 import type { PresenceLiveState } from "@/lib/presence-summary";
 import type { WorkspaceTask } from "@/lib/tasks";
+import {
+  clampSidebarWidth,
+  DEFAULT_SIDEBAR_WIDTH,
+  MAX_SIDEBAR_WIDTH,
+  MIN_SIDEBAR_WIDTH,
+} from "@/lib/workspace-shortcuts";
 import type { WorkspaceMember } from "@/lib/workspaces";
 
 export type OfficeZoneId = "overview" | "work" | "meeting" | "library";
@@ -37,6 +53,14 @@ export type WorkspaceLeftSidebarProps = {
   activeZone: OfficeZoneId;
   mobileOpen: boolean;
   desktopCollapsed?: boolean;
+  widthPx?: number;
+  onWidthChange?: (nextWidth: number) => void;
+  onWidthReset?: () => void;
+  currentMemberId?: number | null;
+  playerAvatar?: {
+    kind: PixelAvatarKind;
+    paletteOverride?: PixelAvatarPaletteOverride;
+  } | null;
   canManage: boolean;
   presenceLiveState: PresenceLiveState;
   presenceEvents: WorkspacePresenceMessage[];
@@ -76,6 +100,11 @@ export function WorkspaceLeftSidebar({
   activeZone,
   mobileOpen,
   desktopCollapsed = false,
+  widthPx,
+  onWidthChange,
+  onWidthReset,
+  currentMemberId,
+  playerAvatar,
   canManage,
   presenceLiveState,
   presenceEvents,
@@ -87,6 +116,46 @@ export function WorkspaceLeftSidebar({
   onUpdatePresencePosition,
 }: WorkspaceLeftSidebarProps) {
   const [agentQuery, setAgentQuery] = useState("");
+  const [resizing, setResizing] = useState(false);
+  const dragStartRef = useRef<{ startX: number; startWidth: number } | null>(null);
+
+  const handleResizerPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (!onWidthChange) return;
+    event.preventDefault();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    dragStartRef.current = {
+      startX: event.clientX,
+      startWidth: widthPx ?? DEFAULT_SIDEBAR_WIDTH,
+    };
+    setResizing(true);
+  };
+
+  const handleResizerPointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (!dragStartRef.current || !onWidthChange) return;
+    const delta = event.clientX - dragStartRef.current.startX;
+    onWidthChange(clampSidebarWidth(dragStartRef.current.startWidth + delta, window.innerWidth));
+  };
+
+  const handleResizerPointerEnd = () => {
+    if (!dragStartRef.current) return;
+    dragStartRef.current = null;
+    setResizing(false);
+  };
+
+  const handleResizerKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (!onWidthChange) return;
+    const current = widthPx ?? DEFAULT_SIDEBAR_WIDTH;
+    if (event.key === "ArrowRight") {
+      event.preventDefault();
+      onWidthChange(clampSidebarWidth(current + 16, window.innerWidth));
+    } else if (event.key === "ArrowLeft") {
+      event.preventDefault();
+      onWidthChange(clampSidebarWidth(current - 16, window.innerWidth));
+    } else if (event.key === "Home" && onWidthReset) {
+      event.preventDefault();
+      onWidthReset();
+    }
+  };
   const recentEvents = presenceEvents.slice(0, 3);
   const memberNameById = useMemo(() => {
     const map = new Map<number, string>();
@@ -137,7 +206,32 @@ export function WorkspaceLeftSidebar({
         desktopCollapsed ? " chrome-sidebar-collapsed-desktop" : ""
       }`}
       aria-label="워크스페이스 탐색"
+      data-resizing={resizing ? "true" : undefined}
+      style={
+        widthPx
+          ? ({ "--sidebar-width": `${widthPx}px` } as CSSProperties)
+          : undefined
+      }
     >
+      {onWidthChange ? (
+        <div
+          role="separator"
+          tabIndex={0}
+          aria-orientation="vertical"
+          aria-label="사이드바 너비 조절"
+          aria-valuemin={MIN_SIDEBAR_WIDTH}
+          aria-valuemax={MAX_SIDEBAR_WIDTH}
+          aria-valuenow={widthPx ?? DEFAULT_SIDEBAR_WIDTH}
+          title="드래그하여 너비 조절 (더블클릭으로 초기화)"
+          className="chrome-sidebar-resizer chrome-desktop-only"
+          onPointerDown={handleResizerPointerDown}
+          onPointerMove={handleResizerPointerMove}
+          onPointerUp={handleResizerPointerEnd}
+          onPointerCancel={handleResizerPointerEnd}
+          onDoubleClick={() => onWidthReset?.()}
+          onKeyDown={handleResizerKeyDown}
+        />
+      ) : null}
       <section className="chrome-sidebar-section" aria-label="오피스 구역">
         <div className="chrome-sidebar-heading">
           <span>오피스 구역</span>
@@ -208,39 +302,48 @@ export function WorkspaceLeftSidebar({
                       agent.status === "DISABLED"
                     ? "ao-tone-danger"
                     : "ao-tone-info";
+            const hasSubMeta = Boolean(agent.modelId) || activeTaskCount > 0;
             return (
               <button
                 key={agent.agentId}
                 type="button"
-                className={`chrome-sidebar-item${active ? " chrome-sidebar-item-active" : ""}`}
+                className={`chrome-sidebar-item${hasSubMeta ? " chrome-sidebar-agent-item" : ""}${
+                  active ? " chrome-sidebar-item-active" : ""
+                }`}
                 onClick={() => onSelectAgent(agent.agentId)}
               >
-                <span className="inline-flex items-center gap-2 min-w-0">
-                  <PixelAvatar
-                    kind="agent"
-                    variant="mugshot"
-                    variantKey={agent.name}
-                    agentCategory={agent.category}
-                    size={1.6}
-                  />
-                  <span className="truncate">{agent.name}</span>
+                <span className="chrome-sidebar-agent-head w-full">
+                  <span className="inline-flex items-center gap-2 min-w-0">
+                    <PixelAvatar
+                      kind="agent"
+                      variant="mugshot"
+                      variantKey={agent.name}
+                      agentCategory={agent.category}
+                      size={1.6}
+                    />
+                    <span className="truncate">{agent.name}</span>
+                  </span>
+                  <span className={`role-badge shrink-0 ${statusTone}`}>
+                    {formatAgentStatus(agent.status)}
+                  </span>
                 </span>
-                <span className="inline-flex items-center gap-1 shrink-0">
-                  {agent.modelId ? (
-                    <span
-                      className="role-badge font-mono max-w-[96px] truncate"
-                      title={`모델: ${agent.modelId}`}
-                    >
-                      {agent.modelId}
-                    </span>
-                  ) : null}
-                  {activeTaskCount > 0 ? (
-                    <span className="role-badge" title={`진행 중인 작업 ${activeTaskCount}건`}>
-                      {activeTaskCount}
-                    </span>
-                  ) : null}
-                  <span className={`role-badge ${statusTone}`}>{formatAgentStatus(agent.status)}</span>
-                </span>
+                {hasSubMeta ? (
+                  <span className="chrome-sidebar-agent-sub">
+                    {agent.modelId ? (
+                      <span
+                        className="role-badge font-mono max-w-[140px] truncate"
+                        title={`모델: ${agent.modelId}`}
+                      >
+                        {agent.modelId}
+                      </span>
+                    ) : null}
+                    {activeTaskCount > 0 ? (
+                      <span className="role-badge" title={`진행 중인 작업 ${activeTaskCount}건`}>
+                        진행 {activeTaskCount}건
+                      </span>
+                    ) : null}
+                  </span>
+                ) : null}
               </button>
             );
           })
@@ -282,9 +385,18 @@ export function WorkspaceLeftSidebar({
                   >
                     <span className="inline-flex items-center gap-1.5 min-w-0">
                       <PixelAvatar
-                        kind={pickAvatarKind(memberName)}
+                        kind={
+                          currentMemberId != null && member.memberId === currentMemberId && playerAvatar
+                            ? playerAvatar.kind
+                            : pickAvatarKind(memberName)
+                        }
                         variant="mugshot"
                         variantKey={memberName}
+                        paletteOverride={
+                          currentMemberId != null && member.memberId === currentMemberId
+                            ? playerAvatar?.paletteOverride
+                            : undefined
+                        }
                         size={1.4}
                       />
                       <strong className="truncate font-medium">{memberName}</strong>

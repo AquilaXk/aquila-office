@@ -42,7 +42,7 @@ test("workspace git diff viewer renders diff hunks and copy controls", () => {
   const source = readSource("components/workspace/WorkspaceGitDiffViewer.tsx");
 
   assert.match(source, /WorkspaceGitDiffViewer/);
-  assert.match(source, /aria-label="Copy diff"/);
+  assert.match(source, /aria-label="변경분 복사"/);
   assert.match(source, /additions/);
   assert.match(source, /deletions/);
   assert.match(source, /ao-card/);

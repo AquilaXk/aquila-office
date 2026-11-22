@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   clampInspectorWidth,
+  clampSidebarWidth,
   formatCommandShortcut,
   formatViewIndexShortcut,
   isEditableEventTarget,
@@ -55,6 +56,15 @@ test("clampInspectorWidth enforces [280, 520] and viewport safety bounds", () =>
   assert.equal(clampInspectorWidth(420, 1280), 420);
   assert.equal(clampInspectorWidth(500, 900), 380);
   assert.equal(clampInspectorWidth(500, 720), 280);
+});
+
+test("clampSidebarWidth enforces [180, 320] and viewport safety bounds", () => {
+  assert.equal(clampSidebarWidth(Number.NaN), 224);
+  assert.equal(clampSidebarWidth(100), 180);
+  assert.equal(clampSidebarWidth(480), 320);
+  assert.equal(clampSidebarWidth(260, 1280), 260);
+  assert.equal(clampSidebarWidth(310, 760), 240);
+  assert.equal(clampSidebarWidth(310, 640), 310);
 });
 
 test("isEditableEventTarget detects text inputs and open dialogs", () => {

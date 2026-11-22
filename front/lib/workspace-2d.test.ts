@@ -78,7 +78,7 @@ test("workspace viewport helpers clamp pan and zoom inside the scene bounds", ()
   assert.equal(zoomed.zoom, 2);
   assert.ok(zoomed.x <= 1120);
   assert.ok(zoomed.y <= 690);
-  assert.equal(reset.zoom, 0.75);
+  assert.equal(reset.zoom, 0.5);
   assert.ok(reset.x >= 0);
   assert.ok(reset.y >= 0);
 });
@@ -150,7 +150,7 @@ test("workspace context menu state exposes node actions at the requested screen 
 });
 
 test("workspace stage helpers clamp zoom and follow the player position", () => {
-  assert.equal(clampStageZoom(0.1), 0.75);
+  assert.equal(clampStageZoom(0.1), 0.5);
   assert.equal(clampStageZoom(1.23456), 1.235);
   assert.equal(clampStageZoom(2), 1.5);
 

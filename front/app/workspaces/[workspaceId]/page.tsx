@@ -238,6 +238,9 @@ export default function WorkspaceDetailPage({
     shortcutStyle,
     sidebarCollapsed,
     toggleSidebar,
+    sidebarWidth,
+    setSidebarWidth,
+    resetSidebarWidth,
     inspectorWidth,
     setInspectorWidth,
     resetInspectorWidth,
@@ -2237,6 +2240,11 @@ export default function WorkspaceDetailPage({
           activeZone={activeZone}
           mobileOpen={mobileSidebarOpen}
           desktopCollapsed={sidebarCollapsed}
+          widthPx={sidebarWidth}
+          onWidthChange={setSidebarWidth}
+          onWidthReset={resetSidebarWidth}
+          currentMemberId={currentMemberId}
+          playerAvatar={storedCharacterProfile}
           canManage={canManage}
           presenceLiveState={presenceLiveState}
           presenceEvents={presenceEvents}

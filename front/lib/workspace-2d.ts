@@ -129,7 +129,7 @@ export type WorkspaceSceneEventBus = {
   clear(): void;
 };
 
-const MIN_ZOOM = 0.75;
+const MIN_ZOOM = 0.5;
 const MAX_ZOOM = 2;
 const KEYBOARD_PAN_STEP = 96;
 
@@ -249,7 +249,7 @@ export type WallSegment = {
   end: number;
 };
 
-const STAGE_ZOOM_MIN = 0.75;
+const STAGE_ZOOM_MIN = 0.5;
 const STAGE_ZOOM_MAX = 1.5;
 const PLAYER_STAGE_BOUNDS = {
   minX: 3,

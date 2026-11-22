@@ -8,6 +8,8 @@ import { AppTopChrome } from "@/components/desktop/AppTopChrome";
 import type { ApiError } from "@/lib/api-client";
 import { isAuthenticated, loginWithGoogle } from "@/lib/auth";
 
+const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ?? "";
+
 export default function AuthPage() {
   return (
     <Suspense fallback={null}>
@@ -106,6 +108,14 @@ function AuthPageInner() {
                 Google 계정으로 계속하기
               </span>
             </div>
+            {!GOOGLE_CLIENT_ID ? (
+              <div className="ao-inline-notice" role="note">
+                <AlertCircle size={15} aria-hidden="true" />
+                <span>
+                  개발 환경에 Google 클라이언트 ID(NEXT_PUBLIC_GOOGLE_CLIENT_ID)가 설정되지 않았습니다.
+                </span>
+              </div>
+            ) : null}
           </div>
 
           {error ? (

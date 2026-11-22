@@ -7,6 +7,9 @@ export type ShortcutStyle = "desktop-mac" | "desktop" | "browser-mac" | "browser
 export const MIN_INSPECTOR_WIDTH = 280;
 export const MAX_INSPECTOR_WIDTH = 520;
 export const DEFAULT_INSPECTOR_WIDTH = 320;
+export const MIN_SIDEBAR_WIDTH = 180;
+export const MAX_SIDEBAR_WIDTH = 320;
+export const DEFAULT_SIDEBAR_WIDTH = 224;
 const RESERVED_MAIN_WIDTH = 520;
 
 export function isEditableEventTarget(target: EventTarget | null): boolean {
@@ -95,4 +98,16 @@ export function clampInspectorWidth(width: number, viewportWidth?: number): numb
       ? Math.min(MAX_INSPECTOR_WIDTH, Math.max(MIN_INSPECTOR_WIDTH, viewportWidth - RESERVED_MAIN_WIDTH))
       : MAX_INSPECTOR_WIDTH;
   return Math.min(maxAllowed, Math.max(MIN_INSPECTOR_WIDTH, raw));
+}
+
+export function clampSidebarWidth(width: number, viewportWidth?: number): number {
+  if (!Number.isFinite(width)) {
+    return DEFAULT_SIDEBAR_WIDTH;
+  }
+  const raw = Math.round(width);
+  const maxAllowed =
+    typeof viewportWidth === "number" && Number.isFinite(viewportWidth) && viewportWidth >= 760
+      ? Math.min(MAX_SIDEBAR_WIDTH, Math.max(MIN_SIDEBAR_WIDTH, viewportWidth - RESERVED_MAIN_WIDTH))
+      : MAX_SIDEBAR_WIDTH;
+  return Math.min(maxAllowed, Math.max(MIN_SIDEBAR_WIDTH, raw));
 }

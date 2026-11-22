@@ -63,11 +63,11 @@ export default function WorkspaceGitDiffViewer({
             cursor: "pointer",
           }}
           aria-expanded={!collapsed}
-          aria-label={collapsed ? "Expand diff" : "Collapse diff"}
+          aria-label={collapsed ? "변경분 펼치기" : "변경분 접기"}
         >
           {collapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
           <FileCode2 size={14} style={{ color: "var(--accent-primary)" }} />
-          <span style={{ fontWeight: 600 }}>{filePath || "Workspace Diff"}</span>
+          <span style={{ fontWeight: 600 }}>{filePath || "작업 공간 변경분"}</span>
         </button>
 
         <div className="flex items-center gap-3">
@@ -89,8 +89,8 @@ export default function WorkspaceGitDiffViewer({
               border: 0,
               cursor: "pointer",
             }}
-            title="Diff 복사"
-            aria-label="Copy diff"
+            title="변경분 복사"
+            aria-label="변경분 복사"
           >
             {copied ? <Check size={14} style={{ color: "var(--status-success)" }} /> : <Copy size={14} />}
           </button>

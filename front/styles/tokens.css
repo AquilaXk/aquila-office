@@ -164,6 +164,15 @@
   --accent-strong: var(--brand-600);
   --accent-light: var(--brand-400);
   --focus-ring: rgba(50, 121, 249, 0.64);
+  --ui-success: var(--status-success);
+  --ui-warning: var(--status-warning);
+  --ui-danger: var(--status-danger);
+  --tone-ok-border: var(--status-success-border);
+  --tone-warn-border: var(--status-warning-border);
+  --tone-danger-border: var(--status-danger-border);
+  --ui-focus-soft: rgba(50, 121, 249, 0.22);
+  --studio-shadow-elevated: 0 14px 36px rgba(0, 0, 0, 0.48);
+  --stage-bg: #0d1320;
 
   /* 2D stage & overlay tokens (dark baseline) */
   --stage-hud-bg: rgba(24, 25, 29, 0.92);
@@ -354,6 +363,15 @@
   --accent-strong: #1d4ed8;
   --accent-light: #60a5fa;
   --focus-ring: rgba(37, 99, 235, 0.48);
+  --ui-success: var(--status-success);
+  --ui-warning: var(--status-warning);
+  --ui-danger: var(--status-danger);
+  --tone-ok-border: var(--status-success-border);
+  --tone-warn-border: var(--status-warning-border);
+  --tone-danger-border: var(--status-danger-border);
+  --ui-focus-soft: rgba(37, 99, 235, 0.18);
+  --studio-shadow-elevated: 0 12px 32px rgba(15, 23, 42, 0.14);
+  --stage-bg: #e2e8f0;
 
   /* Light-safe semantic aliases overriding :root globals */
   --blue: #2563eb;

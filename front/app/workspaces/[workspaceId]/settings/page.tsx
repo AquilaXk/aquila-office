@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { AppTopChrome } from "@/components/desktop/AppTopChrome";
 import { Button, Input, Modal } from "@/components/ui";
+import { formatWorkspaceRole } from "@/components/workspace/workspace-ui-helpers";
 import { formatTokenUsageSummary } from "@/components/workspace/workspace-ui-helpers";
 import {
   WorkspaceErrorState,
@@ -375,7 +376,7 @@ export default function WorkspaceSettingsPage({
       <div className="ao-page-container">
         <header className="ao-page-header">
           <div>
-            <p className="ao-page-eyebrow">역할 · {state.workspace.myRole}</p>
+            <p className="ao-page-eyebrow">역할 · {formatWorkspaceRole(state.workspace.myRole)}</p>
             <h1 className="ao-page-title">{state.workspace.name} 설정</h1>
             <p className="ao-page-subtitle">
               워크스페이스 기본 정보, 일일 토큰 예산 한도, 구성원 권한 및 초대를 관리합니다.
@@ -458,7 +459,7 @@ export default function WorkspaceSettingsPage({
 
                     <label className="form-field">
                       <span>
-                        <strong>일일 토큰 예산 한도 (dailyTokenLimit)</strong>
+                        <strong>일일 토큰 예산 한도</strong>
                         <small>비우거나 0 입력 시 무제한</small>
                       </span>
                       <Input
@@ -553,7 +554,7 @@ export default function WorkspaceSettingsPage({
                             <strong className="text-[14px] text-[var(--ui-text-strong)]">
                               {member.name}
                             </strong>
-                            <span className="role-badge">{member.role}</span>
+                            <span className="role-badge">{formatWorkspaceRole(member.role)}</span>
                           </div>
                           <p className="m-0 mt-0.5 text-[12px] text-[var(--ui-text-muted)]">
                             {member.email} · 합류일 {formatDate(member.joinedAt)}
@@ -573,8 +574,8 @@ export default function WorkspaceSettingsPage({
                             }
                             className="h-8 px-2 rounded-[var(--radius-md)] border border-[var(--ui-border)] bg-[var(--ui-bg)] text-[12px] text-[var(--ui-text)]"
                           >
-                            <option value="ADMIN">ADMIN</option>
-                            <option value="MEMBER">MEMBER</option>
+                            <option value="ADMIN">관리자</option>
+                            <option value="MEMBER">구성원</option>
                           </select>
 
                           <Button
@@ -645,8 +646,8 @@ export default function WorkspaceSettingsPage({
                         value={inviteRole}
                         onChange={(event) => setInviteRole(event.target.value as WorkspaceRole)}
                       >
-                        <option value="MEMBER">MEMBER</option>
-                        <option value="ADMIN">ADMIN</option>
+                        <option value="MEMBER">구성원</option>
+                        <option value="ADMIN">관리자</option>
                       </select>
                     </label>
 

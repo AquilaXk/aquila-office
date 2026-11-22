@@ -527,6 +527,41 @@ export function normalizeAgentSkillFiles(
   );
 }
 
+export function formatWorkspaceRole(role?: string | null): string {
+  switch (role) {
+    case "ADMIN":
+      return "관리자";
+    case "MEMBER":
+      return "구성원";
+    default:
+      return role?.trim() || "구성원";
+  }
+}
+
+export function formatProviderHealthStatus(status?: string | null): string {
+  switch (status?.trim().toUpperCase()) {
+    case "CONNECTED":
+    case "OK":
+      return "연결됨";
+    case "HEALTHY":
+      return "정상";
+    case "ERROR":
+    case "FAILED":
+      return "오류";
+    case "TIMEOUT":
+      return "시간 초과";
+    case "RATE_LIMITED":
+      return "호출 제한";
+    case "UNAUTHORIZED":
+    case "FORBIDDEN":
+      return "인증 오류";
+    case "UNCONFIGURED":
+      return "미설정";
+    default:
+      return status?.trim() || "미확인";
+  }
+}
+
 export function createLocalId(): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
     return crypto.randomUUID();

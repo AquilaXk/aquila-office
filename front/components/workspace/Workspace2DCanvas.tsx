@@ -1963,7 +1963,7 @@ function MapZoomControls({
 }) {
   return (
     <div className="workspace-2d-map-controls">
-      <ZoomButton onClick={onZoomOut} disabled={zoom <= 0.75} label="축소">
+      <ZoomButton onClick={onZoomOut} disabled={zoom <= 0.5} label="축소">
         -
       </ZoomButton>
       <button type="button" onClick={onReset} aria-label="배율 초기화" title="배율 초기화">
@@ -2012,7 +2012,7 @@ function DialogueBox({
   const line = actor
     ? isAgent
       ? `${actor.detail} · 대화를 열거나 작업을 할당할 수 있습니다.`
-      : `${speaker} · ${actor.sourceStatus}`
+      : `${speaker} · ${actorStatusKoreanLabel(actor.status)}`
     : "배치된 참여자가 없습니다. 에이전트를 추가하거나 팀원을 초대해 주세요.";
 
   return (

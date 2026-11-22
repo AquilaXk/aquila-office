@@ -36,6 +36,7 @@ import {
   MIN_MODEL_PROVIDER_PRIORITY,
   type WorkspaceModelProvider,
 } from "@/lib/model-providers";
+import { formatProviderHealthStatus } from "@/components/workspace/workspace-ui-helpers";
 import type { WorkspaceModelProvidersController } from "@/lib/use-workspace-model-providers";
 
 type TierFilter = "ALL" | ModelProviderTier;
@@ -352,7 +353,7 @@ export function ModelProvidersPanel({ controller, compact = false }: ModelProvid
                               : "ao-tone-warn"
                           }`}
                         >
-                          {provider.lastStatus}
+                          {formatProviderHealthStatus(provider.lastStatus)}
                           {provider.lastLatencyMs !== null ? ` · ${provider.lastLatencyMs}ms` : ""}
                         </span>
                       ) : null}

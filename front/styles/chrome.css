@@ -456,7 +456,11 @@
 }
 
 .chrome-sidebar {
-  width: 224px;
+  --sidebar-width: 224px;
+  position: relative;
+  width: var(--sidebar-width);
+  min-width: 180px;
+  max-width: 320px;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
@@ -464,6 +468,47 @@
   border-right: 1px solid var(--ui-border);
   overflow-y: auto;
   overflow-x: hidden;
+}
+
+.chrome-sidebar-resizer {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: -3px;
+  width: 6px;
+  z-index: 12;
+  cursor: col-resize;
+  touch-action: none;
+  background: transparent;
+}
+
+.chrome-sidebar-resizer:hover,
+.chrome-sidebar-resizer:focus-visible,
+.chrome-sidebar[data-resizing="true"] .chrome-sidebar-resizer {
+  border-right: 2px solid var(--accent-primary);
+  outline: none;
+}
+
+.chrome-sidebar-agent-item {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+}
+
+.chrome-sidebar-agent-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  min-width: 0;
+}
+
+.chrome-sidebar-agent-sub {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding-left: 24px;
 }
 
 @media (min-width: 861px) {
@@ -577,6 +622,9 @@
   width: auto;
   min-width: 0;
   max-width: calc(100% - 210px);
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
   gap: 6px;
 }
 
@@ -588,6 +636,10 @@
 .chrome-viewport .workspace-2d-frame-fullscreen .workspace-2d-map-controls {
   top: 178px;
   right: 14px;
+}
+
+.chrome-viewport .workspace-2d-frame-fullscreen .workspace-2d-map-hud-collapsed + .workspace-2d-map-controls {
+  top: 54px;
 }
 
 .chrome-viewport .workspace-2d-frame-fullscreen .workspace-2d-hero-hud {
@@ -943,7 +995,8 @@
     display: none;
   }
 
-  .chrome-inspector-resizer {
+  .chrome-inspector-resizer,
+  .chrome-sidebar-resizer {
     display: none;
   }
 
@@ -1001,6 +1054,10 @@
   .chrome-viewport .workspace-2d-frame-fullscreen .workspace-2d-map-controls {
     top: 244px;
     right: 10px;
+  }
+
+  .chrome-viewport .workspace-2d-frame-fullscreen .workspace-2d-map-hud-collapsed + .workspace-2d-map-controls {
+    top: 128px;
   }
 }
 

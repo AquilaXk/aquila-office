@@ -15,7 +15,12 @@ import {
 } from "lucide-react";
 import { PixelAvatar } from "@/components/arcade";
 import { AppTopChrome } from "@/components/desktop/AppTopChrome";
-import { formatTokenUsageSummary } from "@/components/workspace/workspace-ui-helpers";
+import {
+  formatTokenUsageSummary,
+  formatWorkspaceRole,
+  loadStoredCharacterProfile,
+  type StoredCharacterProfile,
+} from "@/components/workspace/workspace-ui-helpers";
 import { getStoredUser, type ApiError, type AuthUser } from "@/lib/api-client";
 import { listWorkspaces, type WorkspaceSummary } from "@/lib/api/workspaces";
 import { hydrateDesktopAccessToken } from "@/lib/auth";
@@ -24,6 +29,7 @@ import { searchBitapItems } from "@/lib/bitap-fuzzy-search";
 export default function WorkspacesPage() {
   const router = useRouter();
   const [user, setUser] = useState<AuthUser | null>(null);
+  const [characterProfile, setCharacterProfile] = useState<StoredCharacterProfile | null>(null);
   const [hydrated, setHydrated] = useState(false);
   const [workspaces, setWorkspaces] = useState<WorkspaceSummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -41,6 +47,7 @@ export default function WorkspacesPage() {
         return;
       }
       setUser(stored);
+      setCharacterProfile(loadStoredCharacterProfile());
       setHydrated(true);
     });
     return () => {
@@ -169,7 +176,12 @@ export default function WorkspacesPage() {
           <aside className="ao-studio-rail" aria-label="스튜디오 크루 요약">
             <div className="flex items-center gap-3 pb-3 border-b border-[var(--ui-border-subtle)]">
               <div className="p-2 rounded-[10px] border border-[var(--ui-border)] bg-[var(--ui-surface)] shrink-0">
-                <PixelAvatar kind="alex" size={3.2} activity="idle" />
+                <PixelAvatar
+                  kind={characterProfile?.kind ?? "alex"}
+                  paletteOverride={characterProfile?.paletteOverride}
+                  size={3.2}
+                  activity="idle"
+                />
               </div>
               <div className="min-w-0">
                 <span className="block text-[12px] text-[var(--ui-text-muted)]">활성 프로필</span>
@@ -307,8 +319,8 @@ export default function WorkspacesPage() {
                       className="h-8 px-2 rounded-[var(--radius-md)] border border-[var(--ui-border)] bg-[var(--ui-surface)] text-[13px] text-[var(--ui-text)]"
                     >
                       <option value="ALL">전체 역할</option>
-                      <option value="ADMIN">ADMIN</option>
-                      <option value="MEMBER">MEMBER</option>
+                      <option value="ADMIN">관리자</option>
+                      <option value="MEMBER">구성원</option>
                     </select>
                   </div>
                 ) : null}
@@ -398,7 +410,7 @@ export default function WorkspacesPage() {
                               >
                                 {ws.name}
                               </Link>
-                              <span className={roleClass}>{ws.myRole}</span>
+                              <span className={roleClass}>{formatWorkspaceRole(ws.myRole)}</span>
                             </div>
                             {ws.description ? (
                               <p className="m-0 mt-1 text-[13px] text-[var(--ui-text-secondary)] truncate">
