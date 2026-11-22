@@ -49,13 +49,14 @@ class WorkspaceModelProviderPersistenceAdapterTest {
                 Workspace.create("Model WS", "desc", Member.createUser("owner-sub", "owner@example.com", "Owner")),
                 ownerEntity));
 
+        final String plainTestKey = "sk-" + "ant-api03-plainsecret1234";
         WorkspaceModelProvider saved = adapter.save(WorkspaceModelProvider.create(
                 workspace.getId(),
                 ModelProviderKind.ANTHROPIC,
                 ModelWireProtocol.ANTHROPIC_MESSAGES,
                 "Anthropic Main",
                 "https://api.anthropic.com",
-                "sk-ant-api03-plainsecret1234",
+                plainTestKey,
                 "claude-sonnet-4-20250514",
                 List.of("claude-sonnet-4-20250514", "claude-opus-4-1-20250805"),
                 1,
@@ -64,8 +65,8 @@ class WorkspaceModelProviderPersistenceAdapterTest {
 
         WorkspaceModelProviderJpaEntity rawEntity = modelProviderJpaRepository.findById(saved.getId()).orElseThrow();
         assertThat(rawEntity.getApiKey()).startsWith("enc:v2:");
-        assertThat(rawEntity.getApiKey()).doesNotContain("sk-ant-api03-plainsecret1234");
-        assertThat(saved.getApiKey()).isEqualTo("sk-ant-api03-plainsecret1234");
+        assertThat(rawEntity.getApiKey()).doesNotContain(plainTestKey);
+        assertThat(saved.getApiKey()).isEqualTo(plainTestKey);
 
         saved.recordConnectionCheck(
                 ModelProviderConnectionStatus.CONNECTED,

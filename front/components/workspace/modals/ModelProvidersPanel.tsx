@@ -172,6 +172,11 @@ export function ModelProvidersPanel({ controller, compact = false }: ModelProvid
     const priority = Number.isFinite(parsedPriority)
       ? parsedPriority
       : DEFAULT_MODEL_PROVIDER_PRIORITY;
+    const resolvedDefaultModel =
+      defaultModel.trim() || activePreset?.models[0]?.id || testResult?.discoveredModels[0] || "";
+    const discoveredEnabledModels = testResult?.discoveredModels?.length
+      ? testResult.discoveredModels
+      : undefined;
 
     const saved = await saveProvider(editingProviderId, {
       providerKind,
@@ -179,7 +184,8 @@ export function ModelProvidersPanel({ controller, compact = false }: ModelProvid
       displayName,
       baseUrl,
       apiKey: apiKey.trim() || undefined,
-      defaultModel: defaultModel.trim() || null,
+      defaultModel: resolvedDefaultModel || null,
+      ...(discoveredEnabledModels ? { enabledModels: discoveredEnabledModels } : {}),
       priority,
     });
     if (saved) {

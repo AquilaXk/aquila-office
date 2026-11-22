@@ -13,6 +13,7 @@ import {
   createWorkspaceModelProvider,
   deleteWorkspaceModelProvider,
   fetchWorkspaceModelProviders,
+  normalizeWorkspaceModelProviders,
   sortModelProvidersByPriority,
   testWorkspaceModelProviderConnection,
   updateWorkspaceModelProvider,
@@ -272,7 +273,8 @@ test("model-providers API client exercises list, create, patch, delete, and conn
               displayName: "Primary OpenAI",
               baseUrl: "https://api.openai.com/v1",
               defaultModel: "gpt-4.1",
-              priority: 10,
+              enabledModels: ["gpt-4.1", "gpt-4o"],
+              priorityOrder: 10,
               enabled: true,
               maskedApiKey: "sk-****7890",
               lastStatus: "OK",
@@ -323,7 +325,8 @@ test("model-providers API client exercises list, create, patch, delete, and conn
           displayName: "Local Ollama",
           baseUrl: "http://127.0.0.1:11434",
           defaultModel: "qwen2.5-coder:14b",
-          priority: 20,
+          enabledModels: ["qwen2.5-coder:14b"],
+          priorityOrder: 20,
           enabled: true,
           maskedApiKey: null,
         },
@@ -336,6 +339,8 @@ test("model-providers API client exercises list, create, patch, delete, and conn
     const listed = await fetchWorkspaceModelProviders("tok", 101);
     assert.equal(listed.length, 1);
     assert.equal(listed[0]?.providerId, 11);
+    assert.equal(listed[0]?.priority, 10);
+    assert.deepEqual(listed[0]?.discoveredModels, ["gpt-4.1", "gpt-4o"]);
 
     const created = await createWorkspaceModelProvider("tok", 101, {
       providerKind: "OLLAMA",
@@ -343,11 +348,16 @@ test("model-providers API client exercises list, create, patch, delete, and conn
       displayName: "Local Ollama",
       baseUrl: "http://127.0.0.1:11434/",
       defaultModel: "qwen2.5-coder:14b",
+      enabledModels: ["qwen2.5-coder:14b"],
       priority: 20,
     });
     assert.equal(created.providerId, 12);
+    assert.equal(created.priority, 20);
+    assert.deepEqual((calls[1]?.body as Record<string, unknown>)?.priorityOrder, 20);
+    assert.deepEqual((calls[1]?.body as Record<string, unknown>)?.enabledModels, ["qwen2.5-coder:14b"]);
 
     await updateWorkspaceModelProvider("tok", 101, 12, { enabled: false, priority: 30 });
+    assert.deepEqual((calls[2]?.body as Record<string, unknown>)?.priorityOrder, 30);
     await deleteWorkspaceModelProvider("tok", 101, 12);
 
     const testResult = await testWorkspaceModelProviderConnection("tok", 101, {
@@ -403,4 +413,40 @@ test("WorkspaceAgent payload types support optional modelProviderId, modelId, an
   assert.equal(agent.modelProviderId, 11);
   assert.equal(agent.modelId, "gpt-4.1");
   assert.equal(updatePayload.modelProviderId, null);
+});
+
+test("normalizeWorkspaceModelProviders prefers priorityOrder and enabledModels with legacy fallback", () => {
+  const canonical = normalizeWorkspaceModelProviders([
+    {
+      providerId: 21,
+      workspaceId: 101,
+      providerKind: "OPENAI",
+      wireProtocol: "OPENAI_RESPONSES",
+      displayName: "Canonical",
+      baseUrl: "https://api.openai.com/v1",
+      defaultModel: "gpt-5.2",
+      enabledModels: ["gpt-5.2", "gpt-5-mini"],
+      priorityOrder: 5,
+      enabled: true,
+    },
+    {
+      providerId: 22,
+      workspaceId: 101,
+      providerKind: "OPENAI",
+      wireProtocol: "OPENAI_CHAT",
+      displayName: "Legacy",
+      baseUrl: "https://api.openai.com/v1",
+      defaultModel: "gpt-4.1",
+      discoveredModels: ["gpt-4.1"],
+      priority: 15,
+      enabled: true,
+    },
+  ]);
+
+  assert.equal(canonical[0]?.providerId, 21);
+  assert.equal(canonical[0]?.priority, 5);
+  assert.deepEqual(canonical[0]?.discoveredModels, ["gpt-5.2", "gpt-5-mini"]);
+  assert.equal(canonical[1]?.providerId, 22);
+  assert.equal(canonical[1]?.priority, 15);
+  assert.deepEqual(canonical[1]?.discoveredModels, ["gpt-4.1"]);
 });

@@ -655,11 +655,44 @@ async function installMockApi(context) {
       return;
     }
 
+    if (method === "POST" && path === `/api/v1/workspaces/${workspaceId}/presence/stream-ticket`) {
+      await fulfillJson(route, { ticket: "readme-stream-ticket", expiresInSeconds: 30 });
+      return;
+    }
+
     if (method === "GET" && path === `/api/v1/workspaces/${workspaceId}/presence/stream`) {
       await route.fulfill({
         status: 200,
         contentType: "text/event-stream",
         body: `data: ${JSON.stringify(presenceSnapshot())}\n\n`,
+      });
+      return;
+    }
+
+    if (method === "GET" && path === "/api/v1/model-catalog") {
+      await fulfillJson(route, modelCatalogPayload());
+      return;
+    }
+
+    if (method === "GET" && path === `/api/v1/workspaces/${workspaceId}/model-providers`) {
+      await fulfillJson(route, modelProvidersPayload());
+      return;
+    }
+
+    if (
+      method === "POST" &&
+      path === `/api/v1/workspaces/${workspaceId}/model-providers/connection-test`
+    ) {
+      await fulfillJson(route, {
+        ok: true,
+        status: "CONNECTED",
+        latencyMs: 64,
+        discoveredModels: ["gpt-5.2", "gpt-5-mini"],
+        resolvedModel: "gpt-5.2",
+        replyPreview: "연결 확인",
+        promptTokens: 8,
+        completionTokens: 4,
+        message: "실호출 테스트 성공",
       });
       return;
     }
@@ -1041,6 +1074,47 @@ function githubCredential() {
     createdAt: "2026-05-18T09:00:00Z",
     updatedAt: "2026-05-18T09:00:00Z",
   };
+}
+
+function modelCatalogPayload() {
+  return {
+    presets: [
+      {
+        providerKind: "OPENAI", displayName: "OpenAI", defaultBaseUrl: "https://api.openai.com/v1",
+        wireProtocol: "OPENAI_RESPONSES", tier: "PAID", authRequired: true,
+        models: [{ id: "gpt-5.2", displayName: "GPT-5.2", contextWindow: 400000, maxOutputTokens: 128000, supportsReasoning: true, supportsTools: true, supportsVision: true }],
+      },
+      {
+        providerKind: "ANTHROPIC", displayName: "Anthropic", defaultBaseUrl: "https://api.anthropic.com",
+        wireProtocol: "ANTHROPIC_MESSAGES", tier: "PAID", authRequired: true,
+        models: [{ id: "claude-sonnet-4-5", displayName: "Claude Sonnet 4.5", contextWindow: 200000, maxOutputTokens: 64000, supportsReasoning: true, supportsTools: true, supportsVision: true }],
+      },
+      {
+        providerKind: "OLLAMA", displayName: "Ollama (Local)", defaultBaseUrl: "http://127.0.0.1:11434",
+        wireProtocol: "OLLAMA_NATIVE", tier: "LOCAL", authRequired: false,
+        models: [{ id: "qwen3:14b", displayName: "Qwen 3 14B", contextWindow: 32768, maxOutputTokens: 8192, supportsReasoning: true, supportsTools: true, supportsVision: false }],
+      },
+    ],
+  };
+}
+
+function modelProvidersPayload() {
+  return [
+    {
+      providerId: 601, workspaceId, providerKind: "OPENAI", wireProtocol: "OPENAI_RESPONSES",
+      displayName: "OpenAI Primary", baseUrl: "https://api.openai.com/v1", defaultModel: "gpt-5.2",
+      enabledModels: ["gpt-5.2", "gpt-5-mini"], priorityOrder: 10, enabled: true, hasApiKey: true,
+      maskedApiKey: "sk-****7890", lastStatus: "CONNECTED", lastLatencyMs: 84,
+      lastCheckedAt: "2026-05-18T09:00:00Z", lastError: null,
+    },
+    {
+      providerId: 602, workspaceId, providerKind: "ANTHROPIC", wireProtocol: "ANTHROPIC_MESSAGES",
+      displayName: "Anthropic Failover", baseUrl: "https://api.anthropic.com", defaultModel: "claude-sonnet-4-5",
+      enabledModels: ["claude-sonnet-4-5"], priorityOrder: 20, enabled: true, hasApiKey: true,
+      maskedApiKey: "sk-****3456", lastStatus: "CONNECTED", lastLatencyMs: 112,
+      lastCheckedAt: "2026-05-18T09:00:00Z", lastError: null,
+    },
+  ];
 }
 
 async function isReachable(url) {

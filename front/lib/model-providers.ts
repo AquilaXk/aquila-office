@@ -11,6 +11,7 @@ import {
 
 export const MAX_MODEL_PROVIDERS = 100;
 export const MAX_DISCOVERED_MODELS = 500;
+export const MAX_ENABLED_MODELS = 100;
 export const MAX_MODEL_PROVIDER_DISPLAY_NAME_CHARS = 100;
 export const MAX_MODEL_PROVIDER_URL_CHARS = 512;
 export const MAX_MODEL_PROVIDER_API_KEY_CHARS = 512;
@@ -47,6 +48,7 @@ export type CreateWorkspaceModelProviderInput = {
   baseUrl: string;
   apiKey?: string | null;
   defaultModel?: string | null;
+  enabledModels?: string[];
   priority?: number;
   enabled?: boolean;
 };
@@ -58,6 +60,7 @@ export type UpdateWorkspaceModelProviderInput = {
   baseUrl?: string;
   apiKey?: string | null;
   defaultModel?: string | null;
+  enabledModels?: string[];
   priority?: number;
   enabled?: boolean;
 };
@@ -246,6 +249,10 @@ export function validateModelProviderInput(
   const baseUrl = validateModelProviderBaseUrl(input.baseUrl);
   const apiKey = validateOptionalApiKey(input.apiKey, options?.requireApiKey === true);
   const defaultModel = validateOptionalModelId(input.defaultModel) ?? null;
+  const enabledModels =
+    input.enabledModels !== undefined
+      ? normalizeStringList(input.enabledModels, MAX_ENABLED_MODELS)
+      : undefined;
   const priority = validatePriority(input.priority);
 
   return {
@@ -255,6 +262,7 @@ export function validateModelProviderInput(
     baseUrl,
     ...(apiKey !== undefined ? { apiKey } : {}),
     ...(defaultModel !== null ? { defaultModel } : {}),
+    ...(enabledModels !== undefined ? { enabledModels } : {}),
     priority,
     enabled: input.enabled ?? true,
   };
@@ -290,6 +298,9 @@ export function validateModelProviderUpdateInput(
   }
   if (input.defaultModel !== undefined) {
     result.defaultModel = validateOptionalModelId(input.defaultModel) ?? null;
+  }
+  if (input.enabledModels !== undefined) {
+    result.enabledModels = normalizeStringList(input.enabledModels, MAX_ENABLED_MODELS);
   }
   if (input.priority !== undefined) {
     result.priority = validatePriority(input.priority);
@@ -367,9 +378,15 @@ export function normalizeWorkspaceModelProvider(
       : providerKindLabel(providerKind);
   const baseUrl =
     typeof record.baseUrl === "string" ? record.baseUrl.trim().slice(0, MAX_MODEL_PROVIDER_URL_CHARS) : "";
+  const rawPriority =
+    typeof record.priorityOrder === "number" && Number.isFinite(record.priorityOrder)
+      ? record.priorityOrder
+      : typeof record.priority === "number" && Number.isFinite(record.priority)
+        ? record.priority
+        : null;
   const priority =
-    typeof record.priority === "number" && Number.isFinite(record.priority)
-      ? Math.max(MIN_MODEL_PROVIDER_PRIORITY, Math.min(MAX_MODEL_PROVIDER_PRIORITY, Math.trunc(record.priority)))
+    rawPriority !== null
+      ? Math.max(MIN_MODEL_PROVIDER_PRIORITY, Math.min(MAX_MODEL_PROVIDER_PRIORITY, Math.trunc(rawPriority)))
       : DEFAULT_MODEL_PROVIDER_PRIORITY;
   const maskedApiKey =
     typeof record.maskedApiKey === "string" && record.maskedApiKey.trim()
@@ -401,7 +418,10 @@ export function normalizeWorkspaceModelProvider(
         : null,
     lastError: typeof record.lastError === "string" ? record.lastError : null,
     lastCheckedAt: typeof record.lastCheckedAt === "string" ? record.lastCheckedAt : null,
-    discoveredModels: normalizeStringList(record.discoveredModels, MAX_DISCOVERED_MODELS),
+    discoveredModels: normalizeStringList(
+      record.enabledModels ?? record.discoveredModels,
+      MAX_DISCOVERED_MODELS,
+    ),
     createdAt: typeof record.createdAt === "string" ? record.createdAt : null,
     updatedAt: typeof record.updatedAt === "string" ? record.updatedAt : null,
   };
@@ -510,10 +530,35 @@ export async function createWorkspaceModelProvider(
   input: CreateWorkspaceModelProviderInput,
 ): Promise<WorkspaceModelProvider> {
   const validated = validateModelProviderInput(input);
+  const presetFallbackModel =
+    BUILTIN_MODEL_CATALOG_PRESETS.find((preset) => preset.providerKind === validated.providerKind)
+      ?.models[0]?.id ?? null;
+  const resolvedDefaultModel =
+    validated.defaultModel ?? validated.enabledModels?.[0] ?? presetFallbackModel;
+  if (!resolvedDefaultModel) {
+    throw new RangeError("기본 모델 ID를 입력해 주세요.");
+  }
+
+  const requestBody: Record<string, unknown> = {
+    providerKind: validated.providerKind,
+    wireProtocol: validated.wireProtocol,
+    displayName: validated.displayName,
+    baseUrl: validated.baseUrl,
+    defaultModel: resolvedDefaultModel,
+    priorityOrder: validated.priority ?? DEFAULT_MODEL_PROVIDER_PRIORITY,
+    enabled: validated.enabled ?? true,
+  };
+  if (validated.apiKey !== undefined) {
+    requestBody.apiKey = validated.apiKey;
+  }
+  if (validated.enabledModels !== undefined) {
+    requestBody.enabledModels = validated.enabledModels;
+  }
+
   const payload = await apiFetch<unknown>(workspaceModelProvidersPath(workspaceId), {
     method: "POST",
     accessToken,
-    json: validated,
+    json: requestBody,
   });
   const parsed = normalizeWorkspaceModelProvider(payload);
   if (!parsed) {
@@ -529,10 +574,20 @@ export async function updateWorkspaceModelProvider(
   input: UpdateWorkspaceModelProviderInput,
 ): Promise<WorkspaceModelProvider> {
   const validated = validateModelProviderUpdateInput(input);
+  const requestBody: Record<string, unknown> = {};
+  if (validated.displayName !== undefined) requestBody.displayName = validated.displayName;
+  if (validated.wireProtocol !== undefined) requestBody.wireProtocol = validated.wireProtocol;
+  if (validated.baseUrl !== undefined) requestBody.baseUrl = validated.baseUrl;
+  if (validated.apiKey !== undefined) requestBody.apiKey = validated.apiKey;
+  if (validated.defaultModel !== undefined) requestBody.defaultModel = validated.defaultModel;
+  if (validated.enabledModels !== undefined) requestBody.enabledModels = validated.enabledModels;
+  if (validated.priority !== undefined) requestBody.priorityOrder = validated.priority;
+  if (validated.enabled !== undefined) requestBody.enabled = validated.enabled;
+
   const payload = await apiFetch<unknown>(workspaceModelProviderPath(workspaceId, providerId), {
     method: "PATCH",
     accessToken,
-    json: validated,
+    json: requestBody,
   });
   const parsed = normalizeWorkspaceModelProvider(payload);
   if (!parsed) {

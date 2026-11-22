@@ -1167,6 +1167,14 @@ async function installMockApi(page: Page, options: MockApiOptions = {}) {
 
     if (method === "POST" && path === `/api/v1/workspaces/${workspaceId}/model-providers`) {
       const body = (request.postDataJSON() ?? {}) as Record<string, unknown>;
+      const priorityOrder =
+        typeof body.priorityOrder === "number"
+          ? body.priorityOrder
+          : typeof body.priority === "number"
+            ? body.priority
+            : 10;
+      const defaultModel = typeof body.defaultModel === "string" ? body.defaultModel : "gpt-5.2";
+      const enabledModels = Array.isArray(body.enabledModels) ? body.enabledModels : [defaultModel];
       const created = {
         providerId: nextModelProviderId++,
         workspaceId,
@@ -1174,8 +1182,9 @@ async function installMockApi(page: Page, options: MockApiOptions = {}) {
         wireProtocol: String(body.wireProtocol ?? "OPENAI_CHAT"),
         displayName: String(body.displayName ?? "OpenAI"),
         baseUrl: String(body.baseUrl ?? "https://api.openai.com/v1"),
-        defaultModel: typeof body.defaultModel === "string" ? body.defaultModel : "gpt-5.2",
-        priority: typeof body.priority === "number" ? body.priority : 10,
+        defaultModel,
+        enabledModels,
+        priorityOrder,
         enabled: typeof body.enabled === "boolean" ? body.enabled : true,
         hasApiKey: typeof body.apiKey === "string" && body.apiKey.trim().length > 0,
         maskedApiKey: typeof body.apiKey === "string" && body.apiKey.trim() ? "sk-e****" : null,

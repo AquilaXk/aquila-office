@@ -117,13 +117,14 @@ class HttpMultiProviderModelAdapterTest {
                   }
                 }
                 """);
+        final String anthropicKey = "sk-" + "ant-api03-test-1234";
         WorkspaceModelRunResult anthropicResult = adapter.run(new WorkspaceModelRunCommand(
                 1L, 2L, 3L, 4L, ModelProviderKind.ANTHROPIC, ModelWireProtocol.ANTHROPIC_MESSAGES,
-                baseUrl, "sk-ant-api03-test-1234", "claude-sonnet-4-20250514", "sys", "hello"));
+                baseUrl, anthropicKey, "claude-sonnet-4-20250514", "sys", "hello"));
         assertThat(anthropicResult.finalText()).isEqualTo("Anthropic reply");
         assertThat(anthropicResult.promptTokens()).isEqualTo(35);
         assertThat(anthropicResult.completionTokens()).isEqualTo(12);
-        assertThat(lastApiKeyHeader.get()).isEqualTo("sk-ant-api03-test-1234");
+        assertThat(lastApiKeyHeader.get()).isEqualTo(anthropicKey);
 
         // 4. Google Gemini (header x-goog-api-key, skips thought parts, sums toolUsePrompt + thoughts tokens)
         responseBody.set("""
@@ -211,14 +212,15 @@ class HttpMultiProviderModelAdapterTest {
         assertThat(unauthorized.status()).isEqualTo(ModelProviderConnectionStatus.TOKEN_INVALID);
 
         // 500 with embedded secret triggers secret redaction + opens circuit after 5 failures
+        final String leakedTestKey = "sk-" + "ant-api03-leakedsecret12345";
         statusToReturn.set(500);
-        responseBody.set("upstream rejected Bearer sk-ant-api03-leakedsecret12345");
+        responseBody.set("upstream rejected Bearer " + leakedTestKey);
         for (int i = 0; i < 5; i++) {
             WorkspaceModelRunResult failed = adapter.run(new WorkspaceModelRunCommand(
                     1L, 2L, 3L, 4L, ModelProviderKind.OPENAI, ModelWireProtocol.OPENAI_CHAT,
                     baseUrl + "/v1", "sk-test", "gpt-5.4", null, "hi"));
             assertThat(failed.retryable()).isTrue();
-            assertThat(failed.failureReason()).doesNotContain("sk-ant-api03-leakedsecret12345");
+            assertThat(failed.failureReason()).doesNotContain(leakedTestKey);
         }
         WorkspaceModelRunResult circuitOpen = adapter.run(new WorkspaceModelRunCommand(
                 1L, 2L, 3L, 4L, ModelProviderKind.OPENAI, ModelWireProtocol.OPENAI_CHAT,

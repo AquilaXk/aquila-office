@@ -151,6 +151,9 @@ export function useWorkspaceModelProviders(options: {
                 baseUrl: input.baseUrl,
                 ...(input.apiKey ? { apiKey: input.apiKey } : {}),
                 defaultModel: input.defaultModel ?? null,
+                ...(input.enabledModels !== undefined
+                  ? { enabledModels: input.enabledModels }
+                  : {}),
                 priority: input.priority,
                 enabled: input.enabled,
               })
