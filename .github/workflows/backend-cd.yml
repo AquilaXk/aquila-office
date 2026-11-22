@@ -30,10 +30,6 @@ on:
 permissions:
   contents: read
 
-concurrency:
-  group: staging-cd
-  cancel-in-progress: false
-
 env:
   BACKEND_IMAGE_NAME: aquila-office-back
   DEPLOY_ENVIRONMENT: staging
@@ -371,6 +367,9 @@ jobs:
   deploy:
     name: Deploy Backend and Frontend to Staging
     runs-on: [self-hosted, oci-a1-staging]
+    concurrency:
+      group: staging-cd-deploy-${{ needs.prepare.outputs.dry_run == 'true' && 'dry' || 'live' }}
+      cancel-in-progress: false
     needs:
       - prepare
       - build-backend-image
@@ -421,9 +420,31 @@ jobs:
             echo "Backend/frontend env files and Vertex key were decoded and validated. Values are not printed or uploaded."
           } >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Verify deployment SHA is still latest origin/main
+        id: freshness
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$DRY_RUN" == "true" ]]; then
+            echo "is_current=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          git fetch --no-tags --depth=1 origin +refs/heads/main:refs/remotes/origin/main
+          latest_main_sha="$(git rev-parse origin/main)"
+          if [[ "$DEPLOY_SHA" == "$latest_main_sha" ]]; then
+            echo "is_current=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "is_current=false" >> "$GITHUB_OUTPUT"
+          {
+            echo "### Skipped stale staging deploy"
+            echo ""
+            echo "Queued deployment SHA \`${DEPLOY_SHA}\` was superseded by \`origin/main\` at \`${latest_main_sha}\`."
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Create GitHub deployment
         id: deployment
-        if: env.DRY_RUN != 'true'
+        if: env.DRY_RUN != 'true' && steps.freshness.outputs.is_current == 'true'
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -466,6 +487,7 @@ jobs:
             -d "$status_payload" >/dev/null
 
       - name: Run preflight doctor
+        if: steps.freshness.outputs.is_current == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -475,6 +497,7 @@ jobs:
 
       - name: Capture previous backend state
         id: prev_state
+        if: steps.freshness.outputs.is_current == 'true'
         shell: bash
         run: |
           slot="$(cat /opt/aquila-office/backend/active-slot 2>/dev/null | tr -d '[:space:]' || true)"
@@ -489,6 +512,7 @@ jobs:
 
       - name: Deploy backend
         id: deploy_backend
+        if: steps.freshness.outputs.is_current == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -512,6 +536,7 @@ jobs:
 
       - name: Deploy frontend
         id: deploy_frontend
+        if: steps.freshness.outputs.is_current == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -547,6 +572,7 @@ jobs:
             | tee deploy-debug/backend-rollback.log
 
       - name: Run postflight doctor
+        if: steps.freshness.outputs.is_current == 'true'
         shell: bash
         run: |
           scripts/deploy/oci-staging-doctor.sh --phase after --image "$BACKEND_IMAGE_REF" \
